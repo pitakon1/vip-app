@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { ownerApi, ownersApi, saleListingApi } from '@/services/api';
@@ -143,7 +145,7 @@ export default function OwnerMarketingScreen() {
       ownersApi.marketing(),
       ownersApi.pricingSuggestion(),
       ownerApi.properties(),
-      saleListingApi.list({ limit: 100 }),
+      saleListingApi.list({ limit: OPTION_PAGE_SIZE }),
     ]);
 
     if (mkRes.status === 'fulfilled') {
@@ -772,64 +774,68 @@ export default function OwnerMarketingScreen() {
         </View>
       </ScrollView>
 
-      {/* 委托挂牌简表单 */}
+      {/* 委托挂牌表单弹层 */}
       <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
-        <View style={styles.modalWrap}>
-          <View style={styles.modalCard}>
-            <TouchableOpacity style={styles.modalClose} onPress={() => setShowForm(false)} activeOpacity={0.7}>
-              <Ionicons name="close" size={22} color={colors.ink2} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{t('mkt.modalTitle')}</Text>
-            <Text style={styles.modalSub}>{t('mkt.modalSub')}</Text>
+        <View style={bottomSheetStyles.bsMask}>
+          <View style={bottomSheetStyles.bsSheet}>
+            <View style={bottomSheetStyles.bsGrabber} />
+            <ScrollView contentContainerStyle={bottomSheetStyles.bsContent}>
+              <Text style={styles.modalTitle}>{t('mkt.modalTitle')}</Text>
+              <Text style={styles.modalSub}>{t('mkt.modalSub')}</Text>
 
-            <Text style={styles.formLabel}>{t('mkt.formName')}</Text>
-            <TextInput
-              style={styles.formInput}
-              value={formTitle}
-              onChangeText={setFormTitle}
-              placeholder={t('mkt.formNamePh')}
-              placeholderTextColor={colors.ink3}
-              maxLength={80}
-            />
-
-            <Text style={styles.formLabel}>{t('mkt.formPrice')}</Text>
-            <View style={styles.priceInputRow}>
+              <Text style={styles.formLabel}>{t('mkt.formName')}</Text>
               <TextInput
-                style={[styles.formInput, styles.priceInput]}
-                value={formPrice}
-                onChangeText={setFormPrice}
-                keyboardType="numeric"
-                placeholder="0"
+                style={styles.formInput}
+                value={formTitle}
+                onChangeText={setFormTitle}
+                placeholder={t('mkt.formNamePh')}
+                placeholderTextColor={colors.ink3}
+                maxLength={80}
+              />
+
+              <Text style={styles.formLabel}>{t('mkt.formPrice')}</Text>
+              <View style={styles.priceInputRow}>
+                <TextInput
+                  style={[styles.formInput, styles.priceInput]}
+                  value={formPrice}
+                  onChangeText={setFormPrice}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.ink3}
+                />
+                <TextInput
+                  style={[styles.formInput, styles.ccyInput]}
+                  value={formCcy}
+                  onChangeText={(v) => setFormCcy(v.toUpperCase())}
+                  placeholder="THB"
+                  placeholderTextColor={colors.ink3}
+                  maxLength={3}
+                  autoCapitalize="characters"
+                />
+              </View>
+
+              <Text style={styles.formLabel}>{t('mkt.formAddress')}</Text>
+              <TextInput
+                style={styles.formInput}
+                value={formAddress}
+                onChangeText={setFormAddress}
+                placeholder={t('mkt.formAddressPh')}
                 placeholderTextColor={colors.ink3}
               />
-              <TextInput
-                style={[styles.formInput, styles.ccyInput]}
-                value={formCcy}
-                onChangeText={(v) => setFormCcy(v.toUpperCase())}
-                placeholder="THB"
-                placeholderTextColor={colors.ink3}
-                maxLength={3}
-                autoCapitalize="characters"
-              />
+            </ScrollView>
+            <View style={bottomSheetStyles.bsActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowForm(false)}>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalOk]}
+                activeOpacity={0.85}
+                disabled={submitting}
+                onPress={submit}
+              >
+                <Text style={styles.modalOkText}>{submitting ? t('prop.submitting') : t('mkt.submit')}</Text>
+              </TouchableOpacity>
             </View>
-
-            <Text style={styles.formLabel}>{t('mkt.formAddress')}</Text>
-            <TextInput
-              style={styles.formInput}
-              value={formAddress}
-              onChangeText={setFormAddress}
-              placeholder={t('mkt.formAddressPh')}
-              placeholderTextColor={colors.ink3}
-            />
-
-            <TouchableOpacity
-              style={styles.blockBtn}
-              activeOpacity={0.85}
-              onPress={submit}
-              disabled={submitting}
-            >
-              <Text style={styles.blockBtnText}>{submitting ? t('prop.submitting') : t('mkt.submit')}</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1063,7 +1069,7 @@ const styles = StyleSheet.create({
   consignTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.ink },
   consignMeta: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4, marginBottom: 8 },
 
-  /* ===== Modal ===== */
+  /* ===== Modal（已改为底部弹层，旧样式仅保留兼容引用） ===== */
   modalWrap: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -1071,7 +1077,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20, paddingTop: 34 },
-  modalClose: { position: 'absolute', top: 12, right: 12, padding: 4 },
+  modalClose: { position: 'absolute', top: 12, right: 12, padding: 12 },
+  /* 底部弹层 bsActions 内按钮（与 AdminUsers/Payments/CRM 共用视觉） */
+  modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: colors.radius.lg },
+  modalCancel: { backgroundColor: colors.surface2 },
+  modalCancelText: { color: colors.ink2, fontWeight: '600' },
+  modalOk: { backgroundColor: colors.primary },
+  modalOkText: { color: colors.primaryForeground, fontWeight: '600' },
   modalTitle: { fontSize: colors.fontSize.xl, fontWeight: '700', color: colors.ink },
   modalSub: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 4, marginBottom: 16 },
   formLabel: { fontSize: colors.fontSize.base, color: colors.ink2, marginBottom: 6, marginTop: 12 },

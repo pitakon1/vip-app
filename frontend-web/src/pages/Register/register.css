@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48px 32px;
+  padding: var(--rent-s-7) var(--rent-s-6);
   background: #ffffff;
 }
 
@@ -62,7 +62,7 @@
 
 .rent-register-page .rent-login-card__subtitle {
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: #878a8c;
   line-height: 1.5;
   margin: 0;
@@ -79,7 +79,7 @@
 /* 邮箱注册模式下的提示文案（手机号不在此绑定） */
 .rent-register-page .rent-register-phone-note {
   margin: -6px 0 18px;
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   line-height: 1.6;
   color: #9a9ea3;
   font-family: var(--rent-font-sans);
@@ -87,7 +87,7 @@
 
 .rent-register-page .rent-form-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 500;
   color: #1a1a1b;
   margin-bottom: 6px;
@@ -107,7 +107,7 @@
   color: #1a1a1b;
   outline: none;
   box-sizing: border-box;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .rent-register-page .rent-form-input::placeholder {
@@ -149,17 +149,17 @@
 /* 获取验证码：无边框加粗文字按钮 */
 .rent-register-page .rent-otp-action {
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: var(--rent-s-1);
   border: none;
   background: transparent;
   color: var(--rent-primary);
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   cursor: pointer;
   padding: 6px 0;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast);
 }
 
 .rent-register-page .rent-otp-action:hover:not(:disabled) {
@@ -175,7 +175,7 @@
    快速登录区：社交按钮 + 「或」分隔 + seamless 胶囊分段 Tab
    ========================================================= */
 .rent-register-page .rent-auth-social {
-  margin-bottom: 4px;
+  margin-bottom: var(--rent-s-1);
 }
 
 
@@ -186,7 +186,7 @@
 .rent-register-page .rent-login-methods {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 
 .rent-register-page .rent-login-back {
@@ -204,7 +204,7 @@
   background: #ffffff;
   color: #1a1a1b;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--motion-fast);
 }
 
 .rent-register-page .rent-login-back__btn:hover {
@@ -215,21 +215,21 @@
    角色选择：两个紧凑胶囊卡片
    ========================================================= */
 .rent-register-page .rent-register-role-group {
-  margin-bottom: 24px;
+  margin-bottom: var(--rent-s-5);
 }
 
 .rent-register-page .rent-register-role-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin-top: 8px;
+  margin-top: var(--rent-s-2);
 }
 
 .rent-register-page .rent-register-role-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
   white-space: nowrap;
   padding: 12px 14px;
   border: 1px solid #edeff1;
@@ -237,7 +237,7 @@
   background: #ffffff;
   cursor: pointer;
   text-align: center;
-  transition: all 0.15s;
+  transition: all var(--motion-fast);
   color: #2b2b2c;
   font-family: var(--rent-font-sans);
 }
@@ -248,7 +248,7 @@
 }
 
 .rent-register-page .rent-register-role-card__name {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
 }
 
@@ -273,7 +273,7 @@
 .rent-register-page .rent-btn--primary {
   border-radius: 999px;
   height: 48px;
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   box-shadow: none;
 }
@@ -297,19 +297,29 @@
   margin-top: 30px;
   text-align: center;
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: #878a8c;
 }
 
-.rent-register-page .rent-login-footer a {
+.rent-register-page .rent-login-footer a,
+.rent-register-page .rent-login-footer .rent-login-footer__link {
   color: var(--rent-primary);
   text-decoration: none;
   font-weight: 700;
   cursor: pointer;
-  margin-left: 4px;
+  margin-left: var(--rent-s-1);
 }
 
-.rent-register-page .rent-login-footer a:hover {
+.rent-register-page .rent-login-footer .rent-login-footer__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.rent-register-page .rent-login-footer a:hover,
+.rent-register-page .rent-login-footer .rent-login-footer__link:hover {
   text-decoration: underline;
 }
 
@@ -326,7 +336,7 @@
 
 @media (max-width: 520px) {
   .rent-register-page .rent-login-card__title {
-    font-size: 24px;
+    font-size: var(--rent-fs-2xl);
   }
 
   .rent-register-page .rent-register-role-grid {

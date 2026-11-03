@@ -6,6 +6,7 @@ import { authApi } from '@/services/api'
 import type { User, UserRole } from '@/types'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 type OtpMode = 'login' | 'register'
 
@@ -91,7 +92,7 @@ export default function LoginPage() {
         Taro.showToast({ title: t('auth.wxUnavailable'), icon: 'none' })
         setShowFallback(true)
       } else {
-        Taro.showToast({ title: error?.message || t('auth.wxLoginFailed'), icon: 'none' })
+        Taro.showToast({ title:errorText(error, t('auth.wxLoginFailed')), icon: 'none' })
       }
     } finally {
       setWxLoading(false)
@@ -114,7 +115,7 @@ export default function LoginPage() {
       await authApi.wxBindPhone({ code: c })
       Taro.showToast({ title: t('auth.bindSuccess'), icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('auth.bindFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('auth.bindFailed')), icon: 'none' })
     } finally {
       setBindLoading(false)
     }
@@ -145,7 +146,7 @@ export default function LoginPage() {
         }
       }, 1000)
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('auth.otpSendFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('auth.otpSendFailed')), icon: 'none' })
     } finally {
       setOtpLoading(false)
     }
@@ -183,7 +184,7 @@ export default function LoginPage() {
       goHome(user)
     } catch (error: any) {
       Taro.hideLoading()
-      Taro.showToast({ title: error?.message || t('auth.opFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('auth.opFailed')), icon: 'none' })
     } finally {
       setWxLoading(false)
     }

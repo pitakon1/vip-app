@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import api, { API_BASE_URL, contractPdfPageUrl, publicContractSignPdfPageUrl } from '@/lib/api';
 import { tokenStorage } from '@/lib/storage';
 
@@ -211,7 +212,7 @@ export const ownerApi = {
 export const ownersApi = {
   // 业主检索（员工侧）：代业主发布上架单时选择「归属业主」用，返回 Owner.id
   list: (params?: any) => api.get('/owners', { params }),
-  marketing: () => api.get('/owners/me/marketing', { params: { page: 1, limit: 100 } }),
+  marketing: () => api.get('/owners/me/marketing', { params: { page: 1, limit: OPTION_PAGE_SIZE } }),
   pricingSuggestion: () => api.get('/owners/me/pricing-suggestion'),
   annualSummary: (year?: number) =>
     api.get('/owners/me/annual-financial-summary', {

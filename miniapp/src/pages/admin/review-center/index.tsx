@@ -18,6 +18,7 @@ import StateBlock from '@/components/StateBlock'
 import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface TodoItem {
   type?: string
@@ -77,7 +78,6 @@ export default function AdminReviewCenterPage() {
     } catch (err) {
       console.error('[review-center] 加载失败', err)
       setFailed(true)
-      setItems([])
       setSummary({})
     } finally {
       setLoading(false)
@@ -103,7 +103,7 @@ export default function AdminReviewCenterPage() {
       Taro.showToast({ title: okMsg, icon: 'success' })
       await load()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('common.opFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('common.opFailed')), icon: 'none' })
     } finally {
       setBusyKey(null)
     }
@@ -148,14 +148,18 @@ export default function AdminReviewCenterPage() {
           <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && failed && (
-          <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>
-            <Text>{t('common.loadFailedTapRetry')}</Text>
-          </View>
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => {
+              setLoading(true)
+              void load()
+            }}
+          />
         )}
         {!loading && !failed && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>{t('review.empty')}</Text>
-          </View>
+          <StateBlock empty text={t('review.empty')} />
         )}
 
         {items.map((r, idx) => {

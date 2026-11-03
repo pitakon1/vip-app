@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -152,7 +153,7 @@ const PropertyDetail = () => {
     queryFn: async () => {
       if (!id) return []
       try {
-        const res = await documentsApi.list({ property_id: id, page_size: 50 })
+        const res = await documentsApi.list({ property_id: id, page_size: DETAIL_PAGE_SIZE })
         const payload = res.data?.data ?? res.data
         const items = Array.isArray(payload) ? payload : (payload?.items ?? [])
         return items

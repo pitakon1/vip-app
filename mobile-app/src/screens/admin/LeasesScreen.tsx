@@ -1,3 +1,4 @@
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 合同管理（管理端）
  * 原型：admin-mobile-leases.html
@@ -19,11 +20,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
-import { notifyError } from '@/utils/feedback';
+import ListState from '@/components/ListState';
 import { leasesApi, propertiesApi } from '@/services/api';
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = OPTION_PAGE_SIZE;
 const EXPIRING_DAYS = 30;
 const DAY_MS = 86400000;
 
@@ -76,11 +76,13 @@ export default function AdminLeasesScreen() {
   const [chip, setChip] = useState<ChipKey>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     const [leaseRes, propRes] = await Promise.allSettled([
       leasesApi.list({ page: 1, page_size: PAGE_SIZE }),
-      propertiesApi.list({ page: 1, page_size: 100 }),
+      propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
     ]);
 
     if (leaseRes.status === 'fulfilled') {
@@ -89,8 +91,7 @@ export default function AdminLeasesScreen() {
       setLeases(rows);
       setTotal(typeof d.total === 'number' ? d.total : rows.length);
     } else {
-      setLeases([]);
-      setTotal(0);
+      setLoadError('合同加载失败，请重试');
     }
 
     if (propRes.status === 'fulfilled') {
@@ -155,12 +156,17 @@ export default function AdminLeasesScreen() {
     );
   });
 
+  const retry = () => {
+    setLoading(true);
+    load();
+  };
+
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <LoadingState />
-      </View>
-    );
+    return <ListState loading />;
+  }
+
+  if (loadError && leases.length === 0) {
+    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
   }
 
   return (
@@ -240,6 +246,24 @@ export default function AdminLeasesScreen() {
 
       {/* 合同列表 */}
       <Text style={styles.sectionTitle}>合同列表</Text>
+      {loadError ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+          <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {visible.length === 0 ? (
         <EmptyState
           icon="document-text-outline"
@@ -321,7 +345,8 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
     borderWidth: 1,

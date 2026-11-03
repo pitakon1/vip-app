@@ -55,6 +55,7 @@ const FUNC_BY_ROLE: Partial<Record<UserRole, FuncEntry[]>> = {
   ],
   // 管理员：对齐管理端设置原型（员工管理入口；房源管理走 AdminProperties；不含考勤与聊天）
   admin: [
+    { key: 'crm', labelKey: 'profile.crm', icon: 'people', navigate: 'AdminCRM' },
     { key: 'employees', labelKey: 'profile.employees', icon: 'people', navigate: 'AdminUsers' },
     { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'AdminProperties' },
   ],

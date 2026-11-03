@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useCachedQuery } from '@/lib/queryCache'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Form,
@@ -10,169 +11,30 @@ import {
   Col,
   Select,
   Spin,
-  Switch,
-  Upload,
-  Popover,
   message,
 } from 'antd'
-import {
-  ExclamationCircleOutlined,
-  PlusOutlined,
-} from '@ant-design/icons'
-import DataState from '@/components/DataState'
-import { propertiesApi, projectsApi, listingsApi, type QueryParams } from '@/services/api'
+import { ExclamationCircleOutlined } from '@ant-design/icons'
+import { propertiesApi, projectsApi, listingsApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import { buildListingPayload } from '@/lib/listingPayload'
 import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import useAuthStore from '@/stores/auth'
 import type { Project, Property } from '@/types'
-import { AREA_GROUPS } from '@/data/locationArea'
-import { METRO_LINES } from '@/data/locationMetro'
 import './properties.css'
 // 复用 C 端浏览页的筛选面板样式（.rent-loc-panel* / .rent-loc-popover / .rent-price-custom 等），实现完全复刻
 import '@/pages/PublicListings/public-listings.css'
+import { errorText } from '@/lib/errorText'
+import PropertyFilterBar from './PropertyFilterBar'
+import PropertyList from './PropertyList'
+import PropertyFormModal from './PropertyFormModal'
+import { usePropertyFilters } from './hooks/usePropertyFilters'
+import { usePropertyForm } from './hooks/usePropertyForm'
 
-// ==================== 常量 ====================
-
-// 房源卡片 banner 主题色（使用设计令牌 CSS 变量，teal 色系层次）
-const BANNER_COLORS = [
-  'var(--rent-primary)',
-  'var(--rent-accent)',
-  'var(--state-success)',
-]
-
-const bannerColorFor = (seed: string) => {
-  let h = 0
-  for (let i = 0; i < (seed || 'x').length; i++) {
-    h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
-  }
-  return BANNER_COLORS[h % BANNER_COLORS.length]
-}
-
-const formatRent = (v: any) => Number(v || 0).toLocaleString()
-
-// ==================== C 端风格筛选 chip（对齐 PublicListings 单行筛选栏 + 顶部下拉面板） ====================
-
-// 贝壳风单行筛选项：纯文字 + 下拉箭头（无背景无边框、无胶囊底色）
-// 选中/展开态 = 主色文字 + 底部主色下划线（唯一选中指示），点击下方展开顶部下拉面板
-function FilterTab({
-  label,
-  active,
-  open,
-  onOpenChange,
-  children,
-}: {
-  label: React.ReactNode
-  active: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  children: React.ReactNode
-}) {
-  const shown = active || open
-  return (
-    <Popover
-      trigger="click"
-      placement="bottomLeft"
-      open={open}
-      onOpenChange={onOpenChange}
-      overlayClassName="rent-loc-popover"
-      content={children}
-    >
-      <button
-        type="button"
-        className={`pf-tab${shown ? ' pf-tab--active' : ''}${open ? ' pf-tab--open' : ''}`}
-      >
-        {label}
-        <span className="pf-tab__chevron">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-        </span>
-      </button>
-    </Popover>
-  )
-}
-
-// 复刻 C 端浏览页「户型/状态」单选面板（rent-quick-panel：chips + 重置/确定）
-function OptGrid<T extends string>({
-  title,
-  options,
-  value,
-  onPick,
-  onReset,
-  onClose,
-}: {
-  title: React.ReactNode
-  options: { key: T; label: string }[]
-  value: T
-  onPick: (key: T) => void
-  onReset: () => void
-  onClose: () => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className="rent-loc-panel rent-quick-panel">
-      <div className="rent-loc-panel__body">
-        <div className="rent-loc-panel__group-title">{title}</div>
-        <div className="rent-loc-panel__chips">
-          {options.map((o) => (
-            <button
-              key={o.key}
-              type="button"
-              className={`rent-loc-panel__chip${value === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-              onClick={() => onPick(o.key)}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="rent-loc-panel__footer">
-        <div className="rent-loc-panel__actions">
-          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--ghost" onClick={onReset}>
-            {t('common.reset')}
-          </button>
-          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={onClose}>
-            {t('common.confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// 前端排序 key → 后端 sort 参数
-const SORT_MAP: Record<string, string> = {
-  'rent-asc': 'price_asc',
-  'rent-desc': 'price_desc',
-  created: 'latest',
-}
-
-// 区间解析：预设 'min-max' / 'min+'（如 '5000-10000' / '50000+'），自定义取输入值。
-// 返回空对象表示该侧不限（不传对应参数）。
-const parseRange = (raw: string, customMin: string, customMax: string): { min?: number; max?: number } => {
-  const out: { min?: number; max?: number } = {}
-  if (raw === 'custom') {
-    if (customMin) { const v = Number(customMin); if (!Number.isNaN(v)) out.min = v }
-    if (customMax) { const v = Number(customMax); if (!Number.isNaN(v)) out.max = v }
-    return out
-  }
-  if (!raw) return out
-  if (raw.endsWith('+')) {
-    const v = Number(raw.slice(0, -1))
-    if (!Number.isNaN(v)) out.min = v
-    return out
-  }
-  const [a, b] = raw.split('-')
-  if (a) { const v = Number(a); if (!Number.isNaN(v)) out.min = v }
-  if (b) { const v = Number(b); if (!Number.isNaN(v)) out.max = v }
-  return out
-}
-
-const PAGE_SIZE = 10
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 // ==================== 组件 ====================
 
 const Properties = () => {
-  const navigate = useNavigate()
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
 
@@ -182,124 +44,10 @@ const Properties = () => {
   // 新增楼盘：POST /projects 仅 agent/admin 有权限，入口按角色收敛
   const canCreateProject = role === 'admin' || role === 'agent'
 
-  // 数据（服务端分页：items 为当前页数据，total 为后端返回的总数）
-  const [items, setItems] = useState<Property[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  // 列表加载失败单独记录：失败时保留上一次的数据并提示重试，不能静默清空成「暂无数据」
-  const [loadError, setLoadError] = useState<string | null>(null)
+  // 筛选（关键词 / 状态 / 类型 / 户型 / 价格 / 面积 / 排序 / 分页 / 定位）
+  const filters = usePropertyFilters()
+
   const [projects, setProjects] = useState<Project[]>([])
-
-  // 筛选参数
-  const [keyword, setKeyword] = useState('')
-  const [status, setStatus] = useState('')
-  const [propertyType, setPropertyType] = useState('')
-  // 房间数：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上
-  const [bedrooms, setBedrooms] = useState('')
-  // 价格区间：''=不限, 预设区间 key（如 '5000-10000'/'50000+'）, 'custom'=自定义
-  const [priceRange, setPriceRange] = useState('')
-  const [priceCustomMin, setPriceCustomMin] = useState('')
-  const [priceCustomMax, setPriceCustomMax] = useState('')
-  // 面积区间：''=不限, 预设区间 key（如 '50-100'/'200+'）, 'custom'=自定义
-  const [areaRange, setAreaRange] = useState('')
-  const [areaCustomMin, setAreaCustomMin] = useState('')
-  const [areaCustomMax, setAreaCustomMax] = useState('')
-  const [sort, setSort] = useState('created')
-  const [page, setPage] = useState(1)
-
-  // 按区域 / 按地铁定位（与租客端 PublicListings 交互逻辑一致）
-  const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
-  const [locOpen, setLocOpen] = useState(false)                        // 面板开合
-  const [districtSel, setDistrictSel] = useState<string | null>(null) // 已选城区 key
-  const [metroSel, setMetroSel] = useState<string[]>([])              // 已选站点 name（已确认）
-  const [metroDraft, setMetroDraft] = useState<string[]>([])          // 站点多选草稿（确定后提交）
-  const [metroLine, setMetroLine] = useState<string>(METRO_LINES[0].key)
-  // 区域面板：国家 → 省市 → 城区 三级下钻（左栏只列国家，右栏先是省市列表，
-  // 点省市后右栏换成它的城区）。此前国家/省市平铺在一列，混杂难找。
-  const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
-  const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
-  // 只看带视频
-  const [onlyVideo, setOnlyVideo] = useState(false)
-
-  // 已选区域/地铁的命中关键词（并入列表筛选）
-  const activeLocationKw = useMemo<string[]>(() => {
-    if (districtSel) {
-      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
-      return node ? node.kws : []
-    }
-    if (metroSel.length) {
-      const lines = METRO_LINES.flatMap((l) => l.stations)
-      return lines.filter((s) => metroSel.includes(s.name)).flatMap((s) => s.kws)
-    }
-    return []
-  }, [districtSel, metroSel])
-
-  // 定位面板：区域点击即生效且与地铁互斥；地铁为草稿多选，确定后提交
-  const applyDistrict = (key: string | null) => {
-    if (districtSel === key) { setDistrictSel(null); return }
-    setDistrictSel(key)
-    setMetroSel([])
-    setMetroDraft([])
-  }
-  const resetLoc = () => { setDistrictSel(null); setMetroSel([]); setMetroDraft([]); setAreaDrill('') }
-  const onLocOpenChange = (open: boolean) => {
-    if (open) {
-      setMetroDraft(metroSel)
-      // 回显：已选城区时直接下钻到它所在的省市，否则停在省市列表
-      if (districtSel) {
-        const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
-        if (g) { setAreaCountry(g.country); setAreaDrill(g.cityKey) }
-      }
-    }
-    setLocOpen(open)
-  }
-  const toggleStation = (name: string) => {
-    setMetroDraft((d) => (d.includes(name) ? d.filter((s) => s !== name) : [...d, name]))
-  }
-  const confirmMetro = () => {
-    setMetroSel(metroDraft)
-    if (metroDraft.length) setDistrictSel(null)
-    setLocOpen(false)
-  }
-  const clearMetroDraft = () => { setMetroDraft([]); setMetroSel([]) }
-  const activeLine = useMemo(() => METRO_LINES.find((l) => l.key === metroLine), [metroLine])
-  // 左栏国家清单（按 AREA_GROUPS 出现顺序去重，保持业务顺序）
-  const countryList = useMemo(() => Array.from(new Set(AREA_GROUPS.map((g) => g.country))), [])
-  // 右栏未下钻时的数据源：当前国家下的省市
-  const countryGroups = useMemo(
-    () => AREA_GROUPS.filter((g) => g.country === areaCountry),
-    [areaCountry],
-  )
-  // 右栏已下钻时的数据源：该省市的城区
-  const activeAreaGroup = useMemo(
-    () => AREA_GROUPS.find((g) => g.cityKey === areaDrill),
-    [areaDrill],
-  )
-
-  // 弹窗
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [form] = Form.useForm()
-  // 照片 url 列表（仅编辑态可上传；随 handleSubmit 一并提交）
-  const [photos, setPhotos] = useState<string[]>([])
-
-  // 表单内的房源类型：用于差异化渲染（住宅 / 商办 / 厂房）专项字段
-  const formPropertyType = Form.useWatch('property_type', form) as string | undefined
-  const isFormCommercial = ['shop', 'commercial', 'office'].includes(formPropertyType || '')
-  const isFormFactory = formPropertyType === 'factory'
-
-  // 项目坐标弹窗：地图找房的点位取自项目经纬度，此处在 Web 端补齐录入入口
-  type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }
-  const [coordOpen, setCoordOpen] = useState(false)
-  const [coordLoading, setCoordLoading] = useState(false)
-  const [coordRows, setCoordRows] = useState<CoordRow[]>([])
-  const [coordBusyId, setCoordBusyId] = useState<string | null>(null)
-
-  // 新增楼盘（POST /projects，仅 agent/admin）
-  const [projectModalOpen, setProjectModalOpen] = useState(false)
-  const [projectSubmitting, setProjectSubmitting] = useState(false)
-  const [projectForm] = Form.useForm()
 
   // 选项（枚举 → 文案映射统一收敛到 lib/enumLabels）
   const statusLabelMap = usePropertyStatusMap()
@@ -311,7 +59,7 @@ const Properties = () => {
     try {
       await downloadReport(
         '/exports/properties',
-        { status: status || undefined, property_type: propertyType || undefined, q: keyword.trim() || undefined },
+        { status: filters.status || undefined, property_type: filters.propertyType || undefined, q: filters.keyword.trim() || undefined },
         'properties.csv',
       )
       message.success(t('propertiesPage.exported'))
@@ -320,7 +68,7 @@ const Properties = () => {
     }
   }
 
-  // 数据获取：筛选条件全部下推后端做真·服务端分页
+  // 项目列表（房源卡片展示项目名 + 表单项目下拉）
   const fetchProjects = useCallback(async () => {
     try {
       const res = await projectsApi.list()
@@ -329,65 +77,47 @@ const Properties = () => {
     } catch { /* ignore */ }
   }, [])
 
-  // 当前筛选 + 分页 → 后端查询参数
-  const buildParams = useCallback((): QueryParams => {
-    const params: QueryParams = {
-      page,
-      pageSize: PAGE_SIZE,
-      sort: SORT_MAP[sort] || 'latest',
-    }
-    const kw = keyword.trim()
-    if (kw) params.q = kw
-    if (activeLocationKw.length) params.keywords = activeLocationKw
-    if (status) params.status = status
-    if (propertyType) params.property_type = propertyType
-    if (onlyVideo) params.has_video = true
-    // 房间数：'0'=单间, '1'/'2'/'3' 精确, '4'=≥4
-    if (bedrooms !== '') {
-      const n = Number(bedrooms)
-      params.bedrooms_min = n
-      if (bedrooms !== '4') params.bedrooms_max = n
-    }
-    const price = parseRange(priceRange, priceCustomMin, priceCustomMax)
-    if (price.min !== undefined) params.price_min = price.min
-    if (price.max !== undefined) params.price_max = price.max
-    const area = parseRange(areaRange, areaCustomMin, areaCustomMax)
-    if (area.min !== undefined) params.area_min = area.min
-    if (area.max !== undefined) params.area_max = area.max
-    return params
-  }, [page, keyword, activeLocationKw, status, propertyType, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
-
-  // 请求序列守卫：只有最新一次请求的响应才允许 setState，
-  // 防止快速改筛选时旧响应覆盖新结果。
-  const reqIdRef = useRef(0)
-  const fetchData = useCallback(async () => {
-    const reqId = ++reqIdRef.current
-    setLoading(true)
-    setLoadError(null)
-    try {
-      const res = await propertiesApi.list(buildParams())
-      if (reqId !== reqIdRef.current) return
-      const payload = res.data?.data ?? res.data
-      setItems(payload?.items ?? [])
-      setTotal(payload?.total ?? 0)
-    } catch (err: any) {
-      if (reqId !== reqIdRef.current) return
-      // 保留上一次成功的数据，避免筛选切换失败时整块变空
-      setLoadError(err?.response?.data?.detail || err?.response?.data?.message || t('common.loadFailed'))
-    } finally {
-      if (reqId === reqIdRef.current) setLoading(false)
-    }
-  }, [buildParams, t])
-
   useEffect(() => { fetchProjects() }, [fetchProjects])
-  useEffect(() => { fetchData() }, [fetchData])
+
+  // 列表查询走统一缓存（跨会话秒开 + 翻页/改筛选保留上一页结果）
+  const listParams = filters.buildParams()
+  const listKey = JSON.stringify(listParams)
+  const listQuery = useCachedQuery<{ items: Property[]; total: number }>({
+    queryKey: ['properties', listKey],
+    cacheKey: `properties:${listKey}`,
+    keepPreviousData: true,
+    queryFn: async () => {
+      const res = await propertiesApi.list(listParams)
+      const payload = res.data?.data ?? res.data
+      return { items: (payload?.items ?? []) as Property[], total: Number(payload?.total ?? 0) }
+    },
+  })
+
+  const items = listQuery.data?.items ?? []
+  const total = listQuery.data?.total ?? 0
+  const loading = listQuery.isFetching && !listQuery.data
+  const loadError = listQuery.isError ? errorText(listQuery.error, t('common.loadFailed')) : null
+
+  // 请求序列守卫由 TanStack Query 统一处理（同一 queryKey 只认最新一次结果）
+  const fetchData = useCallback(async () => {
+    await listQuery.refetch()
+  }, [listQuery])
+
+  // 新增/编辑弹窗（表单、照片与提交动作）
+  const propertyForm = usePropertyForm({ onSaved: fetchData })
 
   // ---------- 项目坐标（地图找房点位来源） ----------
+  type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }
+  const [coordOpen, setCoordOpen] = useState(false)
+  const [coordLoading, setCoordLoading] = useState(false)
+  const [coordRows, setCoordRows] = useState<CoordRow[]>([])
+  const [coordBusyId, setCoordBusyId] = useState<string | null>(null)
+
   const openCoordModal = useCallback(async () => {
     setCoordOpen(true)
     setCoordLoading(true)
     try {
-      const res = await projectsApi.list({ page: 1, page_size: 100 })
+      const res = await projectsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       const items: any[] = payload?.items ?? []
       setCoordRows(items.map((p) => ({
@@ -439,9 +169,6 @@ const Properties = () => {
     }
   }
 
-  // 筛选/排序变化时回到第 1 页（服务端分页）
-  useEffect(() => { setPage(1) }, [keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
-
   // 分页页码（对齐原型 admin-properties 的 rent-pagination 结构）
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const pageNumbers: (number | string)[] = useMemo(() => {
@@ -450,57 +177,17 @@ const Properties = () => {
       for (let i = 1; i <= totalPages; i++) nums.push(i)
     } else {
       nums.push(1)
-      if (page > 4) nums.push('prev-ellipsis')
-      const start = Math.max(2, page - 1)
-      const end = Math.min(totalPages - 1, page + 1)
+      if (filters.page > 4) nums.push('prev-ellipsis')
+      const start = Math.max(2, filters.page - 1)
+      const end = Math.min(totalPages - 1, filters.page + 1)
       for (let i = start; i <= end; i++) nums.push(i)
-      if (page < totalPages - 3) nums.push('next-ellipsis')
+      if (filters.page < totalPages - 3) nums.push('next-ellipsis')
       nums.push(totalPages)
     }
     return nums
-  }, [page, totalPages])
+  }, [filters.page, totalPages])
 
   // ==================== CRUD ====================
-
-  const openCreate = () => {
-    setEditingId(null)
-    setPhotos([])
-    form.resetFields()
-    setModalOpen(true)
-  }
-
-  const openEdit = (record: Property) => {
-    setEditingId(String(record.id))
-    setPhotos(record.photos || [])
-    form.setFieldsValue({
-      project_id: record.project_id, room_number: record.room_number,
-      owner_id: record.owner_id, monthly_rent: record.monthly_rent,
-      deposit_amount: record.deposit_amount, size_sqm: record.size_sqm,
-      bedrooms: record.bedrooms, bathrooms: record.bathrooms, status: record.status,
-      address: record.address || undefined,
-      building: record.building ?? undefined,
-      floor: record.floor ?? undefined,
-      property_type: record.property_type || undefined,
-      currency: record.currency || 'THB',
-      deposit_months: record.deposit_months ?? undefined,
-      furnished: record.furnished ?? false,
-      available_from: record.available_from || record.available_date || undefined,
-      description: record.description || undefined,
-      photos: record.photos || [],
-      video_url: record.video_url || undefined,
-      vr_url: record.vr_url || undefined,
-      ceiling_height_m: record.ceiling_height_m ?? undefined,
-      company_registrable: record.company_registrable ?? false,
-      land_area_sqm: record.land_area_sqm ?? undefined,
-      floor_loading_kg_sqm: record.floor_loading_kg_sqm ?? undefined,
-      column_spacing: record.column_spacing || undefined,
-      power_capacity_kva: record.power_capacity_kva ?? undefined,
-      environmental_permit: record.environmental_permit ?? false,
-      whole_floor_only: record.whole_floor_only ?? false,
-      whole_building_only: record.whole_building_only ?? false,
-    })
-    setModalOpen(true)
-  }
 
   const handleDelete = (id: string) => {
     Modal.confirm({
@@ -516,7 +203,7 @@ const Properties = () => {
           message.success(t('property.deleteSuccess'))
           fetchData()
         } catch (err: any) {
-          message.error(err?.response?.data?.message || t('property.deleteFailed'))
+          message.error(errorText(err, t('property.deleteFailed')))
         }
       },
     })
@@ -541,33 +228,17 @@ const Properties = () => {
           await listingsApi.create(buildListingPayload(item))
           message.success(t('listing.listedOk'))
         } catch (err: any) {
-          const detail = err?.response?.data?.detail
-          message.error(typeof detail === 'string' && detail ? detail : err?.response?.data?.message || t('property.saveFailed'))
+          message.error(errorText(err, t('property.saveFailed')))
         }
       },
     })
   }
 
-  const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields()
-      setSubmitting(true)
-      // 照片仅在编辑态存在；构建提交载荷时按 editingId 合并照片 url 列表
-      const payload = editingId ? { ...values, photos } : values
-      if (editingId) { await propertiesApi.update(editingId, payload); message.success(t('property.updateSuccess')) }
-      else { await propertiesApi.create(payload); message.success(t('property.createSuccess')) }
-      setModalOpen(false)
-      fetchData()
-    } catch (err: any) {
-      if (err?.errorFields) {
-        form.scrollToField(err.errorFields[0].name)
-        return
-      }
-      message.error(err?.response?.data?.message || t('property.saveFailed'))
-    } finally { setSubmitting(false) }
-  }
-
   // 新增楼盘：提交 POST /projects 后刷新项目列表（供房源表单的项目下拉即时可用）
+  const [projectModalOpen, setProjectModalOpen] = useState(false)
+  const [projectSubmitting, setProjectSubmitting] = useState(false)
+  const [projectForm] = Form.useForm()
+
   const handleCreateProject = async () => {
     try {
       const values = await projectForm.validateFields()
@@ -594,523 +265,11 @@ const Properties = () => {
         projectForm.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.message || t('project.errCreateFailed'))
+      message.error(errorText(err, t('project.errCreateFailed')))
     } finally {
       setProjectSubmitting(false)
     }
   }
-
-  // ==================== 照片上传/删除 ====================
-
-  const uploadPhoto = async (file: File) => {
-    if (!editingId) { message.warning(t('property.saveFirst')); return }
-    try {
-      const res = await propertiesApi.uploadPhotos(editingId, [file])
-      const d = res.data?.data ?? res.data
-      setPhotos(Array.isArray(d?.photos) ? d.photos : [])
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('property.uploadFailed'))
-    }
-  }
-
-  const removePhoto = async (url: string) => {
-    if (!editingId) return
-    try {
-      const res = await propertiesApi.deletePhoto(editingId, url)
-      const d = res.data?.data ?? res.data
-      setPhotos(Array.isArray(d?.photos) ? d.photos : [])
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('property.deletePhotoFailed'))
-    }
-  }
-
-  const photoFileList = photos.map((url, idx) => ({
-    uid: `photo-${idx}`,
-    name: url.split('/').pop() || `photo-${idx}`,
-    status: 'done' as const,
-    url,
-  }))
-
-  // ==================== 列表项渲染 ====================
-
-  const renderListItem = (item: any) => {
-    // project_id 是 UUID，直接展示会露出数据库主键；必须经 projects 表解析成项目名称
-    const projectName =
-      (item.project_id && projects.find((p) => p.id === item.project_id)?.name) || item.building || ''
-    const title = projectName ? `${projectName} · ${item.room_number || ''}` : (item.address || item.room_number || '—')
-    const ptype = propertyTypeMap[item.property_type] || item.property_type || t('propertyType.apartment')
-    const statusKey = (item.status || 'vacant').toLowerCase()
-    const beds = Number(item.bedrooms || 0)
-    const baths = Number(item.bathrooms || 0)
-    const size = Number(item.size_sqm || 0)
-    const rent = Number(item.monthly_rent || 0)
-    const seed = String(item.id || item.room_number || '')
-
-    const statusTone =
-      statusKey === 'rented' ? 'success'
-      : statusKey === 'vacant' ? 'warning'
-      : statusKey === 'maintenance' ? 'info'
-      : statusKey === 'reserved' ? 'warning'
-      : 'neutral'
-
-    return (
-      <div
-        className="rent-card rent-prop-card"
-        key={item.id}
-        onClick={() => navigate(`/properties/detail/${item.id}`)}
-      >
-        {/* 头部渐变 + 类型角标 */}
-        <div className="rent-prop-card__banner" style={{ background: bannerColorFor(seed) }}>
-          <span className="rent-prop-card__type-badge">{ptype}</span>
-        </div>
-
-        {/* 主体 */}
-        <div className="rent-prop-card__body">
-          <h3 className="rent-prop-card__name">{title}</h3>
-          <p className="rent-prop-card__address">{item.address || '—'}</p>
-          <div className="rent-prop-card__stats">
-            <span className="rent-prop-card__stat">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-              {size}㎡
-            </span>
-            <span className="rent-prop-card__stat">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
-              {beds} {t('propertiesPage.unitBed')}
-            </span>
-            <span className="rent-prop-card__stat">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
-              {baths} {t('propertiesPage.unitBath')}
-            </span>
-          </div>
-          <div className="rent-prop-card__rent-row">
-            <span className="rent-prop-card__rent">฿{formatRent(rent)}<span className="rent-prop-card__rent-unit">{t('propertiesPage.perMonth')}</span></span>
-            <span className={`rent-badge rent-badge--${statusTone}`}>
-              {statusLabelMap[statusKey] || item.status}
-            </span>
-          </div>
-        </div>
-
-        {/* 卡片底部操作 */}
-        <div className="rent-card__footer rent-prop-card__footer">
-          <a
-            className="rent-btn rent-btn--ghost rent-btn--sm"
-            onClick={(e) => { e.stopPropagation(); navigate(`/properties/detail/${item.id}`) }}
-          >
-            {t('property.viewDetail')}
-          </a>
-          {isManageMode && (
-            <>
-              <button
-                className="rent-btn rent-btn--primary rent-btn--sm"
-                onClick={(e) => { e.stopPropagation(); handlePublish(item) }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
-                {t('listing.actionList')}
-              </button>
-              <button
-                className="rent-btn rent-btn--secondary rent-btn--sm"
-                onClick={(e) => { e.stopPropagation(); openEdit(item) }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-                {t('common.edit')}
-              </button>
-              <button
-                className="rent-btn rent-btn--danger rent-btn--sm"
-                onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                {t('common.delete')}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // 定位面板图标
-  const LocIcon = ({ kind }: { kind: 'area' | 'metro' }) => (
-    kind === 'area'
-      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="12" rx="2" /><path d="M9 8h6M6 21l1.5-3h9L18 21M8 9v2M12 9v2M16 9v2" /></svg>
-  )
-
-  // 定位面板（区域实时单选 · 地铁草稿多选，与租客端 PublicListings 一致）
-  const locLabel = (() => {
-    if (districtSel) {
-      const node = AREA_GROUPS.flatMap((g) => g.children).find((d) => d.key === districtSel)
-      return node ? node.label : t('propertiesPage.byArea')
-    }
-    if (metroSel.length) {
-      const first = metroSel[0]
-      return metroSel.length > 1 ? `${first} +${metroSel.length - 1}` : first
-    }
-    return t('propertiesPage.byArea')
-  })()
-
-  const locPanelContent = (
-    <div className="rent-loc-panel">
-      <div className="rent-loc-panel__tabs">
-        {(['area', 'metro'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`rent-loc-panel__tab ${locTab === tab ? 'rent-loc-panel__tab--active' : ''}`}
-            onClick={() => setLocTab(tab)}
-          >
-            <LocIcon kind={tab} />
-            {tab === 'area' ? t('propertiesPage.byArea') : t('propertiesPage.byMetro')}
-          </button>
-        ))}
-      </div>
-
-      {locTab === 'area' ? (
-        <div className="rent-loc-panel__area">
-          <div className="rent-loc-panel__lines">
-            {countryList.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`rent-loc-panel__line ${areaCountry === c ? 'rent-loc-panel__line--active' : ''}`}
-                onClick={() => { setAreaCountry(c); setAreaDrill('') }}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <div className="rent-loc-panel__stations">
-            {activeAreaGroup ? (
-              <>
-                <div className="rent-loc-panel__stations-head">
-                  <button
-                    type="button"
-                    className="rent-loc-panel__back"
-                    onClick={() => setAreaDrill('')}
-                  >
-                    ← {areaCountry}
-                  </button>
-                  <span className="rent-loc-panel__stations-title">{activeAreaGroup.cityLabel}</span>
-                </div>
-                <div className="rent-loc-panel__chips">
-                  <button
-                    type="button"
-                    className={`rent-loc-panel__chip ${districtSel === null ? 'rent-loc-panel__chip--active' : ''}`}
-                    onClick={() => applyDistrict(null)}
-                  >
-                    {t('propertiesPage.anyDistrict')}
-                  </button>
-                  {activeAreaGroup.children.map((d) => (
-                    <button
-                      key={d.key}
-                      type="button"
-                      className={`rent-loc-panel__chip ${districtSel === d.key ? 'rent-loc-panel__chip--active' : ''}`}
-                      onClick={() => applyDistrict(d.key)}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rent-loc-panel__stations-title">{areaCountry}</div>
-                <div className="rent-loc-panel__chips">
-                  {countryGroups.map((g) => (
-                    <button
-                      key={g.cityKey}
-                      type="button"
-                      className={`rent-loc-panel__chip ${areaDrill === g.cityKey ? 'rent-loc-panel__chip--active' : ''}`}
-                      onClick={() => setAreaDrill(g.cityKey)}
-                    >
-                      {g.cityLabel}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="rent-loc-panel__metro">
-          <div className="rent-loc-panel__lines">
-            {METRO_LINES.map((l) => (
-              <button
-                key={l.key}
-                type="button"
-                className={`rent-loc-panel__line ${metroLine === l.key ? 'rent-loc-panel__line--active' : ''}`}
-                onClick={() => setMetroLine(l.key)}
-              >
-                {l.cityLabel} · {l.name}
-              </button>
-            ))}
-          </div>
-          <div className="rent-loc-panel__stations">
-            <div className="rent-loc-panel__stations-title">{activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}</div>
-            <div className="rent-loc-panel__chips">
-              {activeLine?.stations.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  className={`rent-loc-panel__chip ${metroDraft.includes(s.name) ? 'rent-loc-panel__chip--active' : ''}`}
-                  onClick={() => toggleStation(s.name)}
-                >
-                  {s.name}
-                </button>
-              ))}
-              {activeLine && !activeLine.stations.length && <span className="rent-loc-panel__empty">{t('propertiesPage.none')}</span>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="rent-loc-panel__footer">
-        {locTab === 'metro' && (
-          <span className="rent-loc-panel__count">{t('propertiesPage.selectedLabel')} <strong>{metroDraft.length}</strong></span>
-        )}
-        <div className="rent-loc-panel__actions">
-          <button
-            type="button"
-            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
-            onClick={() => (locTab === 'metro' ? clearMetroDraft() : resetLoc())}
-          >
-            {t('common.reset')}
-          </button>
-          <button
-            type="button"
-            className="rent-loc-panel__btn rent-loc-panel__btn--primary"
-            onClick={() => (locTab === 'metro' ? confirmMetro() : setLocOpen(false))}
-          >
-            {t('common.confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-
-  // ==================== C 端筛选选项（chip → 下拉面板） ====================
-
-  // 当前打开的筛选 chip（单开）
-  const [filterOpen, setFilterOpen] = useState('')
-
-  const currentOptLabel = (opts: { key: string; label: string }[], value: string, fallback: string) =>
-    opts.find((o) => o.key === value)?.label ?? fallback
-
-  const STATUS_OPTS = [
-    { key: '', label: t('propertiesPage.optAllStatus') },
-    { key: 'rented', label: statusLabelMap.rented },
-    { key: 'vacant', label: statusLabelMap.vacant },
-    { key: 'maintenance', label: statusLabelMap.maintenance },
-  ]
-  const TYPE_OPTS = [
-    { key: '', label: t('propertiesPage.optAllTypes') },
-    { key: 'apartment', label: propertyTypeMap.apartment },
-    { key: 'villa', label: propertyTypeMap.villa },
-    { key: 'shop', label: propertyTypeMap.shop },
-    { key: 'office', label: propertyTypeMap.office },
-    { key: 'factory', label: propertyTypeMap.factory },
-    { key: 'hotel', label: propertyTypeMap.hotel },
-    { key: 'land', label: propertyTypeMap.land },
-    { key: 'townhouse', label: propertyTypeMap.townhouse },
-    { key: 'warehouse', label: propertyTypeMap.warehouse },
-    { key: 'coworking', label: propertyTypeMap.coworking },
-    { key: 'homeoffice', label: propertyTypeMap.homeoffice },
-    { key: 'showroom', label: propertyTypeMap.showroom },
-  ]
-  const BED_OPTS = [
-    { key: '', label: t('propertiesPage.optAnyBedrooms') },
-    { key: '0', label: t('propertiesPage.optStudio') },
-    { key: '1', label: t('propertiesPage.optBedroomsN', { n: 1 }) },
-    { key: '2', label: t('propertiesPage.optBedroomsN', { n: 2 }) },
-    { key: '3', label: t('propertiesPage.optBedroomsN', { n: 3 }) },
-    { key: '4', label: t('propertiesPage.optBedrooms4Plus') },
-  ]
-  const PRICE_OPTS = [
-    { key: '', label: t('propertiesPage.optAnyPrice') },
-    { key: '0-5000', label: t('propertiesPage.priceBelow5000') },
-    { key: '5000-10000', label: '5000-10000' },
-    { key: '10000-20000', label: '10000-20000' },
-    { key: '20000-50000', label: '20000-50000' },
-    { key: '50000+', label: t('propertiesPage.priceAbove50000') },
-    { key: 'custom', label: t('propertiesPage.customPrice') },
-  ]
-  const AREA_OPTS = [
-    { key: '', label: t('propertiesPage.optAnyArea') },
-    { key: '0-50', label: t('propertiesPage.areaBelow50') },
-    { key: '50-100', label: '50-100㎡' },
-    { key: '100-200', label: '100-200㎡' },
-    { key: '200+', label: t('propertiesPage.areaAbove200') },
-    { key: 'custom', label: t('propertiesPage.customArea') },
-  ]
-  const SORT_OPTS = [
-    { key: 'created', label: t('propertiesPage.sortLatest') },
-    { key: 'rent-asc', label: t('propertiesPage.sortRentAsc') },
-    { key: 'rent-desc', label: t('propertiesPage.sortRentDesc') },
-  ]
-
-  // 价格/面积面板（复刻 C 端 rent-price-panel：快捷区间 chips + 自定义输入 + 重置/确定）
-  const renderRangePanel = (kind: 'price' | 'area') => {
-    const isPrice = kind === 'price'
-    const opts = isPrice ? PRICE_OPTS : AREA_OPTS
-    const value = isPrice ? priceRange : areaRange
-    const setRange = isPrice ? setPriceRange : setAreaRange
-    const min = isPrice ? priceCustomMin : areaCustomMin
-    const max = isPrice ? priceCustomMax : areaCustomMax
-    const setMin = isPrice ? setPriceCustomMin : setAreaCustomMin
-    const setMax = isPrice ? setPriceCustomMax : setAreaCustomMax
-    const reset = () => { setMin(''); setMax(''); setRange(''); setFilterOpen('') }
-    const close = () => setFilterOpen('')
-    const title = isPrice ? t('propertiesPage.customPrice') : t('propertiesPage.customArea')
-    return (
-      <div className="rent-loc-panel rent-price-panel">
-        <div className="rent-loc-panel__body">
-          <div className="rent-loc-panel__group">
-            <div className="rent-loc-panel__group-title">{isPrice ? t('priceRange.quick') : t('browse.filterArea')}</div>
-            <div className="rent-loc-panel__chips">
-              {opts.map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  className={`rent-loc-panel__chip${value === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-                  onClick={() => { setRange(o.key); if (o.key !== 'custom') setFilterOpen('') }}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {value === 'custom' && (
-            <div className="rent-loc-panel__group">
-              <div className="rent-loc-panel__group-title">{title}</div>
-              <div className="rent-price-custom">
-                <input
-                  className="rent-price-custom__input"
-                  type="number"
-                  min={0}
-                  value={min}
-                  placeholder={t(isPrice ? 'propertiesPage.minPrice' : 'propertiesPage.minArea')}
-                  onChange={(e) => setMin(e.target.value)}
-                />
-                <span className="rent-price-custom__divider">{isPrice ? t('priceRange.to') : '-'}</span>
-                <input
-                  className="rent-price-custom__input"
-                  type="number"
-                  min={0}
-                  value={max}
-                  placeholder={t(isPrice ? 'propertiesPage.maxPrice' : 'propertiesPage.maxArea')}
-                  onChange={(e) => setMax(e.target.value)}
-                />
-                <span className="rent-price-custom__unit">{isPrice ? t('priceRange.perMonth') : '㎡'}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="rent-loc-panel__footer">
-          <div className="rent-loc-panel__actions">
-            <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--ghost" onClick={reset}>
-              {t('common.reset')}
-            </button>
-            <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={close}>
-              {t('common.confirm')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // 「更多」汇总面板：把 状态 / 类型 / 面积 三个筛选项收纳进这一个下拉层
-  const morePanelContent = (
-    <div className="rent-loc-panel">
-      <div className="rent-loc-panel__body">
-        <div className="rent-loc-panel__group">
-          <div className="rent-loc-panel__group-title">{t('browse.filterStatus')}</div>
-          <div className="rent-loc-panel__chips">
-            {STATUS_OPTS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                className={`rent-loc-panel__chip${status === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-                onClick={() => setStatus(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rent-loc-panel__group">
-          <div className="rent-loc-panel__group-title">{t('propertiesPage.optAllTypes')}</div>
-          <div className="rent-loc-panel__chips">
-            {TYPE_OPTS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                className={`rent-loc-panel__chip${propertyType === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-                onClick={() => setPropertyType(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rent-loc-panel__group">
-          <div className="rent-loc-panel__group-title">{t('browse.filterArea')}</div>
-          <div className="rent-loc-panel__chips">
-            {AREA_OPTS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                className={`rent-loc-panel__chip${areaRange === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-                onClick={() => setAreaRange(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {areaRange === 'custom' && (
-          <div className="rent-loc-panel__group">
-            <div className="rent-loc-panel__group-title">{t('propertiesPage.customArea')}</div>
-            <div className="rent-price-custom">
-              <input
-                className="rent-price-custom__input"
-                type="number"
-                min={0}
-                value={areaCustomMin}
-                placeholder={t('propertiesPage.minArea')}
-                onChange={(e) => setAreaCustomMin(e.target.value)}
-              />
-              <span className="rent-price-custom__divider">-</span>
-              <input
-                className="rent-price-custom__input"
-                type="number"
-                min={0}
-                value={areaCustomMax}
-                placeholder={t('propertiesPage.maxArea')}
-                onChange={(e) => setAreaCustomMax(e.target.value)}
-              />
-              <span className="rent-price-custom__unit">㎡</span>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="rent-loc-panel__footer">
-        <div className="rent-loc-panel__actions">
-          <button
-            type="button"
-            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
-            onClick={() => {
-              setStatus(''); setPropertyType(''); setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setFilterOpen('')
-            }}
-          >
-            {t('common.reset')}
-          </button>
-          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={() => setFilterOpen('')}>
-            {t('common.confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   // ==================== 渲染 ====================
 
@@ -1140,300 +299,58 @@ const Properties = () => {
               {t('project.coordEntry')}
             </button>
           )}
-          <button className="rent-btn rent-btn--primary" onClick={openCreate}>
+          <button className="rent-btn rent-btn--primary" onClick={propertyForm.openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             {t('property.addNew')}
           </button>
         </div>
       </div>
 
-      {/* 贝壳风单行筛选栏：顶部搜索框 + 单行 text+chevron Tab（区域/价格/户型/更多/排序）+ 只看视频 | 结果计数 */}
-      <div className="pf-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input
-          type="text"
-          placeholder={t('property.searchPlaceholder')}
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-      </div>
-      <div className="pf-bar">
-        <div className="pf-bar__tabs">
-          <FilterTab label={locLabel} active={!!activeLocationKw.length} open={locOpen} onOpenChange={onLocOpenChange}>
-            {locPanelContent}
-          </FilterTab>
-          <FilterTab
-            label={priceRange ? currentOptLabel(PRICE_OPTS, priceRange, t('browse.filterPrice')) : t('browse.filterPrice')}
-            active={!!priceRange}
-            open={filterOpen === 'price'}
-            onOpenChange={(o) => setFilterOpen(o ? 'price' : '')}
-          >
-            {renderRangePanel('price')}
-          </FilterTab>
-          <FilterTab
-            label={bedrooms !== '' ? currentOptLabel(BED_OPTS, bedrooms, t('browse.filterRoom')) : t('browse.filterRoom')}
-            active={bedrooms !== ''}
-            open={filterOpen === 'bedrooms'}
-            onOpenChange={(o) => setFilterOpen(o ? 'bedrooms' : '')}
-          >
-            <OptGrid
-              title={t('browse.filterRoom')}
-              options={BED_OPTS}
-              value={bedrooms}
-              onPick={(k) => { setBedrooms(k); setFilterOpen('') }}
-              onReset={() => { setBedrooms(''); setFilterOpen('') }}
-              onClose={() => setFilterOpen('')}
-            />
-          </FilterTab>
-          <FilterTab
-            label={t('browse.filterMore')}
-            active={!!status || !!propertyType || !!areaRange}
-            open={filterOpen === 'more'}
-            onOpenChange={(o) => setFilterOpen(o ? 'more' : '')}
-          >
-            {morePanelContent}
-          </FilterTab>
-          <FilterTab
-            label={sort !== 'created' ? currentOptLabel(SORT_OPTS, sort, t('browse.filterSort')) : t('browse.filterSort')}
-            active={sort !== 'created'}
-            open={filterOpen === 'sort'}
-            onOpenChange={(o) => setFilterOpen(o ? 'sort' : '')}
-          >
-            <OptGrid
-              title={t('browse.filterSort')}
-              options={SORT_OPTS}
-              value={sort}
-              onPick={(k) => { setSort(k); setFilterOpen('') }}
-              onReset={() => { setSort('created'); setFilterOpen('') }}
-              onClose={() => setFilterOpen('')}
-            />
-          </FilterTab>
-        </div>
-        <button
-          type="button"
-          className="pf-video"
-          data-active={onlyVideo}
-          onClick={() => setOnlyVideo((v) => !v)}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
-          {t('propertiesPage.onlyVideo')}
-        </button>
-      </div>
-      <div className="pf-count">
-        {t('common.total')} <strong>{total}</strong> {t('property.units')}
-      </div>
+      {/* 贝壳风单行筛选栏 + 结果计数 */}
+      <PropertyFilterBar
+        filters={filters}
+        total={total}
+        statusLabelMap={statusLabelMap}
+        propertyTypeMap={propertyTypeMap}
+      />
 
-      {/* Property Card Grid（对齐原型 rent-grid--auto） */}
-      <Spin spinning={loading} tip={t('common.loading')}>
-        {loadError ? (
-          <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
-        ) : items.length === 0 && !loading ? (
-          <div className="rent-empty">
-            <div className="rent-empty__icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            </div>
-            <div>{t('common.noData')}</div>
-          </div>
-        ) : (
-          <div className="rent-grid rent-grid--auto">
-            {items.map((item: any) => renderListItem(item))}
-          </div>
-        )}
-      </Spin>
-
-      {/* Pagination（对齐原型 rent-pagination） */}
-      {total > 0 && (
-        <div className="rent-pagination">
-          <span className="rent-pagination__info">{t('propertiesPage.totalRecords', { total })}</span>
-          <button
-            className="rent-pagination__btn"
-            aria-label={t('propertiesPage.prevPage')}
-            disabled={page <= 1}
-            onClick={() => setPage(Math.max(1, page - 1))}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          {pageNumbers.map((n, idx) =>
-            n === 'prev-ellipsis' || n === 'next-ellipsis' ? (
-              <span className="rent-pagination__info" key={idx} style={{ margin: '0 4px' }}>...</span>
-            ) : (
-              <button
-                key={idx}
-                className="rent-pagination__btn"
-                data-active={page === n}
-                onClick={() => setPage(Number(n))}
-              >
-                {n}
-              </button>
-            )
-          )}
-          <button
-            className="rent-pagination__btn"
-            aria-label={t('propertiesPage.nextPage')}
-            disabled={page >= totalPages}
-            onClick={() => setPage(Math.min(totalPages, page + 1))}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      )}
+      {/* 列表三态 + 卡片网格 + 分页 */}
+      <PropertyList
+        items={items}
+        total={total}
+        loading={loading}
+        loadError={loadError}
+        isFiltering={filters.isFiltering}
+        page={filters.page}
+        totalPages={totalPages}
+        pageNumbers={pageNumbers}
+        projects={projects}
+        propertyTypeMap={propertyTypeMap}
+        statusLabelMap={statusLabelMap}
+        isManageMode={isManageMode}
+        onRetry={fetchData}
+        onPageChange={filters.setPage}
+        onPublish={handlePublish}
+        onEdit={propertyForm.openEdit}
+        onDelete={handleDelete}
+      />
 
       {/* 新增/编辑弹窗 */}
-      <Modal
-        title={editingId ? t('property.editProperty') : t('property.addNew')}
-        open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        onOk={handleSubmit}
-        confirmLoading={submitting}
-        okText={t('common.save')}
-        cancelText={t('common.cancel')}
-        destroyOnClose
-        width={640}
-      >
-        <Form form={form} layout="vertical" preserve={false}>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label={t('property.project')} name="project_id" rules={[{ required: true, message: t('property.projectPlaceholder') }]}>
-                <Select placeholder={t('property.projectPlaceholder')} options={projects.map((p) => ({ value: p.id, label: p.name }))} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label={t('property.roomNumber')} name="room_number" rules={[{ required: true, message: t('property.roomNumberPlaceholder') }]}>
-                <Input placeholder={t('property.roomNumberPlaceholder')} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}><Form.Item label={t('property.owner')} name="owner_id"><Input placeholder={t('property.ownerPlaceholder')} /></Form.Item></Col>
-            <Col span={12}>
-              <Form.Item label={t('property.propertyType')} name="property_type">
-                <Select placeholder={t('property.propertyTypePlaceholder')} options={Object.entries(propertyTypeMap).map(([k, v]) => ({ value: k, label: v }))} allowClear />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label={t('property.address')} name="address" rules={[{ required: true, message: t('property.addressPlaceholder') }]}>
-            <Input placeholder={t('property.addressPlaceholder')} />
-          </Form.Item>
-          <Row gutter={16}>
-            <Col span={8}><Form.Item label={t('property.building')} name="building"><InputNumber style={{ width: '100%' }} placeholder={t('property.building')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.floor')} name="floor"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.floor')} /></Form.Item></Col>
-            <Col span={8}>
-              <Form.Item label={t('property.currency')} name="currency" rules={[{ required: true, message: t('property.currency') }]}>
-                <Select placeholder={t('property.currency')} options={[{ value: 'THB', label: 'THB' }, { value: 'USD', label: '$' }, { value: 'CNY', label: 'CNY' }]} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={8}><Form.Item label={t('property.monthlyRent')} name="monthly_rent" rules={[{ required: true, message: t('property.monthlyRent') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.monthlyRent')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.deposit')} name="deposit_amount"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.deposit')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.depositMonths')} name="deposit_months"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.depositMonths')} /></Form.Item></Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={8}><Form.Item label={t('property.area')} name="size_sqm" rules={[{ required: true, message: t('property.area') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.areaPlaceholder')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.bedrooms')} name="bedrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bedrooms')} /></Form.Item></Col>
-            <Col span={8}><Form.Item label={t('property.bathrooms')} name="bathrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bathrooms')} /></Form.Item></Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={10}>
-              <Form.Item label={t('common.status')} name="status" rules={[{ required: true, message: t('property.statusPlaceholder') }]}>
-                <Select placeholder={t('property.statusPlaceholder')} options={Object.entries(statusLabelMap).map(([k, v]) => ({ value: k, label: v }))} />
-              </Form.Item>
-            </Col>
-            <Col span={10}><Form.Item label={t('property.availableFrom')} name="available_from"><Input placeholder="YYYY-MM-DD" /></Form.Item></Col>
-            <Col span={4}>
-              <Form.Item label={t('property.furnished')} name="furnished" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label={t('property.layout')} name="layout">
-            <Input placeholder={t('property.layoutPlaceholder')} />
-          </Form.Item>
-          <Form.Item label={t('property.description')} name="description">
-            <Input.TextArea rows={4} placeholder={t('property.descriptionPlaceholder')} />
-          </Form.Item>
-          {editingId ? (
-            <Form.Item label={t('property.photos')}>
-              <Upload
-                listType="picture-card"
-                fileList={photoFileList}
-                accept="image/*"
-                onRemove={(file) => {
-                  const url = (file as any).url
-                  if (url) removePhoto(url)
-                  return true
-                }}
-                customRequest={({ file }) => { uploadPhoto(file as File) }}
-              >
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>{t('property.upload')}</div>
-                </div>
-              </Upload>
-            </Form.Item>
-          ) : null}
-          <Form.Item label={t('property.videoUrl')} name="video_url">
-            <Input placeholder={t('property.videoUrlPlaceholder')} allowClear />
-          </Form.Item>
-          <Form.Item label={t('publishListing.lblVrUrl')} name="vr_url">
-            <Input placeholder="https://..." allowClear />
-          </Form.Item>
-
-          {/* 商办专项：层高 + 可注册公司 */}
-          {isFormCommercial && (
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label={t('publishListing.lblCeilingHeight')} name="ceiling_height_m">
-                  <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblCeilingHeight')} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
-                  <Switch />
-                </Form.Item>
-              </Col>
-            </Row>
-          )}
-
-          {/* 厂房专项 */}
-          {isFormFactory && (
-            <>
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Form.Item label={t('publishListing.lblLandArea')} name="land_area_sqm">
-                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblLandArea')} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label={t('publishListing.lblFloorLoading')} name="floor_loading_kg_sqm">
-                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblFloorLoading')} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item label={t('publishListing.lblColumnSpacing')} name="column_spacing">
-                    <Input placeholder={t('publishListing.lblColumnSpacing')} allowClear />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Form.Item label={t('publishListing.lblPowerCapacity')} name="power_capacity_kva">
-                    <InputNumber style={{ width: '100%' }} min={0} placeholder={t('publishListing.lblPowerCapacity')} />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={8}><Form.Item label={t('publishListing.lblEnvironmentalPermit')} name="environmental_permit" valuePropName="checked"><Switch /></Form.Item></Col>
-                <Col span={8}><Form.Item label={t('publishListing.lblWholeFloorOnly')} name="whole_floor_only" valuePropName="checked"><Switch /></Form.Item></Col>
-                <Col span={8}><Form.Item label={t('publishListing.lblWholeBuildingOnly')} name="whole_building_only" valuePropName="checked"><Switch /></Form.Item></Col>
-              </Row>
-              <Form.Item label={t('publishListing.lblCompanyRegistrable')} name="company_registrable" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </>
-          )}
-        </Form>
-      </Modal>
+      <PropertyFormModal
+        open={propertyForm.modalOpen}
+        record={propertyForm.editingRecord}
+        editingId={propertyForm.editingId}
+        submitting={propertyForm.submitting}
+        form={propertyForm.form}
+        photos={propertyForm.photos}
+        projects={projects}
+        propertyTypeMap={propertyTypeMap}
+        statusLabelMap={statusLabelMap}
+        onCancel={propertyForm.close}
+        onSubmit={propertyForm.handleSubmit}
+        uploadPhoto={propertyForm.uploadPhoto}
+        removePhoto={propertyForm.removePhoto}
+      />
 
       {/* 项目坐标：地图找房的点位取自项目经纬度，无坐标的项目不会出现在地图上 */}
       <Modal

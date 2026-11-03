@@ -36,8 +36,9 @@ export interface Project {
   updated_at?: string
 }
 
-// 与后端 PropertyStatus 对齐（含 renewing / maintenance）；reserved 为前端历史展示态
-export type PropertyStatus = 'vacant' | 'rented' | 'reserved' | 'renewing' | 'maintenance'
+// 与后端 PropertyStatus 严格对齐：vacant / rented / renewing / maintenance
+// （后端枚举无 reserved，筛选与提交都只能使用这四项）
+export type PropertyStatus = 'vacant' | 'rented' | 'renewing' | 'maintenance'
 
 export interface Property {
   id: string
@@ -106,7 +107,7 @@ export interface Lease {
 }
 
 // ============ 支付相关 ============
-// 与后端 PaymentType / PaymentStatus 对齐；paid / overdue 为列表展示的聚合态
+// 与后端 PaymentType 对齐
 export type PaymentType =
   | 'rent'
   | 'deposit'
@@ -116,6 +117,7 @@ export type PaymentType =
   | 'tax'
   | 'refund'
 
+// 后端枚举（backend/app/models/payment.py::PaymentStatus），接口只返回以下 7 个值
 export type PaymentStatus =
   | 'pending'
   | 'processing'
@@ -124,8 +126,12 @@ export type PaymentStatus =
   | 'refunded'
   | 'disputed'
   | 'expired'
-  | 'paid'
-  | 'overdue'
+
+// 展示派生态：由前端按后端状态 + 截止时间派生，不属于后端枚举
+export type PaymentDisplayStatus = 'paid' | 'pending' | 'overdue' | 'refunded'
+
+// 列表筛选项：后端额外接受 overdue（pending 且已过截止日）作为派生筛选值
+export type PaymentStatusFilter = PaymentStatus | 'overdue'
 
 export interface Payment {
   id: string

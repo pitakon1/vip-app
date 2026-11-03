@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 土地分类页（贝壳式）。
  *
@@ -36,7 +37,7 @@ import {
   notAvailable,
 } from './categoryShared';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 type TabKey = 'rent-land' | 'sell-land';
 

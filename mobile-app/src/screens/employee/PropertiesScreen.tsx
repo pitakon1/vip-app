@@ -1,3 +1,5 @@
+﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { errorText } from '@/lib/errorText';
 /**
  * 房源台账：搜索 + 状态/排序筛选 + 结果统计 + 房源卡片（租客信息）+ 加载更多
  * 原型：employee-mobile-properties.html（房源浏览 · 台账）
@@ -27,6 +29,7 @@ import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { leasesApi, propertiesApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
@@ -36,7 +39,7 @@ import { propertyCoverUrl } from '@/lib/property';
 import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 interface PropertyItem {
   id: string;
@@ -126,6 +129,8 @@ export default function PropertiesScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // 请求失败不再清空列表：保留旧数据并置错误态，首屏失败则显示错误页而非空态
+  const [loadError, setLoadError] = useState<string | null>(null);
   const firstLoad = useRef(true);
 
   const fetchProperties = useCallback(
@@ -195,21 +200,21 @@ export default function PropertiesScreen() {
             areaMax,
             bedsMin,
           }),
-          propertiesApi.list({ status: 'vacant', page: 1, page_size: 1 }),
+          propertiesApi.list({ status: 'vacant', page: 1, page_size: COUNT_ONLY_PAGE_SIZE }),
         ]);
 
         let pageItems: PropertyItem[] = [];
         if (propRes.status === 'fulfilled') {
           const { list, total: t, totalPages: tp } = propRes.value;
           pageItems = list;
+          setLoadError(null);
           setTotal(t);
           setTotalPages(tp);
           setPage(targetPage);
           setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
-        } else if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-          setTotalPages(1);
+        } else {
+          // 保留上一次列表与总数，只置错误态；首屏失败由 ListState 呈现错误页
+          setLoadError('加载失败，请稍后重试');
         }
 
         if (vacantRes.status === 'fulfilled') {
@@ -226,7 +231,7 @@ export default function PropertiesScreen() {
             const res = await leasesApi.list({
               property_ids: rentedIds.join(','),
               page: 1,
-              page_size: 100,
+              page_size: OPTION_PAGE_SIZE,
             });
             const leases = (res.data?.items ?? []) as {
               property_id?: string;
@@ -263,7 +268,7 @@ export default function PropertiesScreen() {
   // 学校清单只为筛选器备选（公开接口，匿名可读）
   useEffect(() => {
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(res?.data?.items ?? []))
       .catch(() => setSchools([]));
   }, []);
@@ -441,7 +446,7 @@ export default function PropertiesScreen() {
         if (Platform.OS === 'web') window.alert('已提交上架，等待平台审核');
         else Alert.alert('已提交上架，等待平台审核');
       } catch (err: any) {
-        const detail = err?.response?.data?.detail || '请稍后重试';
+        const detail = errorText(err, '请稍后重试');
         if (Platform.OS === 'web') window.alert(detail);
         else Alert.alert('上架失败', detail);
       }
@@ -750,14 +755,29 @@ export default function PropertiesScreen() {
         </>
       }
       ListEmptyComponent={
-        <EmptyState
-          icon="business-outline"
-          title="暂无房源"
-          sub={keyword || status ? '换个关键词或筛选条件试试' : '可管理的房源会展示在这里'}
-        />
+        loadError ? (
+          <ListState
+            error={loadError}
+            retryLabel="重试"
+            onRetry={() => void load({ nextPage: 1 })}
+          />
+        ) : (
+          <EmptyState
+            icon="business-outline"
+            title="暂无房源"
+            sub={keyword || status ? '换个关键词或筛选条件试试' : '可管理的房源会展示在这里'}
+          />
+        )
       }
       ListFooterComponent={
-        page < totalPages ? (
+        loadError && items.length > 0 ? (
+          <View style={styles.errorBar}>
+            <Text style={styles.errorBarText}>加载失败，请稍后重试</Text>
+            <TouchableOpacity onPress={() => void load({ nextPage: 1 })} activeOpacity={0.8}>
+              <Text style={styles.errorBarRetry}>重试</Text>
+            </TouchableOpacity>
+          </View>
+        ) : page < totalPages ? (
           <View style={styles.listFooter}>
             <TouchableOpacity
               style={styles.loadMore}
@@ -1047,6 +1067,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   loadMoreText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+
+  // 列表已有数据时的轻量失败条（不整页替换）
+  errorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: colors.spacing.md,
+    marginBottom: colors.spacing.md,
+    paddingHorizontal: colors.spacing.md,
+    paddingVertical: colors.spacing.sm,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  errorBarText: { fontSize: 13, color: colors.error, flex: 1 },
+  errorBarRetry: { fontSize: 13, fontWeight: '700', color: colors.primary },
 
   /* ---- C 端维度筛选行（学校 / 更多）---- */
   ceFilterRow: {

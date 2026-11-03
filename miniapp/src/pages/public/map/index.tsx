@@ -1,3 +1,5 @@
+import { MAP_LIMIT } from '@/lib/pagination'
+import { BANGKOK_CENTER } from '@/constants/location'
 /**
  * 地图找房（C 端公开页，匿名可进）。
  *
@@ -27,7 +29,7 @@ type Biz = '' | 'rent' | 'sell'
 type Cat = '' | 'new' | 'resale' | 'office' | 'shop' | 'factory'
 
 /** 地图初始中心（仅兜底）：优先取用户定位，其次取首个点位。 */
-const DEFAULT_CENTER = { latitude: 13.7563, longitude: 100.5018 }
+const DEFAULT_CENTER = { latitude: BANGKOK_CENTER.lat, longitude: BANGKOK_CENTER.lng }
 
 interface Bounds {
   min_lat: number
@@ -75,7 +77,7 @@ export default function PublicMapPage() {
     try {
       const res: any = await publicApi.mapPoints({
         city: cityKey || undefined,
-        limit: 200,
+        limit: MAP_LIMIT,
         listing_type: effectiveListingType,
         property_type: propertyType,
         is_new_development: isNew,

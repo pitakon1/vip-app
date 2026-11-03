@@ -214,7 +214,7 @@
       flex-shrink: 0;
       padding: 12rpx 28rpx;
       border-radius: var(--radius-full);
-      border: 1px solid var(--line);
+      border: 1rpx solid var(--line);
       background: var(--surface-2);
       color: var(--ink-2);
       font-size: 24rpx;
@@ -235,7 +235,7 @@
     align-items: center;
     gap: 20rpx;
     padding: 24rpx 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
 
     &:last-child {
       border-bottom: none;

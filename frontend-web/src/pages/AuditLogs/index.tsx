@@ -1,8 +1,10 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
-import { message, Empty } from 'antd'
 import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { auditLogsApi } from '@/services/api'
 import './audit-logs.css'
+import { errorText } from '@/lib/errorText'
 
 interface AuditLog {
   id: string
@@ -77,13 +79,14 @@ const AuditLogs = () => {
   const [items, setItems] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [summary, setSummary] = useState<Summary>({})
 
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
-    pageSize: 20,
+    pageSize: LIST_PAGE_SIZE,
   })
-  const [draft, setDraft] = useState<QueryParams>({ page: 1, pageSize: 20 })
+  const [draft, setDraft] = useState<QueryParams>({ page: 1, pageSize: LIST_PAGE_SIZE })
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -97,6 +100,7 @@ const AuditLogs = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await auditLogsApi.list({
         page: queryParams.page,
@@ -111,7 +115,7 @@ const AuditLogs = () => {
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('auditLogs.loadFailed'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -206,7 +210,7 @@ const AuditLogs = () => {
       <div className="rent-filter-bar">
         <div className="rent-filter-bar__search">
           <div className="rent-search" style={{ width: '100%' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" strokeWidth="2">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -279,8 +283,16 @@ const AuditLogs = () => {
           <h3 className="rent-card__title">{t('auditLogs.recordsTitle')}</h3>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty"><div className="rent-text-muted">{t('auditLogs.loading')}</div></div>
+          {loadError && items.length === 0 ? (
+            <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+          ) : loading && items.length === 0 ? (
+            <DataState loading loadingText={t('auditLogs.loading')} skeletonRows={6} />
+          ) : items.length === 0 ? (
+            <DataState
+              empty
+              filtered={!!(queryParams.action || queryParams.resource_type || queryParams.actor_user_id || queryParams.start_at || queryParams.end_at)}
+              emptyTitle={t('auditLogs.empty')}
+            />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -296,15 +308,6 @@ const AuditLogs = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={7}>
-                        <div className="rent-empty">
-                          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('auditLogs.empty')} />
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                   {items.map((log) => {
                     const meta = actionMeta(log.action, t)
                     const pii = Array.isArray(log.pii_fields_accessed)

@@ -72,8 +72,6 @@ export default function ContactScreen() {
       setDepartments(data?.departments ?? []);
       setFailed(false);
     } catch {
-      setColleagues([]);
-      setDepartments([]);
       setFailed(true);
     }
   }, []);
@@ -165,7 +163,24 @@ export default function ContactScreen() {
         ) : null}
       </View>
 
-      {failed ? (
+      {failed && total > 0 ? (
+        <View
+          style={{
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>通讯录刷新失败</Text>
+          <TouchableOpacity onPress={() => load()} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {failed && total === 0 ? (
         <EmptyState
           icon="cloud-offline-outline"
           title="通讯录加载失败"
@@ -180,8 +195,9 @@ export default function ContactScreen() {
           sub={keyword ? '换个关键词试试' : '组织内同事登记后会展示在这里'}
         />
       ) : (
-        groups.map((g) => (
-          <View key={g.dept} style={styles.card}>
+        <>
+          {groups.map((g) => (
+            <View key={g.dept} style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{g.dept}</Text>
               <View style={[styles.countBadge, { backgroundColor: colors.alpha(TONE_RGB[g.tone], 0.12) }]}>
@@ -233,7 +249,8 @@ export default function ContactScreen() {
               );
             })}
           </View>
-        ))
+          ))}
+        </>
       )}
     </ScrollView>
   );

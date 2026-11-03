@@ -35,7 +35,7 @@
 }
 
 .rent-login-card__header {
-  margin-bottom: 32px;
+  margin-bottom: var(--rent-s-6);
 }
 
 .rent-login-brand {
@@ -51,18 +51,18 @@
 
 .rent-login-card__title {
   font-family: var(--rent-font-sans);
-  font-size: 28px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.02em;
-  margin: 0 0 8px;
+  margin: 0 0 var(--rent-s-2);
   line-height: 1.2;
 }
 
 .rent-login-card__subtitle {
   font-family: var(--rent-font-sans);
   font-size: 15px;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   line-height: 1.5;
 }
 
@@ -70,7 +70,7 @@
 .rent-login-hint {
   background: #f5f2ea;
   border: 1px solid #e8e0cd;
-  border-radius: 10px;
+  border-radius: var(--rent-radius-md);
   padding: 10px 14px;
   margin-bottom: 20px;
   font-size: 12.5px;
@@ -84,15 +84,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--rent-s-5);
 }
 
 .rent-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   font-family: var(--rent-font-sans);
 }
@@ -106,11 +106,11 @@
 
 .rent-login-link {
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-primary);
   text-decoration: none;
   font-weight: 500;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast);
 }
 
 .rent-login-link:hover {
@@ -119,29 +119,40 @@
 
 /* ---- Footer text ---- */
 .rent-login-footer {
-  margin-top: 32px;
+  margin-top: var(--rent-s-6);
   text-align: center;
   font-family: var(--rent-font-sans);
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 
-.rent-login-footer a {
+.rent-login-footer a,
+.rent-login-footer .rent-login-footer__link {
   color: var(--rent-primary);
   text-decoration: none;
   font-weight: 500;
 }
 
+/* 「去注册/去登录」由 <a> 改为 <button>，去除按钮默认外观 */
+.rent-login-footer .rent-login-footer__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
 /* ---- 快速登录区：社交按钮 + 「或」分隔 ---- */
 .rent-auth-social {
-  margin-bottom: 4px;
+  margin-bottom: var(--rent-s-1);
 }
 
 /* ---- 方式选择屏：手机号/邮箱入口按钮列 ---- */
 .rent-login-methods {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 
 /* ---- 表单屏：左上角返回箭头 ---- */
@@ -160,7 +171,7 @@
   background: #ffffff;
   color: #1a1a1b;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--motion-fast);
 }
 
 .rent-login-back__btn:hover {
@@ -206,6 +217,6 @@
 
 @media (max-width: 520px) {
   .rent-login-card__title {
-    font-size: 24px;
+    font-size: var(--rent-fs-2xl);
   }
 }

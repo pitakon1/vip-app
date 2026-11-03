@@ -14,7 +14,7 @@
 .rent-form-select.income-month-select {
   width: auto;
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
 }
 
 /* 表格包裹层去除多余边框（卡片内嵌） */
@@ -36,7 +36,7 @@
 }
 .rent-form-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 500;
   color: var(--rent-ink);
   margin-bottom: 6px;
@@ -48,12 +48,12 @@
   padding: 9px 12px;
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-family: var(--rent-font-sans);
   color: var(--rent-ink);
   background: var(--rent-surface);
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .rent-form-input:focus,
 .rent-form-select:focus,
@@ -66,13 +66,13 @@
   min-height: 80px;
 }
 .rent-form-hint {
-  font-size: 12px;
-  color: var(--rent-ink-3);
-  margin-top: 4px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
+  margin-top: var(--rent-s-1);
 }
 .rent-form-row {
   display: flex;
-  gap: 16px;
+  gap: var(--rent-s-4);
 }
 .rent-form-row > * {
   flex: 1;
@@ -89,9 +89,9 @@
 .rent-pagination {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
   justify-content: flex-end;
-  padding: 16px 0;
+  padding: var(--rent-s-4) 0;
 }
 .rent-pagination__btn {
   min-width: 32px;
@@ -102,10 +102,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   cursor: pointer;
-  padding: 0 8px;
+  padding: 0 var(--rent-s-2);
   font-family: var(--rent-font-sans);
 }
 .rent-pagination__btn:hover {
@@ -123,7 +123,7 @@
   padding: 10px;
   background: var(--rent-sidebar-active);
   color: var(--rent-primary);
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   border-radius: var(--rent-radius-md);
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
 }

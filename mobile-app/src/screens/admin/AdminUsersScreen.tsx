@@ -1,3 +1,4 @@
+﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 员工管理
  * 原型：admin-mobile-employees.html
@@ -21,6 +22,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
@@ -165,7 +167,7 @@ export default function AdminUsersScreen() {
 
   const fetchData = useCallback(async () => {
     const [empRes, leadRes, meRes] = await Promise.allSettled([
-      employeesApi.list({ page: 1, page_size: 100, user_type: userType === 'all' ? undefined : userType }),
+      employeesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE, user_type: userType === 'all' ? undefined : userType }),
       employeesApi.leaderboard(),
       authApi.me(),
     ]);
@@ -185,9 +187,6 @@ export default function AdminUsersScreen() {
         const items = (d.items ?? d ?? []) as EmployeeRow[];
         setEmployees(items);
         setTotal(typeof d.total === 'number' ? d.total : items.length);
-      } else {
-        setEmployees([]);
-        setTotal(0);
       }
       if (leadRes.status === 'fulfilled') {
         const rows = ((leadRes.value as any)?.data ?? []) as LeaderRow[];
@@ -284,7 +283,7 @@ export default function AdminUsersScreen() {
     try {
       const { data } = await usersAdminApi.list({
         keyword: emp.email ?? emp.full_name ?? '',
-        page_size: 10,
+        page_size: LIST_PAGE_SIZE,
       });
       const d = data?.data ?? data;
       const items: any[] = d?.items ?? d ?? [];
@@ -647,27 +646,30 @@ export default function AdminUsersScreen() {
         />
       )}
 
-      <Modal visible={!!pwdTarget} transparent animationType="fade" onRequestClose={() => { setPwdTarget(null); setPwdError(''); }}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {t('acc.resetPwdTitle', { name: pwdTarget?.full_name ?? '' })}
-            </Text>
-            <Text style={styles.modalLabel}>{t('acc.newPwd')}</Text>
-            <TextInput
-              style={[styles.modalInput, !!pwdError && styles.modalInputError]}
-              value={newPwd}
-              onChangeText={(t) => {
-                setNewPwd(t);
-                if (pwdError) setPwdError('');
-              }}
-              placeholder={t('acc.newPwdPlaceholder')}
-              placeholderTextColor={colors.ink3}
-              secureTextEntry
-              autoFocus
-            />
-            {!!pwdError && <Text style={styles.fieldError}>{pwdError}</Text>}
-            <View style={styles.modalActions}>
+      <Modal visible={!!pwdTarget} transparent animationType="slide" onRequestClose={() => { setPwdTarget(null); setPwdError(''); }}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>
+                {t('acc.resetPwdTitle', { name: pwdTarget?.full_name ?? '' })}
+              </Text>
+              <Text style={styles.modalLabel}>{t('acc.newPwd')}</Text>
+              <TextInput
+                style={[styles.modalInput, !!pwdError && styles.modalInputError]}
+                value={newPwd}
+                onChangeText={(t) => {
+                  setNewPwd(t);
+                  if (pwdError) setPwdError('');
+                }}
+                placeholder={t('acc.newPwdPlaceholder')}
+                placeholderTextColor={colors.ink3}
+                secureTextEntry
+                autoFocus
+              />
+              {!!pwdError && <Text style={styles.fieldError}>{pwdError}</Text>}
+            </ScrollView>
+            <View style={styles.bsActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => { setPwdTarget(null); setPwdError(''); }} accessibilityRole="button">
                 <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
               </TouchableOpacity>
@@ -680,98 +682,101 @@ export default function AdminUsersScreen() {
       </Modal>
 
       {/* 新建员工账号 */}
-      <Modal visible={showCreate} transparent animationType="fade" onRequestClose={() => setShowCreate(false)}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('acc.createTitle')}</Text>
-            <Text style={styles.modalLabel}>{t('acc.name')} *</Text>
-            <TextInput
-              style={[styles.modalInput, !!formErr.full_name && styles.modalInputError]}
-              value={form.full_name}
-              onChangeText={(t) => {
-                setForm((f) => ({ ...f, full_name: t }));
-                if (formErr.full_name) setFormErr((e) => ({ ...e, full_name: undefined }));
-              }}
-              placeholder={t('acc.namePlaceholder')}
-              placeholderTextColor={colors.ink3}
-              autoFocus
-            />
-            {!!formErr.full_name && <Text style={styles.fieldError}>{formErr.full_name}</Text>}
-            <Text style={styles.modalLabel}>{t('acc.email')} *</Text>
-            <TextInput
-              style={[styles.modalInput, !!formErr.email && styles.modalInputError]}
-              value={form.email}
-              onChangeText={(t) => {
-                setForm((f) => ({ ...f, email: t }));
-                if (formErr.email) setFormErr((e) => ({ ...e, email: undefined }));
-              }}
-              placeholder={t('acc.emailPlaceholder')}
-              placeholderTextColor={colors.ink3}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            {!!formErr.email && <Text style={styles.fieldError}>{formErr.email}</Text>}
-            <Text style={styles.modalLabel}>{t('acc.role')}</Text>
-            <View style={styles.roleChipRow}>
-              {CREATE_ROLE_KEYS.map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.roleChip, form.role === key && styles.roleChipActive]}
-                  activeOpacity={0.8}
-                  onPress={() => setForm((f) => ({ ...f, role: key }))}
-                >
-                  <Text style={[styles.roleChipText, form.role === key && styles.roleChipTextActive]}>
-                    {t(`perm.role.${key}`)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {form.role === 'partner_admin' && (
-              <>
-                <Text style={styles.modalLabel}>{t('acc.createPartner')}</Text>
-                {!!formErr.partner_id && <Text style={styles.fieldError}>{formErr.partner_id}</Text>}
-                <PartnerSearchPicker
-                  placeholder={t('acc.searchPartnerPlaceholder')}
-                  onSelect={(id) => {
-                    setForm((f) => ({ ...f, partner_id: id }));
-                    if (formErr.partner_id) setFormErr((e) => ({ ...e, partner_id: undefined }));
-                  }}
-                  onQueryEdited={() => {
-                    if (form.partner_id) setForm((f) => ({ ...f, partner_id: '' }));
-                  }}
-                />
-              </>
-            )}
-            <Text style={styles.modalLabel}>{t('acc.deptOptional')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={form.department}
-              onChangeText={(t) => setForm((f) => ({ ...f, department: t }))}
-              placeholder={t('acc.deptPlaceholder')}
-              placeholderTextColor={colors.ink3}
-            />
-            <Text style={styles.modalLabel}>{t('acc.positionOptional')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={form.position}
-              onChangeText={(t) => setForm((f) => ({ ...f, position: t }))}
-              placeholder={t('acc.positionPlaceholder')}
-              placeholderTextColor={colors.ink3}
-            />
-            <Text style={styles.modalLabel}>{t('acc.initPwd')} *</Text>
-            <TextInput
-              style={[styles.modalInput, !!formErr.password && styles.modalInputError]}
-              value={form.password}
-              onChangeText={(t) => {
-                setForm((f) => ({ ...f, password: t }));
-                if (formErr.password) setFormErr((e) => ({ ...e, password: undefined }));
-              }}
-              placeholder={t('acc.initPwdPlaceholder')}
-              placeholderTextColor={colors.ink3}
-              secureTextEntry
-            />
-            {!!formErr.password && <Text style={styles.fieldError}>{formErr.password}</Text>}
-            <View style={styles.modalActions}>
+      <Modal visible={showCreate} transparent animationType="slide" onRequestClose={() => setShowCreate(false)}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>{t('acc.createTitle')}</Text>
+              <Text style={styles.modalLabel}>{t('acc.name')} *</Text>
+              <TextInput
+                style={[styles.modalInput, !!formErr.full_name && styles.modalInputError]}
+                value={form.full_name}
+                onChangeText={(t) => {
+                  setForm((f) => ({ ...f, full_name: t }));
+                  if (formErr.full_name) setFormErr((e) => ({ ...e, full_name: undefined }));
+                }}
+                placeholder={t('acc.namePlaceholder')}
+                placeholderTextColor={colors.ink3}
+                autoFocus
+              />
+              {!!formErr.full_name && <Text style={styles.fieldError}>{formErr.full_name}</Text>}
+              <Text style={styles.modalLabel}>{t('acc.email')} *</Text>
+              <TextInput
+                style={[styles.modalInput, !!formErr.email && styles.modalInputError]}
+                value={form.email}
+                onChangeText={(t) => {
+                  setForm((f) => ({ ...f, email: t }));
+                  if (formErr.email) setFormErr((e) => ({ ...e, email: undefined }));
+                }}
+                placeholder={t('acc.emailPlaceholder')}
+                placeholderTextColor={colors.ink3}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              {!!formErr.email && <Text style={styles.fieldError}>{formErr.email}</Text>}
+              <Text style={styles.modalLabel}>{t('acc.role')}</Text>
+              <View style={styles.roleChipRow}>
+                {CREATE_ROLE_KEYS.map((key) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.roleChip, form.role === key && styles.roleChipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setForm((f) => ({ ...f, role: key }))}
+                  >
+                    <Text style={[styles.roleChipText, form.role === key && styles.roleChipTextActive]}>
+                      {t(`perm.role.${key}`)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {form.role === 'partner_admin' && (
+                <>
+                  <Text style={styles.modalLabel}>{t('acc.createPartner')}</Text>
+                  {!!formErr.partner_id && <Text style={styles.fieldError}>{formErr.partner_id}</Text>}
+                  <PartnerSearchPicker
+                    placeholder={t('acc.searchPartnerPlaceholder')}
+                    onSelect={(id) => {
+                      setForm((f) => ({ ...f, partner_id: id }));
+                      if (formErr.partner_id) setFormErr((e) => ({ ...e, partner_id: undefined }));
+                    }}
+                    onQueryEdited={() => {
+                      if (form.partner_id) setForm((f) => ({ ...f, partner_id: '' }));
+                    }}
+                  />
+                </>
+              )}
+              <Text style={styles.modalLabel}>{t('acc.deptOptional')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={form.department}
+                onChangeText={(t) => setForm((f) => ({ ...f, department: t }))}
+                placeholder={t('acc.deptPlaceholder')}
+                placeholderTextColor={colors.ink3}
+              />
+              <Text style={styles.modalLabel}>{t('acc.positionOptional')}</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={form.position}
+                onChangeText={(t) => setForm((f) => ({ ...f, position: t }))}
+                placeholder={t('acc.positionPlaceholder')}
+                placeholderTextColor={colors.ink3}
+              />
+              <Text style={styles.modalLabel}>{t('acc.initPwd')} *</Text>
+              <TextInput
+                style={[styles.modalInput, !!formErr.password && styles.modalInputError]}
+                value={form.password}
+                onChangeText={(t) => {
+                  setForm((f) => ({ ...f, password: t }));
+                  if (formErr.password) setFormErr((e) => ({ ...e, password: undefined }));
+                }}
+                placeholder={t('acc.initPwdPlaceholder')}
+                placeholderTextColor={colors.ink3}
+                secureTextEntry
+              />
+              {!!formErr.password && <Text style={styles.fieldError}>{formErr.password}</Text>}
+            </ScrollView>
+            <View style={styles.bsActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowCreate(false)} accessibilityRole="button">
                 <Text style={styles.modalCancelText}>{t('acc.cancel')}</Text>
               </TouchableOpacity>
@@ -793,33 +798,36 @@ export default function AdminUsersScreen() {
       <Modal
         visible={!!roleTarget}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setRoleTarget(null)}
       >
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {t('acc.roleTitle', { name: roleTarget?.full_name || t('acc.title') })}
-            </Text>
-            <Text style={styles.modalLabel}>{t('acc.role')}</Text>
-            <View style={styles.roleChipRow}>
-              {ROLE_KEYS.map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.roleChip, roleDraft === key && styles.roleChipActive]}
-                  activeOpacity={0.8}
-                  onPress={() => setRoleDraft(key)}
-                >
-                  <Text style={[styles.roleChipText, roleDraft === key && styles.roleChipTextActive]}>
-                    {t(`perm.role.${key}`)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.roleHint}>
-              {roleLoading ? t('acc.roleLoading') : t('acc.roleHint')}
-            </Text>
-            <View style={styles.modalActions}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>
+                {t('acc.roleTitle', { name: roleTarget?.full_name || t('acc.title') })}
+              </Text>
+              <Text style={styles.modalLabel}>{t('acc.role')}</Text>
+              <View style={styles.roleChipRow}>
+                {ROLE_KEYS.map((key) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.roleChip, roleDraft === key && styles.roleChipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setRoleDraft(key)}
+                  >
+                    <Text style={[styles.roleChipText, roleDraft === key && styles.roleChipTextActive]}>
+                      {t(`perm.role.${key}`)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.roleHint}>
+                {roleLoading ? t('acc.roleLoading') : t('acc.roleHint')}
+              </Text>
+            </ScrollView>
+            <View style={styles.bsActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalCancel]}
                 activeOpacity={0.7}
@@ -846,34 +854,37 @@ export default function AdminUsersScreen() {
       <Modal
         visible={!!assignTarget}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setAssignTarget(null)}
       >
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {t('acc.assignCompanyTitle', { name: assignTarget?.full_name || t('acc.title') })}
-            </Text>
-            <Text style={styles.modalLabel}>{t('acc.currentCompany')}</Text>
-            <Text style={styles.assignCurrent}>
-              {assignTarget?.partner_name || t('acc.noCompany')}
-            </Text>
-            <Text style={styles.modalLabel}>{t('acc.chooseCompany')}</Text>
-            <PartnerSearchPicker
-              placeholder={t('acc.searchPartnerPlaceholder')}
-              disabled={assignSaving}
-              onSelect={(id, name) => doAssign(id, name)}
-            />
-            <TouchableOpacity
-              style={styles.assignMoveOut}
-              activeOpacity={0.7}
-              disabled={assignSaving}
-              onPress={() => doAssign(null)}
-            >
-              <Ionicons name="person-outline" size={16} color={colors.ink2} />
-              <Text style={styles.assignMoveOutText}>{t('acc.moveToPlatform')}</Text>
-            </TouchableOpacity>
-            <View style={styles.modalActions}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>
+                {t('acc.assignCompanyTitle', { name: assignTarget?.full_name || t('acc.title') })}
+              </Text>
+              <Text style={styles.modalLabel}>{t('acc.currentCompany')}</Text>
+              <Text style={styles.assignCurrent}>
+                {assignTarget?.partner_name || t('acc.noCompany')}
+              </Text>
+              <Text style={styles.modalLabel}>{t('acc.chooseCompany')}</Text>
+              <PartnerSearchPicker
+                placeholder={t('acc.searchPartnerPlaceholder')}
+                disabled={assignSaving}
+                onSelect={(id, name) => doAssign(id, name)}
+              />
+              <TouchableOpacity
+                style={styles.assignMoveOut}
+                activeOpacity={0.7}
+                disabled={assignSaving}
+                onPress={() => doAssign(null)}
+              >
+                <Ionicons name="person-outline" size={16} color={colors.ink2} />
+                <Text style={styles.assignMoveOutText}>{t('acc.moveToPlatform')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <View style={styles.bsActions}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalCancel]}
                 activeOpacity={0.7}
@@ -930,7 +941,8 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
     borderWidth: 1,
@@ -1013,6 +1025,14 @@ const styles = StyleSheet.create({
   actionLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actionText: { fontSize: 12, color: colors.primary, fontWeight: '600' },
 
+  /* ===== 底部弹层（抽自 theme/bottomSheetStyles.ts） ===== */
+  bsMask: bottomSheetStyles.bsMask,
+  bsSheet: bottomSheetStyles.bsSheet,
+  bsGrabber: bottomSheetStyles.bsGrabber,
+  bsContent: bottomSheetStyles.bsContent,
+  bsActions: bottomSheetStyles.bsActions,
+
+  /* 保留旧 modalMask/modalCard 供其他页面引用（本文件已不用） */
   modalMask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'center', padding: 32 },
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 14 },
@@ -1039,7 +1059,7 @@ const styles = StyleSheet.create({
   roleChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
   roleChipText: { fontSize: 13, color: colors.ink2 },
   roleChipTextActive: { color: colors.primary, fontWeight: '700' },
-  companyChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  companychip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
   roleHint: { fontSize: 12, color: colors.ink3, marginBottom: 16 },
   assignCurrent: { fontSize: 13, color: colors.ink, fontWeight: '600', marginBottom: 14 },
   assignList: { marginBottom: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },

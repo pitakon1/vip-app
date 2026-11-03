@@ -14,14 +14,14 @@
   height: 58%;
   min-height: 320px;
   background: #ffffff;
-  border-radius: 18px 18px 0 0;
+  border-radius: var(--rent-radius-lg) 18px 0 0;
   display: flex;
   flex-direction: column;
   box-shadow: 0 -10px 30px rgba(28, 39, 51, 0.12);
 }
 
 .lp-head {
-  padding: 16px 16px 8px;
+  padding: var(--rent-s-4) var(--rent-s-4) var(--rent-s-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -29,7 +29,7 @@
 }
 
 .lp-title {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   color: #1c2733;
 }
@@ -40,7 +40,7 @@
   font-size: 18px;
   color: #98a1ab;
   cursor: pointer;
-  padding: 4px;
+  padding: var(--rent-s-1);
   line-height: 1;
 }
 
@@ -99,7 +99,7 @@
 
 .lp-right {
   flex: 1;
-  padding: 0 12px;
+  padding: 0 var(--rent-s-3);
   overflow-y: auto;
 }
 
@@ -129,11 +129,11 @@
 .lp-right-sub {
   font-size: 11px;
   color: #98a1ab;
-  margin: 0 8px;
+  margin: 0 var(--rent-s-2);
 }
 
 .lp-right-check {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   color: #98a1ab;
   line-height: 1;
 }

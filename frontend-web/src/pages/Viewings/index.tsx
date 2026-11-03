@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty } from 'antd'
+import { message } from 'antd'
 import { viewingsApi } from '@/services/api'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
 import './viewings.css'
+import { errorText } from '@/lib/errorText'
 
 type ViewingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
 
@@ -40,14 +43,17 @@ const Viewings = () => {
   const [items, setItems] = useState<Viewing[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  // 列表加载失败单独记录：失败时保留上一次数据并展示重试，避免误读为「暂无数据」
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [submittingId, setSubmittingId] = useState<string | null>(null)
   const [queryParams, setQueryParams] = useState<QueryParams>({
     page: 1,
-    pageSize: 10,
+    pageSize: LIST_PAGE_SIZE,
   })
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await viewingsApi.list({
         page: queryParams.page,
@@ -59,11 +65,11 @@ const Viewings = () => {
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('viewings.errLoad'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [queryParams])
+  }, [queryParams, t])
 
   useEffect(() => {
     fetchData()
@@ -76,7 +82,7 @@ const Viewings = () => {
       message.success(t('viewings.msgStatusUpdated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('viewings.errUpdate'))
+      message.error(errorText(err, t('viewings.errUpdate')))
     } finally {
       setSubmittingId(null)
     }
@@ -144,8 +150,16 @@ const Viewings = () => {
       </div>
 
       {/* Table */}
-      {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
+      {loadError && items.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+      ) : loading && items.length === 0 ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
+      ) : items.length === 0 ? (
+        <DataState
+          empty
+          filtered={!!(queryParams.status || queryParams.property_id)}
+          emptyTitle={t('viewings.empty')}
+        />
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
@@ -162,9 +176,6 @@ const Viewings = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && (
-                <tr><td colSpan={8}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('viewings.empty')} /></td></tr>
-              )}
               {items.map((v) => {
                 const meta = STATUS_META[v.status] || STATUS_META.pending
                 const next = counts.nextStatus(v.status)

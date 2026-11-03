@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useEffect, useState } from 'react'
-import { Empty, message } from 'antd'
+import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { saleListingApi, propertyDealApi, propertiesApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
+import { errorText } from '@/lib/errorText'
 
 /* ===== 看板列定义（覆盖全部挂牌状态） ===== */
 const LISTING_KANBAN_COLUMNS: { key: string; title: string; statuses: string[] }[] = [
@@ -137,7 +140,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   const loadPropertyOptions = async () => {
     try {
-      const res = await propertiesApi.list({ page: 1, pageSize: 100 })
+      const res = await propertiesApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       setPropertyOptions(payload?.items ?? [])
     } catch {
@@ -154,7 +157,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     queryKey: ['sale-listings', String(page), saleType, status],
     cacheKey: `sale-listings:${page}:${saleType}:${status}`,
     queryFn: async () => {
-      const res = await saleListingApi.list({ page, pageSize: 10, sale_type: saleType || undefined, status: status || undefined })
+      const res = await saleListingApi.list({ page, pageSize: LIST_PAGE_SIZE, sale_type: saleType || undefined, status: status || undefined })
       const payload = res.data?.data ?? res.data
       return { items: payload?.items ?? [], total: payload?.total ?? 0 }
     },
@@ -163,10 +166,6 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const total = listingsQ.data?.total ?? 0
   const loading = listingsQ.isPending && !listingsQ.data
   const refresh = () => { void listingsQ.refetch({ cancelRefetch: false }) }
-
-  useEffect(() => {
-    if (listingsQ.isError) message.error((listingsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchListings'))
-  }, [listingsQ.isError, listingsQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
@@ -199,7 +198,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       setForm({ title: '', sale_type: 'sell', property_id: '', asking_price: '', currency: 'THB', address: '', size_sqm: '', bedrooms: '', bathrooms: '', description: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errPublishFailed'))
+      message.error(errorText(e, t('saleDeals.errPublishFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -211,7 +210,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       message.success(t('saleDeals.msgStatusUpdated'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errUpdateFailed'))
+      message.error(errorText(e, t('saleDeals.errUpdateFailed')))
     }
   }
 
@@ -220,7 +219,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       const res = await saleListingApi.valuations(listing.id)
       setValOpen({ listing, items: res.data ?? [] })
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errFetchValuations'))
+      message.error(errorText(e, t('saleDeals.errFetchValuations')))
     }
   }
 
@@ -253,43 +252,45 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
           <span className="rent-badge rent-badge--neutral">{t('saleDeals.totalCount', { count: total })}</span>
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
-          ) : view === 'kanban' ? (
-            items.length === 0 ? (
-              <div className="rent-empty"><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('saleDeals.emptyListings')} /></div>
-            ) : (
-              <div className="rent-kanban" style={{ padding: '18px 22px' }}>
-                {LISTING_KANBAN_COLUMNS.map((col) => {
-                  const colItems = items.filter((it) => col.statuses.includes(it.status || 'active'))
-                  return (
-                    <div className="rent-kanban__column" key={col.key}>
-                      <div className="rent-kanban__column-header">
-                        <span className="rent-kanban__column-title">{t(col.title)}</span>
-                        <span className="rent-kanban__column-count">{colItems.length}</span>
-                      </div>
-                      {colItems.length === 0 ? (
-                        <div className="rent-text-muted" style={{ fontSize: 12, padding: '8px 2px' }}>—</div>
-                      ) : colItems.map((it) => (
-                        <div className="rent-kanban__card" key={it.id}>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{it.title || it.address || '—'}</div>
-                          <div className="rent-num" style={{ color: 'var(--rent-primary)', fontWeight: 700, margin: '4px 0 6px' }}>
-                            {it.currency ? `${it.currency} ` : ''}{fmtMoney(it.asking_price)}
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>
-                            {SALE_TYPE[it.sale_type || ''] ? t(SALE_TYPE[it.sale_type || '']) : '—'}
-                            {it.size_sqm != null ? ` · ${it.size_sqm}㎡` : ''}
-                            {it.bedrooms != null ? ` · ${it.bedrooms}${t('saleDeals.unitRoomSuffix')}` : ''}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            )
+          {listingsQ.isError && !listingsQ.data ? (
+            <DataState error={t('common.loadFailed')} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyListings')}</div>
+            <DataState
+              empty
+              filtered={!!(saleType || status)}
+              emptyTitle={t('saleDeals.emptyListings')}
+            />
+          ) : view === 'kanban' ? (
+            <div className="rent-kanban" style={{ padding: '18px 22px' }}>
+              {LISTING_KANBAN_COLUMNS.map((col) => {
+                const colItems = items.filter((it) => col.statuses.includes(it.status || 'active'))
+                return (
+                  <div className="rent-kanban__column" key={col.key}>
+                    <div className="rent-kanban__column-header">
+                      <span className="rent-kanban__column-title">{t(col.title)}</span>
+                      <span className="rent-kanban__column-count">{colItems.length}</span>
+                    </div>
+                    {colItems.length === 0 ? (
+                      <div className="rent-text-muted" style={{ fontSize: 12, padding: '8px 2px' }}>—</div>
+                    ) : colItems.map((it) => (
+                      <div className="rent-kanban__card" key={it.id}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{it.title || it.address || '—'}</div>
+                        <div className="rent-num" style={{ color: 'var(--rent-primary)', fontWeight: 700, margin: '4px 0 6px' }}>
+                          {it.currency ? `${it.currency} ` : ''}{fmtMoney(it.asking_price)}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--rent-ink-2)' }}>
+                          {SALE_TYPE[it.sale_type || ''] ? t(SALE_TYPE[it.sale_type || '']) : '—'}
+                          {it.size_sqm != null ? ` · ${it.size_sqm}㎡` : ''}
+                          {it.bedrooms != null ? ` · ${it.bedrooms}${t('saleDeals.unitRoomSuffix')}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -464,7 +465,7 @@ const ValuationForm = ({ listingId, defaultForm, onDone }: { listingId: string; 
       message.success(t('saleDeals.msgValuationSubmitted'))
       onDone()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errValuationFailed'))
+      message.error(errorText(e, t('saleDeals.errValuationFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -503,7 +504,7 @@ const DealTab = () => {
     queryKey: ['property-deals', String(page), status],
     cacheKey: `property-deals:${page}:${status}`,
     queryFn: async () => {
-      const res = await propertyDealApi.list({ page, pageSize: 10, status: status || undefined })
+      const res = await propertyDealApi.list({ page, pageSize: LIST_PAGE_SIZE, status: status || undefined })
       const payload = res.data?.data ?? res.data
       return { items: payload?.items ?? [], total: payload?.total ?? 0 }
     },
@@ -513,13 +514,9 @@ const DealTab = () => {
   const loading = dealsQ.isPending && !dealsQ.data
   const refresh = () => { void dealsQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => {
-    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchDeals'))
-  }, [dealsQ.isError, dealsQ.error])
-
   const loadListings = async () => {
     try {
-      const res = await saleListingApi.list({ pageSize: 100, status: 'active' })
+      const res = await saleListingApi.list({ pageSize: OPTION_PAGE_SIZE, status: 'active' })
       const payload = res.data?.data ?? res.data
       setListings(payload?.items ?? [])
     } catch { /* 忽略 */ }
@@ -544,7 +541,7 @@ const DealTab = () => {
       setCreateOpen(false)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errCreateFailed'))
+      message.error(errorText(e, t('saleDeals.errCreateFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -558,7 +555,7 @@ const DealTab = () => {
       message.success(t('saleDeals.msgStatusAdvanced'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errAdvanceFailed'))
+      message.error(errorText(e, t('saleDeals.errAdvanceFailed')))
     }
   }
 
@@ -576,10 +573,12 @@ const DealTab = () => {
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardDeals')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.totalCount', { count: total })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {dealsQ.isError && !dealsQ.data ? (
+            <DataState error={t('common.loadFailed')} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyDeals')}</div>
+            <DataState empty filtered={!!status} emptyTitle={t('saleDeals.emptyDeals')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -668,7 +667,7 @@ const EscrowTab = () => {
     queryKey: ['property-deals', 'options'],
     cacheKey: 'property-deals:options',
     queryFn: async () => {
-      const res = await propertyDealApi.list({ page: 1, pageSize: 100 })
+      const res = await propertyDealApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       return payload?.items ?? []
     },
@@ -680,7 +679,7 @@ const EscrowTab = () => {
   }, [dealId, deals])
 
   useEffect(() => {
-    if (dealsQ.isError) message.error((dealsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchDeals'))
+    if (dealsQ.isError) message.error(errorText((dealsQ.error as any), t('saleDeals.errFetchDeals')))
   }, [dealsQ.isError, dealsQ.error])
 
   // 托管记录：按所选成交缓存
@@ -696,10 +695,6 @@ const EscrowTab = () => {
   const escrows = escrowsQ.data ?? []
   const refreshEscrows = () => { void escrowsQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => {
-    if (escrowsQ.isError) message.error((escrowsQ.error as any)?.response?.data?.message || t('saleDeals.errFetchEscrows'))
-  }, [escrowsQ.isError, escrowsQ.error])
-
   const handleRegister = async () => {
     if (!form.amount) {
       message.error(t('saleDeals.errEscrowAmountRequired'))
@@ -713,7 +708,7 @@ const EscrowTab = () => {
       setForm({ amount: '', currency: 'THB' })
       refreshEscrows()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errRegisterFailed'))
+      message.error(errorText(e, t('saleDeals.errRegisterFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -726,7 +721,7 @@ const EscrowTab = () => {
       message.success(type === 'release' ? t('saleDeals.msgReleasedSeller') : t('saleDeals.msgRefundedBuyer'))
       refreshEscrows()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('saleDeals.errOpFailed'))
+      message.error(errorText(e, t('saleDeals.errOpFailed')))
     }
   }
 
@@ -746,8 +741,12 @@ const EscrowTab = () => {
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('saleDeals.cardEscrows')}</h3><span className="rent-badge rent-badge--neutral">{t('saleDeals.countUnit', { count: escrows.length })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {escrows.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('saleDeals.emptyEscrows')}</div>
+          {escrowsQ.isError && !escrowsQ.data ? (
+            <DataState error={t('common.loadFailed')} retryText={t('common.retry')} onRetry={refreshEscrows} />
+          ) : escrowsQ.isPending && !escrowsQ.data && !!dealId ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
+          ) : escrows.length === 0 ? (
+            <DataState empty emptyTitle={t('saleDeals.emptyEscrows')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">

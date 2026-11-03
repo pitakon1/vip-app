@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { errorText } from '@/lib/errorText'
 
 const PAYMENTS_KEY = (uid: string): string[] => ['payments', 'mine', uid];
 
@@ -108,8 +109,8 @@ const monthLabel = (t: TFunc, x?: string) => {
   return t('pay.yearMonth', { y: d.getFullYear(), m: d.getMonth() + 1 });
 };
 
-// 是否已支付（含 succeeded 与历史 paid 两种状态）
-const isPaid = (p: Payment) => p.status === 'succeeded' || p.status === 'paid';
+// 是否已支付（后端枚举 succeeded）
+const isPaid = (p: Payment) => p.status === 'succeeded';
 
 // react-native-web 下 `Alert.alert` 是空实现，统一降级浏览器原生 alert
 const notify = (title?: string, message?: string) => {
@@ -287,7 +288,7 @@ function TenantPaymentsView() {
         notify(t('pay.submittedTitle'), t('pay.submittedMsg'));
       }
     } catch (err: any) {
-      notify(t('pay.status.failed'), err?.response?.data?.detail || t('prop.retryLater'));
+      notify(t('pay.status.failed'),errorText(err, t('prop.retryLater')));
     } finally {
       setPayingId(null);
     }
@@ -312,7 +313,7 @@ function TenantPaymentsView() {
       ].join('\n');
       notify(t('pay.receiptTitle'), lines);
     } catch (err: any) {
-      notify(t('pay.receiptFail'), err?.response?.data?.detail || t('prop.retryLater'));
+      notify(t('pay.receiptFail'),errorText(err, t('prop.retryLater')));
     }
   };
 
@@ -326,7 +327,7 @@ function TenantPaymentsView() {
     } catch (err: any) {
       setInvoiceItem(null);
       setInvoiceData(null);
-      notify(t('pay.invoiceFail'), err?.response?.data?.detail || t('prop.retryLater'));
+      notify(t('pay.invoiceFail'),errorText(err, t('prop.retryLater')));
     } finally {
       setInvoiceLoading(false);
     }
@@ -553,7 +554,7 @@ function OwnerPaymentsView() {
         notify(t('pay.submittedTitle'), t('pay.submittedMsg'));
       }
     } catch (err: any) {
-      notify(t('pay.status.failed'), err?.response?.data?.detail || t('prop.retryLater'));
+      notify(t('pay.status.failed'),errorText(err, t('prop.retryLater')));
     }
   };
 
@@ -715,7 +716,7 @@ const styles = StyleSheet.create({
   heroStatLabel: { fontSize: 11, color: colors.alpha('255, 255, 255', 0.7), marginBottom: 2 },
   heroStatVal: { fontSize: 17, fontWeight: '700', color: colors.primaryForeground, fontVariant: ['tabular-nums'] },
   chips: { flexDirection: 'row', gap: 8, marginHorizontal: 12, marginBottom: 12 },
-  chip: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 7, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 14, fontWeight: '500', color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },

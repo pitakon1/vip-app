@@ -1,3 +1,5 @@
+﻿import { MENU_ICONS, type MenuIconKey } from '@/constants/menuIcons'
+
 /**
  * 角色菜单单一配置源（Web 端）。
  *
@@ -9,7 +11,7 @@
  * 字段说明：
  *   labelKey       侧边栏展示文案的 i18n key（menu.*）
  *   mobileLabelKey 底部 Tab 展示文案的 i18n key（portal.*，消费端文案与原形态一致，缺省回落 labelKey）
- *   icon           栅格 SVG path 的 d
+ *   iconKey        菜单图标常量键名（取值见 constants/menuIcons.ts 枚举）
  *   key            路由路径（移动端底部 Tab 也复用同一 key 判断选中态）
  */
 
@@ -20,8 +22,8 @@ export interface RoleMenuItem {
   labelKey: string
   /** 底部 Tab 文案 i18n key（portal.*），缺省回落 labelKey */
   mobileLabelKey?: string
-  /** 栅格 SVG path 的 d */
-  icon: string
+  /** 菜单图标键名（constants/menuIcons.ts） */
+  iconKey: MenuIconKey
 }
 
 export interface RoleMenuSection {
@@ -44,34 +46,34 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/tenant/dashboard',
           labelKey: 'menu.myHome',
           mobileLabelKey: 'portal.home',
-          icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z',
+          iconKey: 'PANELS',
         },
         {
           key: '/tenant/listings',
           labelKey: 'menu.browseProperties',
-          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+          iconKey: 'BUILDING',
         },
         {
           key: '/tenant/my-properties',
           labelKey: 'menu.myProperties',
-          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+          iconKey: 'BUILDING',
         },
         {
           key: '/tenant/my-listings',
           labelKey: 'menu.myListings',
-          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+          iconKey: 'GRID_4',
         },
         {
           key: '/tenant/marketing',
           labelKey: 'menu.marketing',
           mobileLabelKey: 'portal.marketing',
-          icon: 'M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z M14 8a4 4 0 0 1 0 8',
+          iconKey: 'MEGAPHONE',
         },
         {
           key: '/tenant/income',
           labelKey: 'menu.income',
           mobileLabelKey: 'portal.income',
-          icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+          iconKey: 'DOLLAR',
         },
       ],
     },
@@ -82,35 +84,35 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/tenant/payments',
           labelKey: 'menu.myPayments',
           mobileLabelKey: 'portal.payments',
-          icon: 'M1 4h22v16H1z M1 10h23',
+          iconKey: 'CREDIT_CARD',
         },
         {
           key: '/tenant/maintenance',
           labelKey: 'menu.maintenance',
           mobileLabelKey: 'portal.maintenance',
-          icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+          iconKey: 'WRENCH',
         },
         {
           key: '/tenant/documents',
           labelKey: 'menu.documents',
           mobileLabelKey: 'portal.documents',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6',
+          iconKey: 'FILE',
         },
         {
           key: '/tenant/services',
           labelKey: 'menu.services',
           mobileLabelKey: 'portal.services',
-          icon: 'M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z',
+          iconKey: 'STAR',
         },
         {
           key: '/tenant/contracts',
           labelKey: 'menu.contracts',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
+          iconKey: 'FILE_CHECK',
         },
         {
           key: '/company',
           labelKey: 'menu.company',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+          iconKey: 'INFO',
         },
       ],
     },
@@ -121,7 +123,7 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/tenant/my',
           labelKey: 'menu.profile',
           mobileLabelKey: 'portal.profile',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+          iconKey: 'INFO',
         },
       ],
     },
@@ -133,7 +135,7 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/employee/dashboard',
           labelKey: 'menu.dashboard',
-          icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z',
+          iconKey: 'PANELS',
         },
       ],
     },
@@ -143,32 +145,32 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/properties',
           labelKey: 'menu.properties',
-          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+          iconKey: 'BUILDING',
         },
         {
           key: '/crm',
           labelKey: 'menu.leads',
-          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
+          iconKey: 'USER',
         },
         {
           key: '/leases',
           labelKey: 'menu.leases',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6',
+          iconKey: 'FILE',
         },
         {
           key: '/chat',
           labelKey: 'menu.chat',
-          icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+          iconKey: 'CHAT',
         },
         {
           key: '/contracts',
           labelKey: 'menu.contracts',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
+          iconKey: 'FILE_CHECK',
         },
         {
           key: '/broker-agreements',
           labelKey: 'menu.brokerAgreements',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 12l2 2 4-4',
+          iconKey: 'FILE_CHECK_ALT',
         },
       ],
     },
@@ -178,22 +180,22 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/employee/attendance',
           labelKey: 'menu.attendance',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2',
+          iconKey: 'CLOCK',
         },
         {
           key: '/employee/performance',
           labelKey: 'menu.performance',
-          icon: 'M12 15l3.5-3.5 M12 3v0 M2 12h2 M20 12h2 M12 22v0',
+          iconKey: 'SPARKLES',
         },
         {
           key: '/employee/contacts',
           labelKey: 'menu.contacts',
-          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
+          iconKey: 'USER',
         },
         {
           key: '/company',
           labelKey: 'menu.company',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+          iconKey: 'INFO',
         },
       ],
     },
@@ -205,7 +207,7 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/dashboard',
           labelKey: 'menu.dashboard',
-          icon: 'M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z',
+          iconKey: 'GRID_4',
         },
       ],
     },
@@ -215,27 +217,27 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/properties',
           labelKey: 'menu.properties',
-          icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22',
+          iconKey: 'BUILDING',
         },
         {
           key: '/crm',
           labelKey: 'menu.leads',
-          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
+          iconKey: 'USER',
         },
         {
           key: '/leases',
           labelKey: 'menu.leases',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6',
+          iconKey: 'FILE',
         },
         {
           key: '/payments',
           labelKey: 'menu.payments',
-          icon: 'M1 4h22v16H1z M1 10h23',
+          iconKey: 'CREDIT_CARD',
         },
         {
           key: '/contracts',
           labelKey: 'menu.contracts',
-          icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 13l2 2 4-4',
+          iconKey: 'FILE_CHECK',
         },
       ],
     },
@@ -245,27 +247,27 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/operations',
           labelKey: 'menu.operationsBoard',
-          icon: 'M3 3v18h18 M7 14l4-5 3 3 5-7',
+          iconKey: 'TREND',
         },
         {
           key: '/viewings',
           labelKey: 'menu.viewings',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2',
+          iconKey: 'CLOCK',
         },
         {
           key: '/trend',
           labelKey: 'menu.trend',
-          icon: 'M18 20V10M12 20V4M6 20v-6',
+          iconKey: 'BARS',
         },
         {
           key: '/commission-rules',
           labelKey: 'menu.commissionRules',
-          icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+          iconKey: 'DOLLAR',
         },
         {
           key: '/attendance-manage',
           labelKey: 'menu.attendanceManage',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2 M3 3l2 2 M21 3l-2 2',
+          iconKey: 'SHIELD_CLOCK',
         },
       ],
     },
@@ -275,67 +277,67 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
         {
           key: '/system/users',
           labelKey: 'menu.accountUsers',
-          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+          iconKey: 'USERS',
         },
         {
           key: '/system/partners',
           labelKey: 'menu.coopPartners',
-          icon: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01',
+          iconKey: 'COLUMNS',
         },
         {
           key: '/system/groups',
           labelKey: 'menu.userGroups',
-          icon: 'M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M18 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M3 21v-1a5 5 0 0 1 5-5 5 5 0 0 1 5 5v1 M21 16.5V21 M19.5 18.75h3',
+          iconKey: 'GROUPED_USERS',
         },
         {
           key: '/system/departments',
           labelKey: 'menu.departments',
-          icon: 'M12 3l9 5-9 5-9-5 9-5z M3 12l9 5 9-5 M3 16l9 5 9-5',
+          iconKey: 'LAYERS',
         },
         {
           key: '/system/data-scopes',
           labelKey: 'menu.dataScopes',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M2 12h20 M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z',
+          iconKey: 'GLOBE',
         },
         {
           key: '/system/options',
           labelKey: 'menu.dataDictionary',
-          icon: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+          iconKey: 'BOOK',
         },
         {
           key: '/system/permissions',
           labelKey: 'menu.rolePermissions',
-          icon: 'M21 2l-2 2 M3 22l2-2 M5 20l-2-2 M3 6h4 M7 6a4 4 0 1 0 8 0 4 4 0 0 0-8 0z M9.5 11.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8z',
+          iconKey: 'KEY',
         },
         {
           key: '/system/review-center',
           labelKey: 'menu.reviewCenter',
-          icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4L12 14.01l-3-3',
+          iconKey: 'CHECK_CIRCLE',
         },
         {
           key: '/operations/listing-review',
           labelKey: 'menu.listingReview',
-          icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+          iconKey: 'CHAT',
         },
         {
           key: '/operations/dedupe-review',
           labelKey: 'menu.dedupeReview',
-          icon: 'M8 3H5a2 2 0 0 0-2 2v3 M8 21H5a2 2 0 0 1-2-2v-3 M21 8V5a2 2 0 0 0-2-2h-3 M21 16v3a2 2 0 0 1-2 2h-3 M3 12h18',
+          iconKey: 'SWAP',
         },
         {
           key: '/employees',
           labelKey: 'menu.employees',
-          icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+          iconKey: 'BADGE_USER',
         },
         {
           key: '/settings',
           labelKey: 'menu.settings',
-          icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+          iconKey: 'COG',
         },
         {
           key: '/company',
           labelKey: 'menu.company',
-          icon: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01',
+          iconKey: 'INFO',
         },
       ],
     },
@@ -348,13 +350,13 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/partner/members',
           labelKey: 'menu.partnerMembers',
           mobileLabelKey: 'menu.partnerMembers',
-          icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 7a4 4 0 1 0 8 0 4 4 0 0 0-8 0',
+          iconKey: 'USER',
         },
         {
           key: '/partner/attendance',
           labelKey: 'menu.partnerAttendance',
           mobileLabelKey: 'menu.partnerAttendance',
-          icon: 'M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+          iconKey: 'CALENDAR',
         },
       ],
     },

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { message, Modal, Spin, Steps } from 'antd'
 import { brokerApi, brokerAgreementsApi, contractsApi } from '@/services/api'
 import './agreements.css'
+import { errorText } from '@/lib/errorText'
 
 interface AgreementState {
   contract_id: string | null
@@ -62,7 +63,7 @@ const BrokerAgreements = () => {
       const res = await brokerAgreementsApi.list(bid)
       setAgreements(res.data?.data ?? res.data)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('brokerAgreements.loadFailed'))
+      message.error(errorText(err, t('brokerAgreements.loadFailed')))
     }
   }, [t])
 
@@ -90,7 +91,7 @@ const BrokerAgreements = () => {
       })
       setModalOpen(true)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('brokerAgreements.startFailed'))
+      message.error(errorText(err, t('brokerAgreements.startFailed')))
     } finally {
       setSigningKey(null)
     }
@@ -111,7 +112,7 @@ const BrokerAgreements = () => {
       const status = err?.response?.status
       const d = err?.response?.data?.detail
       if (status === 403 && d === 'REAL_NAME_REQUIRED') message.error(t('contracts.realNameFirst'))
-      else message.error(d || t('brokerAgreements.signFailed'))
+      else message.error(errorText(err, t('brokerAgreements.signFailed')))
     } finally {
       setSigning(false)
     }
@@ -155,7 +156,7 @@ const BrokerAgreements = () => {
                   </div>
                   <div className="rent-card__body">
                     {signed ? (
-                      <div className="rent-text-sm rent-text-muted">{t('brokerAgreements.effectivePre')}<a onClick={() => window.location.href = '/properties'}>{t('menu.publishListing')}</a>{t('brokerAgreements.effectivePost')}</div>
+                      <div className="rent-text-sm rent-text-muted">{t('brokerAgreements.effectivePre')}<a role="button" tabIndex={0} onClick={() => window.location.href = '/properties'} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = '/properties' } }}>{t('menu.publishListing')}</a>{t('brokerAgreements.effectivePost')}</div>
                     ) : (
                       <button className="rent-btn rent-btn--primary rent-btn--sm" disabled={signingKey === a.key || !brokerId} onClick={() => startSign(a.key, a.role)}>
                         {signingKey === a.key ? t('brokerAgreements.generating') : t('brokerAgreements.startSign')}

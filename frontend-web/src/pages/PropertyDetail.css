@@ -13,27 +13,27 @@
 .rent-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
 }
 .rent-table thead th {
   background: var(--rent-surface-2);
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   text-align: left;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   border-bottom: 1px solid var(--rent-border);
   white-space: nowrap;
 }
 .rent-table tbody td {
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   border-bottom: 1px solid var(--rent-border);
   color: var(--rent-ink);
   vertical-align: middle;
 }
 .rent-table tbody tr:last-child td { border-bottom: none; }
 .rent-table tbody tr:hover { background: var(--rent-surface-2); }
-.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: var(--rent-fs-sm); }
 /* 金额/数值列：右对齐 + 等宽数字，便于纵向比对 */
 .rent-table thead th.rent-money,
 .rent-table tbody td.rent-money {
@@ -46,7 +46,7 @@
 .rent-divider {
   height: 1px;
   background: var(--rent-border);
-  margin: 16px 0;
+  margin: var(--rent-s-4) 0;
   border: none;
 }
 
@@ -55,24 +55,24 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
   color: var(--rent-ink-2);
   text-decoration: none;
   padding: 6px 0;
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
   background: transparent;
   border: none;
   cursor: pointer;
   font-family: var(--rent-font-sans);
-  transition: color 0.15s;
+  transition: color var(--motion-fast);
 }
 .rent-back-link:hover { color: var(--rent-primary); }
 
 /* ===== 房源头部 ===== */
 .rent-prop-header {
   display: flex;
-  gap: 24px;
+  gap: var(--rent-s-5);
   align-items: flex-start;
 }
 .rent-prop-header__image {
@@ -101,9 +101,9 @@
   margin: 0 0 6px;
 }
 .rent-prop-header__address {
-  font-size: 14px;
-  color: var(--rent-ink-3);
-  margin-bottom: 12px;
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-3);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -111,8 +111,8 @@
 }
 .rent-prop-header__badges {
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--rent-s-2);
+  margin-bottom: var(--rent-s-4);
   flex-wrap: wrap;
 }
 
@@ -120,8 +120,8 @@
 .rent-spec-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--rent-s-3);
+  margin-bottom: var(--rent-s-4);
 }
 .rent-spec-item {
   background: var(--rent-surface-2);
@@ -129,12 +129,12 @@
   padding: 12px 14px;
 }
 .rent-spec-item__label {
-  font-size: 12px;
-  color: var(--rent-ink-3);
-  margin-bottom: 4px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-1);
 }
 .rent-spec-item__value {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
   font-variant-numeric: tabular-nums;
@@ -142,7 +142,7 @@
 
 /* ===== 月租金 ===== */
 .rent-prop-rent {
-  font-size: 28px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 700;
   color: var(--rent-primary);
   letter-spacing: -0.02em;
@@ -150,16 +150,16 @@
   line-height: 1.1;
 }
 .rent-prop-rent__period {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 
 /* ===== 操作按钮区 ===== */
 .rent-prop-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
+  gap: var(--rent-s-2);
+  margin-top: var(--rent-s-4);
   flex-wrap: wrap;
 }
 
@@ -167,16 +167,16 @@
 .rent-dl {
   display: grid;
   grid-template-columns: 120px 1fr;
-  gap: 12px 16px;
+  gap: var(--rent-s-3) var(--rent-s-4);
   margin: 0;
 }
 .rent-dl__dt {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   font-weight: 500;
 }
 .rent-dl__dd {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   font-weight: 500;
   margin: 0;
@@ -186,19 +186,19 @@
 .rent-owner-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
+  gap: var(--rent-s-3);
+  margin-bottom: var(--rent-s-4);
+  padding-bottom: var(--rent-s-4);
   border-bottom: 1px solid var(--rent-border);
 }
 .rent-owner-head__name {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
 }
 .rent-owner-head__sub {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 
 /* ===== 联系方式行 ===== */
@@ -206,12 +206,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   margin-bottom: 10px;
 }
 .rent-contact-row svg {
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   flex-shrink: 0;
 }
 
@@ -221,15 +221,15 @@
   height: 8px;
   border-radius: var(--rent-radius-full);
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: var(--rent-s-2);
 }
 .rent-split-bar__owner { background: var(--rent-primary); }
 .rent-split-bar__mgmt { background: var(--rent-ink-3); }
 .rent-split-legend {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-top: 6px;
 }
 
@@ -242,7 +242,7 @@
 .rent-doc-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--rent-s-3);
   padding: 12px 14px;
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
@@ -253,7 +253,7 @@
   min-width: 0;
 }
 .rent-doc-row__name {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   color: var(--rent-ink);
   overflow: hidden;
@@ -263,10 +263,10 @@
 .rent-doc-row__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--rent-ink-3);
-  margin-top: 4px;
+  gap: var(--rent-s-2);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
+  margin-top: var(--rent-s-1);
 }
 
 /* ===== 响应式 ===== */

@@ -4,8 +4,10 @@ import Taro from '@tarojs/taro'
 import { adminPermissionsApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /**
  * 管理端 · 角色权限配置（对齐 Web 端 /system/permissions）。
@@ -32,6 +34,7 @@ export default function AdminPermissionsPage() {
   const [role, setRole] = useState('admin')
   const [checked, setChecked] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
 
   /** 类目文案（后端 Permission.category 取值） */
@@ -53,6 +56,7 @@ export default function AdminPermissionsPage() {
   // 一次拉全量（权限点分组 + 各角色分配），切换角色只做本地切换，不重复请求
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await adminPermissionsApi.list()
       const d = res?.data ?? res
@@ -60,6 +64,7 @@ export default function AdminPermissionsPage() {
       setRoles(d?.roles ?? {})
     } catch (error) {
       console.error('[AdminPermissions] 加载权限失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('perm.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -99,7 +104,7 @@ export default function AdminPermissionsPage() {
         icon: 'success'
       })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('perm.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('perm.saveFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -122,9 +127,14 @@ export default function AdminPermissionsPage() {
       </ScrollView>
 
       {loading ? (
-        <View className='pm-state'>
-          <Text className='pm-state__text'>{t('perm.loading')}</Text>
-        </View>
+        <StateBlock loading text={t('perm.loading')} />
+      ) : loadError ? (
+        <StateBlock
+          error
+          text={t('perm.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={load}
+        />
       ) : (
         <>
           <Text className='pm-summary'>

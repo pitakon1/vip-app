@@ -6,6 +6,7 @@ import api, { MAX_PAGE_SIZE } from '@/lib/api'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import { formatMoney } from '@/lib/money'
+import { chartTheme } from '@/lib/chartTheme'
 import { propertiesApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -45,16 +46,7 @@ interface Notification {
   [key: string]: any
 }
 
-const GRADIENTS = [
-  '#14b8a6',
-  '#0ea5e9',
-  '#16a34a',
-  '#7a5cd6',
-  '#f59e0b',
-  '#55606c',
-  '#f43f5e',
-  '#14b8a6',
-]
+const GRADIENTS = chartTheme.palette
 
 const gradientFor = (seed: string) => {
   let h = 0
@@ -171,21 +163,21 @@ const OwnerAssetCard = () => {
             <div className="rent-stat-card">
               <div className="rent-stat-card__label">{t('ownerDashboard.myProperties')}</div>
               <div className="rent-stat-card__value">
-                {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+                {totalProps} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('ownerDashboard.unitSuffix')}</span>
               </div>
               <div className="rent-stat-card__delta">{t('ownerDashboard.forSaleCount', { n: statusCount.for_sale })}</div>
             </div>
             <div className="rent-stat-card">
               <div className="rent-stat-card__label">{t('ownerDashboard.rentedProperties')}</div>
               <div className="rent-stat-card__value">
-                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('ownerDashboard.unitSuffix')}</span>
               </div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerDashboard.occupancyPct', { pct: occupancyPct })}</div>
             </div>
             <div className="rent-stat-card">
               <div className="rent-stat-card__label">{t('ownerDashboard.vacantProperties')}</div>
               <div className="rent-stat-card__value">
-                {statusCount.vacant} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('ownerDashboard.unitSuffix')}</span>
+                {statusCount.vacant} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('ownerDashboard.unitSuffix')}</span>
               </div>
               <div className="rent-stat-card__delta">{t('ownerDashboard.awaitingListing')}</div>
             </div>
@@ -390,7 +382,8 @@ const TenantDashboard = () => {
     const addr = item.address || item.city || '—'
     const sub = `${t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })} · ${t('tenantDashboard.furnishedDelivery')}`
     return (
-      <a
+      <button
+        type="button"
         key={item.id}
         className="rv17-comm"
         onClick={() => navigate(`/tenant/properties/${item.id}`)}
@@ -406,7 +399,7 @@ const TenantDashboard = () => {
           <div className="rv17-comm__price">{formatPrice(item.sale_price, item.currency)}<span className="rv17-comm__price-unit">{t('tenantDashboard.startUnit')}</span></div>
           <div className="rv17-comm__sub">{sub}</div>
         </div>
-      </a>
+      </button>
     )
   }
 
@@ -455,7 +448,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec" ref={searchResultRef}>
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('common.search')}（{searchResults.length}）</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
             {searchResults.map((it) => renderPropCard(it, biz))}
@@ -469,7 +462,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.featured')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
             {featuredItems.map((it) => renderPropCard(it, 'rent'))}
@@ -483,7 +476,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.newArrivals')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
             {newItems.map((it) => renderPropCard(it, 'rent'))}
@@ -497,7 +490,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('tenantDashboard.buyRecommend')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('tenantDashboard.inSaleUnit')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('tenantDashboard.inSaleUnit')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
             {commItems.map((it) => renderCommCard(it))}
@@ -511,7 +504,7 @@ const TenantDashboard = () => {
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('tenantDashboard.hotResaleOrders')}</h2>
-            <a className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></a>
+            <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
             {saleItems.slice(0, 3).map((it) => renderPropCard(it, 'buy'))}
@@ -527,9 +520,9 @@ const TenantDashboard = () => {
         <div className="rent-card rent-todo-feed">
           <div className="rent-card__header">
             <h3 className="rent-card__title">{t('tenantRemind.recentNews')}</h3>
-            <a className="rent-section__link" onClick={() => navigate('/tenant/maintenance')}>{t('tenantRemind.allRecords')}
+            <button type="button" className="rent-section__link" onClick={() => navigate('/tenant/maintenance')}>{t('tenantRemind.allRecords')}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-            </a>
+            </button>
           </div>
           <div className="rent-card__body">
             {feedItems.length ? (

@@ -18,6 +18,33 @@ const STATUS_NAME: Record<string, string> = Object.fromEntries(
   STATUS_META.map((s) => [s.key, s.label])
 )
 
+const ORIENTATION_META: { key: string; label: string }[] = [
+  { key: 'north', label: 'pub.orientation.north' },
+  { key: 'south', label: 'pub.orientation.south' },
+  { key: 'east', label: 'pub.orientation.east' },
+  { key: 'west', label: 'pub.orientation.west' },
+  { key: 'northeast', label: 'pub.orientation.northeast' },
+  { key: 'northwest', label: 'pub.orientation.northwest' },
+  { key: 'southeast', label: 'pub.orientation.southeast' },
+  { key: 'southwest', label: 'pub.orientation.southwest' }
+]
+
+const DECORATION_META: { key: string; label: string }[] = [
+  { key: 'bare', label: 'pub.decoration.bare' },
+  { key: 'simple', label: 'pub.decoration.simple' },
+  { key: 'standard', label: 'pub.decoration.standard' },
+  { key: 'luxury', label: 'pub.decoration.luxury' },
+  { key: 'fully_furnished', label: 'pub.decoration.fully_furnished' }
+]
+
+const ORIENTATION_NAME: Record<string, string> = Object.fromEntries(
+  ORIENTATION_META.map((o) => [o.key, o.label])
+)
+
+const DECORATION_NAME: Record<string, string> = Object.fromEntries(
+  DECORATION_META.map((d) => [d.key, d.label])
+)
+
 const PROPERTY_TYPES = [
   { key: 'apartment', label: 'prop.typeApartment' },
   { key: 'condo', label: 'prop.typeApartment' },
@@ -59,6 +86,9 @@ const parseDetail = (d: any): any => {
     floor: src.floor ?? '',
     available_from: src.available_from ? String(src.available_from).slice(0, 10) : '',
     furnished: !!src.furnished,
+    orientation: src.orientation || '',
+    decoration: src.decoration || '',
+    min_lease_months: src.min_lease_months ?? '',
     property_type: src.property_type || '',
     photos: Array.isArray(src.photos) ? src.photos : []
   }
@@ -124,6 +154,8 @@ export default function EmployeePropertyEditPage() {
 
   const statusIndex = STATUS_META.findIndex((s) => s.key === (form?.status || 'vacant'))
   const typeIndex = PROPERTY_TYPES.findIndex((t) => t.key === (form?.property_type || ''))
+  const orientationIndex = ORIENTATION_META.findIndex((o) => o.key === (form?.orientation || ''))
+  const decorationIndex = DECORATION_META.findIndex((d) => d.key === (form?.decoration || ''))
 
   const handleSave = async () => {
     if (!id || !form || saving) return
@@ -145,6 +177,9 @@ export default function EmployeePropertyEditPage() {
         floor: num(form.floor),
         available_from: form.available_from,
         furnished: !!form.furnished,
+        orientation: form.orientation || undefined,
+        decoration: form.decoration || undefined,
+        min_lease_months: num(form.min_lease_months),
         property_type: form.property_type,
         photos: Array.isArray(form.photos) ? form.photos : []
       })
@@ -379,6 +414,54 @@ export default function EmployeePropertyEditPage() {
               placeholder='0'
               placeholderStyle='color:#98a1ab'
               onInput={(e: any) => set('bathrooms', e.detail.value)}
+            />
+          ))}
+          {row(t('pub.orientationLabel'), (
+            <Picker
+              mode='selector'
+              range={ORIENTATION_META.map((o) => t(o.label))}
+              value={orientationIndex < 0 ? 0 : orientationIndex}
+              onChange={(e: any) => {
+                const idx = Number(e.detail.value)
+                const it = ORIENTATION_META[idx]
+                if (it) set('orientation', it.key)
+              }}
+            >
+              <View className='pe-picker'>
+                <Text className='pe-picker__text'>
+                  {form.orientation ? t(ORIENTATION_NAME[form.orientation]) : t('prop.select')}
+                </Text>
+                <Text className='pe-picker__arrow'>▼</Text>
+              </View>
+            </Picker>
+          ))}
+          {row(t('pub.decorationLabel'), (
+            <Picker
+              mode='selector'
+              range={DECORATION_META.map((d) => t(d.label))}
+              value={decorationIndex < 0 ? 0 : decorationIndex}
+              onChange={(e: any) => {
+                const idx = Number(e.detail.value)
+                const it = DECORATION_META[idx]
+                if (it) set('decoration', it.key)
+              }}
+            >
+              <View className='pe-picker'>
+                <Text className='pe-picker__text'>
+                  {form.decoration ? t(DECORATION_NAME[form.decoration]) : t('prop.select')}
+                </Text>
+                <Text className='pe-picker__arrow'>▼</Text>
+              </View>
+            </Picker>
+          ))}
+          {row(t('prop.minLease'), (
+            <Input
+              className='pe-input'
+              type='number'
+              value={String(form.min_lease_months)}
+              placeholder='12'
+              placeholderStyle='color:#98a1ab'
+              onInput={(e: any) => set('min_lease_months', e.detail.value)}
             />
           ))}
           {row(t('prop.statusLabel'), (

@@ -316,7 +316,7 @@ const Contacts = () => {
                 </div>
               </div>
               <div className="rent-stat-card__value">
-                {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('employeeContacts.unitPeople')}</span>
+                {d.count} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('employeeContacts.unitPeople')}</span>
               </div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -114,7 +114,7 @@
 /* ===== 通用卡片 ===== */
 .emp-card {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   padding: 8rpx 28rpx;
@@ -127,7 +127,7 @@
 /* ===== 今日工作台时间线 ===== */
 .emp-wb {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   padding: 4rpx 28rpx 16rpx;
@@ -138,7 +138,7 @@
   align-items: center;
   gap: 20rpx;
   padding: 22rpx 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &:last-child {
     border-bottom: none;
@@ -202,7 +202,7 @@
   align-items: center;
   gap: 20rpx;
   padding: 24rpx 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &:last-child {
     border-bottom: none;
@@ -277,7 +277,7 @@
 .emp-chart-card {
   margin-top: 16rpx;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   padding: 24rpx 24rpx 20rpx;
@@ -287,8 +287,8 @@
   display: flex;
   align-items: flex-end;
   gap: 16rpx;
-  height: 128px;
-  border-bottom: 1px solid var(--line);
+  height: 128rpx;
+  border-bottom: 1rpx solid var(--line);
 
   &__col {
     flex: 1;
@@ -344,7 +344,7 @@
   display: flex;
   align-items: stretch;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -358,7 +358,7 @@
     padding: 28rpx 12rpx;
 
     & + & {
-      border-left: 1px solid var(--line);
+      border-left: 1rpx solid var(--line);
     }
   }
 
@@ -489,7 +489,7 @@
   gap: 20rpx;
   padding: 26rpx 28rpx;
   background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--primary-rgb), 0.02) 100%);
-  border: 1px solid rgba(var(--primary-rgb), 0.25);
+  border: 1rpx solid rgba(var(--primary-rgb), 0.25);
   border-radius: var(--radius-lg);
 
   &__icon {

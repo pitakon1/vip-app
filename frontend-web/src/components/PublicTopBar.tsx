@@ -57,6 +57,8 @@ const PublicTopBar = () => {
           <img
             src={brandLogo}
             alt={t('common.appName')}
+            loading="lazy"
+            decoding="async"
             style={{ height: 30, display: 'block' }}
           />
         </button>

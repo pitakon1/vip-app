@@ -11,30 +11,30 @@
 .rent-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
 }
 .rent-table thead th {
   background: var(--rent-surface-2);
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   text-align: left;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   border-bottom: 1px solid var(--rent-border);
   white-space: nowrap;
 }
 .rent-table tbody td {
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   border-bottom: 1px solid var(--rent-border);
   color: var(--rent-ink);
   vertical-align: middle;
 }
 .rent-table tbody tr:last-child td { border-bottom: none; }
 .rent-table tbody tr:hover { background: var(--rent-surface-2); }
-.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: var(--rent-fs-sm); }
 
 /* ===== Timeline ===== */
-.rent-timeline { position: relative; padding-left: 24px; }
+.rent-timeline { position: relative; padding-left: var(--rent-s-5); }
 .rent-timeline::before {
   content: "";
   position: absolute;
@@ -66,8 +66,8 @@
   height: 220px;
   display: flex;
   align-items: flex-end;
-  gap: 16px;
-  padding: 0 4px;
+  gap: var(--rent-s-4);
+  padding: 0 var(--rent-s-1);
   border-bottom: 1px solid var(--rent-border);
 }
 .rent-bar-chart__col {
@@ -79,8 +79,8 @@
   align-items: center;
 }
 .rent-bar-chart__val {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-bottom: 6px;
 }
 .rent-bar-chart__bar {
@@ -97,14 +97,14 @@
 }
 .rent-bar-chart__labels {
   display: flex;
-  gap: 16px;
-  padding: 8px 4px 0;
+  gap: var(--rent-s-4);
+  padding: var(--rent-s-2) var(--rent-s-1) 0;
 }
 .rent-bar-chart__label {
   flex: 1;
   text-align: center;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 .rent-bar-chart__label--active {
   color: var(--rent-primary);
@@ -113,14 +113,14 @@
 
 /* ===== 月度概览小卡 ===== */
 .rent-mini-stat {
-  padding: 16px;
+  padding: var(--rent-s-4);
   background: var(--rent-surface-2);
   border-radius: var(--rent-radius-md);
 }
 .rent-mini-stat__label {
-  font-size: 13px;
-  color: var(--rent-ink-3);
-  margin-bottom: 8px;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-2);
 }
 .rent-mini-stat__value {
   font-size: 22px;
@@ -145,12 +145,12 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink-2);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
 }
 .perf-sort-btn:hover {
   color: var(--rent-primary);

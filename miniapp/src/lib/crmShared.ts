@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 管理端 / 员工端 CRM 共用逻辑。
  *
@@ -8,9 +9,10 @@
 import Taro from '@tarojs/taro'
 import { chatApi } from '@/services/api'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 
 /** 一次拉全量的分页大小（后端硬顶 100）。 */
-export const PAGE_SIZE = 100
+export const PAGE_SIZE = OPTION_PAGE_SIZE
 
 const CURRENCY_SYMBOL: Record<string, string> = {
   CNY: '¥',
@@ -86,7 +88,7 @@ export async function chatCustomer(l: { name?: string; phone?: string; email?: s
     Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
   } catch (error: any) {
     Taro.showToast({
-      title: error?.message || useI18n.getState().t('crm.notRegistered'),
+      title:errorText(error, useI18n.getState().t('crm.notRegistered')),
       icon: 'none'
     })
   }

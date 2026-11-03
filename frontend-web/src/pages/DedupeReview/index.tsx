@@ -1,7 +1,10 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Spin, Empty, Modal, Input } from 'antd'
+import { message, Modal, Input } from 'antd'
 import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { dedupeApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 
 interface DedupeReview {
   id: string
@@ -22,12 +25,13 @@ const DedupeReview = () => {
   const [items, setItems] = useState<DedupeReview[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('pending')
   const [current, setCurrent] = useState<DedupeReview | null>(null)
   const [note, setNote] = useState('')
   const [modalMode, setModalMode] = useState<'merge' | 'dismiss' | null>(null)
-  const pageSize = 10
+  const pageSize = LIST_PAGE_SIZE
 
   // 命中类型 / 状态文案（依赖 i18n，故放在组件内）
   const matchTypeLabel = useMemo<Record<string, string>>(
@@ -41,17 +45,18 @@ const DedupeReview = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await dedupeApi.list({ page, page_size: pageSize, status: status || undefined })
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('dedupeReview.loadFailed'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [page, status])
+  }, [page, status, t])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -76,7 +81,7 @@ const DedupeReview = () => {
       setModalMode(null)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('dedupeReview.actionFailed'))
+      message.error(errorText(err, t('dedupeReview.actionFailed')))
     }
   }
 
@@ -96,8 +101,12 @@ const DedupeReview = () => {
         </select>
       </div>
 
-      {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
+      {loadError && items.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+      ) : loading && items.length === 0 ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
+      ) : items.length === 0 ? (
+        <DataState empty filtered={!!status} emptyTitle={t('dedupeReview.empty')} />
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
@@ -113,7 +122,6 @@ const DedupeReview = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && <tr><td colSpan={7}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dedupeReview.empty')} /></td></tr>}
               {items.map((r) => (
                 <tr key={r.id}>
                   <td>

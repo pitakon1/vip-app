@@ -1,3 +1,4 @@
+import { BROWSE_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 学校列表（学区找房一级入口，匿名可看）。
  *
@@ -28,10 +29,9 @@ import {
   curriculumLabel,
   schoolStageLabel,
 } from '@/lib/publicSite';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { Badge } from './PublicFilterChip';
-const PAGE_SIZE = 30;
+const PAGE_SIZE = BROWSE_PAGE_SIZE;
 
 export default function PublicSchoolsScreen() {
   const { t } = useI18n();
@@ -46,6 +46,7 @@ export default function PublicSchoolsScreen() {
   const [openTab, setOpenTab] = useState<null | 'stage' | 'curriculum'>(null);
   const [items, setItems] = useState<PublicSchool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -69,8 +70,12 @@ export default function PublicSchoolsScreen() {
 
   const fetchPage = useCallback(
     async (targetPage: number) => {
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
+      if (targetPage === 1) {
+        setLoading(true);
+        setLoadError(null);
+      } else {
+        setLoadingMore(true);
+      }
       const seq = ++requestSeq.current;
       try {
         const res: any = await publicApi.schools({ page: targetPage, ...params });
@@ -81,10 +86,7 @@ export default function PublicSchoolsScreen() {
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]));
       } catch {
         if (seq !== requestSeq.current) return;
-        if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-        }
+        if (targetPage === 1) setLoadError(t('loadFailed'));
       } finally {
         if (seq === requestSeq.current) {
           setLoading(false);
@@ -204,10 +206,21 @@ export default function PublicSchoolsScreen() {
 
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
 
-      {loading ? (
-        <LoadingState label={t('pub.loading')} />
-      ) : items.length === 0 ? (
-        <EmptyState icon="school-outline" title={t('pub.schoolsEmpty')} sub={t('pub.schoolsHint')} />
+      {loading || loadError || items.length === 0 ? (
+        <ListState
+          loading={loading}
+          loadingLabel={t('pub.loading')}
+          error={loadError}
+          empty={items.length === 0}
+          filtered={!!(debounced || stage || curriculum)}
+          emptyTitle={t('pub.schoolsEmpty')}
+          emptySub={t('pub.schoolsHint')}
+          retryLabel={t('retry')}
+          onRetry={() => {
+            setLoadError(null);
+            void fetchPage(1);
+          }}
+        />
       ) : (
         <FlatList
           data={items}

@@ -1,3 +1,5 @@
+﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { errorText } from '@/lib/errorText';
 /**
  * 房源管理（管理端）
  * 原型：admin-mobile-properties.html
@@ -25,12 +27,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { propertiesApi, usersAdminApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import { AREA_PRESETS, PRICE_PRESETS } from '@/constants/filters';
 import { AREA_GROUPS } from '@/data/locationArea';
 import { METRO_LINES } from '@/data/locationMetro';
 import { currencySymbol } from '@/lib/currency';
@@ -38,7 +40,7 @@ import { propertyCoverUrl } from '@/lib/property';
 import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 interface PropertyItem {
   id: string;
@@ -73,7 +75,6 @@ const typeMeta = (t: TFunc): Record<string, { label: string; icon: keyof typeof 
 const statusMeta = (t: TFunc): Record<string, { label: string; color: string; rgb: string }> => ({
   vacant: { label: t('adm.psStatusVacant'), color: colors.warning, rgb: colors.warningRgb },
   rented: { label: t('status.rented'), color: colors.success, rgb: colors.successRgb },
-  reserved: { label: t('status.reserved'), color: colors.primary, rgb: colors.primaryRgb },
   maintenance: { label: t('status.maintenance'), color: colors.info, rgb: colors.infoRgb },
   renewing: { label: t('prop.status.renewing'), color: colors.primary, rgb: colors.primaryRgb },
 });
@@ -83,7 +84,7 @@ const chips = (t: TFunc): { key: string; label: string }[] => [
   { key: '', label: t('common.all') },
   { key: 'vacant', label: t('status.vacant') },
   { key: 'rented', label: t('status.rented') },
-  { key: 'reserved', label: t('status.reserved') },
+  { key: 'renewing', label: t('status.renewing') },
   { key: 'maintenance', label: t('status.maintenance') },
 ];
 
@@ -96,22 +97,26 @@ const bedroomOptions = (t: TFunc): { key: string; label: string }[] => [
   { key: '3', label: t('adm.psBed3plus') },
 ];
 // 价格区间（月租，THB，万 → ×10000）—— 对齐租客端 PRICE_RANGES
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'prop.priceLt3',
+  '3-5': 'prop.price3to5',
+  '5-8': 'prop.price5to8',
+  g8: 'prop.priceGt8',
+};
 const priceOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
-  { key: '', label: t('prop.priceAny'), min: 0, max: Infinity },
-  { key: 'u3', label: t('prop.priceLt3'), min: 0, max: 30000 },
-  { key: '3-5', label: t('prop.price3to5'), min: 30000, max: 50000 },
-  { key: '5-8', label: t('prop.price5to8'), min: 50000, max: 80000 },
-  { key: 'g8', label: t('prop.priceGt8'), min: 80000, max: Infinity },
+  ...PRICE_PRESETS.map((p) => ({ ...p, label: p.key ? t(PRICE_LABELS[p.key]) : t('prop.priceAny') })),
   { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 // 面积区间（㎡）—— 对齐租客端 AREA_PRESETS
+const AREA_LABELS: Record<string, string> = {
+  u50: 'prop.areaLt50',
+  '50-100': 'prop.area50to100',
+  '100-150': 'prop.area100to150',
+  '150-200': 'prop.area150to200',
+  g200: 'prop.areaGt200',
+};
 const areaOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
-  { key: '', label: t('prop.areaAny'), min: 0, max: Infinity },
-  { key: 'u50', label: t('prop.areaLt50'), min: 0, max: 50 },
-  { key: '50-100', label: t('prop.area50to100'), min: 50, max: 100 },
-  { key: '100-150', label: t('prop.area100to150'), min: 100, max: 150 },
-  { key: '150-200', label: t('prop.area150to200'), min: 150, max: 200 },
-  { key: 'g200', label: t('prop.areaGt200'), min: 200, max: Infinity },
+  ...AREA_PRESETS.map((p) => ({ ...p, label: p.key ? t(AREA_LABELS[p.key]) : t('prop.areaAny') })),
   { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 // 排序（对齐租客端 SORT_OPTIONS）
@@ -145,6 +150,7 @@ export default function AdminPropertiesScreen() {
   const SORT_OPTIONS = useMemo(() => sortOptions(t), [t]);
   const [items, setItems] = useState<PropertyItem[]>([]);
   const [total, setTotal] = useState(0);
+  // 状态计数由列表响应里的 status_counts 一并返回（与列表同一次请求，口径一致）
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -178,6 +184,7 @@ export default function AdminPropertiesScreen() {
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [schoolKw, setSchoolKw] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const firstLoad = useRef(true);
@@ -202,30 +209,12 @@ export default function AdminPropertiesScreen() {
     return [];
   }, [districtSel, metroSel]);
 
-  // 状态计数与列表共用同一批查询（统计行数字与列表口径一致）
-  const fetchCounts = useCallback(async () => {
-    const res = await Promise.allSettled(
-      ['vacant', 'rented', 'maintenance'].map((s) =>
-        propertiesApi.list({ status: s, page: 1, page_size: 1 }),
-      ),
-    );
-    const next: Record<string, number> = {};
-    ['vacant', 'rented', 'maintenance'].forEach((s, i) => {
-      const r = res[i];
-      if (r.status === 'fulfilled') {
-        const d = (r.value as any)?.data ?? {};
-        next[s] = typeof d.total === 'number' ? d.total : 0;
-      } else {
-        next[s] = 0;
-      }
-    });
-    setCounts(next);
-  }, []);
-
+  // 状态计数随列表响应返回（后端 status_counts），不再逐状态发探测请求
   const load = useCallback(
     async (options?: { nextPage?: number; keywordOverride?: string }) => {
       const kw = options?.keywordOverride ?? keyword;
       const targetPage = options?.nextPage ?? 1;
+      if (targetPage === 1) setLoadError(null);
       try {
         const params: Record<string, unknown> = {
           page: targetPage,
@@ -296,12 +285,17 @@ export default function AdminPropertiesScreen() {
         setTotal(typeof d.total === 'number' ? d.total : list.length);
         setTotalPages(typeof d.total_pages === 'number' ? d.total_pages : 1);
         setPage(targetPage);
-      } catch (e: any) {
-        if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-          setTotalPages(1);
+        // 聚合计数：按当前筛选维度统计、不受分页影响（缺键按 0 处理）
+        const sc = (d as any).status_counts as Record<string, number> | undefined;
+        if (sc) {
+          setCounts({
+            vacant: Number(sc.vacant ?? 0),
+            rented: Number(sc.rented ?? 0),
+            maintenance: Number(sc.maintenance ?? 0),
+          });
         }
+      } catch (e: any) {
+        if (targetPage === 1) setLoadError(t('loadFailed'));
         notifyError(t('adm.psLoadFail'), e);
       } finally {
         setLoading(false);
@@ -316,12 +310,10 @@ export default function AdminPropertiesScreen() {
   useEffect(() => {
     if (firstLoad.current) {
       firstLoad.current = false;
-      fetchCounts();
       load();
       return;
     }
     const timer = setTimeout(() => {
-      fetchCounts();
       load({ nextPage: 1 });
     }, 400);
     return () => clearTimeout(timer);
@@ -330,8 +322,8 @@ export default function AdminPropertiesScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchCounts(), load({ nextPage: 1 })]);
-  }, [fetchCounts, load]);
+    await load({ nextPage: 1 });
+  }, [load]);
 
   const onLoadMore = useCallback(async () => {
     if (loadingMore || page >= totalPages) return;
@@ -346,17 +338,16 @@ export default function AdminPropertiesScreen() {
   const wasFocused = useRef(isFocused);
   useEffect(() => {
     if (isFocused && !wasFocused.current) {
-      fetchCounts();
       load({ nextPage: 1 });
     }
     wasFocused.current = isFocused;
-  }, [isFocused, fetchCounts, load]);
+  }, [isFocused, load]);
 
   // ===== 指派归属人（管理员专用）=====
   const loadAssignStaff = useCallback(async () => {
     setStaffLoading(true);
     try {
-      const res = await usersAdminApi.list({ page_size: 100 });
+      const res = await usersAdminApi.list({ page_size: OPTION_PAGE_SIZE });
       const list = ((res as any)?.data?.items ?? []) as { id: string; full_name?: string; role?: string }[];
       // 房源归属只能是内部员工：管理员 / 销售 / 经纪（业主、租客不参与）
       setStaff(list.filter((u) => u.role === 'agent' || u.role === 'employee'));
@@ -397,14 +388,13 @@ export default function AdminPropertiesScreen() {
         );
         notify(employeeId ? t('adm.psAssigned') : t('adm.psAssignRevoked'));
         closeAssign();
-        fetchCounts();
       } catch (e: any) {
         notifyError(t('adm.psAssignFail'), e);
       } finally {
         setAssigning(false);
       }
     },
-    [assignTarget, assigning, staff, closeAssign, fetchCounts, t],
+    [assignTarget, assigning, staff, closeAssign, t],
   );
 
   const filteredStaff = useMemo(() => {
@@ -425,9 +415,17 @@ export default function AdminPropertiesScreen() {
             await propertiesApi.remove(p.id);
             setItems((prev) => prev.filter((it) => it.id !== p.id));
             setTotal((t) => Math.max(0, t - 1));
-            fetchCounts();
+            // 计数在本地按被删房源的状态递减，省去再发一次计数请求
+            const deletedStatus = p.status
+            if (deletedStatus) {
+              setCounts((prev) =>
+                prev[deletedStatus] == null
+                  ? prev
+                  : { ...prev, [deletedStatus]: Math.max(0, prev[deletedStatus] - 1) },
+              );
+            }
           } catch (e: any) {
-            Alert.alert(t('prop.deleteFail'), e?.response?.data?.detail || t('prop.retryLater'));
+            Alert.alert(t('prop.deleteFail'), errorText(e, t('prop.retryLater')));
           }
         },
       },
@@ -472,7 +470,7 @@ export default function AdminPropertiesScreen() {
   // 学校清单只为筛选器备选（公开接口，匿名可读）
   useEffect(() => {
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(res?.data?.items ?? []))
       .catch(() => setSchools([]));
   }, []);
@@ -679,7 +677,7 @@ export default function AdminPropertiesScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState />
+        <ListState loading loadingLabel={t('list.loadingListings')} />
       </View>
     );
   }
@@ -1187,10 +1185,18 @@ export default function AdminPropertiesScreen() {
         </>
       }
       ListEmptyComponent={
-        <EmptyState
-          icon="business-outline"
-          title={keyword || activeLocationKw.length ? t('adm.psEmptyFilterTitle') : t('adm.psEmptyTitle')}
-          sub={keyword || activeLocationKw.length ? t('adm.psEmptyFilterSub') : t('adm.psEmptySub')}
+        <ListState
+          error={loadError}
+          empty={items.length === 0}
+          filtered={!!(keyword || activeLocationKw.length)}
+          emptyTitle={keyword || activeLocationKw.length ? t('adm.psEmptyFilterTitle') : t('adm.psEmptyTitle')}
+          emptySub={keyword || activeLocationKw.length ? t('adm.psEmptyFilterSub') : t('adm.psEmptySub')}
+          retryLabel={t('retry')}
+          onRetry={() => {
+            setLoadError(null);
+            setLoading(true);
+            void load({ nextPage: 1 });
+          }}
         />
       }
       ListFooterComponent={

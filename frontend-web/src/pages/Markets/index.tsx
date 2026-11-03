@@ -1,7 +1,10 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import { marketApi } from '@/services/api'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 const MARKET_STATUS: Record<string, { label: string; badge: string }> = {
   active: { label: 'markets.stActive', badge: 'rent-badge--success' },
@@ -93,6 +96,8 @@ const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  // 列表加载失败单独记录：失败时保留上一次数据
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [publishedOnly, setPublishedOnly] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({
@@ -103,17 +108,18 @@ const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
-      const res = await marketApi.list({ page, pageSize: 10, published_only: publishedOnly || undefined })
+      const res = await marketApi.list({ page, pageSize: LIST_PAGE_SIZE, published_only: publishedOnly || undefined })
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errLoadMarkets'))
+      setLoadError(errorText(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [page, publishedOnly])
+  }, [page, publishedOnly, t])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -203,7 +209,7 @@ const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       setForm({ market_code: '', country_name: '', currency: 'THB', default_language: 'th', timezone: 'Asia/Bangkok', status: 'launching', published: false, license_required: false, vat_rate: '', transfer_fee_rate: '', sort_order: '100' })
       fetchData()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errCreate'))
+      message.error(errorText(e, t('markets.errCreate')))
     } finally {
       setSubmitting(false)
     }
@@ -235,10 +241,12 @@ const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('markets.tabMarkets')}</h3><span className="rent-badge rent-badge--neutral">{t('common.total')} {total} {t('common.items')}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {loadError && items.length === 0 ? (
+            <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+          ) : loading && items.length === 0 ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('markets.emptyMarkets')}</div>
+            <DataState empty filtered={publishedOnly} emptyTitle={t('markets.emptyMarkets')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -335,34 +343,42 @@ const ChannelsTab = () => {
   const [marketCode, setMarketCode] = useState('')
   const [items, setItems] = useState<Channel[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  // 市场下拉加载失败也要可见，否则会误显示成「暂无市场/暂无数据」
+  const [marketsError, setMarketsError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ channel_code: '', channel_name: '', channel_type: 'wallet', supported_currency: 'THB', merchant_id: '', sort_order: '100' })
 
   const loadMarkets = useCallback(async () => {
     try {
-      const res = await marketApi.list({ page: 1, pageSize: 100 })
+      const res = await marketApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       const m = payload?.items ?? []
       setMarkets(m)
+      setMarketsError(null)
       if (m.length > 0) setMarketCode(m[0].market_code || '')
-    } catch { /* 忽略 */ }
-  }, [])
+    } catch {
+      // 不再静默忽略：市场列表失败时给出错误态与重试
+      setMarketsError(t('common.loadFailed'))
+    }
+  }, [t])
 
   useEffect(() => { loadMarkets() }, [loadMarkets])
 
   const loadChannels = useCallback(async (code: string) => {
     if (!code) { setItems([]); return }
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await marketApi.channels(code)
       setItems(res.data ?? [])
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errLoadChannels'))
+      setLoadError(errorText(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (marketCode) loadChannels(marketCode)
@@ -391,7 +407,7 @@ const ChannelsTab = () => {
       setForm({ channel_code: '', channel_name: '', channel_type: 'wallet', supported_currency: 'THB', merchant_id: '', sort_order: '100' })
       loadChannels(marketCode)
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errConfig'))
+      message.error(errorText(e, t('markets.errConfig')))
     } finally {
       setSubmitting(false)
     }
@@ -411,10 +427,14 @@ const ChannelsTab = () => {
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('markets.cardLocalChannels')} · {marketCode || '—'}</h3><span className="rent-badge rent-badge--neutral">{items.length} {t('common.items')}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {marketsError ? (
+            <DataState error={marketsError} retryText={t('common.retry')} onRetry={() => { void loadMarkets() }} />
+          ) : loadError && items.length === 0 ? (
+            <DataState error={loadError} retryText={t('common.retry')} onRetry={() => loadChannels(marketCode)} />
+          ) : loading && items.length === 0 ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('markets.emptyChannels')}</div>
+            <DataState empty emptyTitle={t('markets.emptyChannels')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -476,34 +496,42 @@ const ComplianceTab = () => {
   const [marketCode, setMarketCode] = useState('')
   const [items, setItems] = useState<ComplianceDoc[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  // 市场下拉加载失败也要可见，否则会误显示成「暂无市场/暂无数据」
+  const [marketsError, setMarketsError] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState<any>({ doc_type: 'contract_template', title: '', language: 'en', version: '1.0', content: '' })
 
   const loadMarkets = useCallback(async () => {
     try {
-      const res = await marketApi.list({ page: 1, pageSize: 100 })
+      const res = await marketApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       const m = payload?.items ?? []
       setMarkets(m)
+      setMarketsError(null)
       if (m.length > 0) setMarketCode(m[0].market_code || '')
-    } catch { /* 忽略 */ }
-  }, [])
+    } catch {
+      // 不再静默忽略：市场列表失败时给出错误态与重试
+      setMarketsError(t('common.loadFailed'))
+    }
+  }, [t])
 
   useEffect(() => { loadMarkets() }, [loadMarkets])
 
   const loadCompliance = useCallback(async (code: string) => {
     if (!code) { setItems([]); return }
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await marketApi.compliance(code)
       setItems(res.data ?? [])
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errLoadCompliance'))
+      setLoadError(errorText(e, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (marketCode) loadCompliance(marketCode)
@@ -531,7 +559,7 @@ const ComplianceTab = () => {
       setForm({ doc_type: 'contract_template', title: '', language: 'en', version: '1.0', content: '' })
       loadCompliance(marketCode)
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('markets.errArchive'))
+      message.error(errorText(e, t('markets.errArchive')))
     } finally {
       setSubmitting(false)
     }
@@ -551,10 +579,14 @@ const ComplianceTab = () => {
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('markets.cardComplianceDocs')} · {marketCode || '—'}</h3><span className="rent-badge rent-badge--neutral">{items.length} {t('common.items')}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {marketsError ? (
+            <DataState error={marketsError} retryText={t('common.retry')} onRetry={() => { void loadMarkets() }} />
+          ) : loadError && items.length === 0 ? (
+            <DataState error={loadError} retryText={t('common.retry')} onRetry={() => loadCompliance(marketCode)} />
+          ) : loading && items.length === 0 ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('markets.emptyCompliance')}</div>
+            <DataState empty emptyTitle={t('markets.emptyCompliance')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">

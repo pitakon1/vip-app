@@ -58,7 +58,7 @@
   }
 
   &__divider {
-    height: 1px;
+    height: 1rpx;
     background: var(--line);
     margin: 16rpx 0;
   }
@@ -105,7 +105,7 @@
   font-weight: 700;
   line-height: 1;
   color: var(--ink-3);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: 6rpx;
   padding: 2rpx 8rpx;
 }
@@ -161,7 +161,7 @@
 .mc-party {
   background: var(--card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   padding: 20rpx;
   margin-bottom: 16rpx;
 
@@ -204,7 +204,7 @@
 .mc-content {
   background: var(--card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   padding: 20rpx;
   max-height: 600rpx;
   overflow: hidden;
@@ -371,7 +371,7 @@
 .mc-field {
   background: var(--card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   padding: 20rpx;
   margin-bottom: 16rpx;
 
@@ -507,7 +507,7 @@
 
 /* ===== 手写画布 ===== */
 .mc-canvas-box {
-  border: 1px dashed var(--line);
+  border: 1rpx dashed var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface-2);
@@ -529,7 +529,7 @@
 
   &--ghost {
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
   }
 
   &__text {
@@ -643,7 +643,7 @@
   flex: 1;
   height: 72rpx;
   padding: 0 20rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--card);
   font-size: 28rpx;
@@ -740,7 +740,7 @@
   justify-content: space-between;
   gap: 12rpx;
   padding: 16rpx 18rpx;
-  border: 1px dashed var(--line);
+  border: 1rpx dashed var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-2);
 }
@@ -750,7 +750,7 @@
   align-items: center;
   gap: 16rpx;
   padding: 14rpx 18rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
 }
 
@@ -758,7 +758,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: var(--radius-md);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   background: var(--card);
 }
 
@@ -774,7 +774,7 @@
 .mc-maker {
   margin-top: 12rpx;
   padding: 16rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-2);
 }
@@ -784,7 +784,7 @@
   font-size: 26rpx;
   color: var(--ink-2);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   padding: 14rpx 20rpx;
   margin-top: 4rpx;
@@ -798,7 +798,7 @@
 .mc-signbox {
   width: 100%;
   height: 260rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--card);
   overflow: hidden;
@@ -813,7 +813,7 @@
     min-width: 0;
     height: 68rpx;
     padding: 0 20rpx;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     background: var(--card);
     font-size: 26rpx;
@@ -824,7 +824,7 @@
     align-items: center;
     gap: 12rpx;
     padding: 14rpx 18rpx;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     margin-top: 12rpx;
     background: var(--card);
@@ -877,7 +877,7 @@
   align-items: center;
   gap: 8rpx;
   padding: 16rpx 12rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--card);
 
@@ -905,7 +905,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px dashed var(--line);
+    border: 1rpx dashed var(--line);
     border-radius: var(--radius-md);
     background: var(--surface-2);
     overflow: hidden;
@@ -950,7 +950,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: 8rpx;
     background: var(--card);
   }
@@ -964,8 +964,8 @@
 /* 拖拽跟随预览 */
 .mc-ghost {
   position: fixed;
-  width: 88px;
-  height: 88px;
+  width: 88rpx;
+  height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1006,7 +1006,7 @@
     justify-content: center;
     border-radius: 50%;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     box-shadow: var(--shadow-sm);
     z-index: 4;
   }
@@ -1056,7 +1056,7 @@
   gap: 16rpx;
   padding: 20rpx 24rpx;
   margin-top: 12rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: 16rpx;
   background: var(--card);
 
@@ -1110,7 +1110,7 @@
   &__canvas {
     position: relative;
     width: 100%;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--surface-2);

@@ -24,6 +24,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 全局键盘焦点环：仅键盘聚焦时可见，不干扰鼠标点击 */
+:focus-visible {
+  outline: 2px solid var(--rent-ring);
+  outline-offset: 2px;
+}
+
 /* 让 Ant Design 组件贴合 HaoFang.World 视觉：浅灰底 + 细边框卡片 */
 .ant-card {
   border-radius: var(--rent-radius-lg) !important;
@@ -54,7 +60,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--rent-s-5);
   background: var(--rent-surface-2, #f4f1ec);
 }
 
@@ -72,27 +78,27 @@ body {
 .app-error__icon {
   width: 44px;
   height: 44px;
-  margin: 0 auto 16px;
+  margin: 0 auto var(--rent-s-4);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 700;
   color: #fff;
   background: var(--rent-warning, #f59e0b);
 }
 
 .app-error__title {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0 0 var(--rent-s-2);
+  font-size: var(--rent-fs-xl);
   font-weight: 600;
   color: var(--rent-ink, #1c2733);
 }
 
 .app-error__desc {
-  margin: 0 0 16px;
-  font-size: 14px;
+  margin: 0 0 var(--rent-s-4);
+  font-size: var(--rent-fs-base);
   line-height: 1.6;
   color: var(--rent-ink-2, #5b6672);
 }
@@ -107,13 +113,13 @@ body {
 }
 
 .app-error__detail-label {
-  font-size: 12px;
-  color: var(--rent-ink-3, #8a949e);
-  margin-bottom: 4px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2, #5b6672);
+  margin-bottom: var(--rent-s-1);
 }
 
 .app-error__detail code {
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   color: var(--rent-danger, #dc2626);
   word-break: break-all;
   white-space: pre-wrap;
@@ -121,8 +127,22 @@ body {
 
 .app-error__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--rent-s-3);
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------
+ * 动效降级：系统开启「减少动态效果」时收敛动画/过渡，避免前庭不适
+ * ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useMemo, useState, useCallback } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { leasesApi, propertiesApi, dashboardApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
@@ -40,7 +41,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'terminated', label: 'lease.stTerminated' }
 ]
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = LIST_PAGE_SIZE
 const EXPIRE_DAYS = 30
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
@@ -59,29 +60,44 @@ export default function AdminLeasesPage() {
   const [list, setList] = useState<LeaseItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
+  // 分页
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   // 房源 id → 展示名（后端 /leases 不返回房源名，需另行取）
   const [propMap, setPropMap] = useState<Record<string, string>>({})
   // 租约 id → 租客名（仅 /dashboard/expiring-leases 附带）
   const [tenantMap, setTenantMap] = useState<Record<string, string>>({})
 
-  const fetchLeases = async () => {
-    setLoading(true)
+  const fetchLeases = useCallback(async (p: number = 1, append: boolean = false) => {
+    if (append && loadingMore) return
+    if (!append) { setLoading(true); setLoadError(false) }
+    else setLoadingMore(true)
     try {
-      const res: any = await leasesApi.list({ page: 1, page_size: PAGE_SIZE })
+      const res: any = await leasesApi.list({ page: p, page_size: PAGE_SIZE })
       const d = res?.data ?? res
       const items: LeaseItem[] = Array.isArray(d) ? d : d?.items || []
-      setList(items)
-      setTotal(Number(d?.total ?? items.length))
+      const t = Number(d?.total ?? items.length)
+      if (append) {
+        setList((prev) => [...prev, ...items])
+      } else {
+        setList(items)
+      }
+      setTotal(t)
+      setPage(p)
+      setHasMore(items.length >= PAGE_SIZE && list.length + items.length < t)
     } catch (error) {
       console.error('[AdminLeases] 获取合同失败', error)
-      Taro.showToast({ title: t('lease.loadFailed'), icon: 'none' })
+      if (!append) setLoadError(true)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }
+  }, [loadingMore, list.length])
 
   // 房源名称映射（列表接口不含房源名，用房源列表补齐）
   // ⚠️ 技术债：同上，贴住后端硬顶（100）。房源超过 100 套时，
@@ -119,9 +135,16 @@ export default function AdminLeasesPage() {
   }
 
   useDidShow(() => {
-    fetchLeases()
+    fetchLeases(1, false)
     fetchProps()
     fetchExpiring()
+  })
+
+  // 触底加载下一页
+  useReachBottom(() => {
+    if (hasMore && !loading && !loadingMore) {
+      fetchLeases(page + 1, true)
+    }
   })
 
   const handleSearch = () => setQuery(keyword.trim())
@@ -253,7 +276,21 @@ export default function AdminLeasesPage() {
         {loading && visible.length === 0 && (
           <StateBlock loading text={t('pub.loading')} />
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={() => fetchLeases()}>
+            <Text className='inline-error-bar__text'>{t('lease.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && list.length === 0 && (
+          <StateBlock
+            error
+            text={t('lease.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchLeases}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='ale-state'>
             <View className='icon-svg' style={iconStyle('doc', 72)} />
             <Text className='ale-state__text'>{t('lease.empty')}</Text>

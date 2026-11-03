@@ -1,9 +1,12 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button, Card, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { dataScopeApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 
 interface RoleScope {
   role: string
@@ -53,6 +56,7 @@ const DataScopes = () => {
   const { t } = useTranslation()
   const [data, setData] = useState<ScopeView | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [users, setUsers] = useState<UserOption[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -74,11 +78,12 @@ const DataScopes = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await dataScopeApi.get()
       setData(res.data?.data ?? res.data)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDataScopes.loadFailed'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -86,7 +91,7 @@ const DataScopes = () => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await api.get('/admin/users', { params: { page_size: 200 } })
+      const res = await api.get('/admin/users', { params: { page_size: OPTION_PAGE_SIZE } })
       const d = res.data?.data ?? res.data
       setUsers(d?.items ?? [])
     } catch {
@@ -106,7 +111,7 @@ const DataScopes = () => {
       message.success(t('systemDataScopes.saved'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDataScopes.saveFailed'))
+      message.error(errorText(err, t('systemDataScopes.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -119,7 +124,7 @@ const DataScopes = () => {
       message.success(t('systemDataScopes.saved'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDataScopes.saveFailed'))
+      message.error(errorText(err, t('systemDataScopes.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -131,7 +136,7 @@ const DataScopes = () => {
       message.success(t('systemDataScopes.cleared'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDataScopes.clearFailed'))
+      message.error(errorText(err, t('systemDataScopes.clearFailed')))
     }
   }
 
@@ -243,6 +248,10 @@ const DataScopes = () => {
         </div>
       </div>
 
+      {loadError && !data ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+      ) : (
+      <>
       <Card loading={loading || !data} title={t('systemDataScopes.roleSection')} style={{ marginBottom: 16 }}>
         <Table
           rowKey="role"
@@ -268,6 +277,8 @@ const DataScopes = () => {
           locale={{ emptyText: t('systemDataScopes.userEmpty') }}
         />
       </Card>
+      </>
+      )}
 
       <Modal
         title={t('systemDataScopes.addUser')}

@@ -5,14 +5,14 @@
   padding-bottom: 160rpx;
 
   .page-container {
-    padding: 24px;
+    padding: 24rpx;
   }
 
   .empty-state {
     text-align: center;
     color: var(--ink-3);
-    font-size: 26px;
-    padding: 40px 0;
+    font-size: 26rpx;
+    padding: 40rpx 0;
   }
 
   /* ===== 纯对话列表 ===== */
@@ -21,25 +21,25 @@
       display: flex;
       align-items: center;
       background-color: var(--card);
-      border-radius: 16px;
-      border: 1px solid var(--line);
+      border-radius: 16rpx;
+      border: 1rpx solid var(--line);
       box-shadow: var(--shadow-sm);
-      padding: 24px;
-      margin-bottom: 16px;
+      padding: 24rpx;
+      margin-bottom: 16rpx;
 
       .avatar {
-        width: 88px;
-        height: 88px;
+        width: 88rpx;
+        height: 88rpx;
         border-radius: 50%;
         background-color: var(--sidebar-active);
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-right: 24px;
+        margin-right: 24rpx;
         flex-shrink: 0;
 
         .avatar-text {
-          font-size: 36px;
+          font-size: 36rpx;
           color: var(--primary);
           font-weight: 600;
         }
@@ -48,7 +48,7 @@
       .conv-title {
         flex: 1;
         min-width: 0;
-        font-size: 30px;
+        font-size: 30rpx;
         font-weight: 600;
         color: var(--ink);
         overflow: hidden;
@@ -58,8 +58,8 @@
 
       .conv-time {
         flex-shrink: 0;
-        margin-left: 16px;
-        font-size: 22px;
+        margin-left: 16rpx;
+        font-size: 22rpx;
         color: var(--ink-3);
       }
     }

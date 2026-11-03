@@ -15,9 +15,9 @@ import { StyleSheet } from 'react-native';
 import colors from './colors';
 
 export const filterStyles = StyleSheet.create({
-  /** 未选中 chip：胶囊、hairline 描边、固定高度 34、透明底 */
+  /** 未选中 chip：胶囊、hairline 描边、最小高度 44（满足 iOS HIG 可点击区域）、透明底 */
   chip: {
-    height: 34,
+    minHeight: 44,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,

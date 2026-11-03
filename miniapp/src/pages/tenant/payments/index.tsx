@@ -85,7 +85,7 @@ export default function TenantPaymentsPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
 
-  const { data, setData, loading, refresh } = useSwrCache<Payment[]>({
+  const { data, setData, loading, error, refresh } = useSwrCache<Payment[]>({
     key: `tenant:payments:${uid}`,
     fetcher: async () => {
       const res = await paymentsApi.mine()
@@ -106,8 +106,8 @@ export default function TenantPaymentsPage() {
   })
 
   const pending = payments.filter((p) => p.status === 'pending')
-  // 统计口径对齐 App：已支付（succeeded / paid）/ 待支付（pending）
-  const isPaid = (p: Payment) => p.status === 'succeeded' || p.status === 'paid'
+  // 统计口径对齐 App：已支付（后端枚举 succeeded）/ 待支付（pending）
+  const isPaid = (p: Payment) => p.status === 'succeeded'
   const paidCount = payments.filter(isPaid).length
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB'
@@ -226,7 +226,15 @@ export default function TenantPaymentsPage() {
           {loading && payments.length === 0 && (
             <StateBlock loading text={t('common.loading')} />
           )}
-          {!loading && payments.length === 0 && (
+          {!loading && error && payments.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!loading && !error && payments.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('money', 80)} />
               <Text>{t('tpay.noBills')}</Text>

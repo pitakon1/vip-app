@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
@@ -70,7 +71,7 @@ export default function AdminPropertyDetailPage() {
       const [d, l, m]: any[] = await Promise.all([
         request({ url: `/properties/${id}`, method: 'GET' }),
         request({ url: `/properties/${id}/leases`, method: 'GET' }),
-        maintenanceApi.list({ property_id: id, page_size: 20 })
+        maintenanceApi.list({ property_id: id, page_size: LIST_PAGE_SIZE })
       ])
       setDetail(d?.data ?? d)
       setLeases((l?.data ?? l)?.items || [])

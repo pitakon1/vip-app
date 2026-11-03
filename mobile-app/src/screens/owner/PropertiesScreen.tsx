@@ -1,3 +1,4 @@
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源管理（业主端）
  * 结构对齐管理端 PropertiesScreen：搜索 → 状态筛选 → 房型/价格/面积/排序筛选 → 统计行 → 房源卡片
@@ -27,18 +28,20 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import { AREA_PRESETS, PRICE_PRESETS } from '@/constants/filters';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
+import { errorText } from '@/lib/errorText'
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
@@ -63,6 +66,9 @@ interface OwnerProperty {
   available_from?: string;
   description?: string;
   video_url?: string;
+  orientation?: string | null;
+  decoration?: string | null;
+  min_lease_months?: number | null;
   vr_url?: string;
   ceiling_height_m?: number | null;
   land_area_sqm?: number | null;
@@ -94,6 +100,9 @@ interface PropertyForm {
   status: string;
   available_from: string;
   furnished: boolean;
+  orientation: string;
+  decoration: string;
+  min_lease_months: string;
   description: string;
   video_url: string;
   // VR 看房链接 + 商办/工业专项字段（对齐管理端，随 5 分类上传补齐）
@@ -125,6 +134,9 @@ const emptyForm = (): PropertyForm => ({
   status: 'vacant',
   available_from: '',
   furnished: false,
+  orientation: '',
+  decoration: '',
+  min_lease_months: '',
   description: '',
   video_url: '',
   vr_url: '',
@@ -166,7 +178,6 @@ const typeMetaMap = (t: TFunc): Record<string, { label: string; icon: keyof type
 const statusMetaMap = (t: TFunc): Record<string, { label: string; color: string; rgb: string }> => ({
   vacant: { label: t('status.vacant'), color: colors.warning, rgb: colors.warningRgb },
   rented: { label: t('prop.status.rented'), color: colors.success, rgb: colors.successRgb },
-  reserved: { label: t('status.reserved'), color: colors.primary, rgb: colors.primaryRgb },
   maintenance: { label: t('status.maintenance'), color: colors.info, rgb: colors.infoRgb },
   renewing: { label: t('prop.status.renewing'), color: colors.primary, rgb: colors.primaryRgb },
 });
@@ -204,7 +215,7 @@ const statusChips = (t: TFunc) => [
   { key: 'vacant', label: t('status.vacant') },
   { key: 'rented', label: t('prop.status.rented') },
   { key: 'maintenance', label: t('status.maintenance') },
-  { key: 'reserved', label: t('status.reserved') },
+  { key: 'renewing', label: t('status.renewing') },
 ];
 
 // 房型筛选
@@ -218,23 +229,27 @@ const bedroomOptions = (t: TFunc) => [
 ];
 
 // 价格区间（月租，THB，万 → ×10000）—— 对齐管理端
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'prop.priceLt3',
+  '3-5': 'prop.price3to5',
+  '5-8': 'prop.price5to8',
+  g8: 'prop.priceGt8',
+};
 const priceOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
-  { key: '', label: t('prop.priceAny'), min: 0, max: Infinity },
-  { key: 'u3', label: t('prop.priceLt3'), min: 0, max: 30000 },
-  { key: '3-5', label: t('prop.price3to5'), min: 30000, max: 50000 },
-  { key: '5-8', label: t('prop.price5to8'), min: 50000, max: 80000 },
-  { key: 'g8', label: t('prop.priceGt8'), min: 80000, max: Infinity },
+  ...PRICE_PRESETS.map((p) => ({ ...p, label: p.key ? t(PRICE_LABELS[p.key]) : t('prop.priceAny') })),
   { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 
 // 面积区间（㎡）—— 对齐管理端
+const AREA_LABELS: Record<string, string> = {
+  u50: 'prop.areaLt50',
+  '50-100': 'prop.area50to100',
+  '100-150': 'prop.area100to150',
+  '150-200': 'prop.area150to200',
+  g200: 'prop.areaGt200',
+};
 const areaOptions = (t: TFunc): { key: string; label: string; min: number; max: number }[] => [
-  { key: '', label: t('prop.areaAny'), min: 0, max: Infinity },
-  { key: 'u50', label: t('prop.areaLt50'), min: 0, max: 50 },
-  { key: '50-100', label: t('prop.area50to100'), min: 50, max: 100 },
-  { key: '100-150', label: t('prop.area100to150'), min: 100, max: 150 },
-  { key: '150-200', label: t('prop.area150to200'), min: 150, max: 200 },
-  { key: 'g200', label: t('prop.areaGt200'), min: 200, max: Infinity },
+  ...AREA_PRESETS.map((p) => ({ ...p, label: p.key ? t(AREA_LABELS[p.key]) : t('prop.areaAny') })),
   { key: 'custom', label: t('prop.custom'), min: 0, max: Infinity },
 ];
 
@@ -289,7 +304,27 @@ const formStatusOptions = (t: TFunc) => [
   { key: 'vacant', label: t('status.vacant') },
   { key: 'rented', label: t('prop.status.rented') },
   { key: 'maintenance', label: t('status.maintenance') },
-  { key: 'reserved', label: t('status.reserved') },
+  { key: 'renewing', label: t('status.renewing') },
+];
+
+// 朝向 / 装修取值与 C 端筛选、管理端表单同口径（后端按枚举值校验）
+const orientationOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'north', label: t('prop.orient.north') },
+  { key: 'south', label: t('prop.orient.south') },
+  { key: 'east', label: t('prop.orient.east') },
+  { key: 'west', label: t('prop.orient.west') },
+  { key: 'northeast', label: t('prop.orient.northeast') },
+  { key: 'northwest', label: t('prop.orient.northwest') },
+  { key: 'southeast', label: t('prop.orient.southeast') },
+  { key: 'southwest', label: t('prop.orient.southwest') },
+];
+
+const decorationOptions = (t: TFunc): { key: string; label: string }[] => [
+  { key: 'bare', label: t('pub.decoration.bare') },
+  { key: 'simple', label: t('pub.decoration.simple') },
+  { key: 'standard', label: t('pub.decoration.standard') },
+  { key: 'luxury', label: t('pub.decoration.luxury') },
+  { key: 'fully_furnished', label: t('pub.decoration.fully_furnished') },
 ];
 
 const normalizeMoney = (v: string) => v.replace(/[^\d.-]/g, '');
@@ -337,6 +372,8 @@ export default function PropertiesScreen() {
   const SORT_OPTIONS = sortOptions(t);
   const TYPE_OPTIONS = typeOptions(t);
   const FORM_STATUS_OPTIONS = formStatusOptions(t);
+  const ORIENTATION_OPTIONS = orientationOptions(t);
+  const DECORATION_OPTIONS = decorationOptions(t);
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
   const PROPERTIES_KEY: string[] = ['owner-properties', uid];
@@ -387,7 +424,7 @@ export default function PropertiesScreen() {
   // 学校清单只为筛选器备选（公开接口，匿名可读）
   useEffect(() => {
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(res?.data?.items ?? []))
       .catch(() => setSchools([]));
   }, []);
@@ -404,6 +441,10 @@ export default function PropertiesScreen() {
 
   const properties = q.data ?? [];
   const loading = q.isPending && !q.data;
+  const loadError = q.isError && properties.length === 0 ? t('prop.loadFailed') : null;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
   const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
     void q.refetch({ cancelRefetch: false });
@@ -528,6 +569,9 @@ export default function PropertiesScreen() {
       status: p.status || 'vacant',
       available_from: p.available_from ? String(p.available_from).slice(0, 10) : '',
       furnished: Boolean(p.furnished),
+      orientation: p.orientation || '',
+      decoration: p.decoration || '',
+      min_lease_months: p.min_lease_months != null ? String(p.min_lease_months) : '',
       description: p.description || '',
       video_url: p.video_url || '',
       vr_url: p.vr_url || '',
@@ -590,6 +634,9 @@ export default function PropertiesScreen() {
       status: form.status,
       available_from: form.available_from?.trim() || undefined,
       furnished: form.furnished,
+      orientation: form.orientation || undefined,
+      decoration: form.decoration || undefined,
+      min_lease_months: form.min_lease_months ? Number(form.min_lease_months) : undefined,
       description: form.description?.trim() || undefined,
       video_url: form.video_url?.trim() || undefined,
       // VR 与商办/工业专项字段：空值一律 undefined（不传空字符串）
@@ -617,9 +664,7 @@ export default function PropertiesScreen() {
       void q.refetch({ cancelRefetch: false });
     } catch (err: any) {
       notify(
-        editingId ? t('prop.saveFail') : t('prop.addFail'),
-        err?.response?.data?.detail || t('prop.retryLater'),
-      );
+        editingId ? t('prop.saveFail') : t('prop.addFail'),errorText(err, t('prop.retryLater')));
     } finally {
       setSubmitting(false);
     }
@@ -659,7 +704,7 @@ export default function PropertiesScreen() {
       else setPhotos((prev) => [...prev, ...picked.map((a) => a.uri)]);
       Alert.alert(t('prop.uploadOk'), t('prop.uploadOkMsg'));
     } catch (e: any) {
-      Alert.alert(t('prop.uploadFail'), e?.response?.data?.detail || t('prop.retryLater'));
+      Alert.alert(t('prop.uploadFail'),errorText(e, t('prop.retryLater')));
     } finally {
       setPhotoBusy(false);
     }
@@ -674,7 +719,7 @@ export default function PropertiesScreen() {
       if (Array.isArray(d.photos)) setPhotos(d.photos as string[]);
       else setPhotos((prev) => prev.filter((p) => p !== url));
     } catch (e: any) {
-      Alert.alert(t('prop.deleteFail'), e?.response?.data?.detail || t('prop.retryLater'));
+      Alert.alert(t('prop.deleteFail'),errorText(e, t('prop.retryLater')));
     } finally {
       setPhotoBusy(false);
     }
@@ -691,7 +736,7 @@ export default function PropertiesScreen() {
         );
         notify(t('prop.deletedOk'), t('prop.deletedMsg'));
       } catch (err: any) {
-        notify(t('prop.deleteFail'), err?.response?.data?.detail || t('prop.retryLater'));
+        notify(t('prop.deleteFail'),errorText(err, t('prop.retryLater')));
       }
     };
     // react-native-web 下 Alert.alert 是空实现，用浏览器原生 confirm
@@ -718,7 +763,7 @@ export default function PropertiesScreen() {
         await listingApi.create(buildListingPayload(item));
         notify(t('listing.listedOk'));
       } catch (err: any) {
-        notify(t('listing.confirmListTitle'), err?.response?.data?.detail || t('prop.retryLater'));
+        notify(t('listing.confirmListTitle'),errorText(err, t('prop.retryLater')));
       }
     };
     if (Platform.OS === 'web') {
@@ -734,11 +779,11 @@ export default function PropertiesScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <LoadingState label={t('prop.loading')} />
-      </View>
-    );
+    return <ListState loading loadingLabel={t('prop.loading')} />;
+  }
+
+  if (loadError) {
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
   }
 
   const field = (label: string, value: string, key: keyof PropertyForm, opts?: {
@@ -1147,6 +1192,23 @@ export default function PropertiesScreen() {
           </View>
         </View>
 
+        {q.isError && properties.length > 0 ? (
+          <View
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('prop.loadFailed')}</Text>
+            <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {filtered.length === 0 ? (
           <EmptyState
             icon="business-outline"
@@ -1330,6 +1392,9 @@ export default function PropertiesScreen() {
 
               <Text style={styles.sheetSection}>{t('prop.sectionLease')}</Text>
               {chipGroup(t('prop.status'), form.status, FORM_STATUS_OPTIONS, (k) => setField('status', k))}
+              {chipGroup(t('prop.orientation'), form.orientation, ORIENTATION_OPTIONS, (k) => setField('orientation', form.orientation === k ? '' : k))}
+              {chipGroup(t('prop.decoration'), form.decoration, DECORATION_OPTIONS, (k) => setField('decoration', form.decoration === k ? '' : k))}
+              {field(t('prop.minLease'), form.min_lease_months, 'min_lease_months', { keyboard: 'number-pad', placeholder: '12' })}
 
               <Text style={styles.sheetSection}>{t('prop.sectionDesc')}</Text>
               {field(t('prop.fieldDesc'), form.description, 'description', { multiline: true, placeholder: t('prop.fieldDescPlaceholder') })}
@@ -1462,7 +1527,8 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
     borderWidth: 1,

@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, Form, Input, Select, message, Popconfirm, Empty, Spin } from 'antd'
+import { Button, Modal, Form, Input, Select, message, Popconfirm } from 'antd'
+import DataState from '@/components/DataState'
 import { PlusOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
+import { errorText } from '@/lib/errorText'
 
 interface Account {
   id: string
@@ -48,9 +51,10 @@ const Users = () => {
   const [data, setData] = useState<Account[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState<{ page: number; page_size: number; role?: string; user_type?: string; keyword?: string }>({
     page: 1,
-    page_size: 20,
+    page_size: LIST_PAGE_SIZE,
   })
   const [keywordDraft, setKeywordDraft] = useState('')
   const [form] = Form.useForm()
@@ -66,7 +70,7 @@ const Users = () => {
   const loadPartners = useCallback(async () => {
     setPartnerLoading(true)
     try {
-      const res = await api.get('/admin/partners', { params: { page_size: 100 } })
+      const res = await api.get('/admin/partners', { params: { page_size: OPTION_PAGE_SIZE } })
       const payload = res.data?.data ?? res.data
       setPartnerOptions((payload?.items ?? []).map((p: any) => ({ id: p.id, name: p.name })))
     } catch {
@@ -82,6 +86,7 @@ const Users = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await api.get('/admin/users', {
         params: { page: query.page, page_size: query.page_size, role: query.role, user_type: query.user_type, keyword: query.keyword },
@@ -90,11 +95,11 @@ const Users = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('systemUsers.errFetch'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, t])
 
   useEffect(() => {
     fetchData()
@@ -138,7 +143,7 @@ const Users = () => {
         form.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('systemUsers.errSave'))
+      message.error(errorText(err, t('systemUsers.errSave')))
     } finally {
       setSaving(false)
     }
@@ -150,7 +155,7 @@ const Users = () => {
       message.success(active ? t('systemUsers.msgActivated') : t('systemUsers.msgDeactivated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemUsers.errOperation'))
+      message.error(errorText(err, t('systemUsers.errOperation')))
     }
   }
 
@@ -160,7 +165,7 @@ const Users = () => {
       message.success(t('systemUsers.msgDeleted'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemUsers.errDelete'))
+      message.error(errorText(err, t('systemUsers.errDelete')))
     }
   }
 
@@ -172,7 +177,7 @@ const Users = () => {
       setPwdTarget(null)
       pwdForm.resetFields()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemUsers.errPwdReset'))
+      message.error(errorText(err, t('systemUsers.errPwdReset')))
     }
   }
 
@@ -258,7 +263,7 @@ const Users = () => {
       <div className="rent-filter-bar">
         <div className="rent-filter-bar__search">
           <div className="rent-search" style={{ width: '100%' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" strokeWidth="2">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -324,19 +329,26 @@ const Users = () => {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loadError && data.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="rent-loading-row">
-                      <Spin size="small" style={{ marginRight: 8 }} />
-                      {t('common.loading')}
+                    <td colSpan={8}>
+                      <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+                    </td>
+                  </tr>
+                ) : loading && data.length === 0 ? (
+                  <tr>
+                    <td colSpan={8}>
+                      <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
                     <td colSpan={8}>
-                      <div className="rent-empty">
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('systemUsers.empty')} />
-                      </div>
+                      <DataState
+                        empty
+                        filtered={!!(query.role || query.user_type || query.keyword)}
+                        emptyTitle={t('systemUsers.empty')}
+                      />
                     </td>
                   </tr>
                 ) : (

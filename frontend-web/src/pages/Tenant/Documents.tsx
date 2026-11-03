@@ -7,7 +7,9 @@ import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import DataState from '@/components/DataState'
 import './documents.css'
+import { errorText } from '@/lib/errorText'
 
 /**
  * C 端「文档中心」：业主与租客共用同一页面实现。
@@ -163,27 +165,23 @@ const TenantDocuments = () => {
     queryKey: docsQueryKey,
     cacheKey: `tenant-documents:mine:${uid}`,
     queryFn: async () => {
-      try {
-        const res = await api.get('/documents')
-        const payload = res.data?.data ?? res.data
-        const items: any[] = payload?.items ?? []
-        // 接口无数据时回落到演示数据（保留原租客端行为）
-        if (!items.length) return FALLBACK_DOCS
-        return items.map((d) => ({
-          id: String(d.id),
-          name: d.title || d.name || '',
-          category: normalizeCategory(d.type || d.category),
-          property: d.property_name || d.property || '-',
-          size: Number(d.file_size || 0),
-          date: d.created_at ? dayjs(d.created_at).format('YYYY-MM-DD') : '',
-          status: 'neutral' as DocStatus,
-          statusLabel: 'ownerDocuments.stArchived',
-          url: d.file_url || '',
-          fromApi: true,
-        }))
-      } catch {
-        return FALLBACK_DOCS
-      }
+      const res = await api.get('/documents')
+      const payload = res.data?.data ?? res.data
+      const items: any[] = payload?.items ?? []
+      // 接口无数据时回落到演示数据（保留原租客端行为）
+      if (!items.length) return FALLBACK_DOCS
+      return items.map((d) => ({
+        id: String(d.id),
+        name: d.title || d.name || '',
+        category: normalizeCategory(d.type || d.category),
+        property: d.property_name || d.property || '-',
+        size: Number(d.file_size || 0),
+        date: d.created_at ? dayjs(d.created_at).format('YYYY-MM-DD') : '',
+        status: 'neutral' as DocStatus,
+        statusLabel: 'ownerDocuments.stArchived',
+        url: d.file_url || '',
+        fromApi: true,
+      }))
     },
   })
   const data = q.data ?? []
@@ -248,7 +246,7 @@ const TenantDocuments = () => {
       setPendingFile(null)
       refresh()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('ownerDocuments.errUploadFailed'))
+      message.error(errorText(err, t('ownerDocuments.errUploadFailed')))
     } finally {
       setUploading(false)
     }
@@ -273,7 +271,7 @@ const TenantDocuments = () => {
             (old ?? []).filter((d) => String(d.id) !== String(doc.id)),
           )
         } catch (err: any) {
-          message.error(err?.response?.data?.detail || t('ownerDocuments.errDeleteFailed'))
+          message.error(errorText(err, t('ownerDocuments.errDeleteFailed')))
         }
       },
     })
@@ -312,9 +310,7 @@ const TenantDocuments = () => {
   return (
     <>
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <span className="rent-text-muted">{t('tenantDocuments.loading')}</span>
-        </div>
+        <DataState loading loadingText={t('tenantDocuments.loading')} skeletonRows={3} />
       )}
 
       {/* Hero */}
@@ -404,7 +400,13 @@ const TenantDocuments = () => {
 
       {/* Document grid */}
       <div className="rent-doc-grid">
-        {filteredData.length ? (
+        {q.isError && !q.data ? (
+          <DataState
+            error={t('common.loadFailed')}
+            retryText={t('common.retry')}
+            onRetry={refresh}
+          />
+        ) : filteredData.length ? (
           filteredData.map((d) => {
             const sizeStr = formatBytes(Number(d.size || 0))
             const canOpen = d.fromApi && !!d.url
@@ -448,7 +450,11 @@ const TenantDocuments = () => {
             )
           })
         ) : (
-          <div className="rent-empty">{t('tenantDocuments.empty')}</div>
+          <DataState
+            empty
+            filtered={!!(keyword.trim() || activeTab !== 'all' || timeFilter !== TIME_OPTIONS[0])}
+            emptyTitle={t('tenantDocuments.empty')}
+          />
         )}
       </div>
 

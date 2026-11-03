@@ -7,9 +7,9 @@
 .rent-prop-card {
   display: flex;
   flex-direction: column;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.2s;
+  transition: transform var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+              border-color var(--motion-base);
 }
 .rent-prop-card:hover {
   transform: translateY(-4px);
@@ -24,7 +24,7 @@
   align-items: flex-end;
   padding: 14px;
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: transform var(--motion-slow) ease;
 }
 .rent-prop-card:hover .rent-prop-card__banner {
   transform: scale(1.02);
@@ -45,40 +45,40 @@
   padding: 5px 12px;
   background: rgba(255, 255, 255, 0.92);
   border-radius: var(--rent-radius-full);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
   color: var(--rent-ink);
   backdrop-filter: blur(6px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 .rent-prop-card__body {
-  padding: 16px;
+  padding: var(--rent-s-4);
   display: flex;
   flex-direction: column;
   gap: 10px;
   flex: 1;
 }
 .rent-prop-card__name {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   color: var(--rent-ink);
   margin: 0;
   letter-spacing: -0.01em;
   line-height: 1.3;
-  transition: color 0.15s;
+  transition: color var(--motion-fast);
 }
 .rent-prop-card:hover .rent-prop-card__name {
   color: var(--rent-primary);
 }
 .rent-prop-card__address {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   margin: 0;
 }
 .rent-prop-card__stats {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   padding: 10px 0;
   border-top: 1px solid var(--rent-border);
   border-bottom: 1px solid var(--rent-border);
@@ -87,16 +87,16 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   font-weight: 500;
 }
-.rent-prop-card__stat svg { color: var(--rent-ink-3); flex-shrink: 0; }
+.rent-prop-card__stat svg { color: var(--rent-ink-2); flex-shrink: 0; }
 .rent-prop-card__rent-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .rent-prop-card__rent {
   font-size: 22px;
@@ -107,17 +107,17 @@
   line-height: 1;
 }
 .rent-prop-card__rent-unit {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 500;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   margin-left: 2px;
 }
 .rent-prop-card__footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-3) var(--rent-s-4);
   border-top: 1px solid var(--rent-border);
   background: var(--rent-surface-2);
 }
@@ -132,23 +132,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .lj-toolbar__left {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .lj-toolbar__title {
-  font-size: 20px;
+  font-size: var(--rent-fs-xl);
   font-weight: 700;
   color: var(--rent-ink);
 }
 .lj-toolbar__sub {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 
 /* ===== 搜索 + 筛选 ===== */
@@ -161,7 +161,7 @@
   border-bottom: none;
 }
 .lj-filter__search {
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
   max-width: 520px;
 }
 .lj-filter__search .ant-input-affix-wrapper-lg {
@@ -169,7 +169,7 @@
 }
 .lj-filter__selects {
   display: flex;
-  gap: 12px;
+  gap: var(--rent-s-3);
   flex-wrap: wrap;
 }
 .lj-filter__select {
@@ -187,11 +187,11 @@
   align-items: center;
   justify-content: space-between;
   background: var(--rent-card);
-  padding: 0 24px;
+  padding: 0 var(--rent-s-5);
   border: 1px solid var(--rent-border);
   border-bottom: 1px solid var(--rent-border);
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--rent-s-2);
 }
 .lj-sortbar__items {
   display: flex;
@@ -201,12 +201,12 @@
 .lj-sortbar__item {
   position: relative;
   padding: 14px 20px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   background: none;
   border: none;
   cursor: pointer;
-  transition: color 0.15s;
+  transition: color var(--motion-fast);
   font-family: var(--rent-font-sans);
   white-space: nowrap;
 }
@@ -229,8 +229,8 @@
   background: var(--rent-primary);
 }
 .lj-sortbar__count {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   white-space: nowrap;
   padding: 14px 0;
 }
@@ -253,10 +253,10 @@
 .lj-item {
   display: flex;
   gap: 20px;
-  padding: 24px;
+  padding: var(--rent-s-5);
   border-bottom: 1px solid var(--rent-border);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--motion-fast);
 }
 .lj-item:last-child {
   border-bottom: none;
@@ -279,7 +279,7 @@
 }
 .lj-item__img-text {
   color: rgba(255, 255, 255, 0.85);
-  font-size: 28px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -289,7 +289,7 @@
   left: 10px;
   padding: 3px 10px;
   border-radius: var(--rent-radius-sm);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
   color: #fff;
   backdrop-filter: blur(4px);
@@ -299,9 +299,6 @@
 }
 .lj-item__badge--rented {
   background: rgba(59, 130, 246, 0.85);
-}
-.lj-item__badge--reserved {
-  background: rgba(147, 51, 234, 0.85);
 }
 .lj-item__badge--maintenance {
   background: rgba(217, 119, 6, 0.85);
@@ -313,19 +310,19 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--rent-s-2);
 }
 
 /* 标题 */
 .lj-item__title {
-  font-size: 20px;
+  font-size: var(--rent-fs-xl);
   font-weight: 600;
   color: var(--rent-ink);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 0.15s;
+  transition: color var(--motion-fast);
 }
 .lj-item:hover .lj-item__title {
   color: var(--rent-primary);
@@ -333,7 +330,7 @@
 
 /* 信息行（管道符分隔） */
 .lj-item__info {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   line-height: 1.6;
   display: flex;
@@ -349,7 +346,7 @@
   font-style: normal;
   color: var(--rent-border);
   margin: 0 10px;
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
 }
 
 /* 元信息行 */
@@ -357,12 +354,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 .lj-item__meta-icon {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 
 /* 标签 */
@@ -376,7 +373,7 @@
   display: inline-block;
   padding: 2px 8px;
   border-radius: var(--rent-radius-sm);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   line-height: 1.6;
   white-space: nowrap;
 }
@@ -387,10 +384,6 @@
 .lj-chip--rented {
   color: var(--state-info);
   background: rgba(14, 165, 233, 0.08);
-}
-.lj-chip--reserved {
-  color: var(--state-purple);
-  background: rgba(var(--state-purple-rgb), 0.08);
 }
 .lj-chip--maintenance {
   color: var(--state-warning);
@@ -406,14 +399,14 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-top: 4px;
+  margin-top: var(--rent-s-1);
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .lj-item__price {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: var(--rent-s-1);
 }
 .lj-item__price-num {
   font-size: 26px;
@@ -423,19 +416,19 @@
   font-variant-numeric: tabular-nums;
 }
 .lj-item__price-unit {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--state-error);
   margin-left: 2px;
 }
 .lj-item__price-per {
-  font-size: 12px;
-  color: var(--rent-ink-3);
-  margin-left: 12px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
+  margin-left: var(--rent-s-3);
 }
 .lj-item__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
 }
 
 /* ===== 空状态 ===== */
@@ -444,16 +437,16 @@
   border: 1px solid var(--rent-border);
   border-top: none;
   border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
-  padding: 80px 24px;
+  padding: var(--rent-s-8) var(--rent-s-5);
   text-align: center;
 }
 
 /* ===== 分页 ===== */
 .lj-pagination {
-  margin-top: 24px;
+  margin-top: var(--rent-s-5);
   text-align: center;
   background: var(--rent-card);
-  padding: 16px;
+  padding: var(--rent-s-4);
   border-radius: var(--rent-radius-lg);
   border: 1px solid var(--rent-border);
 }
@@ -477,7 +470,7 @@
     white-space: normal;
   }
   .lj-filter {
-    padding: 16px;
+    padding: var(--rent-s-4);
   }
   .lj-filter__selects {
     flex-direction: column;
@@ -487,11 +480,11 @@
     width: 100%;
   }
   .lj-sortbar {
-    padding: 0 12px;
+    padding: 0 var(--rent-s-3);
   }
   .lj-sortbar__item {
     padding: 12px 14px;
-    font-size: 13px;
+    font-size: var(--rent-fs-sm);
   }
   .lj-item__price-num {
     font-size: 22px;
@@ -500,10 +493,10 @@
 
 /* ===== 项目坐标弹窗（地图找房点位来源） ===== */
 .coord-modal__hint {
-  margin: 0 0 16px;
-  font-size: 12px;
+  margin: 0 0 var(--rent-s-4);
+  font-size: var(--rent-fs-xs);
   line-height: 1.6;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 .coord-modal__list {
   max-height: 420px;
@@ -512,8 +505,8 @@
 .coord-modal__row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 0;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-2) 0;
   border-bottom: 1px solid var(--rent-border);
 }
 .coord-modal__row:last-child { border-bottom: none; }
@@ -525,25 +518,25 @@
   gap: 2px;
 }
 .coord-modal__name strong {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .coord-modal__name span {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .coord-modal__input { width: 120px; flex: 0 0 120px; }
 .coord-modal__empty {
-  padding: 32px 0;
+  padding: var(--rent-s-6) 0;
   text-align: center;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 
 /* =========================================================
@@ -556,7 +549,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 24px;
+  padding: var(--rent-s-3) var(--rent-s-5);
   border: 1px solid var(--rent-border);
   border-bottom: none;
   border-radius: var(--rent-radius-lg) var(--rent-radius-lg) 0 0;
@@ -578,8 +571,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 8px;
+  gap: var(--rent-s-4);
+  padding: 0 var(--rent-s-2);
   border: 1px solid var(--rent-border);
   border-top: none;
   background: var(--rent-card);
@@ -601,7 +594,7 @@
   background: none;
   border: none;
   color: var(--rent-ink-2);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-family: var(--rent-font-sans);
   cursor: pointer;
   white-space: nowrap;
@@ -623,7 +616,7 @@
 }
 .pf-tab__chevron {
   display: inline-flex;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   transition: transform .15s;
 }
 .pf-tab--open .pf-tab__chevron { transform: rotate(180deg); }
@@ -633,12 +626,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: var(--rent-s-2) var(--rent-s-3);
   background: none;
   border: none;
   border-radius: var(--rent-radius-full);
   color: var(--rent-ink-2);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
   cursor: pointer;
   font-family: var(--rent-font-sans);
@@ -653,13 +646,13 @@
 .pf-count {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
   padding: 10px 24px;
   border: 1px solid var(--rent-border);
   border-top: none;
   background: var(--rent-card);
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 .pf-count strong {
   color: var(--state-error);

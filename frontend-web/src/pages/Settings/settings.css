@@ -28,7 +28,7 @@
   inset: 0;
   background: var(--rent-ink-3);
   border-radius: var(--rent-radius-full);
-  transition: background 0.18s;
+  transition: background var(--motion-fast);
 }
 .rent-switch__thumb {
   position: absolute;
@@ -39,7 +39,7 @@
   background: #fff;
   border-radius: 50%;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
-  transition: transform 0.18s;
+  transition: transform var(--motion-fast);
   pointer-events: none;
 }
 .rent-switch input:checked ~ .rent-switch__track { background: var(--rent-primary); }
@@ -51,7 +51,7 @@
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   user-select: none;
 }
@@ -65,7 +65,7 @@
   background: var(--rent-surface);
   cursor: pointer;
   position: relative;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
   flex-shrink: 0;
 }
 .rent-check input:checked {
@@ -90,9 +90,9 @@
   border-radius: var(--rent-radius-md);
   padding: 28px;
   text-align: center;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--motion-fast), background var(--motion-fast);
   background: var(--rent-surface);
 }
 .rent-upload:hover {
@@ -106,17 +106,17 @@ label.rent-upload {
 .rent-upload__icon {
   display: flex;
   justify-content: center;
-  margin-bottom: 8px;
-  color: var(--rent-ink-3);
+  margin-bottom: var(--rent-s-2);
+  color: var(--rent-ink-2);
 }
 .rent-logo-preview {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: var(--rent-s-3);
+  padding: var(--rent-s-2) var(--rent-s-3);
   background: var(--rent-surface-2);
   border-radius: var(--rent-radius-md);
-  margin-bottom: 12px;
+  margin-bottom: var(--rent-s-3);
 }
 .rent-logo-preview__box {
   width: 44px;
@@ -142,12 +142,12 @@ label.rent-upload {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--rent-border);
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .rent-channel-card__head-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--rent-s-3);
   min-width: 0;
 }
 .rent-channel-card__icon {
@@ -167,8 +167,8 @@ label.rent-upload {
   color: var(--rent-ink);
 }
 .rent-channel-card__desc {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-top: 2px;
 }
 .rent-channel-card__body { padding: 20px; }
@@ -178,25 +178,25 @@ label.rent-upload {
 .rent-notify-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   padding: 16px 20px;
   border-bottom: 1px solid var(--rent-border);
 }
 .rent-notify-row:last-child { border-bottom: none; }
 .rent-notify-row__info { flex: 1; min-width: 0; }
 .rent-notify-row__title {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   color: var(--rent-ink);
 }
 .rent-notify-row__desc {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-top: 2px;
 }
 .rent-notify-row__channels {
   display: flex;
-  gap: 16px;
+  gap: var(--rent-s-4);
   flex-shrink: 0;
 }
 .rent-notify-row__toggle { flex-shrink: 0; }
@@ -219,10 +219,10 @@ label.rent-upload {
 .rent-settings-savebar {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--rent-s-2);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
-  margin-top: 16px;
+  margin-top: var(--rent-s-4);
   background: var(--rent-card);
   padding: 12px 20px;
 }

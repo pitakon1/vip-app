@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 业主「资产管理」独立页（我的 → 资产管理 / OwnerHome 路由）。
  * 首页已统一为租客同款视觉（问候/搜索/资产速览条/房源 rail），此处只承载业主差异内容：
@@ -101,7 +102,7 @@ export default function HomeScreen() {
       const [propRes, sumRes, listRes, payRes] = await Promise.allSettled([
         ownerApi.properties(),
         ownersApi.annualSummary(year),
-        listingApi.list({ page: 1, page_size: 100 }),
+        listingApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
         paymentsApi.mine(),
       ]);
       return {

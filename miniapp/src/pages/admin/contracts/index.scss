@@ -86,7 +86,7 @@
   }
 
   &__divider {
-    height: 1px;
+    height: 1rpx;
     background: var(--line);
     margin: 16rpx 0;
   }
@@ -142,7 +142,7 @@
 
   &--ghost {
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
   }
 
   &--primary {
@@ -150,7 +150,7 @@
   }
 
   &--danger-outline {
-    border: 1px solid var(--error);
+    border: 1rpx solid var(--error);
   }
 
   &--disabled {
@@ -207,7 +207,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10rpx 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
 
     &:last-child { border-bottom: none; }
   }
@@ -247,7 +247,7 @@
 .ac-party {
   background: var(--card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   padding: 20rpx;
   margin-bottom: 16rpx;
 
@@ -276,7 +276,7 @@
 .ac-content {
   background: var(--card);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   padding: 20rpx;
 
   &__inner {
@@ -289,7 +289,7 @@
 /* ===== 生成合同：范本预览 ===== */
 .ac-preview {
   margin-bottom: 20rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
 
@@ -300,7 +300,7 @@
     color: var(--ink-2);
     background: var(--surface-2);
     padding: 12rpx 20rpx;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
   }
 
   &__box {
@@ -361,7 +361,7 @@
     height: 84rpx;
     padding: 0 24rpx;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 28rpx;
     color: var(--ink);
@@ -388,7 +388,7 @@
   padding: 12rpx 28rpx;
   border-radius: var(--radius-full);
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
 
   &--active { background: var(--primary); border-color: var(--primary); }
   &--disabled { opacity: 0.35; }
@@ -401,7 +401,7 @@
 .ac-field-canvas {
   position: relative;
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md, 16rpx);
   overflow: hidden;
   background: #fff;
@@ -499,7 +499,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 18rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   margin-bottom: 12rpx;
 
@@ -566,7 +566,7 @@
     align-items: center;
     gap: 16rpx;
     padding: 14rpx 18rpx;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
   }
 
@@ -574,7 +574,7 @@
     width: 72rpx;
     height: 72rpx;
     border-radius: var(--radius-md);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     background: var(--card);
   }
 
@@ -593,7 +593,7 @@
     justify-content: space-between;
     gap: 12rpx;
     padding: 16rpx 18rpx;
-    border: 1px dashed var(--line);
+    border: 1rpx dashed var(--line);
     border-radius: var(--radius-md);
     background: var(--surface-2);
   }
@@ -604,7 +604,7 @@
 .ac-esign-maker {
   margin-top: 12rpx;
   padding: 16rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface-2);
 
@@ -616,7 +616,7 @@
   font-size: 26rpx;
   color: var(--ink-2);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   padding: 14rpx 20rpx;
   margin-top: 4rpx;
@@ -630,7 +630,7 @@
 .ac-esign-signbox {
   width: 100%;
   height: 260rpx;
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
   background: var(--card);
   overflow: hidden;
@@ -653,7 +653,7 @@
     min-width: 0;
     height: 68rpx;
     padding: 0 20rpx;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     background: var(--card);
     font-size: 26rpx;
@@ -665,7 +665,7 @@
     justify-content: space-between;
     gap: 12rpx;
     padding: 14rpx 18rpx;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     margin-top: 12rpx;
     background: var(--card);
@@ -680,7 +680,7 @@
 .ac-esign__doc {
   margin-top: 20rpx;
   padding-top: 20rpx;
-  border-top: 1px solid var(--line);
+  border-top: 1rpx solid var(--line);
 
   &-head {
     display: flex;
@@ -694,7 +694,7 @@
   &-canvas {
     position: relative;
     width: 100%;
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--surface-2);

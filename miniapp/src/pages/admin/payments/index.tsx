@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useCallback, useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { dashboardApi, paymentsApi } from '@/services/api'
 import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
@@ -9,6 +10,7 @@ import BottomNav from '@/components/BottomNav'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface PaymentItem {
   id: string
@@ -87,7 +89,7 @@ const CURRENCY_OPTIONS: string[] = ['THB', 'CNY', 'EUR']
 const TYPE_OPTIONS: string[] = ['rent', 'deposit', 'commission', 'service_fee', 'utility', 'tax', 'refund']
 const CHANNEL_OPTIONS: string[] = ['promptpay', 'stripe', 'wechat', 'alipay', 'wise', 'paypal', 'bank_transfer']
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 
@@ -98,8 +100,14 @@ const isOverdue = (p: PaymentItem) =>
 export default function AdminPaymentsPage() {
   const { t } = useI18n()
   const [list, setList] = useState<PaymentItem[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [filter, setFilter] = useState('')
+  // 分页
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   // 付款人姓名：仅 /dashboard/recent-payments 附带，按 id 合并展示
   const [payerMap, setPayerMap] = useState<Record<string, string>>({})
 
@@ -156,7 +164,7 @@ export default function AdminPaymentsPage() {
       fetchList()
       fetchPayerNames()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('pay.recordFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('pay.recordFailed')), icon: 'none' })
     } finally {
       setCreateBusy(false)
     }
@@ -176,7 +184,7 @@ export default function AdminPaymentsPage() {
       fetchList()
       fetchPayerNames()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('pay.confirmFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('pay.confirmFailed')), icon: 'none' })
     }
   }
 
@@ -185,7 +193,7 @@ export default function AdminPaymentsPage() {
       const res: any = await paymentsApi.get(p.id)
       setDetail(res?.data ?? res ?? p)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('pay.detailFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('pay.detailFailed')), icon: 'none' })
     }
   }
 
@@ -199,23 +207,42 @@ export default function AdminPaymentsPage() {
       if (opt) onPick(opt)
     }).catch(() => {})
 
-  const fetchList = async () => {
-    setLoading(true)
+  const fetchList = useCallback(async (pg: number = 1, append: boolean = false) => {
+    if (append && loadingMore) return
+    if (!append) { setLoading(true); setLoadError(false); setHasMore(true) }
+    else setLoadingMore(true)
     try {
       const res: any = await request({
         url: '/payments',
         method: 'GET',
-        data: { page: 1, page_size: PAGE_SIZE }
+        data: { page: pg, page_size: PAGE_SIZE }
       })
       const d = res?.data ?? res
-      setList(Array.isArray(d) ? d : d?.items || [])
+      const items: PaymentItem[] = Array.isArray(d) ? d : d?.items || []
+      const t = Number(d?.total ?? items.length)
+      if (append) {
+        setList((prev) => [...prev, ...items])
+      } else {
+        setList(items)
+      }
+      setTotal(t)
+      setPage(pg)
+      setHasMore(items.length >= PAGE_SIZE && list.length + items.length < t)
     } catch (error) {
       console.error('[AdminPayments] 获取收款列表失败', error)
-      Taro.showToast({ title: t('pay.loadFailed'), icon: 'none' })
+      if (!append) {
+        setLoadError(true)
+        Taro.showToast({ title: t('pay.loadFailed'), icon: 'none' })
+      }
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }
+  }, [loadingMore, list.length, t])
+
+  useReachBottom(() => {
+    if (hasMore && !loading && !loadingMore) fetchList(page + 1, true)
+  })
 
   const fetchPayerNames = async () => {
     try {
@@ -329,7 +356,21 @@ export default function AdminPaymentsPage() {
         {loading && visible.length === 0 && (
           <StateBlock loading text={t('pub.loading')} />
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={() => fetchList()}>
+            <Text className='inline-error-bar__text'>{t('pay.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && list.length === 0 && (
+          <StateBlock
+            error
+            text={t('pay.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchList}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='apay-state'>
             <View className='icon-svg' style={iconStyle('card', 72)} />
             <Text className='apay-state__text'>{t('pay.empty')}</Text>

@@ -6,9 +6,9 @@
   padding: 10px;
   background: var(--rent-sidebar-active);
   color: var(--rent-primary);
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   border-radius: var(--rent-radius-md);
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
 }
 
 /* =========================================================
@@ -16,9 +16,9 @@
    靛蓝主色 #14b8a6 · 贝壳化卡片流 · 双入口横幅 / 在售房源卡
    来源: rental-full-draft/pages/owner-dashboard.html rent-v17-styles
    ========================================================= */
-.rent-v17-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rent-v17-dual { display: grid; grid-template-columns: 1fr 1fr; gap: var(--rent-s-3); }
 .rent-v17-entry {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: var(--rent-s-3);
   padding: 14px 16px;
   border-radius: var(--rent-radius-lg);
   text-decoration: none;
@@ -38,12 +38,12 @@
 .rent-v17-entry--rent .rent-v17-entry__icon { background: #14b8a6; box-shadow: 0 6px 16px -6px rgba(20,184,166,.55); }
 .rent-v17-entry--sale .rent-v17-entry__icon { background: var(--state-warning); box-shadow: 0 6px 16px -6px rgba(217,119,6,.55); }
 .rent-v17-entry__title { font-size: 15px; font-weight: 700; color: var(--rent-ink); letter-spacing: -.01em; }
-.rent-v17-entry__sub { font-size: 12px; color: var(--rent-ink-2); margin-top: 2px; line-height: 1.4; }
-.rent-v17-entry__arrow { margin-left: auto; color: var(--rent-ink-3); flex-shrink: 0; display: flex; }
+.rent-v17-entry__sub { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); margin-top: 2px; line-height: 1.4; }
+.rent-v17-entry__arrow { margin-left: auto; color: var(--rent-ink-2); flex-shrink: 0; display: flex; }
 
 /* ---- 在租 / 在售 房源卡 ---- */
 .rent-v17-prop {
-  display: flex; gap: 12px; padding: 12px;
+  display: flex; gap: var(--rent-s-3); padding: var(--rent-s-3);
   border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg);
   background: var(--rent-card);
   transition: transform .15s, box-shadow .15s;
@@ -56,20 +56,20 @@
 .rent-v17-prop--rent .rent-v17-prop__thumb { background: rgba(22,163,74,.14); color: var(--state-success); }
 .rent-v17-prop--sale .rent-v17-prop__thumb { background: rgba(217,119,6,.16); color: var(--state-warning); }
 .rent-v17-prop__body { flex: 1; min-width: 0; }
-.rent-v17-prop__name { font-size: 14px; font-weight: 600; color: var(--rent-ink); }
-.rent-v17-prop__meta { font-size: 12px; color: var(--rent-ink-3); margin-top: 2px; }
-.rent-v17-prop__price { font-size: 16px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.rent-v17-prop__name { font-size: var(--rent-fs-base); font-weight: 600; color: var(--rent-ink); }
+.rent-v17-prop__meta { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); margin-top: 2px; }
+.rent-v17-prop__price { font-size: var(--rent-fs-lg); font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .rent-v17-prop--rent .rent-v17-prop__price { color: var(--rent-primary); }
 .rent-v17-prop--sale .rent-v17-prop__price { color: var(--state-warning); }
 
 /* ---- 卖房委托待办 ---- */
 .rent-v17-todo-sale {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: var(--rent-s-3);
   border: 1px solid var(--state-warning-light); background: var(--state-warning-soft);
-  border-radius: 12px; padding: 12px 16px;
+  border-radius: 12px; padding: var(--rent-s-3) var(--rent-s-4);
 }
 .rent-v17-todo-sale__icon {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 36px; height: 36px; border-radius: var(--rent-radius-md);
   background: rgba(217,119,6,.12); color: var(--state-warning);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
@@ -84,22 +84,22 @@
   background: rgba(217,119,6,0.12); color: var(--state-warning);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.rent-warn-banner__title { font-size: 16px; font-weight: 600; color: var(--rent-ink); }
-.rent-warn-banner__desc { font-size: 13px; color: var(--rent-ink-2); margin-top: 2px; }
+.rent-warn-banner__title { font-size: var(--rent-fs-lg); font-weight: 600; color: var(--rent-ink); }
+.rent-warn-banner__desc { font-size: var(--rent-fs-sm); color: var(--rent-ink-2); margin-top: 2px; }
 
 /* ---- 待处理事项：到期合同高亮 ---- */
 .rent-todo-lease {
   border: 1px solid var(--state-warning-light); background: var(--state-warning-soft); border-radius: 12px;
-  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+  padding: var(--rent-s-3) var(--rent-s-4); display: flex; align-items: center; gap: var(--rent-s-3);
 }
 
 /* ---- 待处理事项：报修条目 ---- */
 .rent-todo-repair {
   border: 1px solid var(--rent-border); border-radius: 12px;
-  padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+  padding: var(--rent-s-3) var(--rent-s-4); display: flex; align-items: center; gap: var(--rent-s-3);
 }
 .rent-todo-repair__icon {
-  width: 36px; height: 36px; border-radius: 10px;
+  width: 36px; height: 36px; border-radius: var(--rent-radius-md);
   background: rgba(217,119,6,0.1); color: var(--state-warning);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }

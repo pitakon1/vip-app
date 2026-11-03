@@ -8,6 +8,7 @@ import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface PartnerItem {
   id: string
@@ -42,6 +43,7 @@ export default function AdminPartnersPage() {
   const [list, setList] = useState<PartnerItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
@@ -82,6 +84,7 @@ export default function AdminPartnersPage() {
 
   const fetchList = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await adminPartnersApi.list({
         keyword: query || undefined,
@@ -94,6 +97,7 @@ export default function AdminPartnersPage() {
       setTotal(Number(d?.total ?? items.length))
     } catch (error) {
       console.error('[AdminPartners] 获取合作公司失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('partner.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -178,7 +182,7 @@ export default function AdminPartnersPage() {
       }
       fetchList()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('partner.loadFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('partner.loadFailed')), icon: 'none' })
     }
   }
 
@@ -215,7 +219,7 @@ export default function AdminPartnersPage() {
       setShowForm(false)
       fetchList()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('partner.loadFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('partner.loadFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -328,7 +332,21 @@ export default function AdminPartnersPage() {
 
       <ScrollView scrollY className='pn-list'>
         {loading && visible.length === 0 && <StateBlock loading text={t('acc.loading')} />}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={fetchList}>
+            <Text className='inline-error-bar__text'>{t('partner.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && list.length === 0 && (
+          <StateBlock
+            error
+            text={t('partner.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchList}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='pn-state'>
             <Text className='pn-state__text'>{t('partner.empty')}</Text>
           </View>

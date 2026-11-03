@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+﻿import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import BarChart from '@/components/charts/BarChart';
 import { ownerApi, ownersApi } from '@/services/api';
 import { fmtMoney } from '@/utils/format';
@@ -88,7 +88,8 @@ export default function IncomeScreen() {
         ownerApi.income(),
         ownersApi.annualSummary(year),
       ]);
-      const data = incomeRes.status === 'fulfilled' ? (incomeRes.value?.data as any) : null;
+      if (incomeRes.status === 'rejected') throw incomeRes.reason;
+      const data = incomeRes.value?.data as any;
       return {
         summary: {
           total_income: data?.total_income,
@@ -108,6 +109,7 @@ export default function IncomeScreen() {
   const summary = q.data?.summary ?? {};
   const annual = q.data?.annual ?? null;
   const loading = q.isPending && !q.data;
+  const loadError = q.isError && !q.data ? '收益数据加载失败' : null;
   const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
     void q.refetch({ cancelRefetch: false });
@@ -146,11 +148,11 @@ export default function IncomeScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <LoadingState label="正在加载收益…" />
-      </View>
-    );
+    return <ListState loading loadingLabel="正在加载收益…" />;
+  }
+
+  if (loadError) {
+    return <ListState error={loadError} retryLabel="重试" onRetry={onRefresh} />;
   }
 
   return (
@@ -167,6 +169,23 @@ export default function IncomeScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
+      {q.isError ? (
+        <View
+          style={{
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>收益数据刷新失败</Text>
+          <TouchableOpacity onPress={onRefresh} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* ===== Hero：本月收入 / 年累计 / 待收 ===== */}
       <View style={styles.heroCard}>
         <View style={styles.heroTop}>
@@ -357,7 +376,8 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.xl,
   },
   chip: {
-    paddingHorizontal: 16,
+     minHeight: 44,
+     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,

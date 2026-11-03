@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE, collectAllPages } from '@/lib/pagination'
 import { useState } from 'react'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -56,7 +57,7 @@ export default function TenantHomePage() {
 
     setLoading(true)
     const [propsRes, notifRes] = await Promise.all([
-      propertiesApi.list({ page: 1, pageSize: 100 }).catch(() => null),
+      propertiesApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE }).catch(() => null),
       notificationsApi.mine().catch(() => null)
     ])
     const props = pickList<any>(propsRes)
@@ -85,8 +86,12 @@ export default function TenantHomePage() {
   // 收藏状态：与找房页保持一致，走真实接口
   const fetchFavorites = async () => {
     try {
-      const res: any = await favoritesApi.list({ page: 1, limit: 1000 })
-      const list = pickList<any>(res)
+      // `limit` 不是后端分页参数（会被忽略），且 1000 已超过单页硬顶；
+      // 收藏 id 需要完整集合，按页累加取全量。
+      const list = await collectAllPages<any>(async (page, pageSize) => {
+        const res: any = await favoritesApi.list({ page, page_size: pageSize })
+        return pickList<any>(res)
+      })
       setFavSet(new Set(list.map((f: any) => String(f.property_id ?? f.id)).filter(Boolean)))
     } catch (error) {
       console.error('[TenantHome] 加载收藏状态失败', error)

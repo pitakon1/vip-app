@@ -67,7 +67,14 @@ export const leasesApi = {
   list: (params?: QueryParams) => api.get('/leases', { params }),
   get: (id: string) => api.get(`/leases/${id}`),
   create: (data: RequestBody) => api.post('/leases', data),
-  renew: (id: string, data: RequestBody) => api.post(`/leases/${id}/renew`, data),
+  // 后端 LeaseRenew 以 snake_case 接收（start_date / end_date 必填 datetime，
+  // monthly_rent 可选且须 > 0）；调用方用 camelCase，这里统一映射，避免直传 422
+  renew: (id: string, data: { startDate: string; endDate: string; monthlyRent: number }) =>
+    api.post(`/leases/${id}/renew`, {
+      start_date: data.startDate,
+      end_date: data.endDate,
+      monthly_rent: data.monthlyRent,
+    }),
   terminate: (id: string, data: RequestBody) =>
     api.post(`/leases/${id}/terminate`, data),
 }

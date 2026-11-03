@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Button,
@@ -16,9 +17,11 @@ import {
   message,
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { departmentsApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 
 interface DeptNode {
   id: string
@@ -53,6 +56,7 @@ const Departments = () => {
   const { t } = useTranslation()
   const [tree, setTree] = useState<DeptNode[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [users, setUsers] = useState<UserOption[]>([])
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
@@ -78,6 +82,7 @@ const Departments = () => {
 
   const fetchTree = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await departmentsApi.tree()
       const d = res.data?.data ?? res.data
@@ -85,7 +90,7 @@ const Departments = () => {
       setTree(nodes)
       setExpandedKeys(collectKeys(nodes))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDepartments.loadFailed'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -93,7 +98,7 @@ const Departments = () => {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await api.get('/admin/users', { params: { page_size: 200 } })
+      const res = await api.get('/admin/users', { params: { page_size: OPTION_PAGE_SIZE } })
       const d = res.data?.data ?? res.data
       setUsers(d?.items ?? [])
     } catch {
@@ -163,7 +168,7 @@ const Departments = () => {
       fetchTree()
     } catch (err: any) {
       if (err?.errorFields) return
-      message.error(err?.response?.data?.detail || t('systemDepartments.saveFailed'))
+      message.error(errorText(err, t('systemDepartments.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -175,7 +180,7 @@ const Departments = () => {
       message.success(t('systemDepartments.deleteOk'))
       fetchTree()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDepartments.removeFailed'))
+      message.error(errorText(err, t('systemDepartments.removeFailed')))
     }
   }
 
@@ -192,7 +197,7 @@ const Departments = () => {
       setAssignUserId(undefined)
       fetchTree()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemDepartments.assignFailed'))
+      message.error(errorText(err, t('systemDepartments.assignFailed')))
     } finally {
       setSaving(false)
     }
@@ -272,6 +277,9 @@ const Departments = () => {
         </div>
       </div>
 
+      {loadError && tree.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchTree} />
+      ) : (
       <Card loading={loading}>
         <Table
           rowKey="id"
@@ -285,6 +293,7 @@ const Departments = () => {
           locale={{ emptyText: t('systemDepartments.empty') }}
         />
       </Card>
+      )}
 
       <Modal
         title={editing ? t('systemDepartments.edit') : t('systemDepartments.addRoot')}

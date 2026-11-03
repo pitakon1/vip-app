@@ -14,7 +14,7 @@
 .pub-wrap {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 var(--rent-s-4);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -29,7 +29,7 @@
 .pub-topbar__inner {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--rent-s-5);
   height: 64px;
 }
 
@@ -52,7 +52,7 @@
   align-items: center;
   gap: 6px;
   height: 36px;
-  padding: 0 12px;
+  padding: 0 var(--rent-s-3);
   border: 1px solid var(--rent-line);
   border-radius: 999px;
   background: var(--rent-card);
@@ -73,7 +73,7 @@
 }
 
 .pub-loc__text {
-  font-size: 14px; /* 正文下限：原 13px 低于可读基线 */
+  font-size: var(--rent-fs-base); /* 正文下限：原 13px 低于可读基线 */
   max-width: 96px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -82,7 +82,7 @@
 
 .pub-loc__arrow {
   font-size: 10px;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 
 .pub-nav {
@@ -91,7 +91,7 @@
 }
 
 .pub-nav__item {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   background: none;
   border: none;
@@ -120,21 +120,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* 相邻可点元素间距 ≥8 */
+  gap: var(--rent-s-2); /* 相邻可点元素间距 ≥8 */
   height: 44px; /* 触控目标最小 44px */
   padding: 0 18px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-family: inherit;
   border-radius: var(--rent-radius-md);
   border: 1px solid var(--rent-line);
   background: var(--rent-card);
   color: var(--rent-ink);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
 }
 
 .pub-btn:hover {
-  border-color: var(--rent-ink-3);
+  border-color: var(--rent-ink-2);
 }
 
 .pub-btn--primary {
@@ -172,26 +172,26 @@
 }
 
 .pub-section {
-  margin: 32px 0;
+  margin: var(--rent-s-6) 0;
 }
 
 .pub-section__title {
   font-size: 18px;
   font-weight: 500;
-  margin: 0 0 4px;
+  margin: 0 0 var(--rent-s-1);
 }
 
 .pub-section__hint {
-  font-size: 13px;
-  color: var(--rent-ink-3);
-  margin: 0 0 16px;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+  margin: 0 0 var(--rent-s-4);
 }
 
 /* ---------- 房源卡片 ---------- */
 .pub-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  gap: var(--rent-s-4);
 }
 
 .pub-listing {
@@ -202,7 +202,7 @@
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.2s;
+  transition: box-shadow var(--motion-base);
 }
 
 .pub-listing:hover {
@@ -228,15 +228,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--rent-ink-3);
-  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
 }
 
 .pub-listing__body {
   padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--rent-s-2);
   flex: 1;
 }
 
@@ -252,7 +252,7 @@
 }
 
 .pub-listing__meta {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
 }
 
@@ -263,17 +263,17 @@
 }
 
 .pub-listing__price-sub {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-left: 6px;
 }
 
 .pub-listing__school {
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   color: var(--rent-ink-2);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
 }
 
 /* ---------- Badge ---------- */
@@ -281,7 +281,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   border-radius: var(--rent-radius-full);
   background: var(--rent-surface-2);
   color: var(--rent-ink-2);
@@ -305,7 +305,7 @@
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  padding: 16px;
+  padding: var(--rent-s-4);
   background: var(--rent-card);
   border: 1px solid var(--rent-line);
   border-radius: var(--rent-radius-lg);
@@ -315,20 +315,20 @@
 .pub-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--rent-s-1);
   min-width: 0;
 }
 
 .pub-field__label {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 
 .pub-select,
 .pub-input {
   height: 38px;
   padding: 0 10px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-family: inherit;
   color: var(--rent-ink);
   background: var(--rent-card);
@@ -347,19 +347,19 @@
 .pub-row-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 
 .pub-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--rent-s-4);
+  padding: var(--rent-s-4);
   background: var(--rent-card);
   border: 1px solid var(--rent-line);
   border-radius: var(--rent-radius-lg);
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  transition: box-shadow var(--motion-base);
 }
 
 .pub-row:hover {
@@ -381,12 +381,12 @@
 }
 
 .pub-row__sub {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
 }
 
 .pub-row__distance {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
   color: var(--rent-primary-hover);
   white-space: nowrap;
@@ -396,9 +396,9 @@
 .pub-detail {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 24px;
+  gap: var(--rent-s-5);
   align-items: start;
-  padding: 24px 0 48px;
+  padding: var(--rent-s-5) 0 var(--rent-s-7);
 }
 
 @media (max-width: 900px) {
@@ -438,7 +438,7 @@
 }
 .pub-detail__unit {
   font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 /* 未登录时的联系方式锁定提示：底色沿用 .pub-form-msg 的 surface-2
    （原内联样式写了 --rent-bg-2 这个不存在的变量，一直落到被 §4 禁用的冷灰 #f5f6f7 上） */
@@ -449,7 +449,7 @@
   gap: 6px;
 }
 .pub-detail__lock-icon {
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   flex-shrink: 0;
 }
 .pub-detail__broker {
@@ -473,14 +473,14 @@
 }
 .pub-detail__locked-suffix {
   font-size: var(--rent-fs-xs);
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   margin-left: 6px;
 }
 
 .pub-gallery {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 8px;
+  gap: var(--rent-s-2);
   height: 380px;
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
@@ -496,7 +496,7 @@
 .pub-gallery__side {
   display: grid;
   grid-template-rows: 1fr 1fr;
-  gap: 8px;
+  gap: var(--rent-s-2);
 }
 
 .pub-gallery__side img {
@@ -510,8 +510,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--rent-ink-3);
-  font-size: 13px;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
 }
 
 .pub-kv {
@@ -528,12 +528,12 @@
 }
 
 .pub-kv__k {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 
 .pub-kv__v {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   word-break: break-word;
 }
@@ -542,24 +542,24 @@
 .pub-inquiry {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 
 .pub-inquiry__title {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   margin: 0;
 }
 
 .pub-inquiry__note {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   line-height: 1.5;
 }
 
 .pub-form-msg {
-  font-size: 13px;
-  padding: 8px 12px;
+  font-size: var(--rent-fs-sm);
+  padding: var(--rent-s-2) var(--rent-s-3);
   border-radius: var(--rent-radius-md);
   background: var(--rent-surface-2);
 }
@@ -594,8 +594,8 @@
 }
 
 .pub-detail__unit-price {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: var(--rent-s-2);
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
 }
 
@@ -603,20 +603,20 @@
 .pub-empty {
   padding: 56px 16px;
   text-align: center;
-  color: var(--rent-ink-3);
-  font-size: 14px;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-base);
 }
 
 .pub-loading {
   padding: 40px 16px;
   text-align: center;
-  color: var(--rent-ink-3);
-  font-size: 14px;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-base);
 }
 
 .pub-breadcrumb {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   padding: 20px 0 0;
   display: flex;
   gap: 6px;
@@ -628,7 +628,7 @@
   cursor: pointer;
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   padding: 0;
   font-family: inherit;
 }
@@ -641,7 +641,7 @@
   border-top: 1px solid var(--rent-line);
   background: var(--rent-card);
   padding: 28px 0;
-  margin-top: 48px;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  margin-top: var(--rent-s-7);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }

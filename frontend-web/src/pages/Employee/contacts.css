@@ -5,20 +5,20 @@
 /* ===== 筛选表单控件 ===== */
 .rent-form-group { display: flex; flex-direction: column; gap: 6px; }
 .rent-form-label {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink);
 }
 .rent-form-input, .rent-form-select, .rent-form-textarea {
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   background: var(--rent-surface);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
   padding: 9px 12px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
   width: 100%;
   box-sizing: border-box;
 }
@@ -49,14 +49,14 @@
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 
 /* ===== 联系人卡片 ===== */
 .rent-contact-card__body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--rent-s-3);
   align-items: center;
   text-align: center;
 }
@@ -65,17 +65,17 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 12px;
+  padding: var(--rent-s-2) var(--rent-s-3);
   background: var(--rent-surface-2);
   border-radius: var(--rent-radius-md);
 }
 .rent-contact-phone__num {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-family: var(--rent-font-mono);
 }
 .rent-contact-social {
   display: flex;
-  gap: 8px;
+  gap: var(--rent-s-2);
   width: 100%;
   justify-content: center;
 }
@@ -96,10 +96,10 @@
 .rent-emergency-item {
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
-  padding: 16px;
+  padding: var(--rent-s-4);
 }
 
 /* 响应式 */
 @media (max-width: 768px) {
-  .rent-contact-phone__num { font-size: 12px; }
+  .rent-contact-phone__num { font-size: var(--rent-fs-xs); }
 }

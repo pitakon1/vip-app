@@ -12,11 +12,11 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { permissionsAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
@@ -41,6 +41,7 @@ export default function PermissionsScreen() {
   const [role, setRole] = useState('admin');
   const [checked, setChecked] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   /** 类目文案（后端 Permission.category 取值） */
@@ -62,12 +63,14 @@ export default function PermissionsScreen() {
   // 一次拉全量（权限点分组 + 各角色分配），切换角色只做本地切换，不重复请求
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data } = await permissionsAdminApi.list();
       const d = data?.data ?? data;
       setCategories(d?.categories ?? {});
       setRoles(d?.roles ?? {});
     } catch (e) {
+      setLoadError(t('perm.loadFailed'));
       notifyError(t('perm.loadFailed'), e);
     } finally {
       setLoading(false);
@@ -141,7 +144,9 @@ export default function PermissionsScreen() {
         </ScrollView>
 
         {loading ? (
-          <ActivityIndicator style={styles.loading} color={colors.primary} />
+          <ListState loading />
+        ) : loadError ? (
+          <ListState error={loadError} retryLabel={t('common.retry')} onRetry={load} />
         ) : (
           <>
             <Text style={styles.summary}>

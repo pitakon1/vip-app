@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { useCallback, useState } from 'react';
 import dayjs from 'dayjs';
 import api from '@/lib/api';
@@ -39,16 +40,19 @@ export const CRM_STAGE_KEYS = [
  */
 export function useCrmLeads(stage: string) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [monthNew, setMonthNew] = useState<number | null>(null);
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
+    setLoadError(false);
+    // 阶段计数由列表响应里的 stage_counts 一并返回（同一次请求，口径一致），
+    // 不再逐阶段发 COUNT_ONLY 探测请求。
     const results = await Promise.allSettled([
-      leadsApi.list({ page: 1, page_size: 100 }),
-      leadsApi.list({ page: 1, page_size: 50, ...(stage ? { stage } : {}) }),
-      ...CRM_STAGE_KEYS.map((key) => leadsApi.list({ stage: key, page: 1, page_size: 1 })),
+      leadsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+      leadsApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE, ...(stage ? { stage } : {}) }),
       api.get('/employees/directory'),
     ]);
 
@@ -64,22 +68,25 @@ export function useCrmLeads(stage: string) {
       allLeads.filter((l) => l.created_at && dayjs(l.created_at).isSame(dayjs(), 'month')).length,
     );
 
-    setLeads(itemsOf(results[1]) as Lead[]);
+    if (results[1].status === 'fulfilled') {
+      setLeads(itemsOf(results[1]) as Lead[]);
+    } else {
+      setLoadError(true);
+    }
 
     const totals: Record<string, number> = {};
-    CRM_STAGE_KEYS.forEach((key, idx) => {
-      const res = results[2 + idx];
-      if (res.status === 'fulfilled') {
-        const d = res.value?.data as { total?: number } | undefined;
-        totals[key] = typeof d?.total === 'number' ? d.total : 0;
-      } else {
-        totals[key] = 0;
-      }
+    const sc =
+      results[1].status === 'fulfilled'
+        ? ((results[1].value?.data as { stage_counts?: Record<string, number> } | undefined)
+            ?.stage_counts ?? {})
+        : {};
+    CRM_STAGE_KEYS.forEach((key) => {
+      totals[key] = typeof sc[key] === 'number' ? Number(sc[key]) : 0;
     });
     setStageTotals(totals);
     setTotalCustomers(Object.values(totals).reduce((a, b) => a + b, 0));
 
-    const dirIndex = 2 + CRM_STAGE_KEYS.length;
+    const dirIndex = 2;
     if (results[dirIndex].status === 'fulfilled') {
       const dir = results[dirIndex].value.data as { items?: { id: string; full_name?: string }[] };
       setNameMap(
@@ -91,5 +98,5 @@ export function useCrmLeads(stage: string) {
     }
   }, [stage]);
 
-  return { leads, stageTotals, totalCustomers, monthNew, nameMap, load };
+  return { leads, stageTotals, totalCustomers, monthNew, nameMap, load, loadError };
 }

@@ -9,12 +9,14 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
+import { AREA_TIERS_5, PRICE_TIERS } from '@/constants/filters'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 
 // ============ 接口字段（后端 snake_case）============
 interface OwnerProp {
@@ -44,6 +46,9 @@ interface OwnerProp {
   video_url?: string
   furnished?: boolean
   available_from?: string
+  orientation?: string
+  decoration?: string
+  min_lease_months?: number
   photos?: string[]
   layout?: string
   tenant_name?: string
@@ -101,8 +106,7 @@ const buildStatusFilters = (
   { key: 'vacant', label: t('prop.statusVacantLong') },
   { key: 'rented', label: t('prop.statusRentedLong') },
   { key: 'renewing', label: t('prop.statusRenewing') },
-  { key: 'maintenance', label: t('prop.statusMaintenanceLong') },
-  { key: 'reserved', label: t('prop.statusReserved') }
+  { key: 'maintenance', label: t('prop.statusMaintenanceLong') }
 ]
 
 // 房型选项：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上, '4'=4室及以上（对齐管理端/租客端）
@@ -118,27 +122,33 @@ const buildBedroomOptions = (
 ]
 
 // 价格区间（单位 万/月，语义对齐管理端）：''=不限, 预设 key, 'custom'=自定义
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'prop.priceU3',
+  '3-5': 'prop.price35',
+  '5-8': 'prop.price58',
+  g8: 'prop.priceG8'
+}
 const buildPriceOptions = (
   t: (k: string, p?: Record<string, string | number>) => string
 ): { key: string; label: string }[] => [
   { key: '', label: t('prop.priceAny') },
-  { key: 'u3', label: t('prop.priceU3') },
-  { key: '3-5', label: t('prop.price35') },
-  { key: '5-8', label: t('prop.price58') },
-  { key: 'g8', label: t('prop.priceG8') },
+  ...PRICE_TIERS.map((tier) => ({ key: tier.key, label: t(PRICE_LABELS[tier.key]) })),
   { key: 'custom', label: t('prop.custom') }
 ]
 
 // 面积区间：''=不限, 预设 key, 'custom'=自定义
+const AREA_LABELS: Record<string, string> = {
+  '0-50': 'op.areaU50',
+  '50-100': 'op.area50to100',
+  '100-150': 'op.area100to150',
+  '150-200': 'op.area150to200',
+  '200+': 'op.area200plus'
+}
 const buildAreaOptions = (
   t: (k: string, p?: Record<string, string | number>) => string
 ): { key: string; label: string }[] => [
   { key: '', label: t('prop.areaAny') },
-  { key: '0-50', label: t('op.areaU50') },
-  { key: '50-100', label: t('op.area50to100') },
-  { key: '100-150', label: t('op.area100to150') },
-  { key: '150-200', label: t('op.area150to200') },
-  { key: '200+', label: t('op.area200plus') },
+  ...AREA_TIERS_5.map((tier) => ({ key: tier.key, label: t(AREA_LABELS[tier.key]) })),
   { key: 'custom', label: t('prop.custom') }
 ]
 
@@ -180,8 +190,31 @@ const buildEditStatusOptions = (
 ): { value: string; label: string }[] => [
   { value: 'vacant', label: t('prop.statusVacant') },
   { value: 'rented', label: t('prop.statusRented') },
-  { value: 'maintenance', label: t('prop.statusMaintenanceLong') },
-  { value: 'reserved', label: t('prop.statusReserved') }
+  { value: 'renewing', label: t('prop.statusRenewing') },
+  { value: 'maintenance', label: t('prop.statusMaintenanceLong') }
+]
+
+const buildOrientationOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { value: string; label: string }[] => [
+  { value: 'north', label: t('pub.orientation.north') },
+  { value: 'south', label: t('pub.orientation.south') },
+  { value: 'east', label: t('pub.orientation.east') },
+  { value: 'west', label: t('pub.orientation.west') },
+  { value: 'northeast', label: t('pub.orientation.northeast') },
+  { value: 'northwest', label: t('pub.orientation.northwest') },
+  { value: 'southeast', label: t('pub.orientation.southeast') },
+  { value: 'southwest', label: t('pub.orientation.southwest') }
+]
+
+const buildDecorationOptions = (
+  t: (k: string, p?: Record<string, string | number>) => string
+): { value: string; label: string }[] => [
+  { value: 'bare', label: t('pub.decoration.bare') },
+  { value: 'simple', label: t('pub.decoration.simple') },
+  { value: 'standard', label: t('pub.decoration.standard') },
+  { value: 'luxury', label: t('pub.decoration.luxury') },
+  { value: 'fully_furnished', label: t('pub.decoration.fully_furnished') }
 ]
 
 interface EditForm {
@@ -200,6 +233,9 @@ interface EditForm {
   status: string
   available_from: string
   furnished: boolean
+  orientation: string
+  decoration: string
+  min_lease_months: string
   description: string
   video_url: string
   photos: string[]
@@ -231,6 +267,9 @@ const emptyForm = (): EditForm => ({
   status: 'vacant',
   available_from: '',
   furnished: false,
+  orientation: '',
+  decoration: '',
+  min_lease_months: '',
   description: '',
   video_url: '',
   photos: [],
@@ -263,6 +302,9 @@ const toForm = (p: OwnerProp): EditForm => ({
   status: p.status || 'vacant',
   available_from: p.available_from ? String(p.available_from).slice(0, 10) : '',
   furnished: !!p.furnished,
+  orientation: p.orientation || '',
+  decoration: p.decoration || '',
+  min_lease_months: String(p.min_lease_months ?? ''),
   description: p.description || '',
   video_url: p.video_url || '',
   photos: Array.isArray(p.photos) ? p.photos : [],
@@ -312,6 +354,8 @@ export default function OwnerPropertiesPage() {
   const SORT_OPTIONS = buildSortOptions(t)
   const TYPE_GROUPS = buildTypeGroups(t)
   const EDIT_STATUS_OPTIONS = buildEditStatusOptions(t)
+  const EDIT_ORIENTATION_OPTIONS = buildOrientationOptions(t)
+  const EDIT_DECORATION_OPTIONS = buildDecorationOptions(t)
 
   // 筛选（客户端过滤）
   const [keyword, setKeyword] = useState('')
@@ -334,7 +378,7 @@ export default function OwnerPropertiesPage() {
   const [form, setForm] = useState<EditForm>(emptyForm())
   const [submitting, setSubmitting] = useState(false)
 
-  const { data, loading, refresh } = useSwrCache<OwnerProp[]>({
+  const { data, loading, error, refresh } = useSwrCache<OwnerProp[]>({
     key: `owner:properties:${uid}`,
     fetcher: async () => {
       const res = await ownerApi.properties()
@@ -412,11 +456,12 @@ export default function OwnerPropertiesPage() {
           if (priceCustomMax && r > Number(priceCustomMax) * 10000) return false
           return true
         }
-        if (priceRange === 'u3') return r <= 30000
-        if (priceRange === 'g8') return r >= 80000
-        const [mn, mx] = priceRange.split('-').map(Number)
-        if (!Number.isNaN(mn) && r < mn * 10000) return false
-        if (!Number.isNaN(mx) && r > mx * 10000) return false
+        const tier = PRICE_TIERS.find((x) => x.key === priceRange)
+        if (tier) {
+          if (tier.min > 0 && r < tier.min) return false
+          if (tier.max != null && r > tier.max) return false
+          return true
+        }
         return true
       })
     }
@@ -429,10 +474,10 @@ export default function OwnerPropertiesPage() {
           if (areaCustomMax && a > Number(areaCustomMax)) return false
           return true
         }
-        if (areaRange === '200+') return a >= 200
-        const [mn, mx] = areaRange.split('-').map(Number)
-        if (!Number.isNaN(mn) && a < mn) return false
-        if (!Number.isNaN(mx) && a > mx) return false
+        const tier = AREA_TIERS_5.find((x) => x.key === areaRange)
+        if (!tier) return true
+        if (a < tier.min) return false
+        if (tier.max != null && a > tier.max) return false
         return true
       })
     }
@@ -461,8 +506,7 @@ export default function OwnerPropertiesPage() {
           await listingApi.create(buildListingPayload(p))
           Taro.showToast({ title: t('listing.listedOk'), icon: 'success' })
         } catch (err: any) {
-          const detail = err?.data?.detail || err?.message
-          Taro.showToast({ title: typeof detail === 'string' ? detail : t('common.saveFailed'), icon: 'none' })
+          Taro.showToast({ title: errorText(err, t('common.saveFailed')), icon: 'none' })
         }
       }
     })
@@ -482,8 +526,7 @@ export default function OwnerPropertiesPage() {
           Taro.showToast({ title: t('op.deleted'), icon: 'success' })
           refresh(true)
         } catch (err: any) {
-          const detail = err?.data?.detail || err?.message
-          Taro.showToast({ title: typeof detail === 'string' ? detail : t('common.deleteFailed'), icon: 'none' })
+          Taro.showToast({ title: errorText(err, t('common.deleteFailed')), icon: 'none' })
         }
       }
     })
@@ -550,6 +593,9 @@ export default function OwnerPropertiesPage() {
       status: form.status,
       available_from: form.available_from.trim() || undefined,
       furnished: !!form.furnished,
+      orientation: form.orientation || undefined,
+      decoration: form.decoration || undefined,
+      min_lease_months: num(form.min_lease_months),
       description: form.description.trim() || undefined,
       video_url: form.video_url.trim() || undefined,
       vr_url: form.vr_url.trim() || undefined,
@@ -578,7 +624,7 @@ export default function OwnerPropertiesPage() {
     } catch (err: any) {
       console.error('[OwnerProperties] 保存房源失败', err)
       Taro.hideLoading()
-      Taro.showToast({ title: err?.message || t('op.saveFailedRetry'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('op.saveFailedRetry')), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -808,7 +854,15 @@ export default function OwnerPropertiesPage() {
         {loading && filtered.length === 0 && (
           <StateBlock loading text={t('common.loading')} />
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && error && properties.length === 0 && (
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => refresh(true)}
+          />
+        )}
+        {!loading && !error && filtered.length === 0 && (
           <View className='op-state'>
             <View className='icon-svg' style={iconStyle('home', 72)} />
             <Text className='op-state__text'>{t('prop.empty')}</Text>
@@ -1077,6 +1131,49 @@ export default function OwnerPropertiesPage() {
                   )
                 })}
               </View>
+
+              <Text className='field-label'>{t('pub.orientationLabel')}</Text>
+              <View className='pick-wrap'>
+                {EDIT_ORIENTATION_OPTIONS.map((o) => {
+                  const active = form.orientation === o.value
+                  return (
+                    <View
+                      key={o.value}
+                      className={`pick-chip${active ? ' pick-chip--active' : ''}`}
+                      hoverClass='pick-chip--hover'
+                      onClick={() => set('orientation', form.orientation === o.value ? '' : o.value)}
+                    >
+                      <Text className={`pick-chip__text${active ? ' pick-chip__text--active' : ''}`}>{o.label}</Text>
+                    </View>
+                  )
+                })}
+              </View>
+
+              <Text className='field-label'>{t('pub.decorationLabel')}</Text>
+              <View className='pick-wrap'>
+                {EDIT_DECORATION_OPTIONS.map((o) => {
+                  const active = form.decoration === o.value
+                  return (
+                    <View
+                      key={o.value}
+                      className={`pick-chip${active ? ' pick-chip--active' : ''}`}
+                      hoverClass='pick-chip--hover'
+                      onClick={() => set('decoration', form.decoration === o.value ? '' : o.value)}
+                    >
+                      <Text className={`pick-chip__text${active ? ' pick-chip__text--active' : ''}`}>{o.label}</Text>
+                    </View>
+                  )
+                })}
+              </View>
+
+              <Text className='field-label'>{t('prop.minLease')}</Text>
+              <Input
+                className='input'
+                type='number'
+                value={form.min_lease_months}
+                onInput={(e: any) => set('min_lease_months', e.detail.value)}
+                placeholder='12'
+              />
 
               <View className='field-row'>
                 <View className='field-col'>

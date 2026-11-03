@@ -14,6 +14,7 @@ import { Input, Modal, DatePicker, message as antdMessage } from 'antd'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
+import LazyImage from '@/components/LazyImage'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, {
@@ -30,6 +31,7 @@ import {
   photoUrls,
 } from '@/lib/publicLabels'
 import '@/styles/public-site.css'
+import { errorText } from '@/lib/errorText'
 
 type NearbySchool = {
   id: string
@@ -263,7 +265,7 @@ const ListingDetailPage = () => {
       setViewingPhone('')
       antdMessage.success(t('publicSite.bookOk'))
     } catch (err: any) {
-      antdMessage.error(err?.response?.data?.detail || t('publicSite.bookError'))
+      antdMessage.error(errorText(err, t('publicSite.bookError')))
     } finally {
       setViewingSubmitting(false)
     }
@@ -318,10 +320,23 @@ const ListingDetailPage = () => {
                 <div className="pub-gallery__empty">{t('publicSite.noPhoto')}</div>
               ) : (
                 <>
-                  <img className="pub-gallery__main" src={photos[0]} alt={title} />
+                  {/* 首屏主图是 LCP 关键图，保持 eager + 高优先级 */}
+                  <img
+                    className="pub-gallery__main"
+                    src={photos[0]}
+                    alt={title}
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                  />
                   <div className="pub-gallery__side">
                     {photos.slice(1, 3).map((url, index) => (
-                      <img key={`${url}-${index}`} src={url} alt={title} />
+                      <LazyImage
+                        key={`${url}-${index}`}
+                        src={url}
+                        alt={title}
+                        containerStyle={{ width: '100%', height: '100%' }}
+                      />
                     ))}
                   </div>
                 </>

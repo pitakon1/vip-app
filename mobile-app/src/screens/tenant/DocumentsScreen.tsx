@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { errorText } from '@/lib/errorText';
 import {
   View,
   Text,
@@ -174,7 +175,7 @@ export default function DocumentsScreen() {
       Alert.alert('已选择文件', '文件已选择，正在上传…');
       await loadDocs();
     } catch (err: any) {
-      Alert.alert('上传失败', err?.message || '请稍后重试');
+      Alert.alert('上传失败', errorText(err, '请稍后重试'));
     } finally {
       setUploading(false);
     }
@@ -409,7 +410,8 @@ const styles = StyleSheet.create({
   /* chips */
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.lg },
   chip: {
-    paddingHorizontal: 16,
+     minHeight: 44,
+     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,

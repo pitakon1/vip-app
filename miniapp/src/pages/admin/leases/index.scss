@@ -18,7 +18,7 @@
     height: 80rpx;
     padding: 0 28rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     font-size: 28rpx;
     color: var(--ink);
@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -185,7 +185,7 @@
   }
 
   &__divider {
-    height: 1px;
+    height: 1rpx;
     background: var(--line);
     margin: 18rpx 0;
   }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 租客 / 业主「我的合同」签署页（只读为主）。
  *
  * 列出当前用户可见的合同（contractsApi.list：本人作为签署方或挂在本人租约下）。
@@ -644,8 +644,8 @@ export default function MyContractsScreen() {
         </View>
         <TouchableOpacity
           style={styles.trayRedo}
-          activeOpacity={0.8}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.8}
           onPress={openMaker}
         >
           <Ionicons name="refresh-outline" size={compact ? 15 : 17} color={colors.ink3} />

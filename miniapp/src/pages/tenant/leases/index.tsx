@@ -47,7 +47,7 @@ export default function TenantLeasesPage() {
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const LEASE_STATUS = buildLeaseStatus(t)
 
-  const { data, loading, refresh } = useSwrCache<any[]>({
+  const { data, loading, error, refresh } = useSwrCache<any[]>({
     key: `tenant:leases:${uid}`,
     fetcher: async () => {
       const res: any = await leasesApi.mine()
@@ -74,7 +74,15 @@ export default function TenantLeasesPage() {
           {loading && leases.length === 0 && (
             <StateBlock loading text={t('common.loading')} />
           )}
-          {!loading && leases.length === 0 && (
+          {!loading && error && leases.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!loading && !error && leases.length === 0 && (
             <View className='empty-tip'>
               <Text>{t('tenantLease.empty')}</Text>
             </View>

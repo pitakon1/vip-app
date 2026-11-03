@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AutoComplete,
@@ -16,8 +17,10 @@ import {
   message,
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
 import { optionsApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 
 interface OptionItem {
   id: string
@@ -43,6 +46,7 @@ const Options = () => {
   const { t } = useTranslation()
   const [items, setItems] = useState<OptionItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [activeType, setActiveType] = useState<string>('all')
   const [modalOpen, setModalOpen] = useState(false)
@@ -51,12 +55,13 @@ const Options = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await optionsApi.list({ active_only: false })
       const d = res.data?.data ?? res.data
       setItems(d ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemOptions.loadFailed'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -139,7 +144,7 @@ const Options = () => {
       fetchData()
     } catch (err: any) {
       if (err?.errorFields) return
-      message.error(err?.response?.data?.detail || t('systemOptions.saveFailed'))
+      message.error(errorText(err, t('systemOptions.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -150,7 +155,7 @@ const Options = () => {
       await optionsApi.update(row.id, { is_active })
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemOptions.saveFailed'))
+      message.error(errorText(err, t('systemOptions.saveFailed')))
     }
   }
 
@@ -160,7 +165,7 @@ const Options = () => {
       message.success(t('systemOptions.deleteOk'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemOptions.removeFailed'))
+      message.error(errorText(err, t('systemOptions.removeFailed')))
     }
   }
 
@@ -251,16 +256,20 @@ const Options = () => {
         </div>
       </div>
 
+      {loadError && items.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+      ) : (
       <Card loading={loading}>
         <Tabs activeKey={activeType} onChange={setActiveType} items={tabItems} />
         <Table
           rowKey="id"
           columns={columns}
           dataSource={filtered}
-          pagination={{ pageSize: 20, showSizeChanger: false }}
+          pagination={{ pageSize: LIST_PAGE_SIZE, showSizeChanger: false }}
           locale={{ emptyText: t('systemOptions.empty') }}
         />
       </Card>
+      )}
 
       <Modal
         title={editing ? t('systemOptions.edit') : t('systemOptions.add')}

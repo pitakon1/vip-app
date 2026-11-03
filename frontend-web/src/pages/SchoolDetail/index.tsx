@@ -1,3 +1,5 @@
+import { NEARBY_LIMIT } from '@/lib/pagination'
+import { DEFAULT_SCHOOL_RADIUS_KM } from '@/constants/filters'
 /**
  * 学校详情页 + 该校周边在售/在租房源。
  *
@@ -9,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import LazyImage from '@/components/LazyImage'
 import { loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, { type PublicListingCardData } from '@/components/PublicListingCard'
@@ -59,7 +62,7 @@ const SchoolDetailPage = () => {
     let cancelled = false
     setLoading(true)
     api
-      .get(`/public/schools/${id}`, { params: { radius_km: 5, limit: 12 } })
+      .get(`/public/schools/${id}`, { params: { radius_km: DEFAULT_SCHOOL_RADIUS_KM, limit: NEARBY_LIMIT } })
       .then((res) => {
         if (!cancelled) setSchool(res.data)
       })
@@ -140,7 +143,7 @@ const SchoolDetailPage = () => {
         <div className="pub-section">
           <div className="pub-card">
             {photos.length > 0 ? (
-              <img
+              <LazyImage
                 src={photos[0]}
                 alt={school.name}
                 style={{

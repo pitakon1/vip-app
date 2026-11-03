@@ -26,6 +26,10 @@ class DashboardSummaryOut(BaseModel):
     active_leads: int
     closed_leads: int
     conversion_rate: float
+    # 员工规模（本页 KPI 直接消费，免去前端额外拉一次 /employees 列表）
+    employee_count: int = 0
+    # 本月新入职（按员工档案创建时间归属当月，与前端原「本月新增」口径一致）
+    new_employees: int = 0
 
 
 class RecentPaymentOut(BaseModel):

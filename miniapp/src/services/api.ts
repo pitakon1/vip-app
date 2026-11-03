@@ -154,8 +154,8 @@ export const calendarEventsApi = {
 
 export const documentsApi = {
   list: (params?: any) => request({ url: '/documents', method: 'GET', data: params }),
-  // 证件上传（multipart，字段名 file）：type 为 DocumentType（property_certificate / owner_id_card）
-  uploadDocument: (filePath: string, formData: { type: string; title: string; property_id: string }) => {
+  // 文档上传（multipart，字段名 file）：type 为后端 DocumentType；property_id 可选（仅证件关联房源时传）
+  uploadDocument: (filePath: string, formData: { type: string; title: string; property_id?: string }) => {
     const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
     return Taro.uploadFile({
       url: `${baseURL}/documents/upload`,

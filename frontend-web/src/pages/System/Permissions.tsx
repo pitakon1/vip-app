@@ -3,6 +3,7 @@ import { Card, Tabs, Checkbox, Button, Space, message, Tag } from 'antd'
 import { SaveOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import { errorText } from '@/lib/errorText'
 
 interface PermData {
   categories: Record<string, { code: string; name: string; description?: string }[]>
@@ -49,7 +50,7 @@ const Permissions = () => {
       setData(d)
       setChecked(d?.roles?.[role] ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemPermissions.loadFailed'))
+      message.error(errorText(err, t('systemPermissions.loadFailed')))
     } finally {
       setLoading(false)
     }
@@ -71,7 +72,7 @@ const Permissions = () => {
       setChecked(d.permissions ?? [])
       message.success(t('systemPermissions.saved', { role: t(ROLE_LABEL[role]) }))
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemPermissions.saveFailed'))
+      message.error(errorText(err, t('systemPermissions.saveFailed')))
     } finally {
       setSaving(false)
     }
@@ -105,7 +106,7 @@ const Permissions = () => {
         />
 
         <Space wrap style={{ marginBottom: 16 }}>
-          <span style={{ color: 'var(--rent-ink-3)', fontWeight: 500 }}>
+          <span style={{ color: 'var(--rent-ink-2)', fontWeight: 500 }}>
             {t('systemPermissions.selectedCount', { selected: checked.length, total: Object.values(data?.categories ?? {}).reduce((s, arr) => s + arr.length, 0) })}
           </span>
           {Object.entries(data?.categories ?? {}).map(([cat, perms]) => {

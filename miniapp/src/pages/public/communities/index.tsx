@@ -1,3 +1,4 @@
+import { BROWSE_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 小区（楼盘）列表（匿名可看）。
  *
@@ -12,9 +13,10 @@ import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = BROWSE_PAGE_SIZE
 
 /** 价格区间文案：min/max 都为空返回空串（不显示这一行）。 */
 const priceRange = (min?: number | null, max?: number | null): string => {
@@ -35,6 +37,7 @@ export default function PublicCommunitiesPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     loadRates()
@@ -47,8 +50,10 @@ export default function PublicCommunitiesPage() {
 
   const fetchPage = useCallback(
     async (targetPage: number) => {
-      if (targetPage === 1) setLoading(true)
-      else setLoadingMore(true)
+      if (targetPage === 1) {
+        setLoading(true)
+        setLoadError(false)
+      } else setLoadingMore(true)
       try {
         const res = await publicApi.projects({
           page: targetPage,
@@ -61,10 +66,7 @@ export default function PublicCommunitiesPage() {
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]))
       } catch (err) {
         console.error('[public projects] 加载失败', err)
-        if (targetPage === 1) {
-          setItems([])
-          setTotal(0)
-        }
+        if (targetPage === 1) setLoadError(true)
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -109,9 +111,16 @@ export default function PublicCommunitiesPage() {
         <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>
 
         {loading ? (
-          <View className='pub-loading'>{t('pub.loading')}</View>
+          <StateBlock loading text={t('pub.loading')} />
+        ) : loadError ? (
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => fetchPage(1)}
+          />
         ) : items.length === 0 ? (
-          <View className='pub-empty'>{t('pub.communitiesEmpty')}</View>
+          <StateBlock empty filtered={!!debounced} text={t('pub.communitiesEmpty')} />
         ) : (
           <>
             {items.map((project) => {

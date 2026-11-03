@@ -97,8 +97,7 @@ const buildPropertyStatusText = (
   rented: t('prop.statusRented'),
   vacant: t('prop.statusVacant'),
   renewing: t('opd.statusRenewing'),
-  maintenance: t('prop.statusMaintenanceLong'),
-  reserved: t('prop.statusReserved')
+  maintenance: t('prop.statusMaintenanceLong')
 })
 
 // 租约状态（对齐后端 LeaseStatus 枚举）

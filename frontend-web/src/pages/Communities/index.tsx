@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 小区（楼盘）列表页。
  *
@@ -9,6 +10,8 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Skeleton } from 'antd'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
+import LazyImage from '@/components/LazyImage'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import { tenureLabel } from '@/lib/publicLabels'
@@ -47,6 +50,9 @@ const CommunitiesPage = () => {
   const { t } = useTranslation()
   const [items, setItems] = useState<ProjectCard[]>([])
   const [loading, setLoading] = useState(true)
+  // 请求失败不再清成空列表：保留上一次数据，并给出错误态 + 重试
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const [keyword, setKeyword] = useState('')
 
   useEffect(() => {
@@ -56,15 +62,16 @@ const CommunitiesPage = () => {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
     api
       .get('/public/projects', {
-        params: { page_size: 60, q: keyword.trim() || undefined },
+        params: { page_size: OPTION_PAGE_SIZE, q: keyword.trim() || undefined },
       })
       .then((res) => {
         if (!cancelled) setItems(res.data?.items ?? [])
       })
       .catch(() => {
-        if (!cancelled) setItems([])
+        if (!cancelled) setLoadError(t('common.loadFailed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -72,7 +79,7 @@ const CommunitiesPage = () => {
     return () => {
       cancelled = true
     }
-  }, [keyword])
+  }, [keyword, reloadTick, t])
 
   return (
     <div className="pub-page">
@@ -99,7 +106,13 @@ const CommunitiesPage = () => {
             </div>
           </div>
 
-          {loading ? (
+          {loadError ? (
+            <DataState
+              error={loadError}
+              retryText={t('common.retry')}
+              onRetry={() => setReloadTick((n) => n + 1)}
+            />
+          ) : loading ? (
             <div className="pub-grid">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div className="pub-listing" key={n}>
@@ -113,7 +126,11 @@ const CommunitiesPage = () => {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="pub-empty">{t('publicSite.communitiesEmpty')}</div>
+            <DataState
+              empty
+              filtered={Boolean(keyword.trim())}
+              emptyTitle={t('publicSite.communitiesEmpty')}
+            />
           ) : (
             <div className="pub-grid">
               {items.map((project) => {
@@ -132,11 +149,10 @@ const CommunitiesPage = () => {
                   >
                     <div className="pub-listing__media">
                       {project.cover ? (
-                        <img
+                        <LazyImage
                           className="pub-listing__img"
                           src={project.cover}
                           alt={project.name}
-                          loading="lazy"
                         />
                       ) : (
                         <div className="pub-listing__placeholder">

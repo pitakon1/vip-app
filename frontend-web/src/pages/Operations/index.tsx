@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import DataState from '@/components/DataState'
 import { Tag, message, Spin, Progress, Drawer, Empty } from 'antd'
 import { Line } from 'react-chartjs-2'
 import {
@@ -12,7 +13,9 @@ import {
   Filler,
 } from 'chart.js'
 import api from '@/lib/api'
+import { chartTheme } from '@/lib/chartTheme'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -50,6 +53,8 @@ const Operations = () => {
   const [series, setSeries] = useState<Record<string, number>>({})
   const [countryOpen, setCountryOpen] = useState(false)
   const [cityRows, setCityRows] = useState<{ city: string; properties: number; rented: number; occupancy: number }[]>([])
+  const [cityLoading, setCityLoading] = useState(false)
+  const [cityError, setCityError] = useState<string | null>(null)
   const [countryName, setCountryName] = useState('')
 
   const fetchData = useCallback(async () => {
@@ -65,7 +70,7 @@ const Operations = () => {
       setLeadsByStage(d.leads_by_stage ?? {})
       setSeries(d.activity?.daily ?? {})
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('operations.errLoad'))
+      message.error(errorText(err, t('operations.errLoad')))
     } finally {
       setLoading(false)
     }
@@ -82,20 +87,24 @@ const Operations = () => {
       const d = res.data?.data ?? res.data
       setSeries(d.series ?? {})
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('operations.errTrend'))
+      message.error(errorText(err, t('operations.errTrend')))
     }
   }
 
   const loadCountry = async (country: string) => {
     setCountryName(country)
     setCountryOpen(true)
+    setCityLoading(true)
+    setCityError(null)
     try {
       const res = await api.get(`/operations/country/${encodeURIComponent(country)}`)
       const d = res.data?.data ?? res.data
       setCityRows(d.cities ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('operations.errCities'))
+      setCityError(errorText(err, t('common.loadFailed')))
       setCityRows([])
+    } finally {
+      setCityLoading(false)
     }
   }
 
@@ -119,9 +128,9 @@ const Operations = () => {
           </p>
         </div>
         <div className="rent-page-header__actions">
-          <a className="rent-btn rent-btn--secondary" onClick={fetchData}>
+          <button type="button" className="rent-btn rent-btn--secondary" onClick={fetchData}>
             {t('operations.refresh')}
-          </a>
+          </button>
         </div>
       </div>
 
@@ -206,7 +215,7 @@ const Operations = () => {
                     {
                       label: t('operations.activeUsers'),
                       data: trendEntries.map(([, v]) => v),
-                      borderColor: '#14b8a6',
+                      borderColor: chartTheme.primary,
                       backgroundColor: 'rgba(20,184,166,0.1)',
                       fill: true,
                       tension: 0.3,
@@ -326,7 +335,7 @@ const Operations = () => {
                 <div key={s.source}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontWeight: 500 }}>{s.source}</span>
-                    <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{s.count}</span>
+                    <span style={{ color: 'var(--rent-ink-2)', fontSize: 13 }}>{s.count}</span>
                   </div>
                   <Progress
                     percent={Math.round((s.count / maxSource) * 100)}
@@ -349,10 +358,16 @@ const Operations = () => {
         onClose={() => setCountryOpen(false)}
         width={420}
       >
-        {cityRows.length === 0 ? (
-          <div className="rent-empty">
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('operations.noCity')} />
-          </div>
+        {cityError && cityRows.length === 0 ? (
+          <DataState
+            error={cityError}
+            retryText={t('common.retry')}
+            onRetry={() => { void loadCountry(countryName) }}
+          />
+        ) : cityLoading && cityRows.length === 0 ? (
+          <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
+        ) : cityRows.length === 0 ? (
+          <DataState empty emptyTitle={t('operations.noCity')} />
         ) : (
           <div className="rent-table-wrap">
             <table className="rent-table">

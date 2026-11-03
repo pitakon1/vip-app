@@ -5,12 +5,12 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--rent-s-5);
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin-bottom: var(--rent-s-5);
 }
 .mt-hero__title {
-  font-size: 28px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.02em;
@@ -19,22 +19,22 @@
 }
 .mt-hero__subtitle {
   font-size: 15px;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   margin: 0;
 }
 .mt-hero__btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-3) var(--rent-s-5);
   border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
   color: #fff;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   text-decoration: none;
   box-shadow: var(--rent-shadow-2);
-  transition: background 0.15s, transform 0.15s;
+  transition: background var(--motion-fast), transform var(--motion-fast);
   flex-shrink: 0;
   border: none;
   cursor: pointer;
@@ -50,7 +50,7 @@
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
   padding: 20px 8px;
-  margin-bottom: 32px;
+  margin-bottom: var(--rent-s-6);
   box-shadow: var(--rent-shadow-1);
 }
 .mt-summary__item {
@@ -58,8 +58,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 0 16px;
+  gap: var(--rent-s-2);
+  padding: 0 var(--rent-s-4);
   border-right: 1px solid var(--rent-border);
 }
 .mt-summary__item:last-child { border-right: none; }
@@ -78,14 +78,14 @@
   line-height: 1;
 }
 .mt-summary__unit {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 500;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   margin-left: 3px;
 }
 .mt-summary__label {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -96,12 +96,12 @@
 .mt-segment {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
   background: var(--rent-surface-2);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-full);
-  padding: 4px;
-  margin-bottom: 24px;
+  padding: var(--rent-s-1);
+  margin-bottom: var(--rent-s-5);
 }
 .mt-segment__item {
   display: inline-flex;
@@ -109,11 +109,11 @@
   gap: 6px;
   padding: 8px 18px;
   border-radius: var(--rent-radius-full);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
   color: var(--rent-ink-2);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast);
   border: none;
   background: transparent;
   font-family: var(--rent-font-sans);
@@ -134,7 +134,7 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--rent-radius-full);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
   background: rgba(15,23,42,0.08);
   color: var(--rent-ink-2);
@@ -148,8 +148,8 @@
 .mt-ticket-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 32px;
+  gap: var(--rent-s-4);
+  margin-bottom: var(--rent-s-6);
 }
 .mt-ticket {
   position: relative;
@@ -159,7 +159,7 @@
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
   box-shadow: var(--rent-shadow-1);
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow var(--motion-base), transform var(--motion-base);
 }
 .mt-ticket:hover {
   box-shadow: var(--rent-shadow-2);
@@ -185,7 +185,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--rent-s-3);
   flex-wrap: wrap;
 }
 .mt-ticket__head {
@@ -196,8 +196,8 @@
 }
 .mt-ticket__id {
   font-family: var(--rent-font-mono);
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   font-weight: 500;
 }
 .mt-ticket__title {
@@ -211,9 +211,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 12px;
+  padding: var(--rent-s-1) var(--rent-s-3);
   border-radius: var(--rent-radius-full);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -226,7 +226,7 @@
   border-radius: 50%;
 }
 .mt-ticket__desc {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   line-height: 1.6;
   margin: 0;
@@ -234,10 +234,10 @@
 .mt-ticket__meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   flex-wrap: wrap;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 .mt-ticket__meta-item {
   display: inline-flex;
@@ -250,33 +250,33 @@
 .mt-ticket__progress-head {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   margin-bottom: 6px;
 }
-.mt-ticket__progress-label { color: var(--rent-ink-3); }
+.mt-ticket__progress-label { color: var(--rent-ink-2); }
 .mt-ticket__progress-value { font-weight: 600; color: var(--state-info); }
 .mt-ticket__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--rent-s-3);
   flex-wrap: wrap;
-  padding-top: 12px;
+  padding-top: var(--rent-s-3);
   border-top: 1px solid var(--rent-border);
-  margin-top: 4px;
+  margin-top: var(--rent-s-1);
 }
 .mt-ticket__footer-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   flex-wrap: wrap;
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
 }
 .mt-ticket__actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
 }
 
 /* Form */
@@ -302,7 +302,7 @@
   letter-spacing: -0.01em;
 }
 .mt-form-card__body {
-  padding: 24px;
+  padding: var(--rent-s-5);
 }
 .mt-form {
   display: flex;
@@ -316,26 +316,26 @@
 }
 .mt-form__label {
   display: block;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink);
-  margin-bottom: 8px;
+  margin-bottom: var(--rent-s-2);
 }
 .mt-form__label .req { color: var(--state-error); }
 .mt-form__input,
 .mt-form__textarea,
 .mt-form__select {
   width: 100%;
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   border: 1px solid var(--rent-border);
   border-radius: 8px;
   background: var(--rent-surface);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   outline: none;
   font-family: var(--rent-font-sans);
   box-sizing: border-box;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .mt-form__input:focus,
 .mt-form__textarea:focus,
@@ -357,7 +357,7 @@
   border-radius: 12px;
   background: var(--rent-surface-2);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--motion-fast), background var(--motion-fast);
 }
 .mt-form__upload:hover {
   border-color: var(--rent-primary);
@@ -374,26 +374,26 @@
   justify-content: center;
 }
 .mt-form__upload-text {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   font-weight: 600;
 }
 .mt-form__upload-hint {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 .mt-form__footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--rent-s-3);
   flex-wrap: wrap;
   padding-top: 20px;
   border-top: 1px solid var(--rent-border);
 }
 .mt-form__footer-hint {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -406,7 +406,7 @@
 .mt-submit-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
   padding: 12px 28px;
   border-radius: 8px;
   background: var(--rent-primary);
@@ -417,14 +417,14 @@
   cursor: pointer;
   font-family: var(--rent-font-sans);
   box-shadow: var(--rent-shadow-2);
-  transition: background 0.15s, transform 0.15s;
+  transition: background var(--motion-fast), transform var(--motion-fast);
 }
 .mt-submit-btn:hover { background: #0d9488; transform: translateY(-1px); }
 .mt-form__photos {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: var(--rent-s-3);
 }
 .mt-form__photo-thumb {
   width: 72px;

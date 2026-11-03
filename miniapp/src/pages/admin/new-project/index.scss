@@ -53,7 +53,7 @@
   padding: 0 24rpx;
   border-radius: var(--radius-lg);
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   font-size: 28rpx;
   color: var(--ink);
 }
@@ -68,7 +68,7 @@
   padding: 0 24rpx;
   border-radius: var(--radius-lg);
   background: var(--surface-2);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
 
   &__text {
     font-size: 28rpx;

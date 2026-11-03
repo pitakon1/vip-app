@@ -4,14 +4,14 @@
   position: relative;
   overflow: hidden;
   background: #14b8a6;
-  border-radius: 24px;
+  border-radius: var(--rent-radius-xl);
   padding: 44px;
-  margin-bottom: 32px;
+  margin-bottom: var(--rent-s-6);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--rent-s-5);
 }
 .cmp-hero__decor {
   position: absolute;
@@ -45,7 +45,7 @@
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -54,12 +54,12 @@
 .cmp-hero__title {
   font-size: 34px;
   font-weight: 700;
-  margin: 0 0 12px;
+  margin: 0 0 var(--rent-s-3);
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
 .cmp-hero__subtitle {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   color: rgba(255, 255, 255, 0.85);
   margin: 0;
   line-height: 1.7;
@@ -74,20 +74,20 @@
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .cmp-section {
-  margin-bottom: 32px;
+  margin-bottom: var(--rent-s-6);
 }
 .cmp-section__head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: 20px;
-  gap: 16px;
+  gap: var(--rent-s-4);
 }
 .cmp-section__title {
   font-size: 22px;
@@ -97,8 +97,8 @@
   margin: 0;
 }
 .cmp-section__hint {
-  font-size: 14px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink-2);
 }
 
 .cmp-contact-grid {
@@ -111,7 +111,7 @@
   border: 1px solid var(--rent-border);
   border-radius: 20px;
   padding: 26px;
-  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  transition: transform var(--motion-slow), box-shadow var(--motion-slow), border-color var(--motion-slow);
 }
 .cmp-contact-card:hover {
   transform: translateY(-4px);
@@ -130,8 +130,8 @@
   margin-bottom: 18px;
 }
 .cmp-contact-card__label {
-  font-size: 13px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
   margin-bottom: 6px;
 }
 .cmp-contact-card__value {
@@ -151,10 +151,10 @@
 .cmp-social-card {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   background: var(--rent-card);
   border: 1px solid var(--rent-border);
-  border-radius: 18px;
+  border-radius: var(--rent-radius-lg);
   padding: 22px;
 }
 .cmp-social-card__icon {
@@ -169,9 +169,9 @@
   flex-shrink: 0;
 }
 .cmp-social-card__label {
-  font-size: 13px;
-  color: var(--rent-ink-3);
-  margin-bottom: 4px;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+  margin-bottom: var(--rent-s-1);
 }
 .cmp-social-card__value {
   font-size: 15px;

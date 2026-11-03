@@ -6,7 +6,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
@@ -16,10 +15,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { optionsApi } from '@/services/api';
 import { useI18n } from '@/i18n';
@@ -40,8 +42,10 @@ export default function OptionsScreen() {
   const { t } = useI18n();
   const [items, setItems] = useState<OptionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<OptionItem | null>(null);
   const [form, setForm] = useState({
     type: '',
@@ -55,10 +59,12 @@ export default function OptionsScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data } = await optionsApi.list({ active_only: false });
       setItems(data?.data ?? data ?? []);
     } catch (e) {
+      setLoadError(t('dict.loadFailed'));
       notifyError(t('dict.loadFailed'), e);
     } finally {
       setLoading(false);
@@ -67,6 +73,15 @@ export default function OptionsScreen() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const grouped = useMemo(() => {
@@ -171,16 +186,39 @@ export default function OptionsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={() => openCreate()}>
           <Ionicons name="add" size={18} color={colors.primaryForeground} />
           <Text style={styles.addBtnText}>{t('dict.add')}</Text>
         </TouchableOpacity>
 
+        {loadError && grouped.length > 0 ? (
+          <View
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+            <TouchableOpacity onPress={load} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {loading ? (
-          <ActivityIndicator style={styles.loading} color={colors.primary} />
+          <ListState loading />
+        ) : loadError && grouped.length === 0 ? (
+          <ListState error={loadError} retryLabel={t('common.retry')} onRetry={load} />
         ) : grouped.length === 0 ? (
-          <Text style={styles.empty}>{t('dict.empty')}</Text>
+          <EmptyState title={t('dict.empty')} />
         ) : (
           grouped.map(([type, list]) => (
             <View key={type} style={styles.group}>

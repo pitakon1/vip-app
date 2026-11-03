@@ -366,7 +366,7 @@
     justify-content: space-between;
     gap: 20rpx;
     padding: 20rpx 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
 
     &:last-child {
       border-bottom: none;
@@ -398,7 +398,7 @@
     gap: 16rpx;
     padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
     background-color: var(--card);
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
     box-shadow: 0 -8rpx 24rpx -12rpx rgba(28, 39, 51, 0.18);
   }
 
@@ -423,7 +423,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-lg);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     background-color: var(--surface-2);
     font-size: 28rpx;
     font-weight: 600;
@@ -498,7 +498,7 @@
       align-items: center;
       justify-content: center;
       border-radius: var(--radius-md);
-      border: 1px solid var(--line);
+      border: 1rpx solid var(--line);
       background-color: var(--surface-2);
 
       &-text {
@@ -512,7 +512,7 @@
       height: 80rpx;
       padding: 0 20rpx;
       border-radius: var(--radius-md);
-      border: 1px solid var(--line);
+      border: 1rpx solid var(--line);
       background-color: var(--surface-2);
       font-size: 28rpx;
       color: var(--ink);
@@ -535,7 +535,7 @@
       font-weight: 600;
 
       &--ghost {
-        border: 1px solid var(--line);
+        border: 1rpx solid var(--line);
         background-color: var(--surface-2);
         color: var(--ink-2);
       }

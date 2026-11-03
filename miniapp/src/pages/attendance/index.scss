@@ -107,7 +107,7 @@
       align-items: center;
       margin-top: 28rpx;
       padding-top: 24rpx;
-      border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.2);
+      border-top: 1rpx solid rgba(var(--primary-foreground-rgb), 0.2);
     }
 
     &__stat {
@@ -135,7 +135,7 @@
     }
 
     &__divider {
-      width: 1px;
+      width: 1rpx;
       height: 44rpx;
       background: rgba(var(--primary-foreground-rgb), 0.2);
       flex-shrink: 0;
@@ -162,7 +162,7 @@
 
     &--ghost {
       background: rgba(var(--primary-foreground-rgb), 0.15);
-      border: 1px solid rgba(var(--primary-foreground-rgb), 0.35);
+      border: 1rpx solid rgba(var(--primary-foreground-rgb), 0.35);
 
       &:active {
         transform: scale(0.98);
@@ -171,7 +171,7 @@
 
     &--done {
       background: rgba(var(--primary-foreground-rgb), 0.15);
-      border: 1px solid rgba(var(--primary-foreground-rgb), 0.25);
+      border: 1rpx solid rgba(var(--primary-foreground-rgb), 0.25);
     }
 
     &--hover {
@@ -208,7 +208,7 @@
   /* 外勤管理 */
   .a-trip {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 28rpx;
@@ -245,7 +245,7 @@
   }
 
   .a-form {
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
     margin-top: 20rpx;
     padding-top: 20rpx;
 
@@ -314,7 +314,7 @@
   }
 
   .a-trips {
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
     margin-top: 20rpx;
     padding-top: 20rpx;
 
@@ -330,7 +330,7 @@
 
     &__item {
       padding: 20rpx 0;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1rpx solid var(--line);
 
       &:last-child {
         border-bottom: none;
@@ -382,7 +382,7 @@
   /* ===== 本月统计（2×2） ===== */
   .a-month {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 28rpx;
@@ -442,7 +442,7 @@
   /* ===== 考勤记录 ===== */
   .a-rec {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 8rpx 28rpx 16rpx;
@@ -473,7 +473,7 @@
       align-items: center;
       gap: 20rpx;
       padding: 20rpx 0;
-      border-top: 1px solid var(--line);
+      border-top: 1rpx solid var(--line);
     }
 
     &__date {
@@ -524,7 +524,7 @@
   /* 规则 */
   .a-rule {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     padding: 28rpx;
     /* 底部留白：为固定底部导航让位 */
@@ -549,7 +549,7 @@
   /* ===== 我的考勤规则 ===== */
   .a-mrule {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 28rpx;
@@ -569,7 +569,7 @@
       justify-content: space-between;
       gap: 20rpx;
       padding: 12rpx 0;
-      border-top: 1px solid var(--line);
+      border-top: 1rpx solid var(--line);
 
       &:first-of-type {
         border-top: none;
@@ -595,7 +595,7 @@
   /* ===== 请假申请 / 我的请假记录 ===== */
   .a-leave {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 28rpx;

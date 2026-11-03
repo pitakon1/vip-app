@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 贝壳式分类页共用外壳（App）。
  *
@@ -32,8 +33,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -730,7 +730,7 @@ interface CategoryListScreenProps<T> {
   emptyIcon?: IoniconName;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 const DEFAULT_VALUES: FilterValues = { sort: 'latest' };
 
 export function CategoryListScreen<T>({
@@ -753,7 +753,6 @@ export function CategoryListScreen<T>({
   keyExtractor,
   emptyTitle,
   emptySub,
-  emptyIcon = 'home-outline',
 }: CategoryListScreenProps<T>) {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
@@ -766,6 +765,7 @@ export function CategoryListScreen<T>({
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const reqSeq = useRef(0);
@@ -783,8 +783,12 @@ export function CategoryListScreen<T>({
   const load = useCallback(
     async (targetPage: number) => {
       const seq = ++reqSeq.current;
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
+      if (targetPage === 1) {
+        setLoading(true);
+        setLoadError(null);
+      } else {
+        setLoadingMore(true);
+      }
       try {
         const res = await fetchPage(targetPage, query);
         if (seq !== reqSeq.current) return;
@@ -793,10 +797,7 @@ export function CategoryListScreen<T>({
         setItems((prev) => (targetPage === 1 ? res.items : [...prev, ...res.items]));
       } catch {
         if (seq !== reqSeq.current) return;
-        if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-        }
+        if (targetPage === 1) setLoadError(t('loadFailed'));
       } finally {
         if (seq === reqSeq.current) {
           setLoading(false);
@@ -812,6 +813,8 @@ export function CategoryListScreen<T>({
   }, [load]);
 
   const hasMore = items.length < total;
+  const filtered =
+    !!debounced || Object.entries(values).some(([k, v]) => !!v && v !== DEFAULT_VALUES[k]);
 
   return (
     <View style={styles.container}>
@@ -825,8 +828,17 @@ export function CategoryListScreen<T>({
         rightActions={rightActions}
       />
 
-      {loading ? (
-        <LoadingState label={t('category.loading')} />
+      {loading || loadError ? (
+        <ListState
+          loading={loading}
+          loadingLabel={t('category.loading')}
+          error={loadError}
+          retryLabel={t('retry')}
+          onRetry={() => {
+            setLoadError(null);
+            void load(1);
+          }}
+        />
       ) : (
         <FlatList
           data={items}
@@ -854,7 +866,7 @@ export function CategoryListScreen<T>({
               />
               <Text style={styles.count}>{t('category.resultCount', { n: total })}</Text>
               {items.length === 0 ? (
-                <EmptyState icon={emptyIcon} title={emptyTitle} sub={emptySub} />
+                <ListState empty filtered={filtered} emptyTitle={emptyTitle} emptySub={emptySub} />
               ) : null}
             </View>
           }

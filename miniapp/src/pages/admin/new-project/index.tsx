@@ -6,6 +6,7 @@ import { projectsApi } from '@/services/api'
 import './index.scss'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import { errorText } from '@/lib/errorText'
 
 // 产权类型（对齐后端 Project.Tenure 枚举）
 const buildTenures = (
@@ -98,7 +99,7 @@ export default function NewProjectPage() {
     } catch (err: any) {
       console.error('[NewProject] 创建失败', err)
       Taro.hideLoading()
-      Taro.showToast({ title: err?.message || t('np.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('np.saveFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }

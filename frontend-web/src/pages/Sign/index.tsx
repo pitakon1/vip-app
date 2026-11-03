@@ -1,921 +1,55 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { message, Modal, Segmented } from 'antd'
-import { contractsApi, contractsPublicApi, signAssetsApi } from '@/services/api'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '@/stores/auth'
 import SealCropperModal from '@/components/SealCropperModal'
 import './sign.css'
-
-/** 画布逻辑尺寸（签名导出 SVG 的 viewBox 基准），CSS 端等比缩放占满宽度 */
-const CANVAS_W = 400
-const CANVAS_H = 140
-
-// 文档区预览基准宽度（坐标一律为页面宽高百分比，界面上从不展示裸数字）
-const PREVIEW_W = 800
-// 落框默认尺寸（页面宽高百分比；A4 竖版下近似保持印章/签名的原始比例）。
-// 与 App / 小程序统一为同一组数值（印章宽 16% ≈ A4 下正方形，签名 24×8）。
-const SEAL_BOX = { w: 16, h: 11.3 }
-const SIGN_BOX = { w: 24, h: 8 }
-// 点按（未拖拽）时的默认落点：页面中部偏下，靠近常见签署位置
-const TAP_DROP = { x: 30, y: 74 }
-
-type Phase = 'loading' | 'ready' | 'done'
-type FailType = 'expired' | 'signed' | 'generic' | null
-type TrayKind = 'seal' | 'sign'
-
-interface ContractDoc {
-  contract_id?: string
-  title?: string
-  content_html?: string
-  source?: string
-  file_url?: string
-  party_name_masked?: string
-  party_role?: string
-  real_name_verified?: boolean
-  sign_method?: string
-  pdf_available?: boolean
-  pdf_page_count?: number
-  party?: { id?: string; name?: string; sign_method?: string; real_name_verified?: boolean }
-  /** 管理端（或关键字）预置的签署区，坐标同为页面百分比 */
-  sign_fields?: SignField[]
-  [k: string]: unknown
-}
-
-/** 预置签署区（由发起方在「放置签署框」里落好，签署页直接点它即签） */
-interface SignField {
-  id?: string
-  field_type?: string
-  page?: number
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-/** 已落框成品（本地坐标 + 成品图；签署时一次性原子提交给 sign-batch） */
-interface Placed {
-  key: number
-  page: number
-  x: number
-  y: number
-  w: number
-  h: number
-  method: 'company_seal' | 'personal_handwrite' | 'date'
-  /** date 类不需要图片，由后端渲染当天日期 */
-  imageDataUrl?: string
-  signatureSvg?: string
-}
-
-/** 指针交互（鼠标/触屏/触控笔统一）进行中的拖拽态 */
-interface DragState {
-  kind: TrayKind | null
-  key: number | null
-  startX: number
-  startY: number
-  moved: boolean
-}
-
-const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
-const round2 = (v: number) => Math.round(v * 100) / 100
-
-/** 把 SignCanvas 导出的 SVG 光栅化为 PNG dataURL（Web 端 canvas 直接绘制）。 */
-const svgToPngDataUrl = (svg: string, w: number, h: number): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        reject(new Error('canvas-not-supported'))
-        return
-      }
-      ctx.drawImage(img, 0, 0, w, h)
-      resolve(canvas.toDataURL('image/png'))
-    }
-    img.onerror = () => reject(new Error('svg-load-failed'))
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-  })
-
-/* 手写笔迹线宽区间（快=细、慢=粗，对齐开放签笔触）。
-   必须放在模块作用域：此前它们声明在组件体内、却在 `useRef` 那行之前被引用，
-   于是 `widthsRef` 的初始化实参 `strokesRef.current.map(() => DEFAULT_W)` 在
-   每次重渲染时都会命中「暂时性死区」——空画布时 map 不回调所以侥幸不报错，
-   一旦落笔有笔迹，emit()→父组件 setState→重渲染，map 回调被调用即抛
-   `Cannot access 'DEFAULT_W' before initialization`，整页被错误边界接管。
-   即：用户画下第一笔，签名页就崩。 */
-const MIN_W = 1
-const MAX_W = 4
-const DEFAULT_W = 3
-
-/* 手写签名画布：pointer 绘制多条笔迹，导出为「纯 SVG path 字符串」。
-   线宽随绘制速度加权（1~4px，快=细、慢=粗），对齐开放签签名笔触。
-   支持单条撤销 + 一键重写。 */
-const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string) => void }) => {
-  const { t } = useTranslation()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const strokesRef = useRef<number[][][]>(value ? parseStrokes(value) : [])
-  // 每条笔迹的线宽（与 strokesRef 下标一一对应）
-  const widthsRef = useRef<number[]>(strokesRef.current.map(() => DEFAULT_W))
-  const drawingRef = useRef(false)
-  // 当前绘制速度累计（用于在抬手时折算整条笔迹线宽）
-  const speedRef = useRef({ dist: 0, count: 0 })
-
-  function parseStrokes(svg: string): number[][][] {
-    // <path d="M x,y L x,y ..."
-    const out: number[][][] = []
-    const re = /<path d="([^"]*)"/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(svg)) !== null) {
-      const nums = (m[1].match(/[-\d.]+/g) || []).map(Number)
-      const stroke: number[][] = []
-      for (let i = 0; i + 1 < nums.length; i += 2) stroke.push([nums[i], nums[i + 1]])
-      if (stroke.length) out.push(stroke)
-    }
-    return out
-  }
-
-  const redraw = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
-    ctx.strokeStyle = '#1f2937'
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    strokesRef.current.forEach((stroke, si) => {
-      if (stroke.length < 2) return
-      ctx.lineWidth = widthsRef.current[si] ?? DEFAULT_W
-      ctx.beginPath()
-      ctx.moveTo(stroke[0][0], stroke[0][1])
-      for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i][0], stroke[i][1])
-      ctx.stroke()
-    })
-  }
-
-  const emit = () => {
-    const paths = strokesRef.current
-      .map((s, si) => {
-        if (s.length < 2) return ''
-        const w = widthsRef.current[si] ?? DEFAULT_W
-        return `<path d="M ${s.map((p) => `${p[0]},${p[1]}`).join(' L ')}" fill="none" stroke="#1f2937" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`
-      })
-      .join('')
-    onChange(
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" width="${CANVAS_W}" height="${CANVAS_H}">${paths}</svg>`,
-    )
-  }
-
-  useEffect(() => {
-    redraw()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  const pointFrom = (e: PointerEvent) => {
-    const rect = canvasRef.current!.getBoundingClientRect()
-    return [
-      Math.round(((e.clientX - rect.left) / rect.width) * CANVAS_W),
-      Math.round(((e.clientY - rect.top) / rect.height) * CANVAS_H),
-    ]
-  }
-
-  const onDown = (e: React.PointerEvent) => {
-    e.preventDefault()
-    drawingRef.current = true
-    strokesRef.current.push([pointFrom(e.nativeEvent)])
-    speedRef.current = { dist: 0, count: 0 }
-    canvasRef.current?.setPointerCapture(e.pointerId)
-  }
-  const onMove = (e: React.PointerEvent) => {
-    if (!drawingRef.current || !strokesRef.current.length) return
-    const p = pointFrom(e.nativeEvent)
-    const stroke = strokesRef.current[strokesRef.current.length - 1]
-    const last = stroke[stroke.length - 1]
-    // 累计本段位移与采样数，用于速度加权线宽
-    speedRef.current.dist += Math.hypot(p[0] - last[0], p[1] - last[1])
-    speedRef.current.count += 1
-    stroke.push(p)
-    redraw()
-    emit()
-  }
-  const onUp = () => {
-    drawingRef.current = false
-    // 抬手结算：平均速度大(快)则细、慢则粗
-    const { dist, count } = speedRef.current
-    const avgSpeed = count > 0 ? dist / count : 0
-    const w = Math.min(MAX_W, Math.max(MIN_W, MAX_W - avgSpeed * 0.15))
-    if (widthsRef.current.length < strokesRef.current.length) {
-      widthsRef.current.push(w)
-    } else if (widthsRef.current.length === strokesRef.current.length) {
-      widthsRef.current[widthsRef.current.length - 1] = w
-    }
-    redraw()
-    emit()
-  }
-
-  const undo = () => {
-    if (!strokesRef.current.length) return
-    strokesRef.current.pop()
-    widthsRef.current.pop()
-    drawingRef.current = false
-    redraw()
-    emit()
-  }
-
-  const clear = () => {
-    strokesRef.current = []
-    widthsRef.current = []
-    drawingRef.current = false
-    redraw()
-    onChange('')
-  }
-
-  return (
-    <div>
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_W}
-        height={CANVAS_H}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-        style={{
-          width: '100%',
-          height: 'auto',
-          touchAction: 'none',
-          border: '2px dashed var(--rent-line, #dfe5ea)',
-          borderRadius: 12,
-          background: '#fff',
-        }}
-      />
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-        <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={undo} disabled={!strokesRef.current.length}>
-          {t('contracts.undoSign')}
-        </button>
-        <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={clear}>
-          {t('contracts.clearSign')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* 红色公司公章展示（模板生成前的样式预览；实际盖章由后端按 company_seal 落章） */
-const CompanySeal = ({ name }: { name: string }) => (
-  <svg width="140" height="140" viewBox="0 0 260 260" style={{ display: 'block', margin: '0 auto' }}>
-    <circle cx="130" cy="130" r="118" fill="none" stroke="#c0392b" strokeWidth="6" />
-    <circle cx="130" cy="130" r="96" fill="none" stroke="#c0392b" strokeWidth="2.5" />
-    <text x="130" y="136" textAnchor="middle" fontSize="26" fontFamily="SimSun, serif" fill="#c0392b">
-      {name || '签约方'}
-    </text>
-    <polygon points="120,150 126,144 132,150 138,144 130,156" fill="#c0392b" />
-    <text x="130" y="196" textAnchor="middle" fontSize="16" fontFamily="SimSun, serif" fill="#c0392b">
-      合同专用章
-    </text>
-  </svg>
-)
+import { pageStyle } from './constants'
+import { useSignDocument } from './hooks/useSignDocument'
+import { useSignAssets } from './hooks/useSignAssets'
+import { usePlacement } from './hooks/usePlacement'
+import { useSignSubmit } from './hooks/useSignSubmit'
+import DocumentPanel from './components/DocumentPanel'
+import SignerAside from './components/SignerAside'
+import SignModal from './components/SignModal'
+import SealModal from './components/SealModal'
+import RealNameModal from './components/RealNameModal'
+import DeclineModal from './components/DeclineModal'
+import { FailView, DeclinedView, SuccessView, LoadingView } from './components/StatusViews'
 
 const Sign = () => {
   const { token = '' } = useParams()
   const { t } = useTranslation()
   // 登录态：站内员工持有登录令牌时走 contracts/sign-batch；匿名访客走公开 token 端点
   const authToken = useAuthStore((s) => s.token)
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [doc, setDoc] = useState<ContractDoc | null>(null)
-  const [fail, setFail] = useState<FailType>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<{ signed?: boolean; contract_status?: string } | null>(null)
-  const [currentPage, setCurrentPage] = useState(1)
-
-  // 托盘资产：印章（成品 PNG）/ 手写签名（SVG + 光栅化 PNG）
-  const [seal, setSeal] = useState<{ dataUrl: string } | null>(null)
-  const [signature, setSignature] = useState<{ svg: string; png: string } | null>(null)
-
-  // 已落框成品（本地坐标；不落库，签署时随 sign-batch 原子提交）
-  const [placed, setPlaced] = useState<Placed[]>([])
-  const placedKeyRef = useRef(0)
-
-  // 指针拖拽（鼠标 + 触屏 + 触控笔统一走 pointer 事件；HTML5 拖拽在触屏浏览器不触发，
-  // 此前公开签署页在手机上无法落章，签署按钮永久置灰）。浮层用于给出手指/光标跟随反馈。
-  const [ghost, setGhost] = useState<{ kind: TrayKind; x: number; y: number } | null>(null)
-  const [movingKey, setMovingKey] = useState<number | null>(null)
-  const dragRef = useRef<DragState>({ kind: null, key: null, startX: 0, startY: 0, moved: false })
-  const currentPageRef = useRef(1)
-
-  // 印章制作弹窗（模板生成 / 印模上传）
-  const [sealModalOpen, setSealModalOpen] = useState(false)
-  const [sealCreateType, setSealCreateType] = useState<'template' | 'imprint'>('template')
-  const [sealCompanyName, setSealCompanyName] = useState('')
-  const [sealMiddleText, setSealMiddleText] = useState(t('contracts.sealMiddleTextDefault'))
-  const [sealPreview, setSealPreview] = useState('')
-  const [sealGenerating, setSealGenerating] = useState(false)
-  const [sealCropOpen, setSealCropOpen] = useState(false)
-  const [sealCropSrc, setSealCropSrc] = useState('')
-  const sealFileRef = useRef<HTMLInputElement>(null)
-
-  // 手写签名制作弹窗（复用 SignCanvas + SVG→PNG 光栅化）
-  const [signModalOpen, setSignModalOpen] = useState(false)
-  const [signDraft, setSignDraft] = useState('')
-  const [signRasterizing, setSignRasterizing] = useState(false)
-
-  // 实名认证（403 REAL_NAME_REQUIRED 时触发，完成后自动重签）
-  const [realOpen, setRealOpen] = useState(false)
-  const [realStep, setRealStep] = useState<'send' | 'verify'>('send')
-  const [contact, setContact] = useState('')
-  const [code, setCode] = useState('')
-  const [realName, setRealName] = useState('')
-  const [idNumber, setIdNumber] = useState('')
-  const [sendLoading, setSendLoading] = useState(false)
-  // 本地联调回显的明文验证码（后端仅 DEBUG + OTP_DEV_CODE_ECHO 时下发，生产恒为 null）
-  const [devCode, setDevCode] = useState('')
-  const pendingRetryRef = useRef<(() => void) | null>(null)
-  // 实名认证通过后记下的手机号（匿名签署提交时作为 phone 一并上报）
-  const [signerPhone, setSignerPhone] = useState('')
-
-  // 拒签
-  const [declineOpen, setDeclineOpen] = useState(false)
-  const [declineReason, setDeclineReason] = useState('')
-  const [declined, setDeclined] = useState(false)
-
-  // 文档区落点容器（拖放坐标换算基准）
-  const docRef = useRef<HTMLDivElement>(null)
-
-  const fileUrl = useMemo(() => contractsPublicApi.fileUrl(token), [token])
-
-  useEffect(() => {
-    let mounted = true
-    contractsPublicApi
-      .get(token)
-      .then((res) => {
-        if (!mounted) return
-        setDoc(res.data)
-        setPhase('ready')
-      })
-      .catch((err: any) => {
-        if (!mounted) return
-        if (err?.response?.status === 410) setFail('expired')
-        else setFail('generic')
-        setPhase('done')
-      })
-    return () => {
-      mounted = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
-
-  // ===== 印章制作：上传图片 → 裁剪弹窗 → 成品章图 =====
-  const onSealFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
-    const r = new FileReader()
-    r.onload = () => {
-      setSealCropSrc(String(r.result || ''))
-      setSealCropOpen(true)
-    }
-    r.readAsDataURL(f)
-  }
-
-  const onSealCropOk = (dataUrl: string) => {
-    setSeal({ dataUrl })
-    setSealCropOpen(false)
-    setSealModalOpen(false)
-  }
-
-  const onGenerateSealPreview = async () => {
-    if (!sealCompanyName.trim()) {
-      message.warning(t('contracts.sealCompanyRequired'))
-      return
-    }
-    setSealGenerating(true)
-    try {
-      const res: any = await signAssetsApi.generateSeal({
-        company_name: sealCompanyName.trim(),
-        middle_text: sealMiddleText.trim() || t('contracts.sealMiddleTextDefault'),
-      })
-      const dataUrl = res?.data?.data_url
-      if (!dataUrl) {
-        message.error(t('contracts.errGenericSubmit'))
-        return
-      }
-      setSealPreview(dataUrl)
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('contracts.errGenericSubmit'))
-    } finally {
-      setSealGenerating(false)
-    }
-  }
-
-  const usePreviewSeal = () => {
-    if (!sealPreview) return
-    setSeal({ dataUrl: sealPreview })
-    setSealModalOpen(false)
-  }
-
-  // ===== 手写签名制作：SignCanvas → SVG 光栅化 PNG =====
-  const openSignModal = () => {
-    setSignDraft(signature?.svg || '')
-    setSignModalOpen(true)
-  }
-
-  const onSignModalOk = async () => {
-    if (!signDraft.trim()) {
-      message.warning(t('contracts.blankSign'))
-      return
-    }
-    setSignRasterizing(true)
-    try {
-      const png = await svgToPngDataUrl(signDraft, CANVAS_W, CANVAS_H)
-      setSignature({ svg: signDraft, png })
-      setSignModalOpen(false)
-    } catch {
-      message.error(t('contracts.errGenericSubmit'))
-    } finally {
-      setSignRasterizing(false)
-    }
-  }
-
-  // ===== 落章（指针事件，鼠标 / 触屏 / 触控笔通用）=====
-  // 此前用 HTML5 draggable + dragstart/drop 实现「从托盘拖到文档」，但触屏浏览器
-  // 不触发这些事件，公开签署链接（多在手机聊天里打开）根本无法落章，底部「签署」
-  // 按钮因 placed.length === 0 永久置灰。改走 pointer 事件，并补「点按即落章」路径，
-  // 使桌面与移动端行为一致（对齐 App / 小程序的触摸手势）。
-  const pushPlaced = (p: Omit<Placed, 'key'>) => {
-    placedKeyRef.current += 1
-    setPlaced((prev) => [...prev, { ...p, key: placedKeyRef.current }])
-  }
-
-  const addPlaced = useCallback(
-    (kind: TrayKind, px: number, py: number, box?: { w: number; h: number }) => {
-      if (kind === 'seal') {
-        if (!seal) return
-        const { w, h } = box || SEAL_BOX
-        placedKeyRef.current += 1
-        setPlaced((prev) => [
-          ...prev,
-          {
-            key: placedKeyRef.current,
-            page: currentPageRef.current,
-            x: clamp(px - w / 2, 0, 100 - w),
-            y: clamp(py - h / 2, 0, 100 - h),
-            w,
-            h,
-            method: 'company_seal',
-            imageDataUrl: seal.dataUrl,
-          },
-        ])
-        return
-      }
-      if (!signature) return
-      const { w, h } = box || SIGN_BOX
-      placedKeyRef.current += 1
-      setPlaced((prev) => [
-        ...prev,
-        {
-          key: placedKeyRef.current,
-          page: currentPageRef.current,
-          x: clamp(px - w / 2, 0, 100 - w),
-          y: clamp(py - h / 2, 0, 100 - h),
-          w,
-          h,
-          method: 'personal_handwrite',
-          imageDataUrl: signature.png,
-          signatureSvg: signature.svg,
-        },
-      ])
-    },
-    [seal, signature],
-  )
-  // 窗口级 pointer 监听器在 mount 时一次性注册（见下方 effect），运行时需拿到
-  // 「最新一版」的 addPlaced（其闭包捕获了当前已制作的 seal / signature）。
-  // 用 ref 做转发：每次渲染都把最新函数写回，监听器永远调用到最新实现。
-  const addPlacedRef = useRef(addPlaced)
-  addPlacedRef.current = addPlaced
-
-  // 点预置签署区：按该签署区自身的坐标与尺寸落章 —— 发起方布置在哪里，就签在哪里
-  const signOnField = (f: SignField) => {
-    const w = f.w > 0 ? f.w : 20
-    const h = f.h > 0 ? f.h : 8
-    if (f.field_type === 'date') {
-      pushPlaced({ page: f.page || 1, x: f.x, y: f.y, w, h, method: 'date' })
-      return
-    }
-    if (f.field_type === 'seal') {
-      if (!seal) {
-        message.warning(t('contracts.tapMakeSeal'))
-        return
-      }
-      addPlaced('seal', f.x + w / 2, f.y + h / 2, { w, h })
-      return
-    }
-    if (!signature) {
-      message.warning(t('contracts.tapSign'))
-      return
-    }
-    addPlaced('sign', f.x + w / 2, f.y + h / 2, { w, h })
-  }
-
-  const removePlaced = (key: number) => {
-    setPlaced((prev) => prev.filter((p) => p.key !== key))
-  }
-
-  // 托盘条目 / 已落框：pointerdown 启动拖拽，在 window 上跟踪 move / up，
-  // 保证手指或光标移出元素范围后仍能顺畅跟手并正确落点。
-  const beginCarry = (kind: TrayKind) => (e: React.PointerEvent) => {
-    e.preventDefault()
-    dragRef.current = { kind, key: null, startX: e.clientX, startY: e.clientY, moved: false }
-    setGhost({ kind, x: e.clientX, y: e.clientY })
-  }
-
-  const beginMove = (key: number) => (e: React.PointerEvent) => {
-    e.preventDefault()
-    dragRef.current = { kind: null, key, startX: e.clientX, startY: e.clientY, moved: false }
-    setMovingKey(key)
-  }
-
-  useEffect(() => {
-    currentPageRef.current = currentPage
-  }, [currentPage])
-
-  // 窗口级 pointer 监听器：**必须 mount 时一次性注册**。
-  // 若把「是否正在拖拽」作为依赖并在空状态下 early-return，则 pointerdown → React
-  // 重渲染 → effect 重跑 之间存在一个提交间隙；浏览器合成点击 / 快速点按的
-  // pointerup 往往就在同一 tick 内到达，此时监听器尚未挂上 —— 结果「点一下印章条目」
-  // 静默失效（托盘高亮闪一下、文档区却什么都没落）。改为常驻监听 + dragRef 读态。
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const d = dragRef.current
-      if (!d.kind && d.key === null) return
-      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 6) d.moved = true
-      if (d.kind) setGhost({ kind: d.kind, x: e.clientX, y: e.clientY })
-      if (d.key !== null && docRef.current) {
-        const rect = docRef.current.getBoundingClientRect()
-        if (!rect.width || !rect.height) return
-        const px = ((e.clientX - rect.left) / rect.width) * 100
-        const py = ((e.clientY - rect.top) / rect.height) * 100
-        setPlaced((prev) =>
-          prev.map((p) =>
-            p.key === d.key
-              ? {
-                  ...p,
-                  page: currentPageRef.current,
-                  x: clamp(px - p.w / 2, 0, 100 - p.w),
-                  y: clamp(py - p.h / 2, 0, 100 - p.h),
-                }
-              : p,
-          ),
-        )
-      }
-    }
-    const onUp = (e: PointerEvent) => {
-      const d = dragRef.current
-      if (d.kind) {
-        const rect = docRef.current?.getBoundingClientRect()
-        const inside =
-          !!rect &&
-          e.clientX >= rect.left &&
-          e.clientX <= rect.right &&
-          e.clientY >= rect.top &&
-          e.clientY <= rect.bottom
-        if (inside && rect.width && rect.height) {
-          const px = ((e.clientX - rect.left) / rect.width) * 100
-          const py = ((e.clientY - rect.top) / rect.height) * 100
-          addPlacedRef.current(d.kind, px, py)
-        } else if (!d.moved) {
-          // 纯点按（未拖动）：落到默认签署位置，避免「拖不动就完全签不了」
-          addPlacedRef.current(d.kind, TAP_DROP.x, TAP_DROP.y)
-        }
-      }
-      dragRef.current = { kind: null, key: null, startX: 0, startY: 0, moved: false }
-      setGhost(null)
-      setMovingKey(null)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-    }
-  }, [])
-
-  // ===== 底部【签署】：一次性原子提交全部落框 =====
-  const submitPlaced = async () => {
-    if (!doc?.contract_id || !doc?.party?.id) return
-    if (placed.length === 0) {
-      message.warning(t('contracts.signNothingPlaced'))
-      return
-    }
-    setSubmitting(true)
-    try {
-      const items = placed.map((p) => ({
-        page: p.page,
-        x: round2(p.x),
-        y: round2(p.y),
-        w: round2(p.w),
-        h: round2(p.h),
-        method: p.method,
-        ...(p.signatureSvg ? { signature_svg: p.signatureSvg } : {}),
-        // date 类不传图，由后端按当天日期渲染；其余类型必须带成品图
-        ...(p.imageDataUrl ? { image_data_url: p.imageDataUrl } : {}),
-      }))
-      // 场景分流：优先走站内 sign-batch，把签名归属到登录账号。但本页是**免登录**签署页：
-      // 持链者未必是该签署方本人，浏览器里也可能残留过期令牌。这两种情况下站内端点会
-      // 返回 401（令牌失效）或 403「Not a party of this contract」（登录的不是本人），
-      // 而 token 端点不依赖登录态。此前没有兜底，外部签署人只会看到一句
-      // "Invalid authentication credentials"、整个签署流程走不通。
-      const publicPayload = {
-        name: (doc.party.name || '').trim(),
-        ...(signerPhone ? { phone: signerPhone } : {}),
-        items,
-      }
-      let res: any
-      if (authToken) {
-        try {
-          res = await contractsApi.signBatch(doc.contract_id, {
-            partyId: doc.party.id,
-            items,
-          })
-        } catch (inner: any) {
-          const st = inner?.response?.status
-          const dt = inner?.response?.data?.detail
-          // 实名缺口必须上抛给下方统一处理（弹实名弹窗），不能被兜底吞掉
-          if (st === 403 && dt === 'REAL_NAME_REQUIRED') throw inner
-          if (st === 401 || st === 403) {
-            res = await contractsPublicApi.signByToken(token, publicPayload)
-          } else {
-            throw inner
-          }
-        }
-      } else {
-        res = await contractsPublicApi.signByToken(token, publicPayload)
-      }
-      const data = res?.data || {}
-      setResult({ signed: true, contract_status: data.contract_status })
-      setPhase('done')
-    } catch (err: any) {
-      const status = err?.response?.status
-      const detail = err?.response?.data?.detail
-      if (status === 403 && detail === 'REAL_NAME_REQUIRED') {
-        pendingRetryRef.current = () => {
-          void submitPlaced()
-        }
-        setRealStep('send')
-        setRealOpen(true)
-        message.warning(t('contracts.realNameRequired'))
-      } else if (status === 410) setFail('expired')
-      else if (status === 409) setFail('signed')
-      else message.error(detail || t('contracts.errGenericSubmit'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  // 发送实名验证码
-  const sendCode = async () => {
-    if (!contact.trim()) {
-      message.warning(t('contracts.blankContact'))
-      return
-    }
-    setSendLoading(true)
-    try {
-      const res: any = await contractsPublicApi.sendCode(token, contact.trim())
-      setDevCode(res?.data?.dev_code || '')
-      message.success(t('contracts.codeSent'))
-      setRealStep('verify')
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('contracts.errCode'))
-    } finally {
-      setSendLoading(false)
-    }
-  }
-
-  // 校验身份证 + 验证码，完成实名后重签
-  const verifyIdentity = async () => {
-    if (!realName.trim() || !idNumber.trim() || !code.trim()) {
-      message.warning(t('contracts.realNameFillAll'))
-      return
-    }
-    setSendLoading(true)
-    try {
-      const verifiedName = realName.trim()
-      const verifiedContact = contact.trim()
-      await contractsPublicApi.verifyIdentity(token, {
-        name: verifiedName,
-        id_number: idNumber.trim(),
-        contact: verifiedContact,
-        code: code.trim(),
-      })
-      message.success(t('contracts.realNameDone'))
-      setRealOpen(false)
-      // 实名通过后会写回 party.name（真实姓名），本地同步更新，避免重签时把旧名覆盖回去
-      setDoc((d) => (d ? { ...d, real_name_verified: true, party: { ...d.party, name: verifiedName } } : d))
-      // 联系方式是手机号（非邮箱）时记下，匿名提交一并作为 phone 上报
-      if (verifiedContact && !verifiedContact.includes('@')) setSignerPhone(verifiedContact)
-      setRealName('')
-      setIdNumber('')
-      setCode('')
-      setContact('')
-      const retry = pendingRetryRef.current
-      pendingRetryRef.current = null
-      retry?.()
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('contracts.realNameFail'))
-    } finally {
-      setSendLoading(false)
-    }
-  }
-
-  // 拒签
-  // 理由与后端口径一致：后端允许空理由（reason or None），不强制必填
-  const confirmDecline = async () => {
-    try {
-      await contractsPublicApi.decline(token, declineReason.trim())
-      setDeclineOpen(false)
-      setDeclined(true)
-    } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('contracts.declineFail'))
-    }
-  }
+  const { phase, setPhase, doc, setDoc, fail, setFail } = useSignDocument(token)
+  const assets = useSignAssets()
+  const { currentPage, setCurrentPage, placed, ghost, movingKey, docRef, signOnField, removePlaced, beginCarry, beginMove } =
+    usePlacement({ seal: assets.seal, signature: assets.signature })
+  const submit = useSignSubmit({
+    token,
+    doc,
+    placed,
+    authToken,
+    setPhase,
+    setFail,
+    onNameVerified: (name) =>
+      setDoc((d) => (d ? { ...d, real_name_verified: true, party: { ...d.party, name } } : d)),
+  })
 
   // 逾期 / 已签 等失败态
-  if (fail) {
-    return (
-      <div style={pageStyle}>
-        <div className="rent-card">
-          <div className="rent-card__body" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div className="rent-text-bold" style={{ fontSize: 18, marginBottom: 8 }}>
-              {fail === 'expired' ? t('contracts.errLinkExpired') : fail === 'signed' ? t('contracts.errAlreadySigned') : t('contracts.errGetContract')}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  if (fail) return <FailView fail={fail} />
   // 已拒签
-  if (declined) {
-    return (
-      <div style={pageStyle}>
-        <div className="rent-card">
-          <div className="rent-card__body" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div className="rent-text-bold" style={{ fontSize: 18, marginBottom: 8 }}>{t('contracts.declinedTitle')}</div>
-            <div className="rent-text-sm rent-text-muted">{t('contracts.declinedDesc')}</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  if (submit.declined) return <DeclinedView />
   // 签署完成
-  if (phase === 'done' && result?.signed) {
-    return (
-      <div style={pageStyle}>
-        <div className="rent-card">
-          <div className="rent-card__body" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div className="rent-text-bold" style={{ fontSize: 20, margin: '0 0 6px' }}>{t('contracts.successTitle')}</div>
-            <div className="rent-text-sm rent-text-muted">{t('contracts.signedDesc')}</div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (phase === 'loading') {
-    return (
-      <div style={pageStyle}>
-        <div className="rent-card"><div className="rent-card__body" style={{ textAlign: 'center', padding: '32px' }}>{t('common.loading')}</div></div>
-      </div>
-    )
-  }
+  if (phase === 'done' && submit.result?.signed) return <SuccessView />
+  if (phase === 'loading') return <LoadingView />
 
   // ===== 单屏签署台：左=文档区，右=签署方组件托盘 =====
-  const contentHtml = !(doc?.source === 'uploaded' && doc?.file_url) && !doc?.pdf_available && doc?.content_html
   const pdfCount = doc?.pdf_available ? doc?.pdf_page_count || 1 : 0
   const page = Math.min(Math.max(currentPage, 1), pdfCount || 1)
   const pageItems = placed.filter((p) => p.page === page)
   // 发起方预置的签署区（本签署方可见、未签的那部分）。点击即按该区坐标落章。
   const pageFields = (doc?.sign_fields || []).filter((f) => (f.page || 1) === page)
-
-  // 落框成品渲染（可按住改位 + ✕ 删除；不展示任何坐标数字）
-  const renderPlaced = (p: Placed) => (
-    <div
-      key={p.key}
-      className={`kf-placed${movingKey === p.key ? ' kf-placed--moving' : ''}`}
-      onPointerDown={beginMove(p.key)}
-      title={t('contracts.movePlaced')}
-      style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%`, height: `${p.h}%`, touchAction: 'none' }}
-    >
-      {p.imageDataUrl ? (
-        <img src={p.imageDataUrl} alt="" draggable={false} />
-      ) : (
-        // date 类：不落图，展示当天日期样式（后端按同日渲染进 PDF）
-        <span className="kf-placed__date">{new Date().toISOString().slice(0, 10)}</span>
-      )}
-      <button
-        type="button"
-        className="kf-placed__del"
-        draggable={false}
-        title={t('contracts.removePlaced')}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation()
-          removePlaced(p.key)
-        }}
-      >
-        ×
-      </button>
-    </div>
-  )
-
-  // 预置签署区渲染：虚线框 + 类型标签，点一下即签在该区（对齐 e签宝/法大大「点签署区即签」）
-  const renderField = (f: SignField) => {
-    // 已被落章覆盖（坐标一致）时不再重复显示虚线框
-    const covered = placed.some(
-      (p) => p.page === (f.page || 1) && Math.abs(p.x - f.x) < 1 && Math.abs(p.y - f.y) < 1,
-    )
-    if (covered) return null
-    const type = f.field_type || 'signature'
-    return (
-      <button
-        key={f.id || `${type}-${f.x}-${f.y}`}
-        type="button"
-        className="kf-field"
-        onClick={() => signOnField(f)}
-        title={t('contracts.fieldTapToSign')}
-        style={{ left: `${f.x}%`, top: `${f.y}%`, width: `${f.w}%`, height: `${f.h}%` }}
-      >
-        {t(`contracts.fType_${type}`)}
-      </button>
-    )
-  }
-
-  // 托盘条目（开放签式整行交互）：
-  //   未制作 → 整行可点，点一下直接弹出手写签名板 / 印章制作弹窗（不再依赖小「制作」按钮）；
-  //   已制作 → 整行可按（鼠标/手指）拖到文档任意位置松手即落章；纯点按（不拖）也会落在
-  //            默认签署位置，保证触屏用户不会「拖不动就签不了」；右侧留一个小「重做/更换」。
-  const renderTrayItem = (kind: TrayKind) => {
-    const made = kind === 'seal' ? !!seal : !!signature
-    const thumb = kind === 'seal' ? seal?.dataUrl : signature?.png
-    const label = kind === 'seal' ? t('contracts.sealAsset') : t('contracts.signAsset')
-    const openMake = () => (kind === 'seal' ? setSealModalOpen(true) : openSignModal())
-    if (!made) {
-      return (
-        <div
-          key={kind}
-          className="kf-tray-item kf-tray-item--empty"
-          role="button"
-          tabIndex={0}
-          onClick={openMake}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              openMake()
-            }
-          }}
-        >
-          <div className="kf-tray-item__name">{label}</div>
-          <div className="rent-text-sm rent-text-muted kf-tray-item__state">
-            {kind === 'seal' ? t('contracts.tapMakeSeal') : t('contracts.tapSign')}
-          </div>
-        </div>
-      )
-    }
-    return (
-      <div
-        className={`kf-tray-item kf-tray-item--made${ghost?.kind === kind ? ' kf-tray-item--carrying' : ''}`}
-        key={kind}
-        onPointerDown={beginCarry(kind)}
-        title={t('contracts.dragStampHint')}
-        style={{ touchAction: 'none' }}
-      >
-        <div className="kf-tray-item__name">{label}</div>
-        <div className="kf-tray-item__thumb">
-          <img src={thumb} alt={label} draggable={false} />
-        </div>
-        <div className="rent-text-sm kf-tray-item__ready">{t('contracts.readyToDrag')}</div>
-        <button
-          type="button"
-          className="kf-tray-item__redo"
-          draggable={false}
-          title={kind === 'seal' ? t('contracts.changeSeal') : t('contracts.resignSign')}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={openMake}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M23 4v6h-6" />
-            <path d="M1 20v-6h6" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
-        </button>
-      </div>
-    )
-  }
 
   return (
     <div style={pageStyle}>
@@ -926,89 +60,31 @@ const Sign = () => {
       </div>
 
       <div className="kf-layout">
-        {/* ===== 左：文档区（PDF 逐页图 / 合同正文背景） ===== */}
-        <main className="kf-doc">
-          <div className="rent-card">
-            <div className="rent-card__body" style={{ padding: doc?.source === 'uploaded' && doc?.file_url && pdfCount === 0 ? 0 : 12 }}>
-              {doc?.source === 'uploaded' && doc?.file_url && pdfCount === 0 ? (
-                <div>
-                  <iframe src={fileUrl} title={doc?.title || 'contract'} style={{ width: '100%', height: 520, border: 'none', background: '#fff' }} />
-                  <div style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <a className="rent-btn rent-btn--ghost rent-btn--sm" href={fileUrl} target="_blank" rel="noopener noreferrer" download>{t('contracts.downloadView')}</a>
-                  </div>
-                </div>
-              ) : pdfCount > 0 ? (
-                <div>
-                  <div className="kf-doc__toolbar">
-                    <span className="rent-text-sm rent-text-muted">{t('contracts.pageIndicator', { cur: page, total: pdfCount })}</span>
-                    <span className="kf-page-nav">
-                      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" disabled={page <= 1} onClick={() => setCurrentPage(page - 1)}>{t('contracts.prevPage')}</button>
-                      <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" disabled={page >= pdfCount} onClick={() => setCurrentPage(page + 1)}>{t('contracts.nextPage')}</button>
-                    </span>
-                  </div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <div
-                      ref={docRef}
-                      className="kf-stage"
-                      style={{ width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
-                    >
-                      <img className="kf-stage__bg" src={contractsPublicApi.pdfPageUrl(token, page)} alt={`page ${page}`} draggable={false} />
-                      {pageFields.map(renderField)}
-                      {pageItems.map(renderPlaced)}
-                    </div>
-                  </div>
-                </div>
-              ) : contentHtml ? (
-                <div style={{ overflowX: 'auto' }}>
-                  <div
-                    ref={docRef}
-                    className="kf-stage"
-                    style={{ width: PREVIEW_W, maxWidth: '100%', margin: '0 auto' }}
-                  >
-                    <div className="rent-contract-html" style={{ width: PREVIEW_W, lineHeight: 1.9, fontSize: 14, wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: String(doc.content_html) }} />
-                    {(doc?.sign_fields || []).map(renderField)}
-                    {placed.map(renderPlaced)}
-                  </div>
-                </div>
-              ) : null}
-              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.dragStampHint')}</div>
-            </div>
-          </div>
-        </main>
-
-        {/* ===== 右：签署方组件托盘 ===== */}
-        <aside className="kf-config">
-          <div className="rent-card">
-            <div className="rent-card__body">
-              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.signers')}</div>
-              <div className="kf-parties">
-                <div className="kf-party kf-party--active">
-                  <div style={{ minWidth: 0 }}>
-                    <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc?.party?.name || doc?.party_name_masked || '—'}</div>
-                    <div className="rent-text-sm rent-text-muted">{doc?.party_role || ''}</div>
-                  </div>
-                  <span className="rent-badge rent-badge--success">{t('contracts.stPendingSign')}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rent-card">
-            <div className="rent-card__body">
-              <div className="rent-text-bold" style={{ marginBottom: 8 }}>{t('contracts.trayTitle')}</div>
-              <div className="kf-tray">
-                {renderTrayItem('seal')}
-                {renderTrayItem('sign')}
-              </div>
-            </div>
-          </div>
-
-          <div className="rent-card">
-            <div className="rent-card__body">
-              <button type="button" className="rent-btn rent-btn--danger rent-btn--sm" style={{ width: '100%' }} onClick={() => setDeclineOpen(true)}>{t('contracts.decline')}</button>
-            </div>
-          </div>
-        </aside>
+        <DocumentPanel
+          token={token}
+          doc={doc}
+          pdfCount={pdfCount}
+          page={page}
+          placed={placed}
+          pageItems={pageItems}
+          pageFields={pageFields}
+          allFields={doc?.sign_fields || []}
+          docRef={docRef}
+          onPageChange={setCurrentPage}
+          movingKey={movingKey}
+          beginMove={beginMove}
+          removePlaced={removePlaced}
+          signOnField={signOnField}
+        />
+        <SignerAside
+          doc={doc}
+          seal={assets.seal}
+          signature={assets.signature}
+          ghostKind={ghost?.kind || null}
+          onOpenMake={assets.openMake}
+          beginCarry={beginCarry}
+          onDecline={() => submit.setDeclineOpen(true)}
+        />
       </div>
 
       {/* 底部【签署】：恒显示「签署」文案，未落章时置灰；一次性提交全部落框 */}
@@ -1017,8 +93,8 @@ const Sign = () => {
           type="button"
           className="rent-btn rent-btn--primary rent-btn--lg"
           style={{ width: '100%' }}
-          disabled={submitting || placed.length === 0}
-          onClick={submitPlaced}
+          disabled={submit.submitting || placed.length === 0}
+          onClick={submit.submitPlaced}
         >
           {t('contracts.signNow')}
         </button>
@@ -1027,180 +103,72 @@ const Sign = () => {
       {/* 拖拽浮层：跟手反馈（落点是否在文档区一眼可见；纯点按路径不会出现） */}
       {ghost && (
         <div className="kf-ghost" style={{ left: ghost.x, top: ghost.y }}>
-          <img src={ghost.kind === 'seal' ? seal?.dataUrl : signature?.png} alt="" draggable={false} />
+          <img src={ghost.kind === 'seal' ? assets.seal?.dataUrl : assets.signature?.png} alt="" draggable={false} loading="eager" decoding="async" />
         </div>
       )}
 
-      {/* 手写签名制作弹窗 */}
-      <Modal
-        open={signModalOpen}
-        title={t('contracts.setSign')}
-        okText={t('contracts.confirmSign')}
-        cancelText={t('common.cancel')}
-        confirmLoading={signRasterizing}
-        onOk={onSignModalOk}
-        onCancel={() => setSignModalOpen(false)}
-      >
-        <SignCanvas value={signDraft} onChange={setSignDraft} />
-        <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>{t('contracts.drawHint')}</div>
-      </Modal>
+      <SignModal
+        open={assets.signModalOpen}
+        draft={assets.signDraft}
+        rasterizing={assets.signRasterizing}
+        onChangeDraft={assets.setSignDraft}
+        onOk={assets.onSignModalOk}
+        onCancel={() => assets.setSignModalOpen(false)}
+      />
 
-      {/* 印章制作弹窗：模板制作 / 印模上传 */}
-      <Modal
-        open={sealModalOpen}
-        title={t('contracts.makeSeal')}
-        footer={null}
-        onCancel={() => setSealModalOpen(false)}
-      >
-        <Segmented
-          block
-          value={sealCreateType}
-          onChange={(v) => setSealCreateType(v as 'template' | 'imprint')}
-          options={[
-            { value: 'template', label: t('contracts.sealTypeTemplate') },
-            { value: 'imprint', label: t('contracts.sealTypeImprint') },
-          ]}
-          style={{ marginBottom: 16 }}
-        />
-
-        {sealCreateType === 'template' ? (
-          <div>
-            <div className="rent-field" style={{ marginBottom: 12 }}>
-              <label className="rent-label">{t('contracts.sealCompanyName')}</label>
-              <input
-                className="rent-input"
-                value={sealCompanyName}
-                placeholder={t('contracts.sealCompanyNamePlaceholder')}
-                onChange={(e) => setSealCompanyName(e.target.value)}
-              />
-            </div>
-            <div className="rent-field" style={{ marginBottom: 12 }}>
-              <label className="rent-label">{t('contracts.sealMiddleText')}</label>
-              <input
-                className="rent-input"
-                value={sealMiddleText}
-                placeholder={t('contracts.sealMiddleTextPlaceholder')}
-                onChange={(e) => setSealMiddleText(e.target.value)}
-              />
-            </div>
-            <div className="rent-field" style={{ marginBottom: 12 }}>
-              <label className="rent-label">{t('contracts.sealStyle')}</label>
-              <div className="rent-flex" style={{ alignItems: 'center', gap: 8 }}>
-                <CompanySeal name={doc?.party?.name || doc?.party_name_masked || ''} />
-                <div style={{ textAlign: 'left' }}>
-                  <div className="rent-text-sm rent-text-bold">{t('contracts.sealStyleOfficial')}</div>
-                  <div className="rent-text-sm rent-text-muted">{t('contracts.sealStyleOnly')}</div>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="rent-btn rent-btn--primary"
-              onClick={onGenerateSealPreview}
-              disabled={sealGenerating}
-              style={{ width: '100%' }}
-            >
-              {sealGenerating ? t('common.loading') : t('contracts.sealGeneratePreview')}
-            </button>
-
-            {sealPreview ? (
-              <div style={{ textAlign: 'center', marginTop: 16 }}>
-                <img className="kf-asset-thumb" src={sealPreview} alt={t('contracts.makeSeal')} style={{ width: 160, height: 160, objectFit: 'contain' }} />
-                <div style={{ marginTop: 12 }}>
-                  <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={usePreviewSeal}>{t('contracts.sealUseThis')}</button>
-                </div>
-              </div>
-            ) : (
-              <div className="rent-text-sm rent-text-muted" style={{ textAlign: 'center', marginTop: 16 }}>{t('contracts.sealSystemHint')}</div>
-            )}
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center' }}>
-            <div className="rent-text-sm rent-text-muted" style={{ margin: '8px 0 12px' }}>{t('contracts.sealUploadTip')}</div>
-            <div className="rent-flex" style={{ justifyContent: 'center', gap: 8 }}>
-              <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => sealFileRef.current?.click()}>{t('contracts.sealUpload')}</button>
-              <input ref={sealFileRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={onSealFile} />
-            </div>
-            {seal && (
-              <img className="kf-asset-thumb" src={seal.dataUrl} alt={t('contracts.makeSeal')} style={{ marginTop: 12 }} />
-            )}
-          </div>
-        )}
-      </Modal>
+      <SealModal
+        open={assets.sealModalOpen}
+        onCancel={() => assets.setSealModalOpen(false)}
+        createType={assets.sealCreateType}
+        onChangeCreateType={assets.setSealCreateType}
+        companyName={assets.sealCompanyName}
+        onChangeCompanyName={assets.setSealCompanyName}
+        middleText={assets.sealMiddleText}
+        onChangeMiddleText={assets.setSealMiddleText}
+        partyName={doc?.party?.name || doc?.party_name_masked || ''}
+        generating={assets.sealGenerating}
+        onGenerate={assets.onGenerateSealPreview}
+        preview={assets.sealPreview}
+        onUsePreview={assets.usePreviewSeal}
+        seal={assets.seal}
+        onFile={assets.onSealFile}
+        fileRef={assets.sealFileRef}
+      />
 
       {/* 印模上传裁剪弹窗 */}
       <SealCropperModal
-        open={sealCropOpen}
-        src={sealCropSrc}
-        onOk={onSealCropOk}
-        onCancel={() => setSealCropOpen(false)}
+        open={assets.sealCropOpen}
+        src={assets.sealCropSrc}
+        onOk={assets.onSealCropOk}
+        onCancel={() => assets.setSealCropOpen(false)}
       />
 
-      {/* 实名认证弹窗 */}
-      <Modal
-        open={realOpen}
-        title={t('contracts.realNameTitle')}
-        okText={realStep === 'send' ? t('contracts.sendCode') : t('contracts.completeVerify')}
-        cancelText={t('common.cancel')}
-        confirmLoading={sendLoading}
-        onOk={realStep === 'send' ? sendCode : verifyIdentity}
-        onCancel={() => setRealOpen(false)}
-      >
-        {realStep === 'send' ? (
-          <div className="rent-field">
-            <label className="rent-label">{t('contracts.contactLabel')}</label>
-            <input className="rent-input" value={contact} placeholder={t('contracts.contactPlaceholder')} onChange={(e) => setContact(e.target.value)} />
-          </div>
-        ) : (
-          <div>
-            <div className="rent-field" style={{ marginBottom: 12 }}>
-              <label className="rent-label">{t('contracts.fName')}</label>
-              <input className="rent-input" value={realName} placeholder={t('contracts.namePlaceholder')} onChange={(e) => setRealName(e.target.value)} />
-            </div>
-            <div className="rent-field" style={{ marginBottom: 12 }}>
-              <label className="rent-label">{t('contracts.idNumber')}</label>
-              <input className="rent-input" value={idNumber} placeholder={t('contracts.idNumberPlaceholder')} onChange={(e) => setIdNumber(e.target.value)} />
-            </div>
-            <div className="rent-field">
-              <label className="rent-label">{t('contracts.verifyCode')}（{contact}）</label>
-              <input className="rent-input" value={code} placeholder={t('contracts.verifyCodePlaceholder')} onChange={(e) => setCode(e.target.value)} />
-              {/* 本地联调用：后端仅在 DEBUG + OTP_DEV_CODE_ECHO 时下发 dev_code */}
-              {devCode ? (
-                <div style={{ marginTop: 6, fontSize: 'var(--rent-fs-xs)', color: 'var(--rent-muted-foreground)' }}>
-                  {t('contracts.devCodeHint')}{devCode}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </Modal>
+      <RealNameModal
+        open={submit.realOpen}
+        step={submit.realStep}
+        contact={submit.contact}
+        onChangeContact={submit.setContact}
+        realName={submit.realName}
+        onChangeRealName={submit.setRealName}
+        idNumber={submit.idNumber}
+        onChangeIdNumber={submit.setIdNumber}
+        code={submit.code}
+        onChangeCode={submit.setCode}
+        sendLoading={submit.sendLoading}
+        devCode={submit.devCode}
+        onOk={submit.realStep === 'send' ? submit.sendCode : submit.verifyIdentity}
+        onCancel={() => submit.setRealOpen(false)}
+      />
 
-      {/* 拒签弹窗 */}
-      <Modal
-        open={declineOpen}
-        title={t('contracts.declineTitle')}
-        okText={t('contracts.decline')}
-        okButtonProps={{ danger: true }}
-        cancelText={t('common.cancel')}
-        onOk={confirmDecline}
-        onCancel={() => setDeclineOpen(false)}
-      >
-        <div className="rent-field">
-          <label className="rent-label">{t('contracts.declineReason')}</label>
-          <textarea className="rent-input" rows={3} value={declineReason} placeholder={t('contracts.declineReasonPlaceholder')} onChange={(e) => setDeclineReason(e.target.value)} />
-        </div>
-      </Modal>
+      <DeclineModal
+        open={submit.declineOpen}
+        reason={submit.declineReason}
+        onChangeReason={submit.setDeclineReason}
+        onOk={submit.confirmDecline}
+        onCancel={() => submit.setDeclineOpen(false)}
+      />
     </div>
   )
-}
-
-const pageStyle: React.CSSProperties = {
-  maxWidth: 1100,
-  margin: '0 auto',
-  padding: '24px 16px 96px',
-  minHeight: '100vh',
-  background: 'var(--rent-canvas, #f5f7fa)',
 }
 
 export default Sign

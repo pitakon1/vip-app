@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -149,10 +150,10 @@ export default function EmployeePerformancePage() {
           employeesApi.leaderboard().catch(() => ({ data: [] })),
           employeesApi.me().catch(() => ({ data: {} })),
           performanceApi.me().catch(() => ({ data: {} })),
-          commissionsApi.mine({ page: 1, page_size: 100 }).catch(() => ({ data: [] })),
-          viewingsApi.list({ page_size: 100 }).catch(() => ({ data: [] })),
-          leasesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: [] })),
-          propertiesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: [] })),
+          commissionsApi.mine({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
+          viewingsApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
+          leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
+          propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
           performanceApi.agents().catch(() => ({ data: [] })),
           isAdminLike ? performanceApi.partners().catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
         ])

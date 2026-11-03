@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 发现（C 端底部 Tab）：城市行情 + 热门小区 + 国际学校。
  *
@@ -51,8 +52,8 @@ export default function DiscoverScreen() {
   const load = useCallback(async () => {
     const [s, p, sc] = await Promise.allSettled([
       publicApi.listingCategorySummary({ city: cityKey || undefined }),
-      publicApi.projects({ city: cityKey || undefined, page_size: 6, sort: 'hot' }),
-      publicApi.schools({ page_size: 6 }),
+      publicApi.projects({ city: cityKey || undefined, page_size: CAROUSEL_PAGE_SIZE, sort: 'hot' }),
+      publicApi.schools({ page_size: CAROUSEL_PAGE_SIZE }),
     ]);
     if (s.status === 'fulfilled') {
       setSummary((s.value as any)?.data ?? null);

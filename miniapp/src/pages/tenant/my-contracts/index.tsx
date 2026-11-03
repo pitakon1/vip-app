@@ -21,6 +21,7 @@ import StateBlock from '@/components/StateBlock'
 import useAuthStore from '@/stores/auth'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
@@ -84,6 +85,7 @@ export default function MyContractsPage() {
   const user = useAuthStore((s) => s.user)
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [detail, setDetail] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [signing, setSigning] = useState(false)
@@ -142,6 +144,7 @@ export default function MyContractsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await contractsApi.list()
       const d = unwrap(res)
@@ -149,6 +152,7 @@ export default function MyContractsPage() {
       setList(items)
     } catch (error) {
       console.error('[MyContracts] 获取合同失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('contract.loadFail'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -388,7 +392,7 @@ export default function MyContractsPage() {
       if (isRealNameError(e)) {
         Taro.showToast({ title: t('contract.realNameRequired'), icon: 'none' })
       } else {
-        Taro.showToast({ title: e?.message || t('contract.confirmSignCode'), icon: 'none' })
+        Taro.showToast({ title:errorText(e, t('contract.confirmSignCode')), icon: 'none' })
       }
     } finally {
       setSigning(false)
@@ -415,7 +419,7 @@ export default function MyContractsPage() {
       await openDetail(detail.id)
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.decline'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.decline')), icon: 'none' })
     } finally {
       setDeclineBusy(false)
     }
@@ -557,7 +561,7 @@ export default function MyContractsPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.imprintStamp'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.imprintStamp')), icon: 'none' })
     } finally {
       setSealCropBusy(false)
     }
@@ -585,7 +589,7 @@ export default function MyContractsPage() {
       }
       setGeneratedSeal(url)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.generateSealFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.generateSealFailed')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -606,7 +610,7 @@ export default function MyContractsPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveToLibrary')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -1073,8 +1077,21 @@ export default function MyContractsPage() {
             <Text className='mc-head__title'>{t('contract.my')}</Text>
             <Text className='mc-head__desc'>{t('contract.myEmptyHint')}</Text>
           </View>
+          {!loading && loadError && list.length > 0 && (
+            <View className='inline-error-bar' onClick={() => void load()}>
+              <Text className='inline-error-bar__text'>{t('contract.loadFail')}</Text>
+              <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+            </View>
+          )}
           {loading ? (
             <StateBlock loading text={t('pub.loading')} />
+          ) : loadError && list.length === 0 ? (
+            <StateBlock
+              error
+              text={t('contract.loadFail')}
+              retryText={t('acc.retry')}
+              onRetry={() => void load()}
+            />
           ) : list.length === 0 ? (
             <View className='mc-state'>
               <View className='icon-svg' style={iconStyle('doc', 72)} />

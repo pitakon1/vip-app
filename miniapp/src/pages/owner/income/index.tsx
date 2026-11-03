@@ -78,7 +78,6 @@ export default function OwnerIncomePage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const [activeFilter, setActiveFilter] = useState('all')
-  const [error, setError] = useState(false)
   const FILTERS = buildFilters(t)
   const STATUS_META = buildStatusMeta(t)
 
@@ -87,7 +86,7 @@ export default function OwnerIncomePage() {
     byMonth: AnnualMonth[]
   }
 
-  const { data, loading, refresh } = useSwrCache<IncomePayload>({
+  const { data, loading, error, refresh } = useSwrCache<IncomePayload>({
     key: `owner:income:${uid}`,
     fetcher: async (): Promise<IncomePayload> => {
       const [inc, ann]: [any, any] = await Promise.all([
@@ -240,9 +239,12 @@ export default function OwnerIncomePage() {
             </View>
           )}
           {!loading && error && income.records.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('tenantHome.loadFailedRetry')}</Text>
-            </View>
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
           )}
           {filtered.map((r) => {
             const meta = metaOf(r.status, STATUS_META)

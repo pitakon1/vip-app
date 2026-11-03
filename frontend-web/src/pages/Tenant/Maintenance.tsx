@@ -6,6 +6,9 @@ import { useNavigate } from 'react-router-dom'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import DataState from '@/components/DataState'
+import LazyImage from '@/components/LazyImage'
+import { errorText } from '@/lib/errorText'
 
 interface MaintenanceTicket {
   id: string
@@ -139,25 +142,21 @@ const TenantMaintenance = () => {
     queryKey: ['tenant-maintenance', 'mine', uid],
     cacheKey: `tenant-maintenance:mine:${uid}`,
     queryFn: async () => {
-      try {
-        const [res, leasesRes] = await Promise.all([
-          api.get('/maintenance-tickets'),
-          api.get('/leases').catch(() => ({ data: { items: [] } })),
-        ])
-        const payload = res.data?.data ?? res.data
-        const lPayload = leasesRes.data?.data ?? leasesRes.data
-        const leases: any[] = lPayload?.items ?? []
-        const lease = leases.find((l) => l.status === 'active') || leases[0]
-        const prop = lease?.property
-        const pid = lease?.property_id || prop?.id || ''
-        if (pid) setLeasePropertyId(pid)
-        if (prop?.address || prop?.building || prop?.room_number || lease?.property_name) {
-          setPropertyLabel(prop?.address || prop?.building || prop?.room_number || lease?.property_name)
-        }
-        return payload?.items ?? []
-      } catch {
-        return []
+      const [res, leasesRes] = await Promise.all([
+        api.get('/maintenance-tickets'),
+        api.get('/leases').catch(() => ({ data: { items: [] } })),
+      ])
+      const payload = res.data?.data ?? res.data
+      const lPayload = leasesRes.data?.data ?? leasesRes.data
+      const leases: any[] = lPayload?.items ?? []
+      const lease = leases.find((l) => l.status === 'active') || leases[0]
+      const prop = lease?.property
+      const pid = lease?.property_id || prop?.id || ''
+      if (pid) setLeasePropertyId(pid)
+      if (prop?.address || prop?.building || prop?.room_number || lease?.property_name) {
+        setPropertyLabel(prop?.address || prop?.building || prop?.room_number || lease?.property_name)
       }
+      return payload?.items ?? []
     },
   })
   const data = q.data ?? []
@@ -230,7 +229,7 @@ const TenantMaintenance = () => {
       resetForm()
       refresh()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('tenantMaintenance.submitFailed'))
+      message.error(errorText(err, t('tenantMaintenance.submitFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -254,7 +253,7 @@ const TenantMaintenance = () => {
           message.success(t('tenantMaintenance.cancelSuccess'))
           refresh()
         } catch (err: any) {
-          message.error(err?.response?.data?.detail || t('tenantMaintenance.cancelFailed'))
+          message.error(errorText(err, t('tenantMaintenance.cancelFailed')))
         } finally {
           setBusyId('')
         }
@@ -272,8 +271,7 @@ const TenantMaintenance = () => {
       navigate(`/chat?id=${conv.id}`)
     } catch (err: any) {
       message.warning(
-        err?.response?.data?.detail ||
-          (ticket.assigned_to ? t('tenantMaintenance.contactFailed') : t('tenantMaintenance.contactNoWorker')),
+        errorText(err, ticket.assigned_to ? t('tenantMaintenance.contactFailed') : t('tenantMaintenance.contactNoWorker')),
       )
     } finally {
       setBusyId('')
@@ -298,7 +296,7 @@ const TenantMaintenance = () => {
       setReviewTicket(null)
       refresh()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('tenantMaintenance.reviewFailed'))
+      message.error(errorText(err, t('tenantMaintenance.reviewFailed')))
     } finally {
       setReviewSubmitting(false)
     }
@@ -320,9 +318,7 @@ const TenantMaintenance = () => {
   return (
     <>
       {loading && (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <span className="rent-text-muted">{t('tenantMaintenance.loading')}</span>
-        </div>
+        <DataState loading loadingText={t('tenantMaintenance.loading')} skeletonRows={3} />
       )}
 
       {/* Hero */}
@@ -372,7 +368,13 @@ const TenantMaintenance = () => {
 
       {/* Ticket List */}
       <div className="mt-ticket-list">
-        {filteredData.length ? (
+        {q.isError && !q.data ? (
+          <DataState
+            error={t('common.loadFailed')}
+            retryText={t('common.retry')}
+            onRetry={refresh}
+          />
+        ) : filteredData.length ? (
           filteredData.map((ticket) => {
             const idLabel = ticket.ticket_no || (ticket.id || '').slice(-6)
             const titleLabel = ticket.title || ticket.description || '-'
@@ -483,7 +485,11 @@ const TenantMaintenance = () => {
             )
           })
         ) : (
-          <div className="rent-empty">{t('tenantMaintenance.empty')}</div>
+          <DataState
+            empty
+            filtered={filter !== 'all'}
+            emptyTitle={t('tenantMaintenance.empty')}
+          />
         )}
       </div>
 
@@ -562,7 +568,7 @@ const TenantMaintenance = () => {
               {photoPreviews.length > 0 && (
                 <div className="mt-form__photos">
                   {photoPreviews.map((src, i) => (
-                    <img key={i} className="mt-form__photo-thumb" src={src} alt={t('tenantMaintenance.photoAltComplete', { index: i + 1 })} />
+                    <LazyImage key={i} className="mt-form__photo-thumb" src={src} alt={t('tenantMaintenance.photoAltComplete', { index: i + 1 })} />
                   ))}
                 </div>
               )}
@@ -687,7 +693,7 @@ const TenantMaintenance = () => {
                 <span className="mt-detail__label">{t('tenantMaintenance.detailPhotos')}</span>
                 <div className="mt-form__photos">
                   {detailTicket.photos.map((src, i) => (
-                    <img
+                    <LazyImage
                       key={i}
                       className="mt-form__photo-thumb"
                       src={typeof src === 'string' ? src : (src as any)?.url}

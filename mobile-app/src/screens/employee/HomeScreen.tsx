@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 员工首页：问候行 + 今日工作台（带看时间线）+ 待跟进客户 + 业绩摘要 + 快捷操作
  * 原型：employee-mobile-dashboard.html
@@ -28,6 +29,7 @@ import {
   authApi,
   calendarEventsApi,
 } from '@/services/api';
+import { errorText } from '@/lib/errorText'
 
 interface ViewingItem {
   id: string;
@@ -206,14 +208,14 @@ export default function HomeScreen() {
   const loadAll = useCallback(async () => {
     try {
       const [vwRes, pfRes, ldRes, lbRes, meRes, auRes, wbRes, ceRes] = await Promise.allSettled([
-        viewingsApi.list({ pageSize: 100 }),
+        viewingsApi.list({ pageSize: OPTION_PAGE_SIZE }),
         performanceApi.mine(),
-        leadsApi.list({ page: 1, page_size: 5 }),
+        leadsApi.list({ page: 1, page_size: LIST_PAGE_SIZE }),
         employeesApi.leaderboard(),
         employeesApi.mine(),
         authApi.me(),
         employeesApi.workbench(),
-        calendarEventsApi.list({ page: 1, page_size: 100 }),
+        calendarEventsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
       ]);
       if (vwRes.status === 'fulfilled') {
         const data = vwRes.value.data;
@@ -257,7 +259,7 @@ export default function HomeScreen() {
         setCustomEvents(items as CalendarEventItem[]);
       }
     } catch (err: any) {
-      Alert.alert(t('loadFailed'), err?.response?.data?.message || t('emp.workbenchFail'));
+      Alert.alert(t('loadFailed'),errorText(err, t('emp.workbenchFail')));
     } finally {
       setLoading(false);
       setRefreshing(false);

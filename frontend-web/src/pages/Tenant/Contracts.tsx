@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { contractsApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 import { useAuthStore } from '@/stores/auth'
 
 interface ContractRow {
@@ -48,16 +50,24 @@ const TenantContracts = () => {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const [list, setList] = useState<ContractRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [detail, setDetail] = useState<{ contract?: ContractRow; parties: Party[]; signFields: SignField[] }>({ parties: [], signFields: [] })
   const [openId, setOpenId] = useState<string | null>(null)
 
-  const load = () => {
-    contractsApi
-      .list()
-      .then((res) => setList(res.data || []))
-      .catch(() => message.warning(t('contracts.errList')))
+  const load = async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const res = await contractsApi.list()
+      setList(res.data || [])
+    } catch {
+      setLoadError(t('contracts.errList'))
+    } finally {
+      setLoading(false)
+    }
   }
-  useEffect(load, [])
+  useEffect(() => { void load() }, [])
 
   const handleOpen = (id: string) => {
     setOpenId(id)
@@ -119,7 +129,7 @@ const TenantContracts = () => {
         if (status === 403 && d === 'REAL_NAME_REQUIRED') {
           message.error(t('contracts.realNameFirst'))
         } else {
-          message.error(d || t('contracts.errSign'))
+          message.error(errorText(err, t('contracts.errSign')))
         }
       })
   }
@@ -130,8 +140,16 @@ const TenantContracts = () => {
         <h3 className="rent-card__title">{t('contracts.myContracts')}</h3>
       </div>
       <div className="rent-card__body" style={{ padding: '8px 16px' }}>
-        {list.length === 0 ? (
-          <div className="rent-empty" style={{ padding: '24px 0' }}>{t('contracts.noContracts')}</div>
+        {loadError && list.length === 0 ? (
+          <DataState
+            error={loadError}
+            retryText={t('common.retry')}
+            onRetry={() => { void load() }}
+          />
+        ) : loading && list.length === 0 ? (
+          <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
+        ) : list.length === 0 ? (
+          <DataState empty emptyTitle={t('contracts.noContracts')} />
         ) : (
           list.map((c) => {
             const meta = statusMeta[c.status] || statusMeta.draft
@@ -150,7 +168,7 @@ const TenantContracts = () => {
                     <span className={`rent-badge ${meta.cls}`}>{t(meta.text)}</span>
                   </div>
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-3)', flexShrink: 0, marginLeft: 12 }}><polyline points="9 18 15 12 9 6" /></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-2)', flexShrink: 0, marginLeft: 12 }}><polyline points="9 18 15 12 9 6" /></svg>
               </div>
             )
           })

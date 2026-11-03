@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 租房分类页（贝壳式）· 小程序。
  *
@@ -37,7 +38,7 @@ import {
 } from '@/lib/categoryShared'
 import './index.scss'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 export default function CategoryRentPage() {
   const { t } = useI18n()
@@ -54,7 +55,7 @@ export default function CategoryRentPage() {
 
   useEffect(() => {
     publicApi
-      .listings({ listing_type: 'rent', sort: 'latest', page_size: 6 })
+      .listings({ listing_type: 'rent', sort: 'latest', page_size: CAROUSEL_PAGE_SIZE })
       .then((res: any) => setRail(unwrapPage<PublicListing>((res as any)?.data ?? res).items))
       .catch(() => setRail([]))
   }, [])

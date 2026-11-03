@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 管理员工作台：运营概览 / 财务对账
  */
@@ -19,7 +20,7 @@ import { useResponsive, useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import BarChart from '@/components/charts/BarChart';
-import { dashboardApi, employeesApi } from '@/services/api';
+import { dashboardApi } from '@/services/api';
 import api from '@/lib/api';
 
 type Tab = 'overview';
@@ -64,21 +65,19 @@ export default function AdminHomeScreen() {
   const [totals, setTotals] = useState<{ received?: number; receivable?: number; overdue?: number }>({});
   const [byProperty, setByProperty] = useState<ReconRow[]>([]);
   const [trend, setTrend] = useState<TrendRow[]>([]);
-  // 最近动态（取最近 4 笔付款记录）+ 员工规模（用于经营指标）
+  // 最近动态（取最近 4 笔付款记录）；员工规模直接消费 /dashboard/summary 聚合字段
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
-  const [staff, setStaff] = useState<any[]>([]);
 
   const loadTab = useCallback(async (target: Tab) => {
     setLoading(true);
     try {
       if (target === 'overview') {
-        const [sumRes, expRes, trendRes, reconRes, recentRes, staffRes]: any[] = await Promise.all([
+        const [sumRes, expRes, trendRes, reconRes, recentRes]: any[] = await Promise.all([
           dashboardApi.summary().catch(() => ({ data: {} })),
           dashboardApi.expiringLeases().catch(() => ({ data: { items: [] } })),
           dashboardApi.trend({ months: 12 }).catch(() => ({ data: { series: [] } })),
           dashboardApi.financialReconciliation().catch(() => ({ data: { totals: {}, by_property: [] } })),
           api.get('/dashboard/recent-payments').catch(() => null),
-          employeesApi.list({ page: 1, page_size: 100 }).catch(() => null),
         ]);
         setSummary(sumRes?.data ?? {});
         setExpiring((expRes?.data ?? {}).items ?? []);
@@ -90,8 +89,6 @@ export default function AdminHomeScreen() {
         setByProperty(reconD.by_property ?? []);
         const recentItems = recentRes?.data?.items;
         setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
-        const staffD = staffRes?.data ?? {};
-        setStaff(((staffD.items ?? staffD ?? []) as any[]).slice(0, 100));
       }
     } catch (e) {
       setLoading(false);
@@ -174,8 +171,9 @@ export default function AdminHomeScreen() {
       ? ((num(lastTwo[1].revenue) - num(lastTwo[0].revenue)) / num(lastTwo[0].revenue)) * 100
       : null;
   const newLeasesThisMonth = num(trend[trend.length - 1]?.leases_new);
-  const monthPrefix = new Date().toISOString().slice(0, 7);
-  const newHiresThisMonth = staff.filter((e) => String(e.hire_date ?? '').startsWith(monthPrefix)).length;
+  // 员工规模由 /dashboard/summary 聚合返回，不再额外拉员工列表
+  const employeeCount = num(summary.employee_count);
+  const newHiresThisMonth = num(summary.new_employees);
 
   const statCards = [
     {
@@ -202,7 +200,7 @@ export default function AdminHomeScreen() {
     {
       key: 'staff',
       label: '员工数',
-      value: `${staff.length}`,
+      value: `${employeeCount}`,
       badge: `+${newHiresThisMonth} 本月`,
       tone: colors.success,
     },

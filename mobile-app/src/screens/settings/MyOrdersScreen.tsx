@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { propertyDealApi, saleListingApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
@@ -32,14 +34,15 @@ export default function MyOrdersScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
+  const [refreshing, setRefreshing] = useState(false);
 
   const q = useCachedQuery<any[]>({
     queryKey: ['deals', 'mine', user?.id ?? 'anon'],
     cacheKey: `deals:mine:${user?.id ?? 'anon'}`,
     queryFn: async () => {
       const [dRes, lRes] = await Promise.allSettled([
-        propertyDealApi.list({ page: 1, page_size: 50 }),
-        saleListingApi.list({ page: 1, page_size: 50 }),
+        propertyDealApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE }),
+        saleListingApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE }),
       ]);
       const titles: Record<string, string> = {};
       if (lRes.status === 'fulfilled') {
@@ -57,11 +60,33 @@ export default function MyOrdersScreen() {
           listing_title: titles[String(r.sale_listing_id ?? '')],
         }));
       }
-      return [];
+      throw new Error('deals load failed');
     },
   });
   const deals = q.data ?? [];
   const loaded = q.isSuccess;
+  const loading = q.isPending && !q.data;
+  const loadError = q.isError && deals.length === 0 ? '交易订单加载失败' : null;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await q.refetch({ cancelRefetch: false });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [q]);
+
+  if (loading) {
+    return <ListState loading />;
+  }
+
+  if (loadError) {
+    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
+  }
 
   if (loaded && deals.length === 0) {
     return (
@@ -76,7 +101,29 @@ export default function MyOrdersScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 32 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+    >
+      {q.isError && deals.length > 0 ? (
+        <View
+          style={{
+            marginHorizontal: 12,
+            marginTop: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>交易订单加载失败</Text>
+          <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={styles.card}>
         {deals.map((d, idx) => {
           const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;

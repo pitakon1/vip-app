@@ -8,6 +8,7 @@ import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface MemberItem {
   id?: string | number
@@ -49,6 +50,7 @@ export default function PartnerMembersPage() {
   const [properties, setProperties] = useState<any[]>([])
   const [perf, setPerf] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   // 创建成员表单
   const [showCreate, setShowCreate] = useState(false)
@@ -70,6 +72,7 @@ export default function PartnerMembersPage() {
 
   const fetchAll = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const [mRes, pRes, perfRes] = await Promise.all([
         partnerApi.members(),
@@ -86,6 +89,7 @@ export default function PartnerMembersPage() {
       setPerf(pf?.data ?? pf)
     } catch (error) {
       console.error('[PartnerMembers] 加载失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('member.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -187,7 +191,7 @@ export default function PartnerMembersPage() {
       setShowCreate(false)
       fetchAll()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('member.createFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('member.createFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -207,7 +211,7 @@ export default function PartnerMembersPage() {
       setPullLabel('')
       fetchAll()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('member.createFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('member.createFailed')), icon: 'none' })
     } finally {
       setPulling(false)
     }
@@ -226,7 +230,7 @@ export default function PartnerMembersPage() {
       Taro.showToast({ title: t('member.removed'), icon: 'success' })
       fetchAll()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('member.createFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('member.createFailed')), icon: 'none' })
     }
   }
 
@@ -246,8 +250,21 @@ export default function PartnerMembersPage() {
 
       {loading && members.length === 0 && perfAgents.length === 0 ? (
         <StateBlock loading text={t('acc.loading')} />
+      ) : loadError && members.length === 0 ? (
+        <StateBlock
+          error
+          text={t('member.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={fetchAll}
+        />
       ) : (
         <>
+          {loadError && (
+            <View className='inline-error-bar' onClick={fetchAll}>
+              <Text className='inline-error-bar__text'>{t('member.loadFailed')}</Text>
+              <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+            </View>
+          )}
           {/* 公司概览 */}
           <View className='pm-toolbar'>
             <View

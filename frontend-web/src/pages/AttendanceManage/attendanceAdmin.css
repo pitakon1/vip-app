@@ -18,7 +18,7 @@
 }
 
 .attAdm-filter__sep {
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 
 .attAdm-badges {
@@ -44,7 +44,7 @@
 }
 
 .attAdm-inline-badge {
-  margin-left: 8px;
+  margin-left: var(--rent-s-2);
 }
 
 .attAdm-danger {
@@ -64,7 +64,7 @@
 .attAdm-shift {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
 }
 
 .attAdm-shift .rent-input {
@@ -79,8 +79,8 @@
 .attAdm-check {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--rent-s-2);
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   cursor: pointer;
 }
@@ -92,7 +92,7 @@
 .attAdm-member-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--rent-s-3);
   margin-top: 10px;
 }
 
@@ -108,10 +108,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
+  gap: var(--rent-s-3);
+  padding: var(--rent-s-2) 0;
   border-bottom: 1px solid var(--rent-border);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
 }
 
 .attAdm-member-list li:last-child {
@@ -121,7 +121,7 @@
 .attAdm-trend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--rent-s-2);
   max-height: 320px;
   overflow-y: auto;
 }
@@ -136,8 +136,8 @@
   width: 44px;
   flex: none;
   font-family: var(--rent-font-mono);
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 
 .attAdm-trend__bar {
@@ -149,14 +149,14 @@
   width: 96px;
   flex: none;
   text-align: right;
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 
 .attAdm-unit {
-  font-size: 16px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 
 .attAdm-chart {

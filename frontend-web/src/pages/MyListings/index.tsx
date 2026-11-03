@@ -1,12 +1,16 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useState } from 'react'
-import { message, Spin, Empty, Modal } from 'antd'
+import { message, Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { listingsApi } from '@/services/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
+import DataState from '@/components/DataState'
+import LazyImage from '@/components/LazyImage'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 interface Listing {
   id: string
@@ -82,27 +86,23 @@ const MyListings = () => {
   const [region, setRegion] = useState<RegionSelection | null>(null)
   const [current, setCurrent] = useState<Listing | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const pageSize = 10
+  const pageSize = LIST_PAGE_SIZE
 
   // 用户私有数据：key 含 uid，缓存优先渲染 + 后台刷新
   const q = useCachedQuery<{ items: Listing[]; total: number }>({
     queryKey: ['my-listings', uid, status || 'all', String(page), region?.region || '', region?.city || '', region?.district || ''],
     cacheKey: `my-listings:${uid}:${status || 'all'}:${page}:${region?.region ?? ''}:${region?.city ?? ''}:${region?.district ?? ''}`,
     queryFn: async () => {
-      try {
-        const res = await listingsApi.list({
-          page,
-          page_size: pageSize,
-          status: status || undefined,
-          region: region?.region || undefined,
-          city: region?.city || undefined,
-          district: region?.district || undefined,
-        })
-        const payload = res.data?.data ?? res.data
-        return { items: payload?.items ?? [], total: payload?.total ?? 0 }
-      } catch {
-        return { items: [], total: 0 }
-      }
+      const res = await listingsApi.list({
+        page,
+        page_size: pageSize,
+        status: status || undefined,
+        region: region?.region || undefined,
+        city: region?.city || undefined,
+        district: region?.district || undefined,
+      })
+      const payload = res.data?.data ?? res.data
+      return { items: payload?.items ?? [], total: payload?.total ?? 0 }
     },
   })
   const items = q.data?.items ?? []
@@ -145,7 +145,7 @@ const MyListings = () => {
   const renderProperty = (li: Listing) => (
     <div className="rent-flex rent-gap-2" style={{ alignItems: 'center', minWidth: 240 }}>
       {li.cover ? (
-        <img src={li.cover} alt="" style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+        <LazyImage src={li.cover} alt="" style={{ width: 56, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
       ) : (
         <div className="rent-badge" style={{ minWidth: 56, textAlign: 'center', flexShrink: 0 }}>{t('myListings.noImage')}</div>
       )}
@@ -173,7 +173,7 @@ const MyListings = () => {
           message.success(t('myListings.msgClosed'))
           void q.refetch({ cancelRefetch: false })
         } catch (err: any) {
-          message.error(err?.response?.data?.detail || t('myListings.errClose'))
+          message.error(errorText(err, t('myListings.errClose')))
         }
       },
     })
@@ -201,8 +201,20 @@ const MyListings = () => {
         <RegionPicker value={region} onChange={(sel) => { setRegion(sel); setPage(1) }} />
       </div>
 
-      {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
+      {q.isError && !q.data ? (
+        <DataState
+          error={t('common.loadFailed')}
+          retryText={t('common.retry')}
+          onRetry={() => { void q.refetch() }}
+        />
+      ) : loading ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
+      ) : items.length === 0 ? (
+        <DataState
+          empty
+          filtered={!!(status || region?.region || region?.city || region?.district)}
+          emptyTitle={t('myListings.empty')}
+        />
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
@@ -219,9 +231,6 @@ const MyListings = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && (
-                <tr><td colSpan={8}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('myListings.empty')} /></td></tr>
-              )}
               {items.map((li) => (
                 <tr key={li.id}>
                   <td>{renderProperty(li)}</td>

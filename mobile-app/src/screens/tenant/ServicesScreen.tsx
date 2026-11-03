@@ -1,3 +1,4 @@
+﻿import { LIST_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -19,6 +20,7 @@ import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import LoadingState from '@/components/LoadingState';
+import { errorText } from '@/lib/errorText'
 
 const formatDate = (x?: string) => fmtDate(x, 'minute');
 
@@ -105,7 +107,7 @@ export default function ServicesScreen() {
     queryFn: async () => {
       const [cRes, oRes, lRes] = await Promise.allSettled([
         api.get('/billing/pricing'),
-        serviceOrdersApi.list({ page: 1, page_size: 20 }),
+        serviceOrdersApi.list({ page: 1, page_size: LIST_PAGE_SIZE }),
         leasesApi.mine(),
       ]);
 
@@ -205,9 +207,7 @@ export default function ServicesScreen() {
       void q.refetch({ cancelRefetch: false });
     } catch (err: any) {
       Alert.alert(
-        '购买失败',
-        err?.response?.data?.detail || err?.response?.data?.message || '请稍后重试',
-      );
+        '购买失败',errorText(err, '请稍后重试'));
     } finally {
       setSubmitting(false);
     }

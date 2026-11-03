@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 合作公司「手动输入 + 相似匹配」选择器
  * 输入公司名任意片段 → 防抖后按 `GET /admin/partners{keyword}` 模糊匹配，
@@ -37,7 +38,7 @@ export default function PartnerSearchPicker({ placeholder, disabled, onSelect, o
 
   const search = useCallback(async (q: string) => {
     try {
-      const { data } = await partnersAdminApi.list({ page_size: 20, keyword: q });
+      const { data } = await partnersAdminApi.list({ page_size: LIST_PAGE_SIZE, keyword: q });
       const d = data?.data ?? data;
       const items: any[] = (d?.items ?? d ?? []) as any[];
       const opts: PartnerOption[] = items.map((p) => ({ id: String(p.id), name: String(p?.name ?? '') }));

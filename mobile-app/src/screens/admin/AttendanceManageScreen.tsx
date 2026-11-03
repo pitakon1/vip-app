@@ -1,3 +1,5 @@
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { BANGKOK_CENTER } from '@/constants/location';
 /**
  * 管理端「考勤管理」（对标企业微信考勤应用，四个页签）：
  *   考勤核对 —— P0：全员考勤明细 + 行内校准（改状态 / 补上下班时间 / 备注）
@@ -25,6 +27,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import dayjs from 'dayjs';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import { attendanceApi, employeesApi } from '@/services/api';
@@ -152,8 +155,8 @@ const emptyGroupForm = (): GroupForm => ({
   name: '',
   description: '',
   department: '',
-  office_lat: '13.7563',
-  office_lng: '100.5018',
+  office_lat: String(BANGKOK_CENTER.lat),
+  office_lng: String(BANGKOK_CENTER.lng),
   radius_km: '0.5',
   utc_offset_hours: '7',
   work_start: '09:00',
@@ -264,7 +267,7 @@ export default function AttendanceManageScreen() {
   // 员工列表（部门筛选 / 考勤组成员多选共用）
   const loadEmployees = useCallback(() => {
     employeesApi
-      .list({ page: 1, pageSize: 100 })
+      .list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       .then((res) => {
         const payload = res.data?.data ?? res.data;
         setEmpOptions(payload?.items ?? []);
@@ -285,10 +288,12 @@ export default function AttendanceManageScreen() {
   const [summary, setSummary] = useState<Record<string, number>>({});
   const [records, setRecords] = useState<EmployeeRecord[]>([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
+  const [recordsError, setRecordsError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string[]>([]);
 
   const loadRecords = useCallback(() => {
     setLoadingRecords(true);
+    setRecordsError(null);
     attendanceApi
       .adminRecords({
         start_date: range.start,
@@ -299,7 +304,10 @@ export default function AttendanceManageScreen() {
         setRecords(res.data?.records ?? []);
         setSummary(res.data?.summary ?? {});
       })
-      .catch((err) => notifyError('加载考勤明细失败', err))
+      .catch((err) => {
+        setRecordsError('考勤明细加载失败');
+        notifyError('加载考勤明细失败', err);
+      })
       .finally(() => setLoadingRecords(false));
   }, [range.start, range.end, recordsDept]);
 
@@ -365,6 +373,7 @@ export default function AttendanceManageScreen() {
   // ---------------------------------------------------------------- 考勤组
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
   const [groupModal, setGroupModal] = useState<{ id: string | null } | null>(null);
   const [groupForm, setGroupForm] = useState<GroupForm>(emptyGroupForm());
   const [membersModal, setMembersModal] = useState<GroupItem | null>(null);
@@ -374,10 +383,17 @@ export default function AttendanceManageScreen() {
 
   const loadGroups = useCallback(() => {
     setLoadingGroups(true);
+    setGroupsError(null);
     attendanceApi
       .groups()
-      .then((res) => setGroups(res.data ?? []))
-      .catch((err) => notifyError('加载考勤组失败', err))
+      .then((res) => {
+        setGroupsError(null);
+        setGroups(res.data ?? []);
+      })
+      .catch((err) => {
+        setGroupsError('考勤组加载失败');
+        notifyError('加载考勤组失败', err);
+      })
       .finally(() => setLoadingGroups(false));
   }, []);
 
@@ -696,8 +712,27 @@ export default function AttendanceManageScreen() {
           <Text style={styles.cardTitle}>考勤明细</Text>
           <Text style={styles.cardCaption}>{records.length} 人</Text>
         </View>
+        {recordsError && records.length > 0 ? (
+          <View
+            style={{
+              marginBottom: 8,
+              padding: 10,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{recordsError}</Text>
+            <TouchableOpacity onPress={() => loadRecords()} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {loadingRecords ? (
-          <LoadingState label="加载中…" />
+          <ListState loading />
+        ) : recordsError && records.length === 0 ? (
+          <ListState error={recordsError} retryLabel="重试" onRetry={() => loadRecords()} />
         ) : records.length === 0 ? (
           <EmptyState icon="time-outline" title="暂无考勤数据" sub="换个日期区间或部门再试试" />
         ) : (
@@ -813,8 +848,27 @@ export default function AttendanceManageScreen() {
         </Text>
       </View>
 
+      {groupsError && groups.length > 0 ? (
+        <View
+          style={{
+            marginBottom: 8,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{groupsError}</Text>
+          <TouchableOpacity onPress={() => loadGroups()} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {loadingGroups ? (
-        <LoadingState label="加载中…" />
+        <ListState loading />
+      ) : groupsError && groups.length === 0 ? (
+        <ListState error={groupsError} retryLabel="重试" onRetry={() => loadGroups()} />
       ) : groups.length === 0 ? (
         <EmptyState icon="business-outline" title="暂无考勤组" sub="新增考勤组以区分办公点与班次" />
       ) : (
@@ -1092,29 +1146,59 @@ export default function AttendanceManageScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>部门维度</Text>
-              <View style={styles.tableHead}>
-                <Text style={[styles.th, styles.cellDept]}>部门</Text>
-                <Text style={styles.th}>迟到</Text>
-                <Text style={styles.th}>早退</Text>
-                <Text style={styles.th}>缺勤</Text>
-                <Text style={styles.th}>请假</Text>
-                <Text style={styles.th}>异常</Text>
-              </View>
               {(report.departments ?? []).length === 0 ? (
                 <Text style={styles.emptyHint}>暂无部门数据</Text>
               ) : (
-                report.departments.map((d: any) => (
-                  <View key={d.department} style={styles.tableRow}>
-                    <Text style={[styles.td, styles.cellDept, styles.tdStrong]} numberOfLines={1}>
-                      {d.department}
-                    </Text>
-                    <Text style={styles.td}>{d.late}</Text>
-                    <Text style={styles.td}>{d.early_out}</Text>
-                    <Text style={styles.td}>{d.absent}</Text>
-                    <Text style={styles.td}>{d.leave}</Text>
-                    <Text style={[styles.td, styles.tdWarn]}>{d.abnormal}</Text>
-                  </View>
-                ))
+                <View style={styles.reportList}>
+                  {(report.departments ?? []).map((d: any) => {
+                    const abn = d.abnormal ?? 0;
+                    return (
+                      <View key={d.department} style={styles.reportCard}>
+                        <View style={styles.reportCardHead}>
+                          <Text style={styles.reportCardIcon}>🏢</Text>
+                          <Text style={styles.reportCardName}>{d.department || '—'}</Text>
+                          <View
+                            style={[
+                              styles.reportBadge,
+                              {
+                                backgroundColor: abn === 0
+                                  ? colors.alpha(colors.successRgb, 0.12)
+                                  : colors.alpha(colors.errorRgb, 0.12),
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.reportBadgeText,
+                                { color: abn === 0 ? colors.success : colors.error },
+                              ]}
+                            >
+                              异常 {abn}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.reportStats}>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>迟到</Text>
+                            <Text style={styles.reportStatChipText}>{d.late ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>早退</Text>
+                            <Text style={styles.reportStatChipText}>{d.early_out ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>缺勤</Text>
+                            <Text style={styles.reportStatChipText}>{d.absent ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={styles.reportStatChipLabel}>请假</Text>
+                            <Text style={styles.reportStatChipText}>{d.leave ?? 0}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
             </View>
 
@@ -1144,29 +1228,64 @@ export default function AttendanceManageScreen() {
                 <Text style={styles.cardTitle}>员工维度（异常降序）</Text>
                 <Text style={styles.cardCaption}>{report.total_employees ?? 0} 人</Text>
               </View>
-              <View style={styles.tableHead}>
-                <Text style={[styles.th, styles.cellEmp]}>员工</Text>
-                <Text style={styles.th}>正常</Text>
-                <Text style={styles.th}>迟到</Text>
-                <Text style={styles.th}>早退</Text>
-                <Text style={styles.th}>缺勤</Text>
-                <Text style={styles.th}>异常</Text>
-              </View>
               {topEmployees.length === 0 ? (
                 <Text style={styles.emptyHint}>暂无员工数据</Text>
               ) : (
-                topEmployees.map((e: any) => (
-                  <View key={e.employee_id} style={styles.tableRow}>
-                    <Text style={[styles.td, styles.cellEmp, styles.tdStrong]} numberOfLines={1}>
-                      {e.name || e.email || '—'}
-                    </Text>
-                    <Text style={styles.td}>{e.present}</Text>
-                    <Text style={styles.td}>{e.late}</Text>
-                    <Text style={styles.td}>{e.early_out}</Text>
-                    <Text style={styles.td}>{e.absent}</Text>
-                    <Text style={[styles.td, styles.tdWarn]}>{e.abnormal}</Text>
-                  </View>
-                ))
+                <View style={styles.reportList}>
+                  {topEmployees.map((e: any) => {
+                    const abn = e.abnormal ?? 0;
+                    return (
+                      <View key={e.employee_id} style={styles.reportCard}>
+                        <View style={styles.reportCardHead}>
+                          <Text style={styles.reportCardIcon}>👤</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.reportCardName}>{e.name || '—'}</Text>
+                            {e.email ? (
+                              <Text style={styles.reportCardEmail}>{e.email}</Text>
+                            ) : null}
+                          </View>
+                          <View
+                            style={[
+                              styles.reportBadge,
+                              {
+                                backgroundColor: abn === 0
+                                  ? colors.alpha(colors.successRgb, 0.12)
+                                  : colors.alpha(colors.errorRgb, 0.12),
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.reportBadgeText,
+                                { color: abn === 0 ? colors.success : colors.error },
+                              ]}
+                            >
+                              异常 {abn}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.reportStats}>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.success }]}>正常</Text>
+                            <Text style={styles.reportStatChipText}>{e.present ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>迟到</Text>
+                            <Text style={styles.reportStatChipText}>{e.late ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>早退</Text>
+                            <Text style={styles.reportStatChipText}>{e.early_out ?? 0}</Text>
+                          </View>
+                          <View style={styles.reportStatChip}>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>缺勤</Text>
+                            <Text style={styles.reportStatChipText}>{e.absent ?? 0}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
             </View>
           </>
@@ -1614,7 +1733,8 @@ const styles = StyleSheet.create({
   fieldHint: { fontSize: 11, color: colors.ink3, marginTop: 4 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
-    paddingHorizontal: 12,
+     minHeight: 44,
+     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,
@@ -1772,6 +1892,55 @@ const styles = StyleSheet.create({
   tdWarn: { color: colors.warning, fontWeight: '700' },
   cellDept: { flex: 1.6 },
   cellEmp: { flex: 1.8 },
+
+  // --- 异常报表 · 卡片流（替代 tableHead / tableRow）---
+  reportList: { gap: 10 },
+  reportCard: {
+    backgroundColor: colors.surface2,
+    borderRadius: colors.radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  reportCardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  reportCardIcon: { fontSize: 16, marginRight: 6 },
+  reportCardName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: -0.2,
+  },
+  reportCardEmail: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  reportBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: colors.radius.full,
+  },
+  reportBadgeText: { fontSize: 12, fontWeight: '700' },
+  reportStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  reportStatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+  },
+  reportStatChipText: { fontSize: 12, fontWeight: '600', color: colors.ink2 },
+  reportStatChipLabel: { fontSize: 11, color: colors.ink3 },
 
   trendRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   trendLabel: { width: 40, fontSize: 11, color: colors.ink3 },

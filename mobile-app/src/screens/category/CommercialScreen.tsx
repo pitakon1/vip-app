@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 商铺办公分类页（贝壳式）。
  *
@@ -38,7 +39,7 @@ import {
   notAvailable,
 } from './categoryShared';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 type TabKey = 'rent-office' | 'sell-office' | 'rent-shop' | 'sell-shop';
 

@@ -4,8 +4,10 @@ import Taro from '@tarojs/taro'
 import { adminOptionsApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /**
  * 管理端 · 数据字典（对齐 Web 端 /system/options）。
@@ -56,11 +58,13 @@ export default function AdminOptionsPage() {
   const { t } = useI18n()
   const [items, setItems] = useState<OptionItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       // active_only=false：管理端需看到停用项
       const res: any = await adminOptionsApi.list({ active_only: false })
@@ -70,6 +74,7 @@ export default function AdminOptionsPage() {
       )
     } catch (error) {
       console.error('[AdminOptions] 加载字典失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('dict.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -150,7 +155,7 @@ export default function AdminOptionsPage() {
       closeForm()
       load()
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('dict.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('dict.saveFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -161,7 +166,7 @@ export default function AdminOptionsPage() {
       await adminOptionsApi.update(it.id, { is_active: next })
       setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, is_active: next } : x)))
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('dict.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('dict.saveFailed')), icon: 'none' })
     }
   }
 
@@ -181,7 +186,7 @@ export default function AdminOptionsPage() {
       setItems((prev) => prev.filter((x) => x.id !== it.id))
       Taro.showToast({ title: t('dict.deleteOk'), icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('dict.removeFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('dict.removeFailed')), icon: 'none' })
     }
   }
 
@@ -195,14 +200,23 @@ export default function AdminOptionsPage() {
         </View>
       </View>
 
+      {!loading && loadError && groups.length > 0 && (
+        <View className='inline-error-bar' onClick={load}>
+          <Text className='inline-error-bar__text'>{t('dict.loadFailed')}</Text>
+          <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+        </View>
+      )}
       {loading ? (
-        <View className='op-state'>
-          <Text className='op-state__text'>{t('common.loading')}</Text>
-        </View>
+        <StateBlock loading text={t('common.loading')} />
+      ) : loadError && groups.length === 0 ? (
+        <StateBlock
+          error
+          text={t('dict.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={load}
+        />
       ) : groups.length === 0 ? (
-        <View className='op-state'>
-          <Text className='op-state__text'>{t('dict.empty')}</Text>
-        </View>
+        <StateBlock empty text={t('dict.empty')} />
       ) : (
         groups.map(([type, list]) => (
           <View key={type} className='op-card'>

@@ -1,3 +1,4 @@
+﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源新增 / 编辑（管理端）
  * 区块：顶部标题 → 基础信息 → 归属（业主/小区）→ 租态 → 房源描述 → 朝向装修配套 → 照片 → 底部保存
@@ -57,6 +58,8 @@ interface PropertyForm {
   project_id: string;
   orientation: string;
   decoration: string;
+  // 租房专项：最短租期（月）
+  min_lease_months: string;
   video_url: string;
   // VR 看房链接 + 商办/工业专项字段（new：随 5 分类上传补齐）
   vr_url: string;
@@ -222,6 +225,7 @@ export default function PropertyEditScreen() {
     project_id: '',
     orientation: '',
     decoration: '',
+    min_lease_months: '',
     video_url: '',
     vr_url: '',
     ceiling_height_m: '',
@@ -258,6 +262,7 @@ export default function PropertyEditScreen() {
       project_id: data.project_id ? String(data.project_id) : '',
       orientation: data.orientation || '',
       decoration: data.decoration || '',
+      min_lease_months: data.min_lease_months != null ? String(data.min_lease_months) : '',
       video_url: data.video_url || '',
       vr_url: data.vr_url || '',
       ceiling_height_m: data.ceiling_height_m != null ? String(data.ceiling_height_m) : '',
@@ -318,8 +323,8 @@ export default function PropertyEditScreen() {
     try {
       const res: any =
         kind === 'owner'
-          ? await ownersApi.list({ keyword: q || undefined, page_size: 50 })
-          : await publicApi.projects({ q: q || undefined, page_size: 30 });
+          ? await ownersApi.list({ keyword: q || undefined, page_size: DETAIL_PAGE_SIZE })
+          : await publicApi.projects({ q: q || undefined, page_size: OPTION_PAGE_SIZE });
       const items: any[] = res?.data?.items ?? [];
       // 期间可能已关闭或切换到另一个选择器，过期响应直接丢弃，避免串数据
       setPicker((p) => (p.kind === kind ? { ...p, items, loading: false } : p));
@@ -360,6 +365,7 @@ export default function PropertyEditScreen() {
     furnished: form.furnished,
     orientation: form.orientation || undefined,
     decoration: form.decoration || undefined,
+    min_lease_months: form.min_lease_months ? Number(form.min_lease_months) : undefined,
     amenities: amenities.length ? amenities : undefined,
     video_url: form.video_url.trim() || undefined,
     // VR 与商办/工业专项字段：空值一律 undefined（不传空字符串）
@@ -565,6 +571,8 @@ export default function PropertyEditScreen() {
           <View style={styles.rowItem}>{field(t('prop.fieldDepositMonths'), form.deposit_months, 'deposit_months', { keyboard: 'number-pad', placeholder: '1' })}</View>
           <View style={styles.rowItem}>{field(t('edit.labelArea'), form.size_sqm, 'size_sqm', { keyboard: 'numeric', placeholder: '0' })}</View>
         </View>
+        {/* 最短租期（月）：租房专项字段，所有房源类型可填（与 Web 表单字段集合一致） */}
+        {field(t('prop.minLease'), form.min_lease_months, 'min_lease_months', { keyboard: 'number-pad', placeholder: '12' })}
         {showResidential && (
           <View style={styles.row}>
             <View style={styles.rowItem}>{field(t('prop.fieldBedrooms'), form.bedrooms, 'bedrooms', { keyboard: 'number-pad', placeholder: '1' })}</View>
@@ -1032,7 +1040,8 @@ const styles = StyleSheet.create({
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: colors.radius.full,
     borderWidth: 1,

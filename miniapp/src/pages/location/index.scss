@@ -5,7 +5,7 @@
 
 /* 顶部搜索 */
 .loc-search {
-  padding: 12px 16px 8px;
+  padding: 12rpx 16rpx 8rpx;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -16,21 +16,21 @@
   display: flex;
   align-items: center;
   background: var(--field-fill, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
-  border-radius: 18px;
-  height: 40px;
-  padding: 0 14px;
+  border: 1rpx solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 18rpx;
+  height: 40rpx;
+  padding: 0 14rpx;
 }
 
 .loc-search__icon {
-  font-size: 16px;
+  font-size: 16rpx;
   color: var(--ink-3, #98a1ab);
-  margin-right: 8px;
+  margin-right: 8rpx;
 }
 
 .loc-search__input {
   flex: 1;
-  font-size: 14px;
+  font-size: 14rpx;
   color: var(--ink, #1c2733);
 }
 
@@ -39,34 +39,34 @@
 }
 
 .loc-search__clear {
-  font-size: 14px;
+  font-size: 14rpx;
   color: var(--ink-3, #98a1ab);
-  padding: 2px 4px;
+  padding: 2rpx 4rpx;
 }
 
 /* 当前定位 */
 .loc-current {
   display: flex;
   align-items: center;
-  margin: 8px 16px 0;
+  margin: 8rpx 16rpx 0;
   background: var(--card);
-  border-radius: 14px;
-  padding: 12px;
+  border-radius: 14rpx;
+  padding: 12rpx;
 }
 
 .loc-current__icon-circle {
-  width: 30px;
-  height: 30px;
-  border-radius: 15px;
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 15rpx;
   background: var(--primary, #14b8a6);
   align-items: center;
   justify-content: center;
-  margin-right: 12px;
+  margin-right: 12rpx;
   display: flex;
 }
 
 .loc-current__icon {
-  font-size: 14px;
+  font-size: 14rpx;
   color: #ffffff;
   line-height: 1;
 }
@@ -76,52 +76,52 @@
 }
 
 .loc-current__label {
-  font-size: 11px;
+  font-size: 11rpx;
   color: var(--ink-3, #98a1ab);
 }
 
 .loc-current__city {
-  font-size: 16px;
+  font-size: 16rpx;
   font-weight: 700;
   color: var(--ink, #1c2733);
-  margin-top: 2px;
+  margin-top: 2rpx;
 }
 
 .loc-current__tag {
   background: rgba(20, 184, 166, 0.12);
-  border-radius: 999px;
-  padding: 6px 12px;
+  border-radius: 999rpx;
+  padding: 6rpx 12rpx;
 }
 
 .loc-current__tag-text {
-  font-size: 12px;
+  font-size: 12rpx;
   color: var(--primary, #14b8a6);
   font-weight: 600;
 }
 
 /* 热门城市 */
 .loc-hot {
-  margin: 12px 16px 0;
+  margin: 12rpx 16rpx 0;
 }
 
 .loc-sec-title {
-  font-size: 12px;
+  font-size: 12rpx;
   color: var(--ink-3, #98a1ab);
-  margin-bottom: 10px;
+  margin-bottom: 10rpx;
 }
 
 .loc-hot__grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 10rpx;
 }
 
 .loc-chip {
   background: var(--field-fill, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 14px;
+  border: 1rpx solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 999rpx;
+  padding: 8rpx 16rpx;
+  font-size: 14rpx;
   color: var(--ink-2, #55606c);
 }
 
@@ -137,13 +137,13 @@
 
 /* 国家胶囊 Tab：flex wrap 自动换行，不滑屏不截断 */
 .loc-countries {
-  margin: 12px 16px 0;
+  margin: 12rpx 16rpx 0;
 }
 
 .loc-countries__tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 10rpx;
 }
 
 .loc-country-chip {
@@ -151,10 +151,10 @@
   align-items: center;
   justify-content: center;
   background: var(--field-fill, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 14px;
+  border: 1rpx solid var(--field-fill-border, rgba(0, 0, 0, 0.06));
+  border-radius: 999rpx;
+  padding: 8rpx 16rpx;
+  font-size: 14rpx;
   color: var(--ink-2, #55606c);
   box-sizing: border-box;
 }
@@ -171,21 +171,21 @@
 
 /* 城市列表 */
 .loc-city-list {
-  margin-top: 12px;
+  margin-top: 12rpx;
 }
 
 .loc-result-title {
-  font-size: 12px;
+  font-size: 12rpx;
   color: var(--ink-3, #98a1ab);
-  padding: 0 16px;
-  margin-bottom: 4px;
+  padding: 0 16rpx;
+  margin-bottom: 4rpx;
 }
 
 .loc-row {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 12rpx 16rpx;
+  border-bottom: 1rpx solid rgba(0, 0, 0, 0.05);
 }
 
 .loc-row--active {
@@ -197,7 +197,7 @@
 }
 
 .loc-row__name {
-  font-size: 15px;
+  font-size: 15rpx;
   color: var(--ink, #1c2733);
 }
 
@@ -207,32 +207,32 @@
 }
 
 .loc-row__sub {
-  font-size: 11px;
+  font-size: 11rpx;
   color: var(--ink-3, #98a1ab);
-  margin-top: 2px;
+  margin-top: 2rpx;
 }
 
 .loc-row__check {
-  width: 22px;
-  height: 22px;
-  border-radius: 11px;
+  width: 22rpx;
+  height: 22rpx;
+  border-radius: 11rpx;
   background: var(--primary, #14b8a6);
   color: #ffffff;
-  font-size: 12px;
-  line-height: 22px;
+  font-size: 12rpx;
+  line-height: 22rpx;
   text-align: center;
 }
 
 /* 搜索结果 */
 .loc-results {
-  padding: 0 0 16px;
-  height: calc(100vh - 60px);
+  padding: 0 0 16rpx;
+  height: calc(100vh - 60rpx);
   box-sizing: border-box;
 }
 
 .loc-empty {
-  padding: 60px 0;
+  padding: 60rpx 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 14rpx;
   color: var(--ink-3, #98a1ab);
 }

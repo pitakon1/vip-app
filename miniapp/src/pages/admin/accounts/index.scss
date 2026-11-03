@@ -55,7 +55,7 @@
     height: 80rpx;
     padding: 0 28rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     font-size: 28rpx;
     color: var(--ink);
@@ -98,7 +98,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -215,7 +215,7 @@
 
   &__perf {
     padding-top: 16rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__perf-head {
@@ -251,7 +251,7 @@
     gap: 16rpx;
     margin-top: 20rpx;
     padding-top: 20rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 }
 

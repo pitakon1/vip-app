@@ -9,7 +9,7 @@
 /* ===== 搜索与筛选容器 ===== */
 .pb-search-wrap {
   background: var(--card);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
   padding: 20rpx 24rpx 16rpx;
 }
 
@@ -53,7 +53,7 @@
 .pb-filters {
   display: flex;
   align-items: stretch;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 }
 
 /* 单行纯文字筛选 tab：无背景、无边框、无圆角胶囊；选中/展开用底部主色短下划线指示 */
@@ -128,7 +128,7 @@
   padding: 14rpx 28rpx;
   border-radius: var(--radius-full);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
 
   &--active {
     background: var(--primary);
@@ -182,7 +182,7 @@
     height: 72rpx;
     padding: 0 20rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 26rpx;
     color: var(--ink);
@@ -216,7 +216,7 @@
 
   &--ghost {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
 
     text {
       color: var(--ink-2);
@@ -249,7 +249,7 @@
   margin-top: 20rpx;
   height: 68rpx;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
 
   .pb-search__input {
     height: 68rpx;
@@ -270,7 +270,7 @@
 
     &--countries {
       flex: 0 0 144rpx;
-      border-right: 1px solid var(--line);
+      border-right: 1rpx solid var(--line);
       margin-right: 20rpx;
     }
   }

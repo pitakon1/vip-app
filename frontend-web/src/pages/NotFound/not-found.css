@@ -4,7 +4,7 @@
   align-items: center;
   justify-content: center;
   background: #f5f6fa;
-  padding: 24px;
+  padding: var(--rent-s-5);
 }
 .nf-card {
   text-align: center;
@@ -20,22 +20,22 @@
   line-height: 1;
   color: var(--rent-primary, #14b8a6);
   letter-spacing: -0.04em;
-  margin-bottom: 12px;
+  margin-bottom: var(--rent-s-3);
 }
 .nf-title {
-  font-size: 20px;
+  font-size: var(--rent-fs-xl);
   font-weight: 700;
   color: var(--rent-ink, #1a1d24);
-  margin-bottom: 8px;
+  margin-bottom: var(--rent-s-2);
 }
 .nf-desc {
-  font-size: 14px;
-  color: var(--rent-ink-3, #8a8f99);
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink-2, #55606c);
   line-height: 1.6;
-  margin-bottom: 24px;
+  margin-bottom: var(--rent-s-5);
 }
 .nf-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--rent-s-3);
   justify-content: center;
 }

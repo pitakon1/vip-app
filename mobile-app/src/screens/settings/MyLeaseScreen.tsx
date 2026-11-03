@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { leasesApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
@@ -41,6 +42,7 @@ export default function MyLeaseScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
+  const [refreshing, setRefreshing] = useState(false);
 
   const q = useCachedQuery<any[]>({
     queryKey: ['leases', 'mine', user?.id ?? 'anon'],
@@ -53,6 +55,28 @@ export default function MyLeaseScreen() {
   });
   const leases = q.data ?? [];
   const loaded = q.isSuccess;
+  const loading = q.isPending && !q.data;
+  const loadError = q.isError && leases.length === 0 ? '租约加载失败' : null;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await q.refetch({ cancelRefetch: false });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [q]);
+
+  if (loading) {
+    return <ListState loading />;
+  }
+
+  if (loadError) {
+    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
+  }
 
   if (loaded && leases.length === 0) {
     return (
@@ -63,7 +87,29 @@ export default function MyLeaseScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 32 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+    >
+      {q.isError && leases.length > 0 ? (
+        <View
+          style={{
+            marginHorizontal: 12,
+            marginTop: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>租约加载失败</Text>
+          <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={styles.card}>
         {leases.map((lease, idx) => {
           const meta = LEASE_STATUS[String(lease?.status ?? '')] ?? LEASE_STATUS.pending;

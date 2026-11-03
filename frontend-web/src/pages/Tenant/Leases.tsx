@@ -6,6 +6,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import DataState from '@/components/DataState'
 
 /**
  * 我的租约（/tenant/leases）
@@ -46,13 +47,9 @@ const TenantLeases = () => {
     queryKey: ['tenant-leases', 'mine', uid],
     cacheKey: `tenant-leases:mine:${uid}`,
     queryFn: async () => {
-      try {
-        const res: any = await api.get('/leases')
-        const payload = res.data?.data ?? res.data
-        return payload?.items ?? []
-      } catch {
-        return []
-      }
+      const res: any = await api.get('/leases')
+      const payload = res.data?.data ?? res.data
+      return payload?.items ?? []
     },
   })
   const leases = q.data ?? []
@@ -64,13 +61,20 @@ const TenantLeases = () => {
         <h3 className="rent-card__title">{t('menu.myLeases')}</h3>
       </div>
       <div className="rent-card__body" style={{ padding: '8px 16px' }}>
-        {loading && leases.length === 0 ? (
-          <div className="rent-empty" style={{ padding: '24px 0' }}>{t('common.loading')}</div>
+        {q.isError && !q.data ? (
+          <DataState
+            error={t('common.loadFailed')}
+            retryText={t('common.retry')}
+            onRetry={() => { void q.refetch() }}
+          />
+        ) : loading && leases.length === 0 ? (
+          <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
         ) : leases.length === 0 ? (
-          <div className="rent-empty" style={{ padding: '24px 0' }}>
-            {t('tenantMy.leaseEmpty')}
-            <div className="rent-text-sm rent-text-muted" style={{ marginTop: 4 }}>{t('tenantMy.leaseEmptySub')}</div>
-          </div>
+          <DataState
+            empty
+            emptyTitle={t('tenantMy.leaseEmpty')}
+            emptySub={t('tenantMy.leaseEmptySub')}
+          />
         ) : (
           leases.map((l, idx) => {
             const meta = leaseStatus(l.status)
@@ -106,7 +110,7 @@ const TenantLeases = () => {
                     {dayjs(l.start_date || l.startDate).format('YYYY-MM-DD')} 至 {dayjs(l.end_date || l.endDate).format('YYYY-MM-DD')}
                   </div>
                 </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-3)', flexShrink: 0, marginLeft: 12 }}><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-2)', flexShrink: 0, marginLeft: 12 }}><polyline points="9 18 15 12 9 6"/></svg>
               </div>
             )
           })

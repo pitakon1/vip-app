@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 客户管理（CRM）· 管理端专属
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
@@ -24,14 +24,16 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
+import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '../../components/EmptyState';
-import LoadingState from '../../components/LoadingState';
+import ListState from '../../components/ListState';
 import { notify, notifyError } from '../../utils/feedback';
 import { chatApi, leadsApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { useRefreshList } from '../../hooks/useRefreshList';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
+import { errorText } from '@/lib/errorText'
 
 const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = [
   { key: 'inquiring', labelKey: 'crm.stage.inquiring', color: colors.info, rgb: colors.infoRgb },
@@ -46,7 +48,7 @@ export default function AdminCRMScreen() {
   const insets = useSafeAreaInsets();
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
-  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load } = useCrmLeads(stage);
+  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load, loadError } = useCrmLeads(stage);
 
   // 线索表单弹窗（id 存在为编辑，否则新建）
   const [formOpen, setFormOpen] = useState(false);
@@ -168,11 +170,7 @@ export default function AdminCRMScreen() {
       });
     } catch (e: any) {
       Alert.alert(
-        t('crm.cannotSend'),
-        e?.response?.data?.detail ||
-          e?.response?.data?.message ||
-          t('crm.notRegistered'),
-      );
+        t('crm.cannotSend'),errorText(e, t('crm.notRegistered')));
     }
   };
 
@@ -277,15 +275,33 @@ export default function AdminCRMScreen() {
   );
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <LoadingState label={t('crm.loading')} />
-      </View>
-    );
+    return <ListState loading loadingLabel={t('crm.loading')} />;
+  }
+
+  if (loadError && leads.length === 0) {
+    return <ListState error={t('crm.loadFailed')} retryLabel={t('common.retry')} onRetry={load} />;
   }
 
   const listHeader = (
     <>
+      {loadError && leads.length > 0 ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('crm.loadFailed')}</Text>
+          <TouchableOpacity onPress={load} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -397,11 +413,12 @@ export default function AdminCRMScreen() {
         ListEmptyComponent={listEmpty}
       />
 
-      {/* 新建 / 编辑线索弹窗 */}
-      <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
-        <View style={styles.modalMask}>
-          <ScrollView contentContainerStyle={styles.modalCardWrap}>
-            <View style={styles.modalCard}>
+      {/* 新建 / 编辑线索弹层 */}
+      <Modal visible={formOpen} transparent animationType="slide" onRequestClose={() => setFormOpen(false)}>
+        <View style={bottomSheetStyles.bsMask}>
+          <View style={bottomSheetStyles.bsSheet}>
+            <View style={bottomSheetStyles.bsGrabber} />
+            <ScrollView contentContainerStyle={bottomSheetStyles.bsContent}>
               <Text style={styles.modalTitle}>{editingId ? t('crm.edit') : t('crm.new')}</Text>
 
               <Text style={styles.fieldLabel}>{t('crm.formName')} *</Text>
@@ -440,17 +457,16 @@ export default function AdminCRMScreen() {
 
               <Text style={styles.fieldLabel}>{t('crm.formNotes')}</Text>
               <TextInput style={[styles.fieldInput, styles.multilineInput]} value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} multiline placeholderTextColor={colors.ink3} />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
-                  <Text style={styles.modalCancelText}>{t('crm.cancel')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
-                  <Text style={styles.modalOkText}>{saving ? '...' : t('crm.save')}</Text>
-                </TouchableOpacity>
-              </View>
+            </ScrollView>
+            <View style={bottomSheetStyles.bsActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
+                <Text style={styles.modalCancelText}>{t('crm.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
+                <Text style={styles.modalOkText}>{saving ? '...' : t('crm.save')}</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </>
@@ -479,7 +495,8 @@ const styles = StyleSheet.create({
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
   chip: {
-    flexDirection: 'row',
+     minHeight: 44,
+     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 6,

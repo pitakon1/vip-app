@@ -8,7 +8,7 @@
   display: grid;
   grid-template-columns: 1fr 360px;
   gap: 20px;
-  margin-bottom: 24px;
+  margin-bottom: var(--rent-s-5);
 }
 @media (max-width: 1024px) {
   .pay-grid { grid-template-columns: 1fr; }
@@ -20,18 +20,18 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px 12px;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-4) var(--rent-s-3);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
   background: var(--rent-surface);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition: border-color var(--motion-fast), background var(--motion-fast), box-shadow var(--motion-fast);
   text-align: center;
   position: relative;
 }
 .pay-method-card:hover {
-  border-color: var(--rent-ink-3);
+  border-color: var(--rent-ink-2);
   background: var(--rent-surface-2);
 }
 .pay-method-card[data-selected='true'] {
@@ -51,7 +51,7 @@
   color: var(--rent-primary);
 }
 .pay-method-card__label {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink);
 }
@@ -60,7 +60,7 @@
 }
 .pay-method-card__sub {
   font-size: 11px;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
 }
 .pay-method-card__check {
   position: absolute;
@@ -81,7 +81,7 @@
 
 /* 支付方式网格（移动端两列） */
 .pay-method-grid {
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 @media (max-width: 640px) {
   .pay-method-grid {
@@ -96,18 +96,18 @@
   background: var(--rent-surface);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
-  padding: 0 16px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 0 var(--rent-s-4);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
 .pay-amount-wrap:focus-within {
   border-color: var(--rent-primary);
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 .pay-amount-prefix {
-  font-size: 20px;
+  font-size: var(--rent-fs-xl);
   font-weight: 600;
-  color: var(--rent-ink-3);
-  margin-right: 12px;
+  color: var(--rent-ink-2);
+  margin-right: var(--rent-s-3);
   font-family: var(--rent-font-mono);
 }
 .pay-amount-input {
@@ -126,7 +126,7 @@
 
 /* 扫码支付面板 */
 .pay-method-panel {
-  margin-top: 4px;
+  margin-top: var(--rent-s-1);
   padding: 20px;
   background: var(--rent-surface-2);
   border: 1px solid var(--rent-border);
@@ -144,13 +144,13 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   background: var(--rent-muted);
 }
 
 /* 二维码下方提示 */
 .pay-panel-tip {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   margin: 0;
 }
@@ -161,7 +161,7 @@
   align-items: flex-start;
   gap: 10px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   line-height: 1.5;
 }
@@ -186,7 +186,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
 }
 .pay-summary-row__label {
   color: var(--rent-ink-2);
@@ -208,7 +208,7 @@
 .pay-summary-total__value {
   font-family: var(--rent-font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: 28px;
+  font-size: var(--rent-fs-3xl);
   font-weight: 700;
   color: var(--rent-primary);
   letter-spacing: -0.02em;

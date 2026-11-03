@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
-import { message, Spin, Empty, Modal, Input } from 'antd'
+import { message, Modal, Input } from 'antd'
 import { listingsApi } from '@/services/api'
 import { formatMoney } from '@/lib/money'
+import DataState from '@/components/DataState'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 interface Listing {
   id: string
@@ -33,26 +36,28 @@ const ListingReview = () => {
   const [items, setItems] = useState<Listing[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('pending')
   const [current, setCurrent] = useState<Listing | null>(null)
   const [note, setNote] = useState('')
   const [modalMode, setModalMode] = useState<'approved' | 'rejected' | null>(null)
-  const pageSize = 10
+  const pageSize = LIST_PAGE_SIZE
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await listingsApi.list({ page, page_size: pageSize, status: status || undefined })
       const payload = res.data?.data ?? res.data
       setItems(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('listingReview.errLoad'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [page, status])
+  }, [page, status, t])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -75,7 +80,7 @@ const ListingReview = () => {
       setModalMode(null)
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('listingReview.errReview'))
+      message.error(errorText(err, t('listingReview.errReview')))
     }
   }
 
@@ -101,8 +106,12 @@ const ListingReview = () => {
         </select>
       </div>
 
-      {loading ? (
-        <div className="rent-empty"><Spin size="small" style={{ marginRight: 8 }} /><span className="rent-text-muted">{t('common.loading')}</span></div>
+      {loadError && items.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+      ) : loading && items.length === 0 ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
+      ) : items.length === 0 ? (
+        <DataState empty filtered={!!status} emptyTitle={t('listingReview.empty')} />
       ) : (
         <div className="rent-table-wrap">
           <table className="rent-table">
@@ -119,7 +128,6 @@ const ListingReview = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && <tr><td colSpan={8}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('listingReview.empty')} /></td></tr>}
               {items.map((li) => (
                 <tr key={li.id}>
                   <td>

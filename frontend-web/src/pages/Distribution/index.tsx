@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useMemo, useState } from 'react'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { brokerApi, propertyDealApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
+import { errorText } from '@/lib/errorText'
 
 const BROKER_TYPE_KEYS: Record<string, string> = {
   individual: 'distribution.typeIndividual',
@@ -120,7 +123,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     queryKey: ['brokers', String(page), status, level],
     cacheKey: `brokers:${page}:${status}:${level}`,
     queryFn: async () => {
-      const res = await brokerApi.list({ page, pageSize: 10, status: status || undefined, level: level || undefined })
+      const res = await brokerApi.list({ page, pageSize: LIST_PAGE_SIZE, status: status || undefined, level: level || undefined })
       const payload = res.data?.data ?? res.data
       return { items: payload?.items ?? [], total: payload?.total ?? 0 }
     },
@@ -129,10 +132,6 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const total = brokersQ.data?.total ?? 0
   const loading = brokersQ.isPending && !brokersQ.data
   const refresh = () => { void brokersQ.refetch({ cancelRefetch: false }) }
-
-  useEffect(() => {
-    if (brokersQ.isError) message.error((brokersQ.error as any)?.response?.data?.message || t('distribution.errFetchBrokers'))
-  }, [brokersQ.isError, brokersQ.error])
 
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
   const setApproveField = (k: string) => (e: any) => setApproveForm((f: any) => ({ ...f, [k]: e.target.value }))
@@ -157,7 +156,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       onOpenChange(false)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('distribution.errRegisterFailed'))
+      message.error(errorText(e, t('distribution.errRegisterFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -175,7 +174,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       setApproveBroker(null)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('distribution.errApproveFailed'))
+      message.error(errorText(e, t('distribution.errApproveFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -187,7 +186,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       message.success(t('distribution.msgSuspended'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('distribution.errSuspendFailed'))
+      message.error(errorText(e, t('distribution.errSuspendFailed')))
     }
   }
 
@@ -278,7 +277,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       <div className="rent-filter-bar">
         <div className="rent-filter-bar__search">
           <div className="rent-search" style={{ width: '100%' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input type="text" placeholder={t('distribution.searchPlaceholder')} value={keyword} onChange={(e) => setKeyword(e.target.value)} />
@@ -297,12 +296,18 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.listTitle')}</h3><span className="rent-badge rent-badge--neutral">{t('distribution.totalCount', { count: total })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {brokersQ.isError && !brokersQ.data ? (
+            <DataState error={t('common.loadFailed')} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('distribution.emptyBrokers')}</div>
+            <DataState
+              empty
+              filtered={!!(status || level)}
+              emptyTitle={t('distribution.emptyBrokers')}
+            />
           ) : visibleItems.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('distribution.emptyNoMatch')}</div>
+            <DataState empty filtered emptyTitle={t('distribution.emptyNoMatch')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -427,10 +432,6 @@ const ReferralsTab = () => {
   const loading = referralsQ.isPending && !referralsQ.data
   const refresh = () => { void referralsQ.refetch({ cancelRefetch: false }) }
 
-  useEffect(() => {
-    if (referralsQ.isError) message.error((referralsQ.error as any)?.response?.data?.message || t('distribution.errFetchReferrals'))
-  }, [referralsQ.isError, referralsQ.error])
-
   const setField = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }))
 
   const handleCreate = async () => {
@@ -451,7 +452,7 @@ const ReferralsTab = () => {
       setForm({ invite_code: '', referred_name: '', referred_phone: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('distribution.errRecordFailed'))
+      message.error(errorText(e, t('distribution.errRecordFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -468,10 +469,12 @@ const ReferralsTab = () => {
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('distribution.listTitleReferrals')}</h3><span className="rent-badge rent-badge--neutral">{t('distribution.itemsCount', { count: items.length })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
-            <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
+          {referralsQ.isError && !referralsQ.data ? (
+            <DataState error={t('common.loadFailed')} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
+            <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
           ) : items.length === 0 ? (
-            <div className="rent-empty rent-text-muted">{t('distribution.emptyReferrals')}</div>
+            <DataState empty emptyTitle={t('distribution.emptyReferrals')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
@@ -530,7 +533,7 @@ const SplitTab = () => {
     queryKey: ['property-deals', 'options'],
     cacheKey: 'property-deals:options',
     queryFn: async () => {
-      const res = await propertyDealApi.list({ page: 1, pageSize: 100 })
+      const res = await propertyDealApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       return payload?.items ?? []
     },
@@ -581,7 +584,7 @@ const SplitTab = () => {
       setResult(JSON.stringify(payload, null, 2))
       message.success(t('distribution.msgSplitCreated'))
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('distribution.errSplitFailed'))
+      message.error(errorText(e, t('distribution.errSplitFailed')))
     } finally {
       setSubmitting(false)
     }

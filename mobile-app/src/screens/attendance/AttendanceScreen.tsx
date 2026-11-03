@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
+import { EARTH_RADIUS_KM } from '@/constants/location';
 import { geoApi, attendanceApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import { notify, notifyError } from '@/utils/feedback';
@@ -114,7 +115,7 @@ const parseHM = (v?: string | null): number | null => {
 
 /** 两点球面距离（公里）——Haversine，纯函数，无外部依赖 */
 const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-  const R = 6371;
+  const R = EARTH_RADIUS_KM;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -1676,7 +1677,8 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: colors.spacing.md },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.sm },
   chip: {
-    paddingHorizontal: 12,
+     minHeight: 44,
+     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,

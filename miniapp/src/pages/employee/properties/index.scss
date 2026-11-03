@@ -65,7 +65,7 @@
 /* ===== 房源卡片 ===== */
 .p-card {
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -169,7 +169,7 @@
     justify-content: space-between;
     margin-top: 20rpx;
     padding-top: 20rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__badges {
@@ -208,7 +208,7 @@
     gap: 16rpx;
     margin-top: 20rpx;
     padding-top: 20rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__act {
@@ -286,7 +286,7 @@
   margin-top: 24rpx;
   padding: 14rpx 40rpx;
   border-radius: var(--radius-full);
-  border: 1px solid var(--primary);
+  border: 1rpx solid var(--primary);
 
   &__text {
     font-size: 26rpx;

@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 二手房分类页（贝壳式）· 小程序。
  *
@@ -37,7 +38,7 @@ import {
 import { fmtMoney } from '@/utils/format'
 import './index.scss'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 export default function CategoryResalePage() {
   const { t } = useI18n()

@@ -94,7 +94,8 @@ export const CURRICULUM_OPTIONS = [
   'other',
 ] as const;
 
-export const SCHOOL_RADIUS_OPTIONS = [1, 3, 5, 10] as const;
+/** 按学校找房的半径档位（km），档位定义收敛到 constants/filters。 */
+export { SCHOOL_RADIUS_OPTIONS } from '@/constants/filters';
 
 /** 照片字段历史上出现过 `string[]` 与 `{url|path}[]` 两种形态，统一取 URL。 */
 export const photoUrl = (item: unknown): string | null => {

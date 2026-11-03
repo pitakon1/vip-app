@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { View, Text, ScrollView, Image, Input, Picker } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
@@ -10,6 +11,7 @@ import { ICONS, iconStyle } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 
 interface PropertyItem {
   id?: string
@@ -72,7 +74,7 @@ const buildStatusLabels = (
 ): Record<string, string> => ({
   vacant: t('tpd.statusVacant'),
   rented: t('prop.statusRentedLong'),
-  reserved: t('prop.statusReserved'),
+  renewing: t('prop.statusRenewing'),
   maintenance: t('prop.statusMaintenanceLong')
 })
 
@@ -163,9 +165,9 @@ export default function TenantPropertyDetailPage() {
       const projectId = data?.project_id
       const results = await Promise.allSettled([
         projectId ? request<any>({ url: `/projects/${projectId}`, method: 'GET' }) : Promise.resolve(null),
-        saleListingApi.list({ page: 1, page_size: 100 }),
+        saleListingApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
         projectId
-          ? request<any>({ url: `/properties?project_id=${projectId}&page=1&page_size=100`, method: 'GET' })
+          ? request<any>({ url: `/properties?project_id=${projectId}&page=1&page_size=${OPTION_PAGE_SIZE}`, method: 'GET' })
           : Promise.resolve(null)
       ])
 
@@ -340,7 +342,7 @@ export default function TenantPropertyDetailPage() {
       Taro.showToast({ title: t('tpd.bookOk'), icon: 'success' })
       setShowBooking(false)
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('prop.bookingFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('prop.bookingFailed')), icon: 'none' })
     } finally {
       setBookingBusy(false)
     }

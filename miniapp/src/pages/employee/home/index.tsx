@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -7,6 +8,7 @@ import { fmtMoney } from '@/utils/format'
 import BottomNav from '@/components/BottomNav'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface ViewingItem {
   id: string
@@ -141,8 +143,8 @@ export default function EmployeeHomePage() {
     setLoading(true)
     try {
       const [vw, ld, lb, pf] = await Promise.all([
-        viewingsApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
-        leadsApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        viewingsApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+        leadsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
         employeesApi.leaderboard().catch(() => ({ data: [] })),
         performanceApi.me().catch(() => ({ data: {} }))
       ])
@@ -190,7 +192,7 @@ export default function EmployeeHomePage() {
     } catch (err: any) {
       // 用户取消选择时 tapIndex 不存在，静默返回
       if (err?.errMsg && String(err.errMsg).includes('cancel')) return
-      Taro.showToast({ title: err?.message || t('crm.updateFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('crm.updateFailed')), icon: 'none' })
     }
   }
 

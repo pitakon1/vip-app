@@ -6,25 +6,25 @@
 
   .message-list {
     flex: 1;
-    padding: 24px;
+    padding: 24rpx;
 
     .empty-tip {
       text-align: center;
-      padding: 80px 0;
+      padding: 80rpx 0;
       color: var(--ink-3);
-      font-size: 28px;
+      font-size: 28rpx;
     }
 
     .message-row {
       display: flex;
-      margin-bottom: 20px;
+      margin-bottom: 20rpx;
 
       &.mine {
         justify-content: flex-end;
 
         .bubble {
           background-color: var(--primary);
-          border-top-right-radius: 8px;
+          border-top-right-radius: 8rpx;
 
           .bubble-text {
             color: var(--primary-foreground);
@@ -41,28 +41,28 @@
 
         .bubble {
           background-color: var(--card);
-          border-top-left-radius: 8px;
+          border-top-left-radius: 8rpx;
         }
       }
 
       .bubble {
         max-width: 72%;
-        border-radius: 16px;
-        padding: 20px 24px;
+        border-radius: 16rpx;
+        padding: 20rpx 24rpx;
         display: flex;
         flex-direction: column;
 
         .bubble-text {
-          font-size: 28px;
+          font-size: 28rpx;
           color: var(--ink);
           line-height: 1.5;
           word-break: break-all;
         }
 
         .bubble-time {
-          font-size: 22px;
+          font-size: 22rpx;
           color: var(--ink-3);
-          margin-top: 8px;
+          margin-top: 8rpx;
           text-align: right;
         }
       }
@@ -72,26 +72,26 @@
   .input-bar {
     display: flex;
     align-items: center;
-    padding: 16px 24px;
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding: 16rpx 24rpx;
+    padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
     background-color: var(--card);
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
 
     .input-box {
       flex: 1;
-      height: 72px;
+      height: 72rpx;
       background-color: var(--bg);
-      border-radius: 36px;
-      padding: 0 28px;
-      font-size: 28px;
-      margin-right: 16px;
+      border-radius: 36rpx;
+      padding: 0 28rpx;
+      font-size: 28rpx;
+      margin-right: 16rpx;
     }
 
     .send-btn {
-      height: 72px;
-      padding: 0 32px;
+      height: 72rpx;
+      padding: 0 32rpx;
       background-color: var(--primary);
-      border-radius: 36px;
+      border-radius: 36rpx;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -101,7 +101,7 @@
       }
 
       .send-text {
-        font-size: 28px;
+        font-size: 28rpx;
         color: var(--primary-foreground);
       }
     }

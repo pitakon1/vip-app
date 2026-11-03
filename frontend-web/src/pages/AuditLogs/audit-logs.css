@@ -1,6 +1,6 @@
 .audit-pii {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
 }
 .audit-cell-link {
   color: var(--rent-primary);

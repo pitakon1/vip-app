@@ -3,6 +3,31 @@ import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 import { cachedGetAdapter } from '@/lib/httpCache'
 
 /**
+ * axios catch 里访问后端错误体的安全入口。
+ * FastAPI 422 会塞 `error_fields`（字段级校验）或 `detail`（单条错误）。
+ * 用法：`catch (err) { const body = apiErrorBody(err); if (body?.error_fields) ... }`
+ */
+export interface ApiErrorBody {
+  /** FastAPI 422 字段级校验（snake_case）。 */
+  error_fields?: string[]
+  /** 前端 Ant Design ProTable / Form 约定（camelCase）。 */
+  errorFields?: { name: string; errors?: string[] }[]
+  /** 单条错误。 */
+  detail?: string | unknown[]
+  message?: string
+  [key: string]: unknown
+}
+export function apiErrorBody(err: unknown): ApiErrorBody | undefined {
+  if (!axios.isAxiosError(err)) return undefined
+  const data = (err.response as AxiosResponse<ApiErrorBody> | undefined)?.data
+  return data && typeof data === 'object' ? data : undefined
+}
+/** axios 错误的原始 response（用于访问 status、headers 等）。 */
+export function apiErrorResponse(err: unknown): AxiosResponse | undefined {
+  return axios.isAxiosError(err) ? (err.response as AxiosResponse | undefined) : undefined
+}
+
+/**
  * 单次请求能取回的最大条数，与后端 `app/core/pagination.py` 的 `MAX_PAGE_SIZE` 保持一致。
  *
  * 后端对 `page_size` 是**硬截断**（不是报错）。传超过这个值的请求不会失败，

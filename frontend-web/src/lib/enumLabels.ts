@@ -93,7 +93,7 @@ export const usePropertyStatusMap = (): Record<string, string> => {
     () => ({
       vacant: t('propertyStatus.vacant'),
       rented: t('propertyStatus.rented'),
-      reserved: t('propertyStatus.reserved'),
+      renewing: t('propertyStatus.renewing'),
       maintenance: t('propertyStatus.maintenance'),
     }),
     [t],

@@ -18,6 +18,7 @@ import BottomNav from '@/components/BottomNav'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
@@ -149,6 +150,7 @@ export default function AdminContractsPage() {
   const { t } = useI18n()
   const [list, setList] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   // 详情
   const [detail, setDetail] = useState<any>(null)
@@ -244,6 +246,7 @@ export default function AdminContractsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await contractsApi.list()
       const d = unwrap(res)
@@ -251,6 +254,7 @@ export default function AdminContractsPage() {
       setList(items)
     } catch (error) {
       console.error('[AdminContracts] 获取合同失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('contract.loadFail'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -300,7 +304,7 @@ export default function AdminContractsPage() {
       setGenForm({ ...emptyGen })
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.generateTitle'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.generateTitle')), icon: 'none' })
     } finally {
       setGenBusy(false)
     }
@@ -323,7 +327,7 @@ export default function AdminContractsPage() {
       Taro.showToast({ title: t('contract.linkCopied'), icon: 'none' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.copyLink'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.copyLink')), icon: 'none' })
     } finally {
       setBusyAct(null)
     }
@@ -338,7 +342,7 @@ export default function AdminContractsPage() {
       Taro.showToast({ title: t('contract.sendDone'), icon: 'success' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.sendNotice'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.sendNotice')), icon: 'none' })
     } finally {
       setBusyAct(null)
     }
@@ -397,7 +401,7 @@ export default function AdminContractsPage() {
       setFieldForm({ partyId: '', fieldType: 'signature', page: '1', x: '', y: '' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -432,7 +436,7 @@ export default function AdminContractsPage() {
       setShowField(false)
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -460,7 +464,7 @@ export default function AdminContractsPage() {
       setKwHitCount(Number(d?.count) || hits.length)
       if (!hits.length) Taro.showToast({ title: t('contract.noKeywordMatch'), icon: 'none' })
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.searchKeyword'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.searchKeyword')), icon: 'none' })
     } finally {
       setKwBusy(false)
     }
@@ -484,7 +488,7 @@ export default function AdminContractsPage() {
       setShowKeyword(false)
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.createField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.createField')), icon: 'none' })
     } finally {
       setKwPlacing(false)
     }
@@ -514,7 +518,7 @@ export default function AdminContractsPage() {
       closeDetail()
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.decline'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.decline')), icon: 'none' })
     } finally {
       setDeclineBusy(false)
     }
@@ -528,7 +532,7 @@ export default function AdminContractsPage() {
       Taro.showToast({ title: t('contract.fieldDeleted'), icon: 'none' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.deleteField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.deleteField')), icon: 'none' })
     } finally {
       setBusyAct(null)
     }
@@ -542,7 +546,7 @@ export default function AdminContractsPage() {
       const res: any = await contractsApi.verify(detail.id)
       setVerifyReport(unwrap(res))
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.verify'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.verify')), icon: 'none' })
     } finally {
       setVerifyLoading(false)
     }
@@ -566,7 +570,7 @@ export default function AdminContractsPage() {
       setPartyForm({ name: '', email: '', role: 'tenant' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.addParty'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.addParty')), icon: 'none' })
     } finally {
       setPartyBusy(false)
     }
@@ -591,7 +595,7 @@ export default function AdminContractsPage() {
       await openDetail(detail.id)
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.editContent'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.editContent')), icon: 'none' })
     } finally {
       setEditBusy(false)
     }
@@ -609,7 +613,7 @@ export default function AdminContractsPage() {
       closeDetail()
       await load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.void'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.void')), icon: 'none' })
     } finally {
       setVoidBusy(false)
     }
@@ -644,7 +648,7 @@ export default function AdminContractsPage() {
         Taro.showToast({ title: t('contract.uploadDone'), icon: 'success' })
         await openDetail(detail.id)
       } catch (e: any) {
-        Taro.showToast({ title: e?.message || t('contract.upload'), icon: 'none' })
+        Taro.showToast({ title:errorText(e, t('contract.upload')), icon: 'none' })
       } finally {
         setBusyAct(null)
       }
@@ -855,7 +859,7 @@ export default function AdminContractsPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.imprintStamp'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.imprintStamp')), icon: 'none' })
     } finally {
       setSealCropBusy(false)
     }
@@ -883,7 +887,7 @@ export default function AdminContractsPage() {
       }
       setGeneratedSeal(url)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.generateSealFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.generateSealFailed')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -904,7 +908,7 @@ export default function AdminContractsPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveToLibrary')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -925,7 +929,7 @@ export default function AdminContractsPage() {
               setShowSigDraw(false)
               refreshAssets()
             })
-            .catch((e: any) => Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' }))
+            .catch((e: any) => Taro.showToast({ title:errorText(e, t('contract.saveToLibrary')), icon: 'none' }))
         }, fail: () => {} })
       })
       .catch(() => {})
@@ -938,7 +942,7 @@ export default function AdminContractsPage() {
       Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.removeAsset'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.removeAsset')), icon: 'none' })
     } finally {
       setAssetBusyId(null)
     }
@@ -1127,7 +1131,7 @@ export default function AdminContractsPage() {
       await openDetail(detail.id)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -1155,7 +1159,7 @@ export default function AdminContractsPage() {
       setDragField(null)
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -1170,7 +1174,7 @@ export default function AdminContractsPage() {
       Taro.showToast({ title: t('contract.fieldRemoved'), icon: 'none' })
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.deleteField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.deleteField')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -1193,7 +1197,7 @@ export default function AdminContractsPage() {
       setKwPlaced(true)
       await openDetail(detail.id)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.createField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.createField')), icon: 'none' })
     } finally {
       setKwPlacing(false)
     }
@@ -1820,8 +1824,21 @@ export default function AdminContractsPage() {
             <Text className='ac-section-head__count'>{t('contract.countUnit', { n: list.length })}</Text>
           </View>
 
+          {!loading && loadError && list.length > 0 && (
+            <View className='inline-error-bar' onClick={() => void load()}>
+              <Text className='inline-error-bar__text'>{t('contract.loadFail')}</Text>
+              <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+            </View>
+          )}
           {loading ? (
             <StateBlock loading text={t('pub.loading')} />
+          ) : loadError && list.length === 0 ? (
+            <StateBlock
+              error
+              text={t('contract.loadFail')}
+              retryText={t('acc.retry')}
+              onRetry={() => void load()}
+            />
           ) : list.length === 0 ? (
             <View className='ac-state'>
               <View className='icon-svg' style={iconStyle('doc', 72)} />

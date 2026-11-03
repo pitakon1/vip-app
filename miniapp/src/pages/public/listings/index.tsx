@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 /**
  * C 端房源列表（匿名可浏览，无需注册）。
  *
@@ -29,10 +30,11 @@ import { coverOf, listingTypeLabel, loadRates } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
+import StateBlock from '@/components/StateBlock'
+import { SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
 import './index.scss'
 
-const PAGE_SIZE = 20
-const RADII = [1, 3, 5, 10]
+const PAGE_SIZE = LIST_PAGE_SIZE
 // 排序：默认 4 项；选中学校时额外出现「距离最近」
 const SORTS: Array<[string, string]> = [
   ['latest', 'pub.sortLatest'],
@@ -81,12 +83,13 @@ export default function PublicListingsPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     loadRates()
     // 学校清单只为筛选器备选，取前 100 条即可
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res) => setSchools(unwrapPage<PublicSchool>(res).items))
       .catch(() => setSchools([]))
   }, [])
@@ -135,8 +138,10 @@ export default function PublicListingsPage() {
   // ---------- 请求 ----------
   const fetchPage = useCallback(
     async (targetPage: number) => {
-      if (targetPage === 1) setLoading(true)
-      else setLoadingMore(true)
+      if (targetPage === 1) {
+        setLoading(true)
+        setLoadError(false)
+      } else setLoadingMore(true)
       try {
         const res = await publicApi.listings({
           page: targetPage,
@@ -159,10 +164,7 @@ export default function PublicListingsPage() {
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]))
       } catch (err) {
         console.error('[public listings] 加载失败', err)
-        if (targetPage === 1) {
-          setItems([])
-          setTotal(0)
-        }
+        if (targetPage === 1) setLoadError(true)
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -262,7 +264,7 @@ export default function PublicListingsPage() {
                 {t('pub.schoolRadius')}
               </Text>
               <View className='pub-chips pub-chips--wrap'>
-                {RADII.map((km) => (
+                {SCHOOL_RADIUS_OPTIONS.map((km) => (
                   <View
                     key={km}
                     className={`pub-chip${schoolKm === km ? ' pub-chip--on' : ''}`}
@@ -410,9 +412,20 @@ export default function PublicListingsPage() {
         <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>
 
         {loading ? (
-          <View className='pub-loading'>{t('pub.loading')}</View>
+          <StateBlock loading text={t('pub.loading')} />
+        ) : loadError ? (
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => fetchPage(1)}
+          />
         ) : items.length === 0 ? (
-          <View className='pub-empty'>{t('pub.emptyWiden')}</View>
+          <StateBlock
+            empty
+            filtered={!!(debounced || type || schoolId || moreActive || sort !== 'latest')}
+            text={t('pub.emptyWiden')}
+          />
         ) : (
           <>
             {items.map((item) => {

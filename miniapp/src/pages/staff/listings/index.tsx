@@ -1,3 +1,4 @@
+import { collectAllPages } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -7,6 +8,7 @@ import StateBlock from '@/components/StateBlock'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 
 // 上架单状态（ListingStatus）
 const buildStatusMeta = (
@@ -49,20 +51,30 @@ export default function StaffListingsPage() {
   const [listings, setListings] = useState<any[]>([])
   const [meId, setMeId] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [tab, setTab] = useState<'mine' | 'all'>('mine')
   const STATUS_META = buildStatusMeta(t)
   const DEDUPE_META = buildDedupeMeta(t)
 
   const fetchAll = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
-      const [lk, me] = await Promise.all([
-        listingApi.list({ page: 1, page_size: 100 }).catch(() => []),
+      // 「我的/全部」切换与统计都在前端完成，必须按页累加取全量上架单。
+      const [items, me] = await Promise.all([
+        collectAllPages<any>(async (page, pageSize) => {
+          const res: any = await listingApi.list({ page, page_size: pageSize })
+          return pickList(res)
+        }),
         authApi.me().catch(() => null)
       ])
-      setListings(pickList(lk))
+      setListings(items)
       const md = (me as any)?.data ?? me
       setMeId(md?.id ? String(md.id) : user?.id ? String(user.id) : '')
+    } catch (error) {
+      console.error('[StaffListings] 获取房源失败', error)
+      setLoadError(true)
+      Taro.showToast({ title: t('common.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -91,7 +103,7 @@ export default function StaffListingsPage() {
           Taro.showToast({ title: t('staff.stClosed'), icon: 'success' })
           fetchAll()
         } catch (e: any) {
-          Taro.showToast({ title: e?.message || t('common.opFailed'), icon: 'none' })
+          Taro.showToast({ title:errorText(e, t('common.opFailed')), icon: 'none' })
         }
       }
     })
@@ -128,7 +140,21 @@ export default function StaffListingsPage() {
         {loading && visible.length === 0 && (
           <StateBlock loading text={t('common.loading')} />
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={fetchAll}>
+            <Text className='inline-error-bar__text'>{t('common.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && listings.length === 0 && (
+          <StateBlock
+            error
+            text={t('common.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchAll}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='st-state'><Text className='st-state__text'>{t('staff.empty')}</Text></View>
         )}
         {visible.map((l) => {

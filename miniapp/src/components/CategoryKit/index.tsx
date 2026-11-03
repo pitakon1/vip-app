@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 贝壳式分类页共用外壳（小程序）。
  *
@@ -437,7 +438,7 @@ interface CategoryListScreenProps<T> {
   emptyIcon?: IconKey
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 const DEFAULT_VALUES: FilterValues = { sort: 'latest' }
 
 export function CategoryListScreen<T>({
@@ -471,6 +472,7 @@ export function CategoryListScreen<T>({
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const reqSeq = useRef(0)
 
   useEffect(() => {
@@ -486,8 +488,10 @@ export function CategoryListScreen<T>({
   const load = useCallback(
     async (targetPage: number) => {
       const seq = ++reqSeq.current
-      if (targetPage === 1) setLoading(true)
-      else setLoadingMore(true)
+      if (targetPage === 1) {
+        setLoading(true)
+        setLoadError(false)
+      } else setLoadingMore(true)
       try {
         const res = await fetchPage(targetPage, query)
         if (seq !== reqSeq.current) return
@@ -496,10 +500,7 @@ export function CategoryListScreen<T>({
         setItems((prev) => (targetPage === 1 ? res.items : [...prev, ...res.items]))
       } catch {
         if (seq !== reqSeq.current) return
-        if (targetPage === 1) {
-          setItems([])
-          setTotal(0)
-        }
+        if (targetPage === 1) setLoadError(true)
       } finally {
         if (seq === reqSeq.current) {
           setLoading(false)
@@ -515,6 +516,12 @@ export function CategoryListScreen<T>({
   }, [load])
 
   const hasMore = items.length < total
+  const hasFilter =
+    !!debounced ||
+    (() => {
+      const base = { ...DEFAULT_VALUES, ...defaultFilterValues }
+      return Object.keys(values).some((k) => values[k] !== base[k] && values[k] !== '' && values[k] != null)
+    })()
 
   const handleLoadMore = () => {
     if (loading || loadingMore || !hasMore) return
@@ -554,8 +561,20 @@ export function CategoryListScreen<T>({
 
           {loading ? (
             <StateBlock loading text={t('category.loading')} />
+          ) : loadError ? (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => void load(1)}
+            />
           ) : items.length === 0 ? (
-            <StateBlock empty icon={emptyIcon} text={`${emptyTitle}${emptySub ? ` · ${emptySub}` : ''}`} />
+            <StateBlock
+              empty
+              filtered={hasFilter}
+              icon={emptyIcon}
+              text={`${emptyTitle}${emptySub ? ` · ${emptySub}` : ''}`}
+            />
           ) : (
             <>
               <Text className='ck-count'>{t('category.resultCount', { n: total })}</Text>

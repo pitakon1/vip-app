@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 数据范围（管理端「我的 → 系统管理 → 数据范围」全屏子页）。
  *
  * 对齐 Web 端 `/system/data-scopes`：按角色配置默认可见范围，并查看/清除个别用户的
@@ -6,16 +6,17 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { dataScopeAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
@@ -51,7 +52,9 @@ export default function DataScopesScreen() {
   const { t } = useI18n();
   const [data, setData] = useState<ScopeView | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const scopeLabel = useCallback(
     (v: string) => {
@@ -73,10 +76,12 @@ export default function DataScopesScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data: res } = await dataScopeAdminApi.get();
       setData(res?.data ?? res);
     } catch (e) {
+      setLoadError(t('scope.loadFailed'));
       notifyError(t('scope.loadFailed'), e);
     } finally {
       setLoading(false);
@@ -85,6 +90,15 @@ export default function DataScopesScreen() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const values = useMemo(
@@ -124,17 +138,41 @@ export default function DataScopesScreen() {
     ]);
   };
 
-  if (loading || !data) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator style={styles.loading} color={colors.primary} />
-      </View>
-    );
+  if (loading) {
+    return <ListState loading />;
+  }
+
+  if (loadError && !data) {
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={load} />;
+  }
+
+  if (!data) {
+    return <ListState loading />;
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
+        {loadError ? (
+          <View
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+            <TouchableOpacity onPress={load} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <Text style={styles.section}>{t('scope.roleSection')}</Text>
         {data.roles.map((r) => (
           <View key={r.role} style={styles.card}>
@@ -209,7 +247,8 @@ const styles = StyleSheet.create({
   sourceOff: { color: colors.ink3 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: {
-    paddingHorizontal: 12,
+     minHeight: 44,
+     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.background,

@@ -32,6 +32,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import { AREA_PRESETS as AREA_PRESET_TIERS, PRICE_PRESETS } from '@/constants/filters';
 import { fmtMoney as formatRent } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
@@ -178,13 +179,14 @@ export interface PricePreset {
 }
 
 /** 价格区间（月租，THB）—— 贝壳式：预设快捷区间 + 自定义最低/最高 */
-export const priceRanges = (t: TFunc): PricePreset[] => [
-  { key: '', label: t('common.any'), min: 0, max: Infinity },
-  { key: 'u3', label: t('prop.priceLt3'), min: 0, max: 30000 },
-  { key: '3-5', label: t('prop.price3to5'), min: 30000, max: 50000 },
-  { key: '5-8', label: t('prop.price5to8'), min: 50000, max: 80000 },
-  { key: 'g8', label: t('prop.priceGt8'), min: 80000, max: Infinity },
-];
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'prop.priceLt3',
+  '3-5': 'prop.price3to5',
+  '5-8': 'prop.price5to8',
+  g8: 'prop.priceGt8',
+};
+export const priceRanges = (t: TFunc): PricePreset[] =>
+  PRICE_PRESETS.map((p) => ({ ...p, label: p.key ? t(PRICE_LABELS[p.key]) : t('common.any') }));
 
 export interface AreaPreset {
   key: string;
@@ -194,14 +196,15 @@ export interface AreaPreset {
 }
 
 /** 面积筛选（贝壳式：预设快捷区间 + 自定义最低/最高 ㎡） */
-export const areaPresets = (t: TFunc): AreaPreset[] => [
-  { key: '', label: t('common.any'), min: 0, max: Infinity },
-  { key: 'u50', label: t('prop.areaLt50'), min: 0, max: 50 },
-  { key: '50-100', label: t('prop.area50to100'), min: 50, max: 100 },
-  { key: '100-150', label: t('prop.area100to150'), min: 100, max: 150 },
-  { key: '150-200', label: t('prop.area150to200'), min: 150, max: 200 },
-  { key: 'g200', label: t('prop.areaGt200'), min: 200, max: Infinity },
-];
+const AREA_LABELS: Record<string, string> = {
+  u50: 'prop.areaLt50',
+  '50-100': 'prop.area50to100',
+  '100-150': 'prop.area100to150',
+  '150-200': 'prop.area150to200',
+  g200: 'prop.areaGt200',
+};
+export const areaPresets = (t: TFunc): AreaPreset[] =>
+  AREA_PRESET_TIERS.map((p) => ({ ...p, label: p.key ? t(AREA_LABELS[p.key]) : t('common.any') }));
 
 // 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
 const heroBedOptions = (t: TFunc): { key: HeroBedKey; label: string }[] => [
@@ -320,7 +323,7 @@ const typeLabels = (t: TFunc): Record<string, string> => ({
 const statusLabels = (t: TFunc): Record<string, string> => ({
   vacant: t('status.vacant'),
   rented: t('status.rented'),
-  reserved: t('status.reserved'),
+  renewing: t('status.renewing'),
   maintenance: t('status.maintenance'),
 });
 
@@ -347,7 +350,7 @@ const statusColors = (s?: string) => {
     case 'vacant':
       return colors.success;
     case 'rented':
-    case 'reserved':
+    case 'renewing':
       return colors.primary;
     case 'maintenance':
       return colors.warning;
@@ -1562,6 +1565,25 @@ export default function ListingsFeed({
         removeClippedSubviews
         /* 收藏/翻译态属于 data 之外的父级状态：memo 化保证只在状态变化时才触发行重渲染 */
         extraData={listExtraData}
+        ListHeaderComponent={
+          error && (items as any[]).length > 0 ? (
+            <View
+              style={{
+                marginBottom: 8,
+                padding: 10,
+                borderRadius: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('loadFailed')}</Text>
+              <TouchableOpacity onPress={onRetry} activeOpacity={0.7}>
+                <Text style={{ fontSize: 12, color: colors.primary }}>{t('retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
         ListFooterComponent={
           hasMore ? (
             <TouchableOpacity

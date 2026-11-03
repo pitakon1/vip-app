@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 我的关注（收藏列表）—— C 端「我的 - 常用功能 - 我的关注」。
  *
@@ -41,14 +42,13 @@ export default function FavoritesPage() {
   const load = async () => {
     setFailed(false)
     try {
-      const res: any = await favoritesApi.list({ page: 1, page_size: 50 })
+      const res: any = await favoritesApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE })
       const payload = res?.data ?? res
       const rows = Array.isArray(payload) ? payload : payload?.items ?? []
       setItems(rows)
     } catch (err) {
       console.error('[favorites] 加载失败', err)
       setFailed(true)
-      setItems([])
     } finally {
       setLoading(false)
     }
@@ -97,14 +97,18 @@ export default function FavoritesPage() {
           <StateBlock loading text='加载中...' />
         )}
         {!loading && failed && (
-          <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>
-            <Text>加载失败，点击重试</Text>
-          </View>
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => {
+              setLoading(true)
+              void load()
+            }}
+          />
         )}
         {!loading && !failed && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>还没有关注的房源，去「找房」里点红心收藏吧</Text>
-          </View>
+          <StateBlock empty text='还没有关注的房源，去「找房」里点红心收藏吧' />
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.photo) || ''

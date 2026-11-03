@@ -1,8 +1,8 @@
+import { LIST_PAGE_SIZE, collectAllPages } from '@/lib/pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { employeesApi, adminUsersApi } from '@/services/api'
-import { MAX_PAGE_SIZE } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
@@ -11,6 +11,7 @@ import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface EmployeeItem {
   id: string
@@ -48,8 +49,6 @@ const USER_TYPE_FILTERS: { key: string; i18nKey: string }[] = [
   { key: 'partner', i18nKey: 'partner' }
 ]
 
-const PAGE_SIZE = 100
-
 /** 可分配的员工账号角色（与 Web 账号管理的角色口径一致，此处只列员工侧角色） */
 const ROLE_KEYS = ['employee', 'agent', 'admin']
 
@@ -69,6 +68,7 @@ export default function AdminEmployeesPage() {
   const [list, setList] = useState<EmployeeItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
@@ -97,7 +97,7 @@ export default function AdminEmployeesPage() {
       Taro.showToast({ title: t('acc.deleted'), icon: 'success' })
       fetchEmployees()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('acc.deleteFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('acc.deleteFailed')), icon: 'none' })
     }
   }
 
@@ -115,7 +115,7 @@ export default function AdminEmployeesPage() {
     try {
       const res: any = await adminUsersApi.list({
         keyword: e.email || e.full_name || '',
-        page_size: 10
+        page_size: LIST_PAGE_SIZE
       })
       const d = res?.data ?? res
       const items: any[] = Array.isArray(d) ? d : d?.items || []
@@ -139,20 +139,26 @@ export default function AdminEmployeesPage() {
       Taro.showToast({ title: t('acc.roleChangedTo', { role: t(`perm.role.${picked}`) }), icon: 'success' })
       fetchEmployees()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('acc.roleChangeFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('acc.roleChangeFailed')), icon: 'none' })
     }
   }
 
   const fetchEmployees = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
-      const res: any = await employeesApi.list({ page: 1, page_size: PAGE_SIZE })
-      const d = res?.data ?? res
-      const items: EmployeeItem[] = Array.isArray(d) ? d : d?.items || []
+      // 员工列表需要在前端做关键词/状态/来源筛选与统计，必须拿完整集合：
+      // 按 100/页累加直到最后一页，避免单次请求被后端硬顶后静默缺失。
+      const items = await collectAllPages<EmployeeItem>(async (page, pageSize) => {
+        const res: any = await employeesApi.list({ page, page_size: pageSize })
+        const d = res?.data ?? res
+        return Array.isArray(d) ? d : d?.items || []
+      })
       setList(items)
-      setTotal(Number(d?.total ?? items.length))
+      setTotal(items.length)
     } catch (error) {
       console.error('[AdminEmployees] 获取员工失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('acc.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -175,9 +181,12 @@ export default function AdminEmployeesPage() {
 
   const fetchUserMeta = async () => {
     try {
-      const res: any = await adminUsersApi.list({ page: 1, page_size: MAX_PAGE_SIZE })
-      const d = res?.data ?? res
-      const items: any[] = Array.isArray(d) ? d : d?.items || []
+      // 账号来源映射同样需要全量用户，按页累加而不是单次拉 100。
+      const items = await collectAllPages<any>(async (page, pageSize) => {
+        const res: any = await adminUsersApi.list({ page, page_size: pageSize })
+        const d = res?.data ?? res
+        return Array.isArray(d) ? d : d?.items || []
+      })
       const map: Record<string, { user_type?: string; partner_name?: string }> = {}
       items.forEach((u) => {
         if (u?.id != null) {
@@ -340,7 +349,21 @@ export default function AdminEmployeesPage() {
         {loading && visible.length === 0 && (
           <StateBlock loading text={t('acc.loading')} />
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={fetchEmployees}>
+            <Text className='inline-error-bar__text'>{t('acc.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && list.length === 0 && (
+          <StateBlock
+            error
+            text={t('acc.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchEmployees}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='ac-state'>
             <View className='icon-svg' style={iconStyle('user', 72)} />
             <Text className='ac-state__text'>{t('acc.empty')}</Text>

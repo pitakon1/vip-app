@@ -62,7 +62,7 @@
     align-items: center;
     margin-top: 28rpx;
     padding-top: 24rpx;
-    border-top: 1px solid rgba(var(--primary-foreground-rgb), 0.2);
+    border-top: 1rpx solid rgba(var(--primary-foreground-rgb), 0.2);
   }
 
   &__cell {
@@ -86,7 +86,7 @@
   }
 
   &__divider {
-    width: 1px;
+    width: 1rpx;
     height: 60rpx;
     background: rgba(var(--primary-foreground-rgb), 0.2);
   }
@@ -144,7 +144,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -278,7 +278,7 @@
     height: 88rpx;
     padding: 0 24rpx;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 28rpx;
     color: var(--ink);
@@ -291,7 +291,7 @@
     align-items: center;
     justify-content: space-between;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 28rpx;
     color: var(--ink);
@@ -329,7 +329,7 @@
     justify-content: space-between;
     gap: 24rpx;
     padding: 20rpx 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
 
     &:last-child {
       border-bottom: none;
@@ -374,7 +374,7 @@
     gap: 16rpx;
     margin-top: 20rpx;
     padding-top: 20rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__icon {

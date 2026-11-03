@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Modal, Form, Input, message, Popconfirm, Empty, Spin, Tabs, Tag } from 'antd'
+import DataState from '@/components/DataState'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { errorText } from '@/lib/errorText'
 
 interface Member {
   id: string
@@ -54,7 +56,9 @@ const Members = () => {
   const [members, setMembers] = useState<Member[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [perf, setPerf] = useState<PerfData | null>(null)
+  const [membersError, setMembersError] = useState<string | null>(null)
   const [properties, setProperties] = useState<PropertyRow[]>([])
+  const [propertiesError, setPropertiesError] = useState<string | null>(null)
   const [createForm] = Form.useForm()
   const [createOpen, setCreateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -64,16 +68,17 @@ const Members = () => {
 
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true)
+    setMembersError(null)
     try {
       const res = await api.get('/partner/members')
       const payload = res.data?.data ?? res.data
       setMembers(Array.isArray(payload) ? payload : payload?.items ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('member.errFetchMembers'))
+      setMembersError(errorText(err, t('common.loadFailed')))
     } finally {
       setMembersLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchPerf = useCallback(async () => {
     try {
@@ -86,14 +91,16 @@ const Members = () => {
   }, [])
 
   const fetchProperties = useCallback(async () => {
+    setPropertiesError(null)
     try {
       const res = await api.get('/partner/properties')
       const payload = res.data?.data ?? res.data
       setProperties(Array.isArray(payload) ? payload : payload?.items ?? [])
     } catch {
       setProperties([])
+      setPropertiesError(t('common.loadFailed'))
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchMembers()
@@ -115,7 +122,7 @@ const Members = () => {
         createForm.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.detail || t('member.errCreate'))
+      message.error(errorText(err, t('member.errCreate')))
     } finally {
       setSaving(false)
     }
@@ -135,7 +142,7 @@ const Members = () => {
         pullForm.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.detail || t('member.errPullIn'))
+      message.error(errorText(err, t('member.errPullIn')))
     } finally {
       setPulling(false)
     }
@@ -147,7 +154,7 @@ const Members = () => {
       message.success(t('member.msgRemoved'))
       fetchMembers()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('member.errRemove'))
+      message.error(errorText(err, t('member.errRemove')))
     }
   }
 
@@ -220,19 +227,22 @@ const Members = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {membersLoading ? (
+                        {membersError && members.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="rent-loading-row">
-                              <Spin size="small" style={{ marginRight: 8 }} />
-                              {t('common.loading')}
+                            <td colSpan={5}>
+                              <DataState error={membersError} retryText={t('common.retry')} onRetry={fetchMembers} />
+                            </td>
+                          </tr>
+                        ) : membersLoading && members.length === 0 ? (
+                          <tr>
+                            <td colSpan={5}>
+                              <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
                             </td>
                           </tr>
                         ) : members.length === 0 ? (
                           <tr>
                             <td colSpan={5}>
-                              <div className="rent-empty">
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('member.emptyMembers')} />
-                              </div>
+                              <DataState empty emptyTitle={t('member.emptyMembers')} />
                             </td>
                           </tr>
                         ) : (
@@ -341,12 +351,16 @@ const Members = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {properties.length === 0 ? (
+                        {propertiesError && properties.length === 0 ? (
                           <tr>
                             <td colSpan={6}>
-                              <div className="rent-empty">
-                                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('member.emptyProperties')} />
-                              </div>
+                              <DataState error={propertiesError} retryText={t('common.retry')} onRetry={fetchProperties} />
+                            </td>
+                          </tr>
+                        ) : properties.length === 0 ? (
+                          <tr>
+                            <td colSpan={6}>
+                              <DataState empty emptyTitle={t('member.emptyProperties')} />
                             </td>
                           </tr>
                         ) : (

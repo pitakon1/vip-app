@@ -14,7 +14,7 @@
     align-items: center;
     gap: 12rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     padding: 0 28rpx;
     height: 80rpx;
@@ -41,7 +41,7 @@
   /* ===== 部门分组卡片 ===== */
   .c-group {
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     padding: 0 28rpx;
@@ -65,7 +65,7 @@
     display: flex;
     align-items: center;
     padding: 24rpx 0;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
 
     &__body {
       flex: 1;
@@ -115,7 +115,7 @@
     height: 64rpx;
     border-radius: var(--radius-md);
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     display: flex;
     align-items: center;
     justify-content: center;

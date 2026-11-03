@@ -1,8 +1,10 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useEffect, useState } from 'react'
 import { message } from 'antd'
 import { marketDataApi, leadsApi, marketApi, employeesApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 const SIGNAL_LEVEL: Record<string, { label: string; badge: string }> = {
   info: { label: 'marketIntelligence.lvInfo', badge: 'rent-badge--info' },
@@ -130,7 +132,7 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   useEffect(() => {
     if (indicesQ.isError) {
-      message.error((indicesQ.error as any)?.response?.data?.message || t('marketIntelligence.errIndices'))
+      message.error(errorText((indicesQ.error as any), t('marketIntelligence.errIndices')))
     }
   }, [indicesQ.isError, indicesQ.error])
 
@@ -159,7 +161,7 @@ const IndicesTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       setForm({ market_code: '', index_type: 'sale', period: '', value: '', delta_pct: '', sample_count: '0', avg_price_sqm: '', avg_rent: '', currency: 'THB' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('marketIntelligence.errPublish'))
+      message.error(errorText(e, t('marketIntelligence.errPublish')))
     } finally {
       setSubmitting(false)
     }
@@ -256,7 +258,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     queryKey: ['market-reports', String(page)],
     cacheKey: `market-reports:${page}`,
     queryFn: async () => {
-      const res = await marketDataApi.reports({ page, pageSize: 10 })
+      const res = await marketDataApi.reports({ page, pageSize: LIST_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       return { items: payload?.items ?? [], total: payload?.total ?? 0 }
     },
@@ -268,7 +270,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   useEffect(() => {
     if (reportsQ.isError) {
-      message.error((reportsQ.error as any)?.response?.data?.message || t('marketIntelligence.errReports'))
+      message.error(errorText((reportsQ.error as any), t('marketIntelligence.errReports')))
     }
   }, [reportsQ.isError, reportsQ.error])
 
@@ -279,7 +281,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     enabled: createOpen,
     queryFn: async () => {
       try {
-        const res = await marketApi.list({ page: 1, pageSize: 100 })
+        const res = await marketApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
         const payload = res.data?.data ?? res.data
         return payload?.items ?? []
       } catch {
@@ -312,7 +314,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       setForm({ market_code: '', report_type: 'district', area: '', property_type: '', period: '', summary: '', metrics_json: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('marketIntelligence.errPublish'))
+      message.error(errorText(e, t('marketIntelligence.errPublish')))
     } finally {
       setSubmitting(false)
     }
@@ -416,7 +418,7 @@ const MatchesTab = () => {
     cacheKey: 'leads:options',
     queryFn: async () => {
       try {
-        const res = await leadsApi.list({ page: 1, pageSize: 100 })
+        const res = await leadsApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
         const payload = res.data?.data ?? res.data
         return payload?.items ?? []
       } catch {
@@ -442,7 +444,7 @@ const MatchesTab = () => {
 
   useEffect(() => {
     if (matchesQ.isError) {
-      message.error((matchesQ.error as any)?.response?.data?.detail || (matchesQ.error as any)?.response?.data?.message || t('marketIntelligence.errMatches'))
+      message.error(errorText((matchesQ.error as any), t('marketIntelligence.errMatches')))
     }
   }, [matchesQ.isError, matchesQ.error])
 
@@ -453,11 +455,11 @@ const MatchesTab = () => {
     }
     setComputing(true)
     try {
-      const res = await marketDataApi.computeMatches({ lead_id: leadId, limit: 10 })
+      const res = await marketDataApi.computeMatches({ lead_id: leadId, limit: LIST_PAGE_SIZE })
       message.success(t('marketIntelligence.msgMatchesGenerated', { count: res.data?.total ?? 0 }))
       await matchesQ.refetch({ cancelRefetch: false })
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || e?.response?.data?.message || t('marketIntelligence.errCompute'))
+      message.error(errorText(e, t('marketIntelligence.errCompute')))
     } finally {
       setComputing(false)
     }
@@ -474,7 +476,7 @@ const MatchesTab = () => {
       }
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || e?.response?.data?.message || t('marketIntelligence.errPush'))
+      message.error(errorText(e, t('marketIntelligence.errPush')))
     } finally {
       setPushingId('')
     }
@@ -563,7 +565,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
     cacheKey: `market-churn:${page}:${level}:${resolved}`,
     queryFn: async () => {
       const res = await marketDataApi.churnSignals({
-        page, pageSize: 10,
+        page, pageSize: LIST_PAGE_SIZE,
         level: level || undefined,
         is_resolved: resolved === '' ? undefined : resolved === '1',
       })
@@ -578,7 +580,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
 
   useEffect(() => {
     if (signalsQ.isError) {
-      message.error((signalsQ.error as any)?.response?.data?.message || t('marketIntelligence.errSignals'))
+      message.error(errorText((signalsQ.error as any), t('marketIntelligence.errSignals')))
     }
   }, [signalsQ.isError, signalsQ.error])
 
@@ -589,7 +591,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
     enabled: createOpen,
     queryFn: async () => {
       try {
-        const res = await leadsApi.list({ page: 1, pageSize: 100 })
+        const res = await leadsApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
         const payload = res.data?.data ?? res.data
         return payload?.items ?? []
       } catch {
@@ -616,7 +618,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       setForm({ signal_type: 'lease_expiring', level: 'warning', detail: '', suggested_action: '', lead_id: '' })
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('marketIntelligence.errGenerate'))
+      message.error(errorText(e, t('marketIntelligence.errGenerate')))
     } finally {
       setSubmitting(false)
     }
@@ -628,7 +630,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       message.success(t('marketIntelligence.msgResolved'))
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.message || t('marketIntelligence.errResolve'))
+      message.error(errorText(e, t('marketIntelligence.errResolve')))
     }
   }
 
@@ -638,7 +640,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
     setAssignForm({ assignee_id: '', note: '' })
     setAssignOpen(true)
     try {
-      const res = await employeesApi.list({ page: 1, pageSize: 100 })
+      const res = await employeesApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
       setEmployees(payload?.items ?? [])
     } catch {
@@ -658,7 +660,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       setAssignOpen(false)
       refresh()
     } catch (e: any) {
-      message.error(e?.response?.data?.detail || e?.response?.data?.message || t('marketIntelligence.errAssign'))
+      message.error(errorText(e, t('marketIntelligence.errAssign')))
     } finally {
       setAssigning(false)
     }

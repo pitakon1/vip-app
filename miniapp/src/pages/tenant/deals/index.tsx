@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -38,12 +39,12 @@ export default function TenantDealsPage() {
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
   const DEAL_STATUS = buildDealStatus(t)
 
-  const { data, loading, refresh } = useSwrCache<any[]>({
+  const { data, loading, error, refresh } = useSwrCache<any[]>({
     key: `tenant:deals:${uid}`,
     fetcher: async () => {
       const [dRes, lRes]: [any, any] = await Promise.all([
-        propertyDealApi.list({ page: 1, page_size: 50 }),
-        saleListingApi.list({ page: 1, page_size: 50 }).catch(() => null)
+        propertyDealApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE }),
+        saleListingApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE }).catch(() => null)
       ])
       const titles: Record<string, string> = {}
       pickList(lRes).forEach((r) => {
@@ -75,7 +76,15 @@ export default function TenantDealsPage() {
           {loading && deals.length === 0 && (
             <StateBlock loading text={t('common.loading')} />
           )}
-          {!loading && deals.length === 0 && (
+          {!loading && error && deals.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!loading && !error && deals.length === 0 && (
             <View className='empty-tip'>
               <Text>{t('deals.empty')}</Text>
             </View>

@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
-import { Button, message, Popconfirm, Empty, Spin } from 'antd'
+import DataState from '@/components/DataState'
+import { Button, message, Popconfirm } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 interface ReviewItem {
   type: string
@@ -64,26 +67,28 @@ const STATUS_BADGE: Record<string, string> = {
   partially_signed: 'rent-badge--warning',
 }
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 const ReviewCenter = () => {
   const { t } = useTranslation()
   const [data, setData] = useState<ReviewData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await api.get('/review-center/todos')
       const d = res.data?.data ?? res.data
       setData(d)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('reviewCenter.errLoad'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchData()
@@ -96,7 +101,7 @@ const ReviewCenter = () => {
       message.success(action === 'approved' ? t('reviewCenter.msgApproved') : t('reviewCenter.msgRejected'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('reviewCenter.errOp'))
+      message.error(errorText(err, t('reviewCenter.errOp')))
     }
   }
 
@@ -107,7 +112,7 @@ const ReviewCenter = () => {
       message.success(t('reviewCenter.msgTicketUpdated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('reviewCenter.errOp'))
+      message.error(errorText(err, t('reviewCenter.errOp')))
     }
   }
 
@@ -118,11 +123,21 @@ const ReviewCenter = () => {
       message.success(t('reviewCenter.msgOrderUpdated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('reviewCenter.errOp'))
+      message.error(errorText(err, t('reviewCenter.errOp')))
     }
   }
 
-  if (!data) return null
+  if (!data) {
+    return (
+      <div className="rent-main">
+        {loadError ? (
+          <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+        ) : (
+          <DataState loading loadingText={t('common.loading')} skeletonRows={6} />
+        )}
+      </div>
+    )
+  }
 
   const items = data.items ?? []
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
@@ -190,17 +205,14 @@ const ReviewCenter = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="rent-loading-row">
-                      <Spin size="small" style={{ marginRight: 8 }} />
-                      {t('common.loading')}
+                    <td colSpan={7}>
+                      <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
                     </td>
                   </tr>
                 ) : items.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="rent-empty">
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('reviewCenter.empty')} />
-                      </div>
+                      <DataState empty emptyTitle={t('reviewCenter.empty')} />
                     </td>
                   </tr>
                 ) : (

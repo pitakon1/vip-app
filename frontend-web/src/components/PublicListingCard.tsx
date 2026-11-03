@@ -6,6 +6,7 @@
  */
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import LazyImage from '@/components/LazyImage'
 import { convertCurrency, formatMoney } from '@/lib/money'
 
 export type PublicListingCardData = {
@@ -54,7 +55,7 @@ const PublicListingCard = ({ item }: Props) => {
     >
       <div className="pub-listing__media">
         {item.cover ? (
-          <img className="pub-listing__img" src={item.cover} alt={title} loading="lazy" />
+          <LazyImage className="pub-listing__img" src={item.cover} alt={title} />
         ) : (
           <div className="pub-listing__placeholder">{t('publicSite.noPhoto')}</div>
         )}

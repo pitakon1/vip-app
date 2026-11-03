@@ -7,7 +7,7 @@
  * - 查询成功后自动回写 localStorage。
  */
 import { useMemo } from 'react'
-import { QueryClient, useQuery } from '@tanstack/react-query'
+import { QueryClient, keepPreviousData, useQuery } from '@tanstack/react-query'
 
 // 缓存结构版本：接口字段增删导致旧缓存「缺字段」时递增，
 // 旧 key 自然失配，避免在 staleTime 内渲染出空区块。
@@ -75,6 +75,11 @@ interface CachedQueryOptions<T> {
   /** 新鲜期（默认 3 分钟） */
   ttl?: number
   enabled?: boolean
+  /**
+   * 翻页/改筛选时保留上一次结果，避免列表闪空。
+   * 传 true 等价于 TanStack Query v5 的 `placeholderData: keepPreviousData`。
+   */
+  keepPreviousData?: boolean
 }
 
 export function useCachedQuery<T>({
@@ -83,6 +88,7 @@ export function useCachedQuery<T>({
   queryFn,
   ttl = 3 * 60 * 1000,
   enabled = true,
+  keepPreviousData: keepPrev = false,
 }: CachedQueryOptions<T>) {
   // 同步读取磁盘缓存做 initialData：此前用 useEffect 异步 seed，
   // 时序晚于 useQuery 的首发请求——表现为「先发出请求，回来后被旧缓存覆盖」，
@@ -105,6 +111,7 @@ export function useCachedQuery<T>({
     enabled,
     initialData: seed?.data,
     initialDataUpdatedAt: seed?.t,
+    ...(keepPrev ? { placeholderData: keepPreviousData } : {}),
   })
 
   return query

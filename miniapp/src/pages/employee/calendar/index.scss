@@ -16,7 +16,7 @@
   justify-content: space-between;
   padding: 20rpx 28rpx;
   background: var(--card);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &__info {
     display: flex;
@@ -113,7 +113,7 @@
   padding: 0 24rpx 8rpx;
   background: var(--card);
   border-radius: var(--radius-xl);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-left: 6rpx solid var(--primary);
   box-shadow: var(--shadow-sm);
 
@@ -160,7 +160,7 @@
   align-items: center;
   gap: 20rpx;
   padding: 22rpx 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &:last-child {
     border-bottom: none;
@@ -227,7 +227,7 @@
 .cal-card {
   margin: 0 24rpx 24rpx;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -237,7 +237,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 24rpx;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
   }
 
   &__title {
@@ -395,7 +395,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 24rpx 8rpx;
-  border-top: 1px solid var(--line);
+  border-top: 1rpx solid var(--line);
   margin-top: 12rpx;
 
   &__title {
@@ -423,7 +423,7 @@
   align-items: center;
   gap: 16rpx;
   padding: 22rpx 24rpx;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &:last-child {
     border-bottom: none;
@@ -500,7 +500,7 @@
   align-items: stretch;
   margin: 0 24rpx 24rpx;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
@@ -513,7 +513,7 @@
     padding: 28rpx 12rpx;
 
     & + & {
-      border-left: 1px solid var(--line);
+      border-left: 1rpx solid var(--line);
     }
   }
 
@@ -551,7 +551,7 @@
   margin: 0 24rpx 24rpx;
   padding: 0 24rpx;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
 }
@@ -562,7 +562,7 @@
   padding: 24rpx 0;
 
   &--divided {
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__body {
@@ -619,7 +619,7 @@
   &--card {
     margin: 0 24rpx 24rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
   }

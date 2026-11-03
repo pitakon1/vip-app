@@ -5,6 +5,7 @@ import useAuthStore from '@/stores/auth'
 import { employeesApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -47,6 +48,7 @@ export default function EmployeeContactsPage() {
   const { t } = useI18n()
   const [colleagues, setColleagues] = useState<Colleague[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -57,11 +59,12 @@ export default function EmployeeContactsPage() {
   // 现在改成关键词下推服务端搜索，不再依赖单次拉全量。
   const fetchDirectory = async (kw = '') => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res = await employeesApi.directory(kw.trim() ? { keyword: kw.trim() } : undefined)
       setColleagues(pickList(res))
     } catch {
-      setColleagues([])
+      setLoadError(true)
     } finally {
       setLoading(false)
     }
@@ -167,11 +170,24 @@ export default function EmployeeContactsPage() {
           />
         </View>
 
+        {loadError && colleagues.length > 0 ? (
+          <View className='inline-error-bar' onClick={() => void fetchDirectory(keyword)}>
+            <Text className='inline-error-bar__text'>{t('contacts.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        ) : null}
         {loading && colleagues.length === 0 ? (
           <View className='c-state'>
             <View className='c-state__spinner' />
             <Text className='c-state__title'>{t('contacts.loading')}</Text>
           </View>
+        ) : !loading && loadError && colleagues.length === 0 ? (
+          <StateBlock
+            error
+            text={t('contacts.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={() => void fetchDirectory(keyword)}
+          />
         ) : groups.length === 0 ? (
           <View className='c-state'>
             <Text className='c-state__icon'>{t('contacts.emptyIcon')}</Text>

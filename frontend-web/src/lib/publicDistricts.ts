@@ -23,6 +23,14 @@ export interface UseDistrictsParams {
   propertyTypes?: string[]
 }
 
+/** 后端 GET /public/districts 返回的行形状。 */
+interface DistrictRow {
+  district: string | number
+  listing_count?: number | string
+  project_count?: number | string
+  [key: string]: unknown
+}
+
 export function useDistricts({ city, listingType, propertyTypes }: UseDistrictsParams): DistrictOption[] {
   const [options, setOptions] = useState<DistrictOption[]>([])
   // 数组依赖不能直接进 deps（每次渲染都是新引用），收敛成稳定字符串键
@@ -39,12 +47,12 @@ export function useDistricts({ city, listingType, propertyTypes }: UseDistrictsP
       .get('/public/districts', { params })
       .then((res) => {
         const payload = res.data?.data ?? res.data
-        const rows = Array.isArray(payload) ? payload : []
+        const rows = Array.isArray(payload) ? (payload as DistrictRow[]) : []
         if (!alive) return
         setOptions(
           rows
-            .filter((r: any) => r && r.district)
-            .map((r: any) => {
+            .filter((r: DistrictRow) => r && r.district)
+            .map((r: DistrictRow) => {
               const listingCount = Number(r.listing_count || 0)
               const projectCount = Number(r.project_count || 0)
               const n = listingCount || projectCount

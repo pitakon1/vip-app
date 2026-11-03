@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message, Spin, Empty, Alert, Button, Modal, Input, DatePicker, TimePicker, Checkbox, Popconfirm } from 'antd'
 import { Link } from 'react-router-dom'
@@ -7,6 +8,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { calendarEventsApi, leadsApi } from '@/services/api'
 import './dashboard.css'
+import { errorText } from '@/lib/errorText'
 
 interface SummaryData {
   monthly_deals?: number
@@ -46,7 +48,7 @@ const LEAD_STAGE_META: Record<string, { text: string; cls: string; color: string
 const getLeadStageBadge = (stage: string) =>
   LEAD_STAGE_META[stage] || {
     cls: 'rent-badge--neutral',
-    color: 'var(--rent-ink-3)',
+    color: 'var(--rent-ink-2)',
     text: stage || '-',
   }
 
@@ -128,12 +130,12 @@ const Dashboard = () => {
       }
       const [sumRes, leadsRes, wbRes, vwRes, pfRes, calRes] = await Promise.all([
         api.get('/dashboard/summary').catch(markFailed),
-        api.get('/leads', { params: { pageSize: 50 } }).catch(() => {
+        api.get('/leads', { params: { pageSize: DETAIL_PAGE_SIZE } }).catch(() => {
           anyFailed = true
           return { data: { items: [] } }
         }),
         api.get('/employees/workbench').catch(markFailed),
-        api.get('/viewings', { params: { pageSize: 100 } }).catch(() => {
+        api.get('/viewings', { params: { pageSize: OPTION_PAGE_SIZE } }).catch(() => {
           anyFailed = true
           return { data: { items: [] } }
         }),
@@ -164,7 +166,7 @@ const Dashboard = () => {
       setLoadFailed(anyFailed)
     } catch (err: any) {
       setLoadFailed(true)
-      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+      message.error(errorText(err, t('employeeDashboard.fetchFailed')))
     } finally {
       setLoading(false)
     }
@@ -238,7 +240,7 @@ const Dashboard = () => {
       setCalModalOpen(false)
       await reloadEvents()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+      message.error(errorText(err, t('employeeDashboard.fetchFailed')))
     } finally {
       setSavingCal(false)
     }
@@ -250,7 +252,7 @@ const Dashboard = () => {
       message.success(t('employeeDashboard.calDelete'))
       await reloadEvents()
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+      message.error(errorText(err, t('employeeDashboard.fetchFailed')))
     }
   }
 
@@ -261,7 +263,7 @@ const Dashboard = () => {
       message.success(t('employeeDashboard.leadDeleted'))
       setLeads((prev) => prev.filter((l) => l.id !== id))
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('employeeDashboard.fetchFailed'))
+      message.error(errorText(err, t('employeeDashboard.fetchFailed')))
     }
   }
 
@@ -535,7 +537,7 @@ const Dashboard = () => {
             </div>
             <div className="rent-wb-strip">
               <div className="rent-wb-strip__cell">
-                <div className="rent-wb-strip__value">{summary.monthly_deals === undefined ? '-' : monthlyDeals} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-3)' }}>{t('employeeDashboard.unit')}</span></div>
+                <div className="rent-wb-strip__value">{summary.monthly_deals === undefined ? '-' : monthlyDeals} <span style={{ fontSize: 15, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('employeeDashboard.unit')}</span></div>
                 <div className="rent-wb-strip__label">{t('employeeDashboard.monthlyDeals')}</div>
               </div>
               <div className="rent-wb-strip__cell">

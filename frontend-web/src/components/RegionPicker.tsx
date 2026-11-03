@@ -157,7 +157,7 @@ const RegionPicker = ({ value, onChange }: Props) => {
                   <div
                     style={{
                       fontSize: 12,
-                      color: 'var(--rent-ink-3)',
+                      color: 'var(--rent-ink-2)',
                       marginBottom: 6,
                       paddingBottom: 4,
                       borderBottom: '1px solid var(--rent-border)',
@@ -167,7 +167,7 @@ const RegionPicker = ({ value, onChange }: Props) => {
                   </div>
                   {!shown || col.options.length === 0 ? (
                     <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>—</span>
+                      <span style={{ fontSize: 12, color: 'var(--rent-ink-2)' }}>—</span>
                     </div>
                   ) : (
                     <div style={{ maxHeight: 160, overflowY: 'auto' }}>

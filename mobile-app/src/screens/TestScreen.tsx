@@ -1,8 +1,10 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * App 测试页面
  * 用于开发调试：API 连通性测试、快速登录、各模块接口测试、响应查看
  */
 import React, { useState, useCallback } from 'react';
+import { errorText } from '@/lib/errorText';
 import {
   View,
   Text,
@@ -45,8 +47,8 @@ const TEST_ACCOUNTS = [
 const API_TESTS = [
   { key: 'health', label: '健康检查 GET /health', method: 'GET', path: '/health' },
   { key: 'authMe', label: '当前用户 GET /auth/me', fn: () => authApi.me() },
-  { key: 'properties', label: '房源列表 GET /properties', fn: () => propertiesApi.list({ page: 1, page_size: 5 }) },
-  { key: 'leases', label: '租约列表 GET /leases', fn: () => leasesApi.list({ page: 1, page_size: 5 }) },
+  { key: 'properties', label: '房源列表 GET /properties', fn: () => propertiesApi.list({ page: 1, page_size: LIST_PAGE_SIZE }) },
+  { key: 'leases', label: '租约列表 GET /leases', fn: () => leasesApi.list({ page: 1, page_size: LIST_PAGE_SIZE }) },
   { key: 'payments', label: '我的付款 GET /payments/me', fn: () => paymentsApi.mine() },
   { key: 'notifications', label: '我的通知 GET /notifications/me', fn: () => notificationsApi.mine() },
   { key: 'documents', label: '文档列表 GET /documents', fn: () => documentsApi.list({ page: 1 }) },
@@ -94,7 +96,7 @@ export default function TestScreen() {
       updateResult(test.key, { status: 'success', data, duration });
     } catch (err: any) {
       const duration = Date.now() - start;
-      const errorMsg = err?.response?.data?.detail || err?.message || 'Unknown error';
+      const errorMsg = errorText(err);
       const errorData = err?.response?.data || err?.message;
       updateResult(test.key, { status: 'error', error: errorMsg, data: errorData, duration });
     }
@@ -117,7 +119,7 @@ export default function TestScreen() {
       updateResult('login', { status: 'success', data: { email: account.email, role: account.role, token: t?.slice(0, 20) + '...' } });
       Alert.alert('登录成功', `${account.label} (${account.email})`);
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.detail || err?.message || 'Login failed';
+      const errorMsg = errorText(err);
       updateResult('login', { status: 'error', error: errorMsg });
       Alert.alert('登录失败', errorMsg);
     }

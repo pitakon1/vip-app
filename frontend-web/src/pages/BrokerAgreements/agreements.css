@@ -3,5 +3,5 @@
 .rent-agreement-list .rent-card__header {
   align-items: flex-start;
 }
-.rent-mb-4 { margin-bottom: 16px; }
-.rent-contract-preview { font-size: 13px; color: var(--rent-ink-2); line-height: 1.6; }
+.rent-mb-4 { margin-bottom: var(--rent-s-4); }
+.rent-contract-preview { font-size: var(--rent-fs-sm); color: var(--rent-ink-2); line-height: 1.6; }

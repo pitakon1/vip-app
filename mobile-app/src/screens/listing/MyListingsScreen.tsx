@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 我的上架单：展示当前登录用户发布的上架单（状态 / 分成 / 去重状态）。
  * 说明：非 staff 后端 list 仅返回 active，故业主端此处能看到的是「已上架/可查」项；
@@ -23,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import Card from '@/components/Card';
 import type { Listing } from '@/types';
 
@@ -54,7 +55,7 @@ export default function MyListingsScreen() {
     queryKey: LISTINGS_KEY,
     cacheKey: `my-listings:${uid}`,
     queryFn: async () => {
-      const res: any = await listingApi.list({ page: 1, page_size: 100 });
+      const res: any = await listingApi.list({ page: 1, page_size: OPTION_PAGE_SIZE });
       const d = res?.data;
       const rows = Array.isArray(d) ? d : d?.items ?? [];
       return rows as Listing[];
@@ -62,6 +63,10 @@ export default function MyListingsScreen() {
   });
 
   const allRows = q.data ?? [];
+  const loadError = q.isError && allRows.length === 0 ? '上架单加载失败' : null;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
   const items = user?.id
     ? allRows.filter((r) => String(r.publisher_user_id) === String(user.id))
     : allRows;
@@ -155,7 +160,9 @@ export default function MyListingsScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <LoadingState label="加载中…" />
+        <ListState loading />
+      ) : loadError ? (
+        <ListState error={loadError} retryLabel="重试" onRetry={retry} />
       ) : items.length === 0 ? (
         <EmptyState
           icon="business-outline"
@@ -163,15 +170,35 @@ export default function MyListingsScreen() {
           sub="到「我的」发布房源，把您的房源放到平台上架"
         />
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-          }
-        />
+        <>
+          {q.isError ? (
+            <View
+              style={{
+                margin: 16,
+                marginBottom: 12,
+                padding: 10,
+                borderRadius: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>上架单加载失败</Text>
+              <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+                <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          <FlatList
+            data={items}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            }
+          />
+        </>
       )}
     </View>
   );

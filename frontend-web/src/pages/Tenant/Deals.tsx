@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +7,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import DataState from '@/components/DataState'
 
 /**
  * 我的交易订单（/tenant/deals）
@@ -35,24 +37,20 @@ const TenantDeals = () => {
     queryKey: ['tenant-deals', 'mine', uid],
     cacheKey: `tenant-deals:mine:${uid}`,
     queryFn: async () => {
-      try {
-        const [dRes, lRes] = await Promise.all([
-          api.get('/property-deals', { params: { page: 1, page_size: 50 } }),
-          api.get('/sale-listings', { params: { page: 1, page_size: 50 } }).catch(() => ({ data: { items: [] } })),
-        ])
-        const titles: Record<string, string> = {}
-        const lPayload = lRes.data?.data ?? lRes.data
-        ;(lPayload?.items ?? []).forEach((r: any) => {
-          if (r?.id) titles[String(r.id)] = r.title ?? ''
-        })
-        const dPayload = dRes.data?.data ?? dRes.data
-        return (dPayload?.items ?? (Array.isArray(dPayload) ? dPayload : [])).map((r: any) => ({
-          ...r,
-          listing_title: titles[String(r.sale_listing_id ?? '')] ?? '',
-        }))
-      } catch {
-        return []
-      }
+      const [dRes, lRes] = await Promise.all([
+        api.get('/property-deals', { params: { page: 1, page_size: DETAIL_PAGE_SIZE } }),
+        api.get('/sale-listings', { params: { page: 1, page_size: DETAIL_PAGE_SIZE } }).catch(() => ({ data: { items: [] } })),
+      ])
+      const titles: Record<string, string> = {}
+      const lPayload = lRes.data?.data ?? lRes.data
+      ;(lPayload?.items ?? []).forEach((r: any) => {
+        if (r?.id) titles[String(r.id)] = r.title ?? ''
+      })
+      const dPayload = dRes.data?.data ?? dRes.data
+      return (dPayload?.items ?? (Array.isArray(dPayload) ? dPayload : [])).map((r: any) => ({
+        ...r,
+        listing_title: titles[String(r.sale_listing_id ?? '')] ?? '',
+      }))
     },
   })
   const deals = q.data ?? []
@@ -64,13 +62,20 @@ const TenantDeals = () => {
         <h3 className="rent-card__title">{t('tenantMy.myDeals')}</h3>
       </div>
       <div className="rent-card__body" style={{ padding: '8px 16px' }}>
-        {loading && deals.length === 0 ? (
-          <div className="rent-empty" style={{ padding: '24px 0' }}>{t('common.loading')}</div>
+        {q.isError && !q.data ? (
+          <DataState
+            error={t('common.loadFailed')}
+            retryText={t('common.retry')}
+            onRetry={() => { void q.refetch() }}
+          />
+        ) : loading && deals.length === 0 ? (
+          <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
         ) : deals.length === 0 ? (
-          <div className="rent-empty" style={{ padding: '24px 0' }}>
-            {t('tenantMy.noOrders')}
-            <div className="rent-text-sm rent-text-muted" style={{ marginTop: 4 }}>{t('tenantMy.dealEmptySub')}</div>
-          </div>
+          <DataState
+            empty
+            emptyTitle={t('tenantMy.noOrders')}
+            emptySub={t('tenantMy.dealEmptySub')}
+          />
         ) : (
           deals.map((d, idx) => {
             const meta = dealStatus(d.status)
@@ -95,7 +100,7 @@ const TenantDeals = () => {
                   </div>
                 </div>
                 <span className={`rent-badge ${meta.cls}`} style={{ flexShrink: 0, marginLeft: 12 }}>{meta.text}</span>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-3)', flexShrink: 0, marginLeft: 8 }}><polyline points="9 18 15 12 9 6"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-2)', flexShrink: 0, marginLeft: 8 }}><polyline points="9 18 15 12 9 6"/></svg>
               </div>
             )
           })

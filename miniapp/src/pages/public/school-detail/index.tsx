@@ -1,3 +1,5 @@
+import { NEARBY_LIMIT } from '@/lib/pagination'
+import { DEFAULT_SCHOOL_RADIUS_KM } from '@/constants/filters'
 /**
  * 学校详情 + 该校周边在租在售房源（学区找房的真正入口）。
  *
@@ -37,7 +39,7 @@ export default function PublicSchoolDetailPage() {
     let cancelled = false
     setLoading(true)
     publicApi
-      .school(id, { radius_km: 5, limit: 12 })
+      .school(id, { radius_km: DEFAULT_SCHOOL_RADIUS_KM, limit: NEARBY_LIMIT })
       .then((res) => {
         if (!cancelled) setSchool(res ?? null)
       })

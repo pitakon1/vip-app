@@ -1,3 +1,4 @@
+import { COUNT_ONLY_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -72,14 +73,14 @@ export default function AdminHomePage() {
         })
         .catch(() => markFailed('recent')),
       leasesApi
-        .list({ page: 1, page_size: 1, status: 'active' })
+        .list({ page: 1, page_size: COUNT_ONLY_PAGE_SIZE, status: 'active' })
         .then((r: any) => {
           const d = r?.data ?? r
           setCounts((c) => ({ ...c, leases: Number(d?.total || 0) }))
         })
         .catch(() => markFailed('counts')),
       employeesApi
-        .list({ page: 1, page_size: 1 })
+        .list({ page: 1, page_size: COUNT_ONLY_PAGE_SIZE })
         .then((r: any) => {
           const d = r?.data ?? r
           setCounts((c) => ({ ...c, employees: Number(d?.total || 0) }))
@@ -103,7 +104,7 @@ export default function AdminHomePage() {
         })
         .catch(() => markFailed('recon')),
       // 欠租：待收且已过缴费截止日
-      request({ url: '/payments', method: 'GET', data: { page: 1, page_size: 100, status: 'pending' } })
+      request({ url: '/payments', method: 'GET', data: { page: 1, page_size: OPTION_PAGE_SIZE, status: 'pending' } })
         .then((r: any) => {
           const d = r?.data ?? r
           const items: any[] = Array.isArray(d) ? d : d?.items || []

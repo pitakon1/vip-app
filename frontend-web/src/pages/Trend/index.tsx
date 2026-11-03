@@ -12,6 +12,7 @@ import { Bar } from 'react-chartjs-2'
 import { financialApi } from '@/services/api'
 import { chartTheme } from '@/lib/chartTheme'
 import './trend.css'
+import { errorText } from '@/lib/errorText'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -37,7 +38,7 @@ const Trend = () => {
       const payload = res.data?.data ?? res.data
       setSeries(payload?.series ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.message || '获取运营趋势失败')
+      message.error(errorText(err, '获取运营趋势失败'))
     } finally {
       setLoading(false)
     }
@@ -68,7 +69,7 @@ const Trend = () => {
       {
         label: '营收 (¥)',
         data: series.map((p) => Number(p.revenue || 0)),
-        backgroundColor: '#14b8a6',
+        backgroundColor: chartTheme.primary,
         borderRadius: 6,
         maxBarThickness: 36,
       },
@@ -81,21 +82,21 @@ const Trend = () => {
       {
         label: '新增合同',
         data: series.map((p) => Number(p.leases_new || 0)),
-        backgroundColor: '#14b8a6',
+        backgroundColor: chartTheme.primary,
         borderRadius: 4,
         maxBarThickness: 14,
       },
       {
         label: '新增线索',
         data: series.map((p) => Number(p.leads_new || 0)),
-        backgroundColor: '#f59e0b',
+        backgroundColor: chartTheme.chart(4),
         borderRadius: 4,
         maxBarThickness: 14,
       },
       {
         label: '预约看房',
         data: series.map((p) => Number(p.viewings_new || 0)),
-        backgroundColor: '#0ea5e9',
+        backgroundColor: chartTheme.chart(1),
         borderRadius: 4,
         maxBarThickness: 14,
       },
@@ -108,9 +109,9 @@ const Trend = () => {
     plugins: {
       legend: { labels: { color: chartTheme.legend, boxWidth: 10, boxHeight: 10 } },
       tooltip: {
-        backgroundColor: '#1c2733',
-        titleColor: '#e8edf5',
-        bodyColor: '#e8edf5',
+        backgroundColor: chartTheme.tooltipBg,
+        titleColor: chartTheme.tooltipInk,
+        bodyColor: chartTheme.tooltipInk,
         borderColor: chartTheme.tooltipBorder,
         borderWidth: 1,
         padding: 10,

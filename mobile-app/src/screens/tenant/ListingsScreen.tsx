@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 租客找工作台（链家风格）
  * 顶部搜索 + 筛选条 + 房源卡片列表（图片 / 标题 / 租金 / 户型面积）
@@ -278,7 +279,7 @@ export default function ListingsScreen() {
         }
         const params: any = {
           page: 1,
-          page_size: 50,
+          page_size: DETAIL_PAGE_SIZE,
           listing_type: 'rent',
           // 城市作用域：传定位 Store 的 cityKey（后端做 slug 归一化），不传中文 cityLabel
           ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
@@ -330,7 +331,7 @@ export default function ListingsScreen() {
     if (schoolsLoaded) return;
     setSchoolsLoaded(true);
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
       .catch(() => setSchools([]));
   }, [schoolsLoaded]);
@@ -342,7 +343,7 @@ export default function ListingsScreen() {
     try {
       const res = await publicApi.listings({
         page: 1,
-        page_size: 50,
+        page_size: DETAIL_PAGE_SIZE,
         listing_type: 'sell',
         ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
         ...(filterTypes.length ? { property_type: filterTypes } : {}),
@@ -355,8 +356,7 @@ export default function ListingsScreen() {
         : (data as any)?.items ?? (data as any)?.data ?? [];
       setSaleListings(items as SaleListing[]);
     } catch {
-      // 挂牌加载失败：置错误态（列表内提供重试），不再静默为空
-      setSaleListings([]);
+      // 挂牌加载失败：保留旧数据并置错误态（列表内提供错误条/重试）
       setSaleError(true);
     } finally {
       setSaleLoading(false);
@@ -531,7 +531,7 @@ export default function ListingsScreen() {
     setMapError(false);
     try {
       const params: any = {
-        limit: 50,
+        limit: DETAIL_PAGE_SIZE,
         listing_type: biz === 'sale' ? 'sell' : 'rent',
         ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
         ...(filterTypes.length ? { property_type: filterTypes } : {}),

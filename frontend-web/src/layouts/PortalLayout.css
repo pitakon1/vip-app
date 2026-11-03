@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--rent-s-4);
   height: 64px;
   padding: 0 40px;
   overflow: hidden; /* 防止子项把 header 撑宽导致横向溢出 */
@@ -35,7 +35,7 @@
 .rent-portal__nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--rent-s-1);
   min-width: 0;
   overflow-x: auto;
 }
@@ -47,20 +47,19 @@
   white-space: nowrap;
   /* 对齐 tenant-dashboard.html：无边框胶囊导航项（<button> 需重置默认边框/底色/字体） */
   border: none;
-  outline: none;
   background: transparent;
   font-family: inherit;
   line-height: 1;
   margin: 0;
   /* 对齐 tenant-consign.html：胶囊导航项 */
-  padding: 8px 16px;
+  padding: var(--rent-s-2) var(--rent-s-4);
   border-radius: 999px;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 500;
   color: var(--rent-ink-2);
   text-decoration: none;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--motion-fast), color var(--motion-fast);
 }
 .rent-portal__nav-item:hover {
   background: var(--rent-surface-2);
@@ -81,7 +80,7 @@
 .rent-portal__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--rent-s-3);
   flex-shrink: 0;
 }
 
@@ -90,7 +89,7 @@
   width: auto;
   max-height: 34px;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--rent-radius-md);
   background: #fff;
   padding: 3px;
   flex-shrink: 0;
@@ -102,16 +101,16 @@
 /* ----- Responsive ----- */
 @media (max-width: 980px) {
   .rent-portal__header {
-    padding: 0 16px;
-    gap: 12px;
+    padding: 0 var(--rent-s-4);
+    gap: var(--rent-s-3);
   }
   .rent-portal__user-meta { display: none; }
-  .rent-portal__actions { gap: 8px; }
+  .rent-portal__actions { gap: var(--rent-s-2); }
 }
 
 @media (max-width: 640px) {
   .rent-portal__name { display: none; }
-  .rent-portal__nav-item { padding: 8px 12px; }
+  .rent-portal__nav-item { padding: var(--rent-s-2) var(--rent-s-3); }
   .rent-portal__nav-item span { display: none; }
   .rent-portal__nav-item .rent-portal__nav-icon { width: 20px; height: 20px; }
 }

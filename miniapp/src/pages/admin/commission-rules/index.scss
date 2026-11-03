@@ -25,7 +25,7 @@
   padding: 20rpx 24rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--card);
-  border-top: 1px solid var(--line);
+  border-top: 1rpx solid var(--line);
   z-index: 20;
 
   .cr-addbtn {
@@ -96,7 +96,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 16rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
     padding-top: 16rpx;
   }
 
@@ -276,7 +276,7 @@
     padding: 24rpx 8rpx;
     font-size: 30rpx;
     color: var(--ink);
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1rpx solid var(--line);
 
     &--active {
       color: var(--primary);

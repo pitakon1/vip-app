@@ -1,11 +1,11 @@
 """CRM 线索路由：客户线索管理与转化漏斗跟踪。"""
 import uuid
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import or_
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -55,7 +55,17 @@ class LeadUpdate(BaseModel):
     requirement: Optional[str] = None
 
 
-@router.get("", response_model=Page[Lead])
+class LeadListOut(Page[Lead]):
+    """线索列表响应：在标准分页结构上新增 `stage_counts`（不改既有字段/分页结构）。
+
+    `stage_counts` 按「当前筛选维度」统计各阶段线索数，**不含 stage 自身过滤**，
+    也不受分页影响，供前端一次请求渲染漏斗徽标，替代逐阶段探测请求。
+    """
+
+    stage_counts: Dict[str, int] = Field(default_factory=dict)
+
+
+@router.get("", response_model=LeadListOut)
 def list_leads(
     pagination: PaginationParams = Depends(),
     stage: Optional[LeadStage] = None,
@@ -69,8 +79,9 @@ def list_leads(
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Access denied. Staff only")
     conditions = [Lead.deleted_at.is_(None)]
-    if stage:
-        conditions.append(Lead.stage == stage)
+    # stage 过滤单独保存：分页查询用它，stage_counts 需要「不含 stage 维度」的
+    # 全阶段分布（否则切到某个阶段时，其他阶段的计数会变成 0）。
+    stage_condition = Lead.stage == stage if stage else None
     if assigned_to:
         conditions.append(Lead.assigned_to == assigned_to)
     if keyword and keyword.strip():
@@ -85,8 +96,29 @@ def list_leads(
             )
         )
 
-    stmt = select(Lead).where(*conditions).order_by(Lead.created_at.desc())
-    return paginate_query(session, stmt, pagination)
+    base_stmt = select(Lead).where(*conditions)
+    stage_counts = {
+        (s.value if isinstance(s, LeadStage) else str(s)): int(count or 0)
+        # 多列聚合必须走 session.execute（SQLModel 的 exec 会把结果当标量只取首列）
+        for s, count in session.execute(
+            base_stmt.with_only_columns(Lead.stage, func.count(Lead.id))
+            .order_by(None)
+            .group_by(Lead.stage)
+        ).all()
+        if s is not None
+    }
+    stmt = base_stmt.order_by(Lead.created_at.desc())
+    if stage_condition is not None:
+        stmt = stmt.where(stage_condition)
+    page = paginate_query(session, stmt, pagination)
+    return LeadListOut(
+        items=page.items,
+        total=page.total,
+        page=page.page,
+        page_size=page.page_size,
+        total_pages=page.total_pages,
+        stage_counts=stage_counts,
+    )
 
 
 @router.post("")

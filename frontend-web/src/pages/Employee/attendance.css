@@ -13,45 +13,45 @@
 .rent-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
 }
 .rent-table thead th {
   background: var(--rent-surface-2);
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   text-align: left;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   border-bottom: 1px solid var(--rent-border);
   white-space: nowrap;
 }
 .rent-table tbody td {
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   border-bottom: 1px solid var(--rent-border);
   color: var(--rent-ink);
   vertical-align: middle;
 }
 .rent-table tbody tr:last-child td { border-bottom: none; }
 .rent-table tbody tr:hover { background: var(--rent-surface-2); }
-.rent-table__mono { font-family: var(--rent-font-mono); font-size: 13px; }
+.rent-table__mono { font-family: var(--rent-font-mono); font-size: var(--rent-fs-sm); }
 
 /* ===== Form Controls（外出登记表单） ===== */
 .rent-field { display: flex; flex-direction: column; gap: 6px; }
 .rent-label {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink);
 }
 .rent-input, .rent-textarea, .rent-select {
   font-family: var(--rent-font-sans);
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink);
   background: var(--rent-surface);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
   padding: 9px 12px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
   width: 100%;
   box-sizing: border-box;
 }
@@ -69,9 +69,9 @@
   gap: 6px;
 }
 .rent-calendar__header {
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   text-align: center;
   padding: 6px 0;
   letter-spacing: 0.04em;
@@ -85,16 +85,16 @@
   background: var(--rent-surface);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--rent-s-1);
 }
 .rent-calendar__date {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   font-weight: 600;
   color: var(--rent-ink);
   font-variant-numeric: tabular-nums;
 }
 .rent-calendar__cell--outside { background: var(--rent-surface-2); }
-.rent-calendar__cell--outside .rent-calendar__date { color: var(--rent-ink-3); font-weight: 500; }
+.rent-calendar__cell--outside .rent-calendar__date { color: var(--rent-ink-2); font-weight: 500; }
 .rent-calendar__cell--today {
   border-color: var(--rent-primary);
   background: rgba(20, 184, 166, 0.06);
@@ -126,7 +126,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   color: var(--rent-ink-2);
 }
 
@@ -139,7 +139,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--rent-s-5);
   flex-wrap: wrap;
 }
 

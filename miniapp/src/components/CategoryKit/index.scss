@@ -15,12 +15,12 @@
   background-color: var(--bg);
 }
 
-/* ===== 顶部栏：磨砂玻璃（半透明白 + 模糊），胶囊项 999px ===== */
+/* ===== 顶部栏：磨砂玻璃（半透明白 + 模糊），胶囊项 999rpx ===== */
 .ck-top {
   flex-shrink: 0;
   background-color: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14rpx);
+  -webkit-backdrop-filter: blur(14rpx);
   border-bottom: 1rpx solid var(--line);
 
   &__row {
@@ -68,7 +68,7 @@
   gap: 6rpx;
   height: 64rpx;
   padding: 0 20rpx;
-  border-radius: 999px;
+  border-radius: 999rpx;
   background-color: var(--surface-2);
 
   &__text {
@@ -94,7 +94,7 @@
   gap: 10rpx;
   height: 64rpx;
   padding: 0 24rpx;
-  border-radius: 999px;
+  border-radius: 999rpx;
   background-color: var(--surface-2);
 
   &__input {
@@ -270,7 +270,7 @@
   &__btn {
     flex-shrink: 0;
     padding: 10rpx 26rpx;
-    border-radius: 999px;
+    border-radius: 999rpx;
     background-color: var(--primary);
   }
 
@@ -312,7 +312,7 @@
   &__btn {
     flex-shrink: 0;
     padding: 12rpx 26rpx;
-    border-radius: 999px;
+    border-radius: 999rpx;
     background-color: rgba(var(--primary-rgb), 0.12);
   }
 

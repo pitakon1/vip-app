@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { View, Text, Input, Picker, Switch, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -159,10 +160,10 @@ export default function EmployeeCalendarPage() {
     try {
       const [meRes, vwRes, lsRes, wbRes, pvRes, evRes]: any[] = await Promise.all([
         employeesApi.me().catch(() => ({ data: {} })),
-        viewingsApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
-        leasesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        viewingsApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+        leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
         employeesApi.workbench().catch(() => ({ data: {} })),
-        propertiesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+        propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
         calendarEventsApi.list().catch(() => ({ data: { items: [] } }))
       ])
 

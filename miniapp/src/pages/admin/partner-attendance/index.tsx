@@ -52,10 +52,13 @@ export default function PartnerAttendancePage() {
   const [end, setEnd] = useState(DEFAULT_END)
   const [data, setData] = useState<AttData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoadError(false)
     attendanceApi
       .summary({ start_date: start, end_date: end })
       .then((res: any) => {
@@ -64,7 +67,10 @@ export default function PartnerAttendancePage() {
       })
       .catch((error) => {
         console.error('[PartnerAttendance] 加载失败', error)
-        if (!cancelled) Taro.showToast({ title: t('member.attFailed'), icon: 'none' })
+        if (!cancelled) {
+          setLoadError(true)
+          Taro.showToast({ title: t('member.attFailed'), icon: 'none' })
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -72,7 +78,7 @@ export default function PartnerAttendancePage() {
     return () => {
       cancelled = true
     }
-  }, [start, end, t])
+  }, [start, end, t, reloadKey])
 
   const totals = data?.totals ?? {}
   const rows = data?.employees ?? []
@@ -102,10 +108,23 @@ export default function PartnerAttendancePage() {
 
       {loading && isEmpty ? (
         <StateBlock loading text={t('acc.loading')} />
+      ) : loadError && isEmpty ? (
+        <StateBlock
+          error
+          text={t('member.attFailed')}
+          retryText={t('acc.retry')}
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
       ) : isEmpty ? (
         <StateBlock empty icon='calendar' text={t('member.attEmpty')} />
       ) : (
         <>
+          {loadError && (
+            <View className='inline-error-bar' onClick={() => setReloadKey((k) => k + 1)}>
+              <Text className='inline-error-bar__text'>{t('member.attFailed')}</Text>
+              <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+            </View>
+          )}
           {!!data?.range?.start && (
             <Text className='pa-range'>
               {t('member.attRange', { start: data.range.start, end: data.range.end || '' })}

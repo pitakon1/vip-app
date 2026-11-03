@@ -3,6 +3,7 @@ import { Input, Modal, message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { authApi } from '@/services/api'
 import './oauth.css'
+import { errorText } from '@/lib/errorText'
 
 type Provider = 'google' | 'apple'
 
@@ -96,7 +97,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onSuccess }) => {
         await runApple()
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('login.oauthFailed'))
+      message.error(errorText(err, t('login.oauthFailed')))
     } finally {
       setLoading('')
     }
@@ -124,7 +125,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onSuccess }) => {
             }
             await submitOAuth('google', { id_token: response.credential })
           } catch (err: any) {
-            message.error(err?.response?.data?.message || t('login.oauthFailed'))
+            message.error(errorText(err, t('login.oauthFailed')))
           }
         },
       })
@@ -167,7 +168,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onSuccess }) => {
       }
       await submitOAuth('apple', { id_token: idToken })
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('login.oauthFailed'))
+      message.error(errorText(err, t('login.oauthFailed')))
     }
   }
 
@@ -183,7 +184,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onSuccess }) => {
       setMock(null)
       setMockEmail('')
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('login.oauthFailed'))
+      message.error(errorText(err, t('login.oauthFailed')))
     } finally {
       setLoading('')
     }

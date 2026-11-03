@@ -1,3 +1,4 @@
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 佣金设置（管理端独立页）
  * 原型：admin-commission-rules.html
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
@@ -146,6 +147,7 @@ export default function CommissionRulesScreen() {
   const isAdmin = user?.role === 'admin';
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rules, setRules] = useState<CommissionRule[]>([]);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -165,21 +167,26 @@ export default function CommissionRulesScreen() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
+    setLoadError(null);
     const results = await Promise.allSettled([
-      commissionRulesApi.list({ page: 1, page_size: 100 }),
-      brokerApi.list({ page_size: 100 }).catch(() => ({ data: { items: [] } })),
-      employeesApi.list({ page: 1, page_size: 100 }).catch(() => ({ data: { items: [] } })),
+      commissionRulesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+      brokerApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+      employeesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
     ]);
     const unwrap = (res: PromiseSettledResult<any>) => {
       if (res.status !== 'fulfilled') return [];
       const d = res.value?.data;
       return Array.isArray(d) ? d : (d?.items ?? []);
     };
-    setRules(unwrap(results[0]) as CommissionRule[]);
+    if (results[0].status === 'fulfilled') {
+      setRules(unwrap(results[0]) as CommissionRule[]);
+    } else {
+      setLoadError(t('comm.loadFailed'));
+    }
     setBrokers(unwrap(results[1]));
     const empD = results[2].status === 'fulfilled' ? results[2].value?.data : {};
     setEmployees(Array.isArray(empD) ? empD : (empD?.items ?? []));
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -256,15 +263,44 @@ export default function CommissionRulesScreen() {
     return t(SCOPE_LABEL_KEY[r.scope || ''] || 'comm.allEmployees');
   };
 
+  const retry = () => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  };
+
+  if (loading) {
+    return <ListState loading loadingLabel={t('comm.loading')} />;
+  }
+
+  if (loadError && rules.length === 0) {
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.bodyContent, { paddingTop: insets.top + 8 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      {loading ? (
-        <LoadingState label={t('comm.loading')} />
-      ) : (
+    <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.bodyContent, { paddingTop: insets.top + 8 }]}
+        showsVerticalScrollIndicator={false}
+      >
+      {loadError ? (
+        <View
+          style={{
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+          <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {(
         <>
           {/* 新增设置 */}
           <View style={styles.sectionHead}>
@@ -408,9 +444,6 @@ export default function CommissionRulesScreen() {
               }}
             />
             {!!formErrors.rate && <Text style={styles.errorText}>{formErrors.rate}</Text>}
-            <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
-              <Text style={styles.submitBtnText}>{t('comm.addNew')}</Text>
-            </TouchableOpacity>
           </View>
 
           {/* 已有设置 */}
@@ -418,7 +451,7 @@ export default function CommissionRulesScreen() {
             <Text style={styles.sectionTitle}>{t('comm.existing')}</Text>
             <Text style={styles.sectionHint}>{t('comm.totalCount').replace('{n}', String(rules.length))}</Text>
           </View>
-          {rules.length === 0 ? (
+          {rules.length === 0 && !loadError ? (
             <EmptyState icon="settings-outline" title={t('comm.noRules')} sub={t('comm.noRulesSub')} />
           ) : (
             rules.map((r) => (
@@ -453,12 +486,18 @@ export default function CommissionRulesScreen() {
         </>
       )}
     </ScrollView>
+    <View style={[styles.submitBtnWrap, { paddingBottom: insets.bottom + 68 }]}>
+      <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
+        <Text style={styles.submitBtnText}>{t('comm.addNew')}</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  bodyContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 8 },
+  bodyContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 160 },
 
   sectionHead: {
     flexDirection: 'row',
@@ -540,7 +579,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: colors.radius.full,
     backgroundColor: colors.background,
@@ -559,6 +599,14 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  submitBtnWrap: {
+    paddingTop: 8,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
 
   ruleCard: {
     backgroundColor: colors.surface,

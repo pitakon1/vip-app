@@ -4,15 +4,15 @@
 
 /* 订阅套餐 / 我的工单 的列表区块（原 Owner/services.css 迁入） */
 .rent-sub-section {
-  margin-top: 24px;
+  margin-top: var(--rent-s-5);
   padding-top: 20px;
   border-top: 1px solid var(--rent-border);
 }
 .rent-sub-title {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   color: var(--rent-ink);
-  margin: 0 0 12px;
+  margin: 0 0 var(--rent-s-3);
 }
 .rent-sub-list {
   display: flex;
@@ -23,9 +23,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--rent-s-4);
   flex-wrap: wrap;
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-md);
   background: var(--rent-surface-2);
@@ -35,17 +35,17 @@
   flex: 1;
 }
 .rent-sub-item__name {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   color: var(--rent-ink);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--rent-s-2);
   flex-wrap: wrap;
 }
 .rent-sub-item__meta {
-  font-size: 12px;
-  color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-2);
   margin-top: 2px;
 }
 .rent-sub-item__right {
@@ -55,7 +55,7 @@
   flex-shrink: 0;
 }
 .rent-sub-item__amount {
-  font-size: 14px;
+  font-size: var(--rent-fs-base);
   font-weight: 600;
   color: var(--rent-ink);
   font-variant-numeric: tabular-nums;

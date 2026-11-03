@@ -329,7 +329,7 @@ export interface PublicListingQuery {
   whole_building_only?: boolean
   company_registrable?: boolean
   environmental_permit?: boolean
-  /** 房源状态（vacant/rented/reserved/maintenance） */
+  /** 房源状态（与后端枚举一致：vacant/rented/renewing/maintenance） */
   status?: string
   /** 小区筛选：直接落 project_id */
   project_id?: string

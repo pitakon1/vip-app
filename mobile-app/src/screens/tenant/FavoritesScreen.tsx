@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -40,7 +41,7 @@ export default function FavoritesScreen() {
   const load = useCallback(async () => {
     try {
       setFailed(false);
-      const res = await favoritesApi.mine({ page: 1, page_size: 50 });
+      const res = await favoritesApi.mine({ page: 1, page_size: DETAIL_PAGE_SIZE });
       const d: any = res?.data;
       const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
       setItems(rows);

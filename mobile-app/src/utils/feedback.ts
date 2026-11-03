@@ -1,4 +1,5 @@
 import { toast, type ToastType } from '@/components/Toast';
+import { errorText } from '@/lib/errorText';
 
 /**
  * 租客端统一反馈工具（非阻塞 Toast 版）。
@@ -33,13 +34,8 @@ export const notify = (title?: string, message?: string) => {
  * 中心请求层已把 422 的 detail 数组压成字符串，但这里再做一层类型兜底：
  * 非字符串（历史遗留的数组/对象）一律回退，避免把对象塞进 Toast 文案。
  */
-export const getErrorMessage = (err: any, fallback = '请稍后重试'): string => {
-  const raw =
-    err?.response?.data?.detail ||
-    err?.response?.data?.message ||
-    err?.message;
-  return typeof raw === 'string' && raw.trim() ? raw : fallback;
-};
+export const getErrorMessage = (err: any, fallback = '请稍后重试'): string =>
+  errorText(err, fallback);
 
 /**
  * 失败反馈 + 重试动作。

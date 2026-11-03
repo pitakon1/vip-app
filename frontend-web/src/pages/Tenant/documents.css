@@ -7,7 +7,7 @@
 .rent-storage {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--rent-s-4);
   background: var(--rent-card);
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
@@ -24,12 +24,12 @@
 }
 .rent-storage__body { flex: 1; min-width: 0; }
 .rent-storage__text {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
   margin-bottom: 6px;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--rent-s-3);
 }
 .rent-storage__text strong { color: var(--rent-ink); font-weight: 600; }
 .rent-storage__bar { max-width: 460px; }
@@ -45,18 +45,18 @@
 .rent-btn--danger-ghost:hover { background: rgba(220,38,38,0.08); }
 
 /* 上传确认弹窗 */
-.owner-upload-modal { display: flex; flex-direction: column; gap: 8px; }
+.owner-upload-modal { display: flex; flex-direction: column; gap: var(--rent-s-2); }
 .owner-upload-modal__file {
-  font-size: 13px;
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink);
   font-weight: 500;
   word-break: break-all;
-  padding: 12px 16px;
+  padding: var(--rent-s-3) var(--rent-s-4);
   background: var(--rent-sidebar-active);
   border-radius: var(--rent-radius-md);
 }
 .owner-upload-modal__label {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: var(--rent-s-2);
+  font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
 }

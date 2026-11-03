@@ -9,6 +9,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import OAuthButtons from '@/components/OAuthButtons'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './login.css'
+import { errorText } from '@/lib/errorText'
 
 // 国家码下拉（带 + 前缀，如 +86），手机号最终提交为「国家码 + 无前导0手机号」
 const COUNTRY_CODES = ['+86', '+1', '+66', '+55']
@@ -114,7 +115,7 @@ const Login = () => {
         : await authApi.login(email, password)
       if (!handleAuthSuccess(res)) return
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('login.loginFailed'))
+      message.error(errorText(err, t('login.loginFailed')))
     } finally {
       setSubmitting(false)
     }
@@ -138,7 +139,7 @@ const Login = () => {
         setCountdown(60)
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('login.otpFailed'))
+      message.error(errorText(err, t('login.otpFailed')))
     } finally {
       setSending(false)
     }
@@ -155,7 +156,7 @@ const Login = () => {
       <section className="rent-login-right">
         <div className="rent-login-card">
           <div className="rent-login-card__header">
-            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" />
+            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
             <h2 className="rent-login-card__title">{t('login.welcomeBack')}</h2>
             <p className="rent-login-card__subtitle">{t('login.subtitle')}</p>
           </div>
@@ -189,14 +190,16 @@ const Login = () => {
               {/* 底部：去注册 */}
               <p className="rent-login-footer">
                 {t('login.noAccount')}
-                <a
+                <button
+                  type="button"
+                  className="rent-login-footer__link"
                   onClick={(e) => {
                     e.preventDefault()
                     navigate('/register')
                   }}
                 >
                   {t('login.goRegister')}
-                </a>
+                </button>
               </p>
             </>
           ) : (

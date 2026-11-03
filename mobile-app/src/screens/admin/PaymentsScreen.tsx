@@ -1,3 +1,4 @@
+﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 收付款管理（管理端）
  * 原型：admin-mobile-payments.html
@@ -18,13 +19,14 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { dashboardApi, paymentsApi, propertiesApi, usersAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = DETAIL_PAGE_SIZE;
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -122,6 +124,7 @@ export default function AdminPaymentsScreen() {
   const [chip, setChip] = useState<ChipKey>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [userList, setUserList] = useState<{ id: string; full_name?: string }[]>([]);
 
   // 手动记账弹窗
@@ -150,6 +153,7 @@ export default function AdminPaymentsScreen() {
 
   const load = useCallback(
     async (status: ChipKey) => {
+      setLoadError(null);
       const params: Record<string, unknown> = { page: 1, page_size: PAGE_SIZE };
       if (status !== 'all') params.status = status;
 
@@ -157,8 +161,8 @@ export default function AdminPaymentsScreen() {
         paymentsApi.list(params),
         dashboardApi.summary(),
         dashboardApi.financialReconciliation(),
-        usersAdminApi.list({ page_size: 100 }),
-        propertiesApi.list({ page: 1, page_size: 100 }),
+        usersAdminApi.list({ page_size: OPTION_PAGE_SIZE }),
+        propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
       ]);
 
       if (payRes.status === 'fulfilled') {
@@ -167,8 +171,7 @@ export default function AdminPaymentsScreen() {
         setPayments(rows);
         setTotal(typeof d.total === 'number' ? d.total : rows.length);
       } else {
-        setPayments([]);
-        setTotal(0);
+        setLoadError(t('admPay.loadFailed'));
       }
 
       if (sumRes.status === 'fulfilled') setSummary((sumRes.value as any)?.data ?? {});
@@ -289,12 +292,17 @@ export default function AdminPaymentsScreen() {
     }
   };
 
+  const retry = () => {
+    if (!loading) setLoading(true);
+    load(chip);
+  };
+
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <LoadingState />
-      </View>
-    );
+    return <ListState loading />;
+  }
+
+  if (loadError && payments.length === 0) {
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
   }
 
   return (
@@ -371,6 +379,24 @@ export default function AdminPaymentsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      {loadError ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+          <TouchableOpacity onPress={retry} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {payments.length === 0 ? (
         <EmptyState icon="card-outline" title={t('admPay.emptyTitle')} sub={t('admPay.emptySub')} />
       ) : (
@@ -439,11 +465,12 @@ export default function AdminPaymentsScreen() {
         })
       )}
 
-      {/* 手动记账弹窗 */}
-      <Modal visible={showForm} transparent animationType="fade" onRequestClose={() => setShowForm(false)}>
-        <View style={styles.modalMask}>
-          <ScrollView contentContainerStyle={styles.modalCardWrap}>
-            <View style={styles.modalCard}>
+      {/* 手动记账弹层 */}
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
               <Text style={styles.modalTitle}>{t('admPay.manualEntry')}</Text>
 
               {/* 付款方 */}
@@ -543,26 +570,26 @@ export default function AdminPaymentsScreen() {
                 placeholder={t('admPay.descPlaceholder')}
                 placeholderTextColor={colors.ink3}
               />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowForm(false)}>
-                  <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={submitForm}>
-                  <Text style={styles.modalOkText}>{t('admPay.save')}</Text>
-                </TouchableOpacity>
-              </View>
+            </ScrollView>
+            <View style={styles.bsActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowForm(false)}>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={submitForm}>
+                <Text style={styles.modalOkText}>{t('admPay.save')}</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
 
-      {/* 付款方选择 */}
-      <Modal visible={showUserPicker} transparent animationType="fade" onRequestClose={() => setShowUserPicker(false)}>
-        <View style={styles.modalMask}>
-          <View style={[styles.modalCard, styles.pickerCard]}>
-            <Text style={styles.modalTitle}>{t('admPay.pickPayer')}</Text>
-            <ScrollView style={styles.pickerScroll}>
+      {/* 付款方选择弹层（列表型，选完自动关闭） */}
+      <Modal visible={showUserPicker} transparent animationType="slide" onRequestClose={() => setShowUserPicker(false)}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>{t('admPay.pickPayer')}</Text>
               {userList.map((u) => (
                 <TouchableOpacity
                   key={u.id}
@@ -579,22 +606,25 @@ export default function AdminPaymentsScreen() {
         </View>
       </Modal>
 
-      {/* 确认到账弹窗 */}
-      <Modal visible={!!confirmItem} transparent animationType="fade" onRequestClose={() => setConfirmItem(null)}>
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('admPay.confirmArrival')}</Text>
-            <Text style={styles.modalNoteText}>
-              {t('admPay.confirmQuestion', { amount: confirmItem ? fmtMoney(confirmItem.amount, confirmItem.currency) : '' })}
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              value={confirmNote}
-              onChangeText={setConfirmNote}
-              placeholder={t('admPay.confirmNote')}
-              placeholderTextColor={colors.ink3}
-            />
-            <View style={styles.modalActions}>
+      {/* 确认到账弹层 */}
+      <Modal visible={!!confirmItem} transparent animationType="slide" onRequestClose={() => setConfirmItem(null)}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
+              <Text style={styles.modalTitle}>{t('admPay.confirmArrival')}</Text>
+              <Text style={styles.modalNoteText}>
+                {t('admPay.confirmQuestion', { amount: confirmItem ? fmtMoney(confirmItem.amount, confirmItem.currency) : '' })}
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                value={confirmNote}
+                onChangeText={setConfirmNote}
+                placeholder={t('admPay.confirmNote')}
+                placeholderTextColor={colors.ink3}
+              />
+            </ScrollView>
+            <View style={styles.bsActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setConfirmItem(null)}>
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
@@ -606,11 +636,12 @@ export default function AdminPaymentsScreen() {
         </View>
       </Modal>
 
-      {/* 详情弹窗 */}
-      <Modal visible={!!detailItem} transparent animationType="fade" onRequestClose={() => setDetailItem(null)}>
-        <View style={styles.modalMask}>
-          <ScrollView contentContainerStyle={styles.modalCardWrap}>
-            <View style={styles.modalCard}>
+      {/* 详情弹层（closeBtn 固定底部，不随内容滚动） */}
+      <Modal visible={!!detailItem} transparent animationType="slide" onRequestClose={() => setDetailItem(null)}>
+        <View style={styles.bsMask}>
+          <View style={styles.bsSheet}>
+            <View style={styles.bsGrabber} />
+            <ScrollView contentContainerStyle={styles.bsContent}>
               <Text style={styles.modalTitle}>{t('admPay.detailTitle')}</Text>
               {detailItem ? (
                 <>
@@ -650,11 +681,13 @@ export default function AdminPaymentsScreen() {
                   ) : null}
                 </>
               ) : null}
-              <TouchableOpacity style={[styles.modalBtn, styles.modalOk, styles.closeBtn]} activeOpacity={0.7} onPress={() => setDetailItem(null)}>
+            </ScrollView>
+            <View style={styles.bsActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} onPress={() => setDetailItem(null)}>
                 <Text style={styles.modalOkText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </ScrollView>
@@ -725,7 +758,8 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, marginTop: 16, marginBottom: 8 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
   chip: {
-    paddingHorizontal: 14,
+     minHeight: 44,
+     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
     borderWidth: 1,
@@ -794,7 +828,14 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 12, fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: 12, marginTop: 4 },
 
-  /* ===== 弹窗 ===== */
+  /* ===== 底部弹层（抽自 theme/bottomSheetStyles.ts） ===== */
+  bsMask: bottomSheetStyles.bsMask,
+  bsSheet: bottomSheetStyles.bsSheet,
+  bsGrabber: bottomSheetStyles.bsGrabber,
+  bsContent: bottomSheetStyles.bsContent,
+  bsActions: bottomSheetStyles.bsActions,
+
+  /* ===== 旧居中弹窗样式保留（本文件不再使用） ===== */
   modalMask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'center', padding: 28 },
   modalCardWrap: { justifyContent: 'center' },
   modalCard: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 20 },

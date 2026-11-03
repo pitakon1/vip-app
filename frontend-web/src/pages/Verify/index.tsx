@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { message } from 'antd'
 import { useSearchParams } from 'react-router-dom'
 import { contractsApi, contractsPublicApi } from '@/services/api'
+import { errorText } from '@/lib/errorText'
 import { useTranslation } from 'react-i18next'
 
 interface SigRecord {
@@ -67,11 +68,10 @@ const Verify = () => {
     } catch (err: any) {
       setReport(null)
       const status = err?.response?.status
-      const detail = err?.response?.data?.detail
       if (status === 401 || status === 403) {
         setError(t('contracts.verifyNeedLogin'))
       } else {
-        setError(detail || t('contracts.verifyFail'))
+        setError(errorText(err, t('contracts.verifyFail')))
       }
     } finally {
       setLoading(false)

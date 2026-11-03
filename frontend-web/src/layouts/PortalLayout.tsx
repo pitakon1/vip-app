@@ -7,6 +7,7 @@ import useAuthStore from '@/stores/auth'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
 import { ROLE_SECTIONS, C_PORTAL_NAV_KEYS, resolveLabelKey } from '@/config/roleMenus'
+import { MENU_ICONS } from '@/constants/menuIcons'
 import { prefetchRoute, prefetchRoutes } from '@/lib/routePrefetch'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './PortalLayout.css'
@@ -38,7 +39,7 @@ const buildNav = (t: (k: string) => string): PortalNavItem[] => {
   for (const key of C_PORTAL_NAV_KEYS) {
     const it = byKey.get(key)
     if (!it) continue
-    items.push({ key: it.key, label: t(resolveLabelKey(it)), icon: navIcon(it.icon) })
+    items.push({ key: it.key, label: t(resolveLabelKey(it)), icon: navIcon(MENU_ICONS[it.iconKey]) })
   }
   return items
 }
@@ -108,14 +109,15 @@ const PortalLayout = () => {
       {/* ===== 顶栏 ===== */}
       <header className="rent-portal__header">
         <div className="rent-portal__brand" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
-          <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" />
+          <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
           <span className="rent-portal__name">{t('portal.center')}</span>
         </div>
 
         <nav className="rent-portal__nav no-scrollbar">
           {nav.map((item) => (
-            <a
+            <button
               key={item.key}
+              type="button"
               className="rent-portal__nav-item"
               data-active={selectedKey === item.key}
               onMouseEnter={() => prefetchRoute(item.key)}
@@ -128,7 +130,7 @@ const PortalLayout = () => {
             >
               {item.icon}
               <span>{item.label}</span>
-            </a>
+            </button>
           ))}
         </nav>
 

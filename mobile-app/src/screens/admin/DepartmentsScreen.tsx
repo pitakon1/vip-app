@@ -6,7 +6,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
@@ -16,10 +15,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { departmentsAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
@@ -48,8 +50,10 @@ export default function DepartmentsScreen() {
   const { t } = useI18n();
   const [tree, setTree] = useState<DeptNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState<DeptNode | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -59,10 +63,12 @@ export default function DepartmentsScreen() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const { data } = await departmentsAdminApi.tree();
       setTree(data?.data ?? data ?? []);
     } catch (e) {
+      setLoadError(t('dept.loadFailed'));
       notifyError(t('dept.loadFailed'), e);
     } finally {
       setLoading(false);
@@ -71,6 +77,15 @@ export default function DepartmentsScreen() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const rows = useMemo(() => flatten(tree), [tree]);
@@ -146,16 +161,39 @@ export default function DepartmentsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
         <TouchableOpacity style={styles.addBtn} activeOpacity={0.8} onPress={() => openCreate()}>
           <Ionicons name="add" size={18} color={colors.primaryForeground} />
           <Text style={styles.addBtnText}>{t('dept.add')}</Text>
         </TouchableOpacity>
 
+        {loadError && rows.length > 0 ? (
+          <View
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
+            <TouchableOpacity onPress={load} activeOpacity={0.7}>
+              <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {loading ? (
-          <ActivityIndicator style={styles.loading} color={colors.primary} />
+          <ListState loading />
+        ) : loadError && rows.length === 0 ? (
+          <ListState error={loadError} retryLabel={t('common.retry')} onRetry={load} />
         ) : rows.length === 0 ? (
-          <Text style={styles.empty}>{t('dept.empty')}</Text>
+          <EmptyState title={t('dept.empty')} />
         ) : (
           rows.map((row) => (
             <View key={row.id} style={[styles.card, { marginLeft: row.depth * 14 }]}>

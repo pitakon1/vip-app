@@ -11,6 +11,7 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,6 +89,7 @@ export default function PartnerHubScreen() {
   const [propsLoading, setPropsLoading] = useState(false);
   const [att, setAtt] = useState<AttData | null>(null);
   const [attLoading, setAttLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadPerformance = useCallback(async () => {
     setPerfLoading(true);
@@ -129,6 +131,17 @@ export default function PartnerHubScreen() {
     }
   }, [t]);
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (tab === 'performance') await loadPerformance();
+      else if (tab === 'attendance') await loadAttendance();
+      else if (tab === 'properties') await loadProperties();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [tab, loadPerformance, loadAttendance, loadProperties]);
+
   useFocusEffect(
     useCallback(() => {
       if (tab === 'performance') loadPerformance();
@@ -161,7 +174,13 @@ export default function PartnerHubScreen() {
     }
     const agents = perf.agents ?? [];
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         <View style={styles.statRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>{t('partner.totalRevenue')}</Text>
@@ -184,23 +203,46 @@ export default function PartnerHubScreen() {
         {agents.length === 0 ? (
           <EmptyState icon="people-outline" title={t('partner.noAgents')} sub={t('member.pullRefresh')} />
         ) : (
-          <View style={styles.tableCard}>
-            <View style={styles.tableHead}>
-              <Text style={[styles.tableTh, styles.colName]}>{t('partner.agent')}</Text>
-              <Text style={[styles.tableTh, styles.colNum]}>{t('partner.commission')}</Text>
-              <Text style={[styles.tableTh, styles.colNum]}>{t('partner.deals')}</Text>
-            </View>
-            {agents.map((a, i) => (
-              <View key={a.user_id ?? i} style={[styles.tableRow, i > 0 && styles.tableRowBorder]}>
-                <Text style={[styles.tableTd, styles.colName, styles.tdName]} numberOfLines={1}>
-                  {a.employee_name || t('acc.unnamed')}
-                </Text>
-                <Text style={[styles.tableTd, styles.colNum, styles.tdNum]}>
-                  {symOf(undefined)}{Number(a.total_commission ?? 0).toLocaleString()}
-                </Text>
-                <Text style={[styles.tableTd, styles.colNum, styles.tdNum]}>{Number(a.deals ?? 0)}</Text>
-              </View>
-            ))}
+          <View style={[styles.listCard, styles.listCardGap]}>
+            {agents.map((a, i) => {
+              const comm = Number(a.total_commission ?? 0);
+              const deals = Number(a.deals ?? 0);
+              return (
+                <View key={a.user_id ?? i} style={styles.itemCard}>
+                  <View style={styles.itemHeadRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemName}>{a.employee_name || t('acc.unnamed')}</Text>
+                      {a.user_id ? (
+                        <Text style={styles.itemSub}>{a.user_id}</Text>
+                      ) : null}
+                    </View>
+                    <View style={[styles.itemBadge, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
+                      <Text style={[styles.itemBadgeText, { color: colors.primary }]}>
+                        {symOf(summary.currency)}{comm.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.itemStatRow}>
+                    <View style={styles.itemStatChip}>
+                      <Text style={styles.itemStatLabel}>{t('acc.dealCount')}</Text>
+                      <Text style={[styles.itemStatValue, { color: colors.ink }]}>{deals}</Text>
+                    </View>
+                    <View style={styles.itemStatChip}>
+                      <Text style={styles.itemStatLabel}>{t('partner.commission')}</Text>
+                      <Text style={[styles.itemStatValue, { color: colors.ink }]}>{symOf(summary.currency)}{comm.toLocaleString()}</Text>
+                    </View>
+                    {a.total_revenue != null && (
+                      <View style={styles.itemStatChip}>
+                        <Text style={styles.itemStatLabel}>营收</Text>
+                        <Text style={[styles.itemStatValue, { color: colors.ink }]}>
+                          {symOf(summary.currency)}{Number(a.total_revenue).toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -227,7 +269,13 @@ export default function PartnerHubScreen() {
       );
     }
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         {!!att.range?.start && (
           <Text style={styles.attRange}>
             {t('partner.attRange', { start: att.range.start, end: att.range.end ?? '' })}
@@ -252,29 +300,66 @@ export default function PartnerHubScreen() {
           <Text style={styles.listTitle}>{t('partner.attByMember')}</Text>
           <Text style={styles.listHint}>{t('partner.nAgents', { n: rows.length })}</Text>
         </View>
-        <View style={styles.tableCard}>
-          <View style={styles.tableHead}>
-            <Text style={[styles.tableTh, styles.colName]}>{t('partner.agent')}</Text>
-            <Text style={[styles.tableTh, styles.colNumSm]}>{t('partner.attPresent')}</Text>
-            <Text style={[styles.tableTh, styles.colNumSm]}>{t('partner.attLate')}</Text>
-            <Text style={[styles.tableTh, styles.colNumSm]}>{t('partner.attAbsent')}</Text>
-          </View>
-          {rows.map((r, i) => (
-            <View key={r.employee_id ?? i} style={[styles.tableRow, i > 0 && styles.tableRowBorder]}>
-              <Text style={[styles.tableTd, styles.colName, styles.tdName]} numberOfLines={1}>
-                {r.name || t('acc.unnamed')}
-              </Text>
-              <Text style={[styles.tableTd, styles.colNumSm, styles.tdNum]}>
-                {Number(r.attended ?? 0)}
-              </Text>
-              <Text style={[styles.tableTd, styles.colNumSm, styles.tdNum]}>
-                {Number(r.late ?? 0)}
-              </Text>
-              <Text style={[styles.tableTd, styles.colNumSm, styles.tdNum]}>
-                {Number(r.absent ?? 0)}
-              </Text>
-            </View>
-          ))}
+        <View style={[styles.listCard, styles.listCardGap]}>
+          {rows.map((r, i) => {
+            const abn = Number(r.abnormal ?? 0);
+            const present = Number(r.attended ?? 0);
+            const late = Number(r.late ?? 0);
+            const early = Number(r.early_out ?? 0);
+            const absent = Number(r.absent ?? 0);
+            const dept = r.department || '';
+            return (
+              <View key={r.employee_id ?? i} style={styles.itemCard}>
+                <View style={styles.itemHeadRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemName}>{r.name || t('acc.unnamed')}</Text>
+                    {dept ? (
+                      <Text style={styles.itemSub}>{dept}</Text>
+                    ) : null}
+                  </View>
+                  <View
+                    style={[
+                      styles.itemBadge,
+                      {
+                        backgroundColor: abn === 0
+                          ? colors.alpha(colors.successRgb, 0.12)
+                          : colors.alpha(colors.errorRgb, 0.12),
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.itemBadgeText,
+                        { color: abn === 0 ? colors.success : colors.error },
+                      ]}
+                    >
+                      {t('partner.attAbnormal')} {abn}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.itemStatRow}>
+                  <View style={styles.itemStatChip}>
+                    <Text style={[styles.itemStatLabel, { color: colors.success }]}>{t('partner.attPresent')}</Text>
+                    <Text style={[styles.itemStatValue, { color: colors.ink }]}>{present}</Text>
+                  </View>
+                  <View style={styles.itemStatChip}>
+                    <Text style={[styles.itemStatLabel, { color: colors.warning }]}>{t('partner.attLate')}</Text>
+                    <Text style={[styles.itemStatValue, { color: colors.ink }]}>{late}</Text>
+                  </View>
+                  {early > 0 ? (
+                    <View style={styles.itemStatChip}>
+                      <Text style={[styles.itemStatLabel, { color: colors.warning }]}>早退</Text>
+                      <Text style={[styles.itemStatValue, { color: colors.ink }]}>{early}</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.itemStatChip}>
+                    <Text style={[styles.itemStatLabel, { color: colors.error }]}>{t('partner.attAbsent')}</Text>
+                    <Text style={[styles.itemStatValue, { color: colors.ink }]}>{absent}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     );
@@ -301,6 +386,9 @@ export default function PartnerHubScreen() {
       <FlatList
         data={props}
         keyExtractor={(p) => p.id}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.propHead}>
@@ -406,6 +494,39 @@ const styles = StyleSheet.create({
   tableTd: { fontSize: 13 },
   tdName: { fontWeight: '600', color: colors.ink },
   tdNum: { fontVariant: ['tabular-nums'], color: colors.ink2 },
+
+  // --- 卡片流（替换 performance / attendance 表格）---
+  listCardGap: { marginHorizontal: 20, gap: 10 },
+  listCard: { marginBottom: 10 },
+  itemCard: {
+    backgroundColor: colors.surface,
+    borderRadius: colors.radius.xl,
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...colors.shadow.sm,
+  },
+  itemHeadRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  itemName: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  itemSub: { fontSize: 11, color: colors.ink3, marginTop: 2, fontWeight: '500' },
+  itemBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: colors.radius.full,
+  },
+  itemBadgeText: { fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  itemStatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  itemStatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.surface2,
+  },
+  itemStatLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  itemStatValue: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   card: {
     marginHorizontal: 20,

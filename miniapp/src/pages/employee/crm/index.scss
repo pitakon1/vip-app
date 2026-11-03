@@ -18,7 +18,7 @@
     height: 80rpx;
     padding: 0 28rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     font-size: 28rpx;
     color: var(--ink);
@@ -61,7 +61,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -195,7 +195,7 @@
     align-items: center;
     gap: 8rpx;
     padding-top: 12rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 
   &__foot-text {
@@ -217,7 +217,7 @@
     &--ghost {
       margin-left: 12rpx;
       background: transparent;
-      border: 1px solid var(--primary);
+      border: 1rpx solid var(--primary);
 
       .crm-card__edit-text {
         color: var(--primary);
@@ -339,7 +339,7 @@
     font-size: 28rpx;
     color: var(--ink);
     background-color: var(--bg);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     box-sizing: border-box;
   }
@@ -361,7 +361,7 @@
 .crm-edit-chip {
   padding: 14rpx 28rpx;
   background: var(--bg);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {

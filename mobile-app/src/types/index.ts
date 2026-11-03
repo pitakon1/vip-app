@@ -85,6 +85,7 @@ export type PaymentType =
   | 'tax'
   | 'refund';
 
+// 后端枚举（backend/app/models/payment.py::PaymentStatus），接口只返回以下 7 个值
 export type PaymentStatus =
   | 'pending'
   | 'processing'
@@ -92,10 +93,13 @@ export type PaymentStatus =
   | 'failed'
   | 'refunded'
   | 'disputed'
-  | 'expired'
-  // 列表聚合展示态
-  | 'paid'
-  | 'overdue';
+  | 'expired';
+
+// 展示派生态：由前端按后端状态 + 截止时间派生，不属于后端枚举
+export type PaymentDisplayStatus = 'paid' | 'pending' | 'overdue' | 'refunded';
+
+// 列表筛选项：后端额外接受 overdue（pending 且已过截止日）作为派生筛选值
+export type PaymentStatusFilter = PaymentStatus | 'overdue';
 
 /**
  * 账单/收款。

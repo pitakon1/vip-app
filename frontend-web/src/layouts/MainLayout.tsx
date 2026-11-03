@@ -9,6 +9,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import { ROLE_SECTIONS, ROLE_MOBILE_KEYS, resolveLabelKey } from '@/config/roleMenus'
+import { MENU_ICONS } from '@/constants/menuIcons'
 import { prefetchRoute, prefetchRoutes } from '@/lib/routePrefetch'
 import './MainLayout.css'
 
@@ -48,7 +49,7 @@ const buildSections = (role: string, t: TFunction): NavSection[] => {
     items: section.items.map((it) => ({
       key: it.key,
       label: t(it.labelKey) as string,
-      icon: icon(it.icon),
+      icon: icon(MENU_ICONS[it.iconKey]),
     })),
   }))
 }
@@ -62,7 +63,7 @@ const buildMobileTabs = (role: string, t: TFunction): NavItem[] => {
   for (const k of keys) {
     const it = byKey.get(k)
     if (!it) continue
-    items.push({ key: it.key, label: t(resolveLabelKey(it)) as string, icon: icon(it.icon) })
+    items.push({ key: it.key, label: t(resolveLabelKey(it)) as string, icon: icon(MENU_ICONS[it.iconKey]) })
   }
   return items
 }
@@ -175,10 +176,10 @@ const MainLayout = () => {
         data-mobile-open={mobileOpen}
       >
         <div className="rent-sidebar">
-          <div className="rent-sidebar__brand" style={{ cursor: 'pointer' }} onClick={handleGoHome}>
-            <img className="rent-sidebar__logo" src={brandLogo} alt="HaoFang.World" />
+          <button type="button" className="rent-sidebar__brand" onClick={handleGoHome}>
+            <img className="rent-sidebar__logo" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
             <span className="rent-sidebar__name">{brandLabel}</span>
-          </div>
+          </button>
           <nav className="rent-sidebar__nav no-scrollbar">
             {sections.map((section, si) => (
               <div key={si}>
@@ -186,10 +187,12 @@ const MainLayout = () => {
                   <div className="rent-sidebar__section-label">{section.label}</div>
                 )}
                 {section.items.map((item) => (
-                  <a
+                  <button
                     key={item.key}
+                    type="button"
                     className="rent-nav-item"
                     data-active={selectedKey === item.key}
+                    aria-current={selectedKey === item.key ? 'page' : undefined}
                     onMouseEnter={() => prefetchRoute(item.key)}
                     onFocus={() => prefetchRoute(item.key)}
                     onTouchStart={() => prefetchRoute(item.key)}
@@ -200,7 +203,7 @@ const MainLayout = () => {
                   >
                     {item.icon}
                     <span>{item.label}</span>
-                  </a>
+                  </button>
                 ))}
               </div>
             ))}
@@ -281,10 +284,12 @@ const MainLayout = () => {
           const active =
             selectedKey === item.key || location.pathname.startsWith(item.key + '/')
           return (
-            <a
+            <button
               key={item.key}
+              type="button"
               className="rent-mobile-nav__item"
               data-active={active}
+              aria-current={active ? 'page' : undefined}
               onMouseEnter={() => prefetchRoute(item.key)}
               onTouchStart={() => prefetchRoute(item.key)}
               onClick={(e) => {
@@ -294,7 +299,7 @@ const MainLayout = () => {
             >
               <span className="rent-mobile-nav__icon">{item.icon}</span>
               <span className="rent-mobile-nav__label">{item.label}</span>
-            </a>
+            </button>
           )
         })}
       </nav>

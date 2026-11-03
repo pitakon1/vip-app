@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 新房分类页（贝壳式）· 小程序 = 楼盘（项目）视角，数据面 `/public/projects`。
  *
@@ -35,7 +36,7 @@ import {
 } from '@/lib/categoryShared'
 import './index.scss'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 export default function CategoryNewPage() {
   const { t } = useI18n()
@@ -48,7 +49,7 @@ export default function CategoryNewPage() {
 
   useEffect(() => {
     publicApi
-      .projects({ sort: 'hot', page_size: 6 })
+      .projects({ sort: 'hot', page_size: CAROUSEL_PAGE_SIZE })
       .then((res: any) => setRail(unwrapPage<PublicProject>((res as any)?.data ?? res).items))
       .catch(() => setRail([]))
   }, [])

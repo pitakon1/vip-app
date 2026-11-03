@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { documentsApi } from '@/services/api'
+import { extractErrorMessage, unwrapUploadResult } from '@/lib/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import type { Document } from '@/types'
 import './index.scss'
@@ -10,6 +11,7 @@ import StateBlock from '@/components/StateBlock'
 import { iconStyle } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 
 const buildTypeMap = (
   t: (k: string, p?: Record<string, string | number>) => string
@@ -68,6 +70,9 @@ const buildTabs = (
 
 const isImageName = (name?: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(name || '')
 
+/** 与后端 documents.py 的 ALLOWED_DOCUMENT_TYPES 保持一致（扩展名白名单） */
+const UPLOAD_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'doc', 'docx', 'xls', 'xlsx']
+
 function pickList(res: any): Document[] {
   if (Array.isArray(res)) return res
   if (Array.isArray(res?.data)) return res.data
@@ -82,11 +87,16 @@ export default function TenantDocumentsPage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  // 后端上传归属：业主自动挂到本人名下；租客 403、员工/管理员需显式 owner_id，
+  // 本页没有业主选择器，因此上传入口仅对业主展示（避免必然失败的按钮）。
+  const role = useAuthStore((state) => state.user?.role)
+  const canUpload = role === 'owner'
   const [tab, setTab] = useState('all')
+  const [uploading, setUploading] = useState(false)
   const TYPE_MAP = buildTypeMap(t)
   const TABS = buildTabs(t)
 
-  const { data, loading, refresh } = useSwrCache<Document[]>({
+  const { data, loading, error, refresh } = useSwrCache<Document[]>({
     key: `tenant:documents:${uid}`,
     fetcher: async () => {
       const res = await documentsApi.list()
@@ -119,17 +129,45 @@ export default function TenantDocumentsPage() {
   }, [documents, tab])
 
   /**
-   * 小程序后端未提供文档上传接口（documentsApi 仅有 list），
-   * 对齐 App 上传能力需后端开放上传 API。此处不做本地假数据，
-   * 保留引导走线上流程；待后端补上传接口后再接入。
+   * 上传文档：后端已提供 `POST /documents/upload`（multipart，字段名 file）。
+   * 小程序端走 `documentsApi.uploadDocument`，内部使用绝对地址（Taro.uploadFile
+   * 不经过统一 request，相对路径会被微信域名白名单拦截）。
+   * 上传成功后刷新列表，新文档归入当前 Tab 对应的类型。
    */
-  const handleUpload = () => {
-    Taro.showModal({
-      title: t('tenantDocs.uploadTitle'),
-      content: t('tenantDocs.uploadNote'),
-      showCancel: false,
-      confirmText: t('common.gotIt')
-    })
+  const handleUpload = async () => {
+    if (uploading) return
+    try {
+      const picked = await Taro.chooseMessageFile({
+        count: 1,
+        type: 'file',
+        extension: UPLOAD_EXTENSIONS
+      })
+      const file = picked.tempFiles?.[0]
+      if (!file?.path) return
+      setUploading(true)
+      Taro.showLoading({ title: t('common.loading'), mask: true })
+      const uploadType = tab === 'contract' ? 'contract' : tab === 'receipt' ? 'receipt' : 'other'
+      const res: any = await documentsApi.uploadDocument(file.path, {
+        type: uploadType,
+        // 标题取文件名（去扩展名）；后端取不到标题时也会以文件名兜底
+        title: (file.name || 'document').replace(/\.[^.]+$/, '')
+      })
+      Taro.hideLoading()
+      if (res?.statusCode && res.statusCode >= 400) {
+        throw new Error(
+          extractErrorMessage(unwrapUploadResult(res), `上传失败，状态码：${res.statusCode}`)
+        )
+      }
+      Taro.showToast({ title: t('common.uploaded'), icon: 'success' })
+      await refresh(true)
+    } catch (err: any) {
+      Taro.hideLoading()
+      // 用户取消选文件不算失败，不弹错误提示
+      if (String(err?.errMsg || err?.message || '').includes('cancel')) return
+      Taro.showToast({ title:errorText(err, t('common.uploadFailed')), icon: 'none' })
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handlePreview = (doc: Document) => {
@@ -203,7 +241,15 @@ export default function TenantDocumentsPage() {
           {loading && documents.length === 0 && (
             <StateBlock loading text={t('common.loading')} />
           )}
-          {!loading && visibleDocs.length === 0 && (
+          {!loading && error && documents.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!loading && !error && visibleDocs.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('doc', 80)} />
               <Text>{t('tenantDocs.empty')}</Text>
@@ -239,9 +285,11 @@ export default function TenantDocumentsPage() {
         </ScrollView>
       </View>
 
-      <View className='doc-fab' onClick={handleUpload}>
-        <Text className='doc-fab-text'>＋</Text>
-      </View>
+      {canUpload && (
+        <View className={`doc-fab ${uploading ? 'doc-fab--disabled' : ''}`} onClick={handleUpload}>
+          <Text className='doc-fab-text'>＋</Text>
+        </View>
+      )}
     </View>
   )
 }

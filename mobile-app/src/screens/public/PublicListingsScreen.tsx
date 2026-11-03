@@ -1,3 +1,4 @@
+﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * C 端房源列表（匿名可浏览，无需注册）。
  *
@@ -34,10 +35,9 @@ import { publicApi, unwrapPage, type PublicListing, type PublicSchool } from '@/
 import { SCHOOL_RADIUS_OPTIONS, loadRates } from '@/lib/publicSite';
 import PublicListingRow from './PublicListingRow';
 import PublicBackRow from './PublicBackRow';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 type TypeKey = '' | 'rent' | 'sell';
 type SortKey = 'latest' | 'price_asc' | 'price_desc' | 'area_desc' | 'distance';
@@ -83,6 +83,7 @@ export default function PublicListingsScreen() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const reqSeq = useRef(0);
@@ -91,7 +92,7 @@ export default function PublicListingsScreen() {
     void loadRates();
     // 学校清单只为筛选器备选，取前 100 条即可（列表页不需要全量学校）
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
       .catch(() => setSchools([]));
   }, []);
@@ -121,8 +122,12 @@ export default function PublicListingsScreen() {
   const fetchPage = useCallback(
     async (targetPage: number) => {
       const seq = ++reqSeq.current;
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
+      if (targetPage === 1) {
+        setLoading(true);
+        setLoadError(null);
+      } else {
+        setLoadingMore(true);
+      }
       try {
         const res: any = await publicApi.listings({
           page: targetPage,
@@ -137,10 +142,7 @@ export default function PublicListingsScreen() {
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]));
       } catch {
         if (seq !== reqSeq.current) return;
-        if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-        }
+        if (targetPage === 1) setLoadError(t('loadFailed'));
       } finally {
         if (seq === reqSeq.current) {
           setLoading(false);
@@ -256,10 +258,21 @@ export default function PublicListingsScreen() {
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
 
       {/* ---- 列表 ---- */}
-      {loading ? (
-        <LoadingState label={t('pub.loading')} />
-      ) : items.length === 0 ? (
-        <EmptyState icon="home-outline" title={t('pub.empty')} sub={t('pub.listingsHint')} />
+      {loading || loadError || items.length === 0 ? (
+        <ListState
+          loading={loading}
+          loadingLabel={t('pub.loading')}
+          error={loadError}
+          empty={items.length === 0}
+          filtered={!!(type || debounced || schoolId || priceMin || priceMax || areaMin || areaMax || bedsMin)}
+          emptyTitle={t('pub.empty')}
+          emptySub={t('pub.listingsHint')}
+          retryLabel={t('retry')}
+          onRetry={() => {
+            setLoadError(null);
+            void fetchPage(1);
+          }}
+        />
       ) : (
         <FlatList
           data={items}
@@ -510,7 +523,8 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: colors.ink, fontWeight: '700' },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 12 },
   chip: {
-    maxWidth: 200,
+     minHeight: 44,
+     maxWidth: 200,
     height: 34,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,

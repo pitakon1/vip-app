@@ -1,3 +1,4 @@
+import { SHOWCASE_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -7,6 +8,7 @@ import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
+import LazyImage from '@/components/LazyImage'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import brandLogo from '@/assets/haofang-logo.jpg'
@@ -67,7 +69,7 @@ const GOLD_NAV: { key: string; labelKey: string; to: string; color: string; icon
 const STATUS_CLASS: Record<string, string> = {
   vacant: 'rent-status-tag--vacant',
   rented: 'rent-status-tag--rented',
-  reserved: 'rent-status-tag--reserved',
+  renewing: 'rent-status-tag--renewing',
   maintenance: 'rent-status-tag--maintenance',
 }
 
@@ -104,7 +106,7 @@ const Home = () => {
     cacheKey: 'home:featured',
     queryFn: async () => {
       try {
-        const res = await api.get('/public/listings', { params: { page_size: 8 } })
+        const res = await api.get('/public/listings', { params: { page_size: SHOWCASE_PAGE_SIZE } })
         const payload = res.data?.data ?? res.data
         const items = payload?.items
         return Array.isArray(items) ? items.slice(0, 8) : []
@@ -152,7 +154,7 @@ const Home = () => {
       <header className="rent-portal__header">
         <div className="rent-portal__left">
           <div className="rent-portal__brand" onClick={() => navigate('/')}>
-            <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" />
+            <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
             <span className="rent-portal__name">HaoFang.World</span>
           </div>
           {/* 左上角全局定位：国家 → 城市（对齐贝壳「logo 旁即城市」的首屏心智） */}
@@ -227,7 +229,7 @@ const Home = () => {
             </div>
             <div className="rent-search-hero__tags">
               {searchTags.map((tag) => (
-                <a className="rent-search-hero__tag" key={tag} onClick={handleSearch}>{tag}</a>
+                <button type="button" className="rent-search-hero__tag" key={tag} onClick={handleSearch}>{tag}</button>
               ))}
             </div>
           </div>
@@ -254,12 +256,12 @@ const Home = () => {
         <section className="rent-section">
           <div className="rent-section__head">
             <h2 className="rent-section__title">{t('browse.featured')}</h2>
-            <a className="rent-section__link" onClick={handleSearch}>
+            <button type="button" className="rent-section__link" onClick={handleSearch}>
               {t('browse.more')}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
-            </a>
+            </button>
           </div>
           <div className="rent-prop-grid">
             {props.length === 0 ? (
@@ -297,7 +299,7 @@ const Home = () => {
                       </svg>
                     </button>
                     {cover ? (
-                      <img className="rent-prop-search-card__cover" src={cover} alt={title} loading="lazy" />
+                      <LazyImage className="rent-prop-search-card__cover" src={cover} alt={title} />
                     ) : (
                       <svg className="rent-prop-search-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d={TYPE_ICON_PATH(ptype)} />
@@ -400,21 +402,21 @@ const Home = () => {
           </div>
           <div className="rent-footer__col">
             <div className="rent-footer__col-title">{t('home.footerProduct')}</div>
-            <a onClick={handleSearch}>{t('browse.rent')}</a>
-            <a onClick={handleSearch}>{t('browse.buy')}</a>
-            <a onClick={() => navigate('/map')}>{t('browse.mapFind')}</a>
-            <a onClick={goVideoTour}>{t('browse.video')}</a>
+            <button type="button" onClick={handleSearch}>{t('browse.rent')}</button>
+            <button type="button" onClick={handleSearch}>{t('browse.buy')}</button>
+            <button type="button" onClick={() => navigate('/map')}>{t('browse.mapFind')}</button>
+            <button type="button" onClick={goVideoTour}>{t('browse.video')}</button>
           </div>
           <div className="rent-footer__col">
             <div className="rent-footer__col-title">{t('home.footerAbout')}</div>
-            <a onClick={() => navigate('/login')}>{t('home.login')}</a>
-            <a onClick={() => navigate('/company')}>{t('menu.company')}</a>
+            <button type="button" onClick={() => navigate('/login')}>{t('home.login')}</button>
+            <button type="button" onClick={() => navigate('/company')}>{t('menu.company')}</button>
           </div>
           <div className="rent-footer__col">
             <div className="rent-footer__col-title">{t('home.footerContact')}</div>
-            <a>contact@rentflow.com</a>
-            <a>+66 2 123 4567</a>
-            <a>Bangkok, Thailand</a>
+            <a tabIndex={-1}>contact@rentflow.com</a>
+            <a tabIndex={-1}>+66 2 123 4567</a>
+            <a tabIndex={-1}>Bangkok, Thailand</a>
           </div>
         </div>
         <div className="rent-footer__bottom">

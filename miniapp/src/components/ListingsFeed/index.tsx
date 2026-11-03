@@ -15,6 +15,8 @@ import { fmtMoney as formatRent } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
 import type { MetroLine } from '@/data/locationMetro'
 import type { DistrictOptionNode } from '@/lib/categoryShared'
+import { AREA_TIERS_5, PRICE_TIERS } from '@/constants/filters'
+import { EARTH_RADIUS_KM } from '@/constants/location'
 import { useI18n } from '@/i18n'
 
 // ==================== 类型 ====================
@@ -124,12 +126,20 @@ export const SORT_OPTIONS = [
 
 // ==================== 价格筛选（对齐贝壳「价格」弹层：预设区间 + 自定义最低/最高 + 重置/确定） ====================
 export interface PricePreset { key: string; label: string; min: number; max: number }
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'tl.priceU3',
+  '3-5': 'pub.range.35',
+  '5-8': 'tl.price58',
+  g8: 'tl.priceG8'
+}
 export const PRICE_PRESETS: PricePreset[] = [
   { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
-  { key: 'u3', label: 'tl.priceU3', min: 0, max: 30000 },
-  { key: '3-5', label: 'pub.range.35', min: 30000, max: 50000 },
-  { key: '5-8', label: 'tl.price58', min: 50000, max: 80000 },
-  { key: 'g8', label: 'tl.priceG8', min: 80000, max: Infinity }
+  ...PRICE_TIERS.map((tier) => ({
+    key: tier.key,
+    label: PRICE_LABELS[tier.key],
+    min: tier.min,
+    max: tier.max ?? Infinity
+  }))
 ]
 
 // 户型 / 面积 / 状态（与价格同构的贝壳式快捷选项）
@@ -184,20 +194,30 @@ export const AMENITY_OPTIONS = [
   { key: 'garden', label: 'tl.amenityGarden' }
 ]
 
+const AREA_LABELS: Record<string, string> = {
+  '0-50': 'pub.area.u50',
+  '50-100': 'pub.area.50100',
+  '100-150': 'pub.area.100150',
+  '150-200': 'pub.area.150200',
+  '200+': 'pub.area.g200'
+}
+// 本组件沿用历史筛选 key（u50 / g200），与 constants 的档位边界解耦
+const AREA_PRESET_KEYS: Record<string, string> = { '0-50': 'u50', '200+': 'g200' }
 export const AREA_PRESETS = [
   { key: '', label: 'pub.filterAny', min: 0, max: Infinity },
-  { key: 'u50', label: 'pub.area.u50', min: 0, max: 50 },
-  { key: '50-100', label: 'pub.area.50100', min: 50, max: 100 },
-  { key: '100-150', label: 'pub.area.100150', min: 100, max: 150 },
-  { key: '150-200', label: 'pub.area.150200', min: 150, max: 200 },
-  { key: 'g200', label: 'pub.area.g200', min: 200, max: Infinity }
+  ...AREA_TIERS_5.map((tier) => ({
+    key: AREA_PRESET_KEYS[tier.key] ?? tier.key,
+    label: AREA_LABELS[tier.key],
+    min: tier.min,
+    max: tier.max ?? Infinity
+  }))
 ]
 
 export const STATUS_OPTIONS = [
   { key: '', label: 'pub.filterAny' },
   { key: 'vacant', label: 'pub.statusVacant' },
   { key: 'rented', label: 'pub.statusRented' },
-  { key: 'reserved', label: 'pub.statusReserved' },
+  { key: 'renewing', label: 'prop.statusRenewing' },
   { key: 'maintenance', label: 'pub.statusMaintenance' }
 ]
 
@@ -229,7 +249,7 @@ const haversineKm = (
   a: { lat: number; lng: number },
   b: { lat: number; lng: number }
 ): number => {
-  const R = 6371
+  const R = EARTH_RADIUS_KM
   const toRad = (d: number) => (d * Math.PI) / 180
   const dLat = toRad(b.lat - a.lat)
   const dLng = toRad(b.lng - a.lng)
@@ -349,7 +369,7 @@ const statusMetaOf = (
   const map: Record<string, { text: string; color: string }> = {
     vacant: { text: t('pub.statusVacant'), color: 'var(--success)' },
     rented: { text: t('pub.statusRented'), color: 'var(--primary)' },
-    reserved: { text: t('pub.statusReserved'), color: 'var(--primary)' },
+    renewing: { text: t('prop.statusRenewing'), color: 'var(--primary)' },
     maintenance: { text: t('pub.statusMaintenance'), color: 'var(--warning)' }
   }
   return map[s || ''] || map.vacant

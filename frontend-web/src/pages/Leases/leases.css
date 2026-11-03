@@ -13,5 +13,5 @@
 
 /* 弹窗表单行间距微调 */
 .leases-modal .rent-form-group {
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
 }

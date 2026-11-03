@@ -1,512 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Tabs } from 'antd'
 import { useTranslation } from 'react-i18next'
-import { message, Alert, Button, Tabs, Empty, Spin, Modal, Form, Select, InputNumber, Switch, Popconfirm } from 'antd'
-import { commissionRulesApi, employeesApi, commissionSplitRulesApi } from '@/services/api'
-import api from '@/lib/api'
-import useAuthStore from '@/stores/auth'
-import { useCachedQuery } from '@/lib/queryCache'
 import './commission-rules.css'
+import { useCommissionLabels } from './hooks/useCommissionLabels'
+import { useCommissionRulesList } from './hooks/useCommissionRulesList'
+import { useCommissionRuleForm } from './hooks/useCommissionRuleForm'
+import { useSplitRules } from './hooks/useSplitRules'
+import CommissionRulesTab from './components/CommissionRulesTab'
+import SplitRulesTab from './components/SplitRulesTab'
+import CommissionRuleModal from './components/CommissionRuleModal'
+import SplitRuleModal from './components/SplitRuleModal'
 
-type DealType = 'new_rental' | 'renewal' | 'management'
-type Scope = 'all_employees' | 'by_department' | 'by_employee' | 'by_broker'
-
-// 分佣拆分规则（对应后端 /commission-split-rules）
-type SplitRole = 'listing_agent' | 'client_agent' | 'handler' | 'partner_company' | 'platform'
-type SplitScope = 'all' | 'by_partner'
-
-interface SplitRule {
-  id: string
-  deal_type: DealType
-  role: SplitRole
-  percent: number
-  scope: SplitScope
-  partner_id?: string
-  is_active: boolean
-  effective_from?: string
-  effective_to?: string
-  created_at?: string
-}
-
-interface SplitForm {
-  deal_type: DealType
-  role: SplitRole
-  percent: number
-  scope: SplitScope
-  partner_id: string
-  is_active: boolean
-  effective_from?: string
-  effective_to?: string
-}
-
-// 佣金角色文案
-const ROLE_LABELS: Record<string, string> = {
-  listing_agent: 'commissionSplit.role.listingAgent',
-  client_agent: 'commissionSplit.role.clientAgent',
-  handler: 'commissionSplit.role.handler',
-  partner_company: 'commissionSplit.role.partnerCompany',
-  platform: 'commissionSplit.role.platform',
-}
-const SCOPE_LABELS: Record<string, string> = {
-  all: 'commissionSplit.scope.all',
-  by_partner: 'commissionSplit.scope.byPartner',
-}
-
-interface CommissionRule {
-  id: string
-  name: string
-  deal_type: DealType
-  rate: number
-  scope: Scope
-  department?: string
-  employee_id?: string
-  employee_name?: string
-  broker_id?: string
-  broker_name?: string
-  cap_amount?: number
-  minimum_amount?: number
-  description?: string
-  is_active: boolean
-}
-
-interface FormState {
-  name: string
-  deal_type: DealType
-  rate: string
-  scope: Scope | 'broker_employee'
-  department: string
-  employee_id: string
-  broker_id: string
-  broker_employee_id: string
-  cap_amount: string
-  minimum_amount: string
-  description: string
-  is_active: boolean
-}
-
-// 适用对象层级：管理员可配置全部；分销商管理员仅本渠道及本渠道员工
-const emptyForm = (): FormState => ({
-  name: '',
-  deal_type: 'new_rental',
-  rate: '',
-  scope: 'all_employees',
-  department: '',
-  employee_id: '',
-  broker_id: '',
-  broker_employee_id: '',
-  cap_amount: '',
-  minimum_amount: '',
-  description: '',
-  is_active: true,
-})
-
-interface Employee {
-  id: string
-  full_name: string
-  department: string
-  broker_id?: string
-}
-
-interface Broker {
-  id: string
-  partner_name: string
-}
-
-interface DropOpt {
-  value: string
-  label: string
-}
-
-// 可搜索下拉选择器（员工 / 分销商）
-function SearchSelect({
-  placeholder,
-  value,
-  options,
-  onChange,
-}: {
-  placeholder: string
-  value: string
-  options: DropOpt[]
-  onChange: (v: string) => void
-}) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [kw, setKw] = useState('')
-  const current = options.find((o) => o.value === value)
-  const filtered = kw.trim()
-    ? options.filter((o) => o.label.toLowerCase().includes(kw.trim().toLowerCase()))
-    : options
-  return (
-    <div className="rent-search-select">
-      <button type="button" className="rent-search-select__trigger" onClick={() => setOpen(!open)}>
-        <span className={current ? '' : 'rent-text-muted'}>{current ? current.label : placeholder}</span>
-        <span className="rent-search-select__arrow">▾</span>
-      </button>
-      {open && (
-        <div className="rent-search-select__menu">
-          <input
-            autoFocus
-            className="rent-search-select__search"
-            placeholder={t('commissionRules.search')}
-            value={kw}
-            onChange={(e) => setKw(e.target.value)}
-          />
-          {filtered.length === 0 && <div className="rent-search-select__empty">{t('commissionRules.noMatch')}</div>}
-          {filtered.map((o) => (
-            <div
-              key={o.value}
-              className={`rent-search-select__option ${value === o.value ? 'is-active' : ''}`}
-              onClick={() => {
-                onChange(o.value)
-                setOpen(false)
-                setKw('')
-              }}
-            >
-              {o.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+/**
+ * 佣金规则页：费用规则（列表/分页/新建/编辑/启停/删除）+ 分佣拆分规则（admin）。
+ *
+ * 纯结构拆分：本文件只保留页面编排与两个 Tab 的挂载，
+ * 数据查询、写操作、表单与表格视图均落在本页面私有目录内。
+ */
 
 const CommissionRules = () => {
-  const { user } = useAuthStore()
   const { t } = useTranslation()
-  // 角色：平台管理员可选全部层级；分销商管理员（agent/employee 绑定渠道）仅本渠道 + 本渠道员工（后端已按角色鉴权）
-  const isAdmin = user?.role === 'admin'
-  const dealTypeText: Record<DealType, string> = {
-    new_rental: t('commissionRules.dealType.new_rental'),
-    renewal: t('commissionRules.dealType.renewal'),
-    management: t('commissionRules.dealType.management'),
-  }
-  const scopeText: Record<Scope, string> = {
-    all_employees: t('commissionRules.scope.all_employees'),
-    by_department: t('commissionRules.scope.by_department'),
-    by_employee: t('commissionRules.scope.by_employee'),
-    by_broker: t('commissionRules.scope.by_broker'),
-  }
-  const scopeOptions: { value: string; label: string }[] = [
-    { value: 'all_employees', label: t('commissionRules.scopeOption.all_employees') },
-    { value: 'by_department', label: t('commissionRules.scopeOption.by_department') },
-    { value: 'by_employee', label: t('commissionRules.scopeOption.by_employee') },
-    { value: 'by_broker', label: t('commissionRules.scopeOption.by_broker') },
-    { value: 'broker_employee', label: t('commissionRules.scopeOption.broker_employee') },
-  ]
-  const brokerScopeOptions: { value: string; label: string }[] = [
-    { value: 'by_broker', label: t('commissionRules.brokerScopeOption.by_broker') },
-    { value: 'by_employee', label: t('commissionRules.brokerScopeOption.by_employee') },
-  ]
-  const [submitting, setSubmitting] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<FormState>(emptyForm())
-  const [page, setPage] = useState(1)
-
-  // 分佣拆分规则（admin）：/commission-split-rules
-  const [splitRules, setSplitRules] = useState<SplitRule[]>([])
-  const [splitLoading, setSplitLoading] = useState(false)
-  const [splitError, setSplitError] = useState(false)
-  const [splitModalOpen, setSplitModalOpen] = useState(false)
-  const [splitEditId, setSplitEditId] = useState<string | null>(null)
-  const [splitSaving, setSplitSaving] = useState(false)
-  const [splitForm] = Form.useForm<SplitForm>()
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([])
-
-  const fetchSplitRules = useCallback(async () => {
-    setSplitLoading(true)
-    setSplitError(false)
-    try {
-      const res = await commissionSplitRulesApi.list({ page_size: 200 })
-      const payload = res.data?.data ?? res.data
-      setSplitRules(payload?.items ?? payload ?? [])
-    } catch {
-      setSplitRules([])
-      setSplitError(true)
-    } finally {
-      setSplitLoading(false)
-    }
-  }, [])
-
-  // 合作公司下拉（admin）：/admin/partners
-  const fetchPartners = useCallback(async () => {
-    try {
-      const res = await api.get('/admin/partners', { params: { page_size: 100 } })
-      const payload = res.data?.data ?? res.data
-      setPartners((payload?.items ?? payload ?? []).map((p: any) => ({ id: String(p.id), name: p.name || p.partner_name || '—' })))
-    } catch {
-      setPartners([])
-    }
-  }, [])
-
-  const openSplitCreate = () => {
-    setSplitEditId(null)
-    splitForm.resetFields()
-    splitForm.setFieldsValue({ deal_type: 'new_rental', role: 'listing_agent', scope: 'all', is_active: true, percent: 0 })
-    setSplitModalOpen(true)
-  }
-
-  const openSplitEdit = (rule: SplitRule) => {
-    setSplitEditId(rule.id)
-    splitForm.setFieldsValue({
-      deal_type: rule.deal_type,
-      role: rule.role,
-      percent: rule.percent ?? 0,
-      scope: rule.scope,
-      partner_id: rule.partner_id || undefined,
-      is_active: rule.is_active,
-      effective_from: rule.effective_from,
-      effective_to: rule.effective_to,
-    })
-    setSplitModalOpen(true)
-  }
-
-  const handleSplitSubmit = async () => {
-    try {
-      const values = await splitForm.validateFields()
-      setSplitSaving(true)
-      const payload: any = {
-        deal_type: values.deal_type,
-        role: values.role,
-        percent: Number(values.percent) || 0,
-        scope: values.scope,
-        is_active: values.is_active,
-        effective_from: values.effective_from || undefined,
-        effective_to: values.effective_to || undefined,
-      }
-      if (values.scope === 'by_partner') {
-        if (!values.partner_id) {
-          message.error(t('commissionSplit.errPartner'))
-          return
-        }
-        payload.partner_id = values.partner_id
-      }
-      if (splitEditId) {
-        await commissionSplitRulesApi.update(splitEditId, payload)
-        message.success(t('commissionSplit.updated'))
-      } else {
-        await commissionSplitRulesApi.create(payload)
-        message.success(t('commissionSplit.created'))
-      }
-      setSplitModalOpen(false)
-      void fetchSplitRules()
-    } catch (err: any) {
-      if (err?.errorFields) return
-      message.error(err?.response?.data?.message || err?.response?.data?.detail || t('commissionSplit.saveFailed'))
-    } finally {
-      setSplitSaving(false)
-    }
-  }
-
-  const handleSplitToggle = async (rule: SplitRule) => {
-    try {
-      await commissionSplitRulesApi.update(rule.id, { is_active: !rule.is_active })
-      message.success(rule.is_active ? t('commissionSplit.ruleDisabled') : t('commissionSplit.ruleEnabled'))
-      void fetchSplitRules()
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('commissionSplit.opFailed'))
-    }
-  }
-
-  const handleSplitDelete = async (rule: SplitRule) => {
-    try {
-      await commissionSplitRulesApi.remove(rule.id)
-      message.success(t('commissionSplit.deleted'))
-      void fetchSplitRules()
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('commissionSplit.deleteFailed'))
-    }
-  }
-
-  // 规则列表：缓存优先渲染 + 后台刷新（与其余页面策略一致）
-  const rulesQ = useCachedQuery<CommissionRule[]>({
-    queryKey: ['commission-rules', 'list'],
-    cacheKey: 'commission-rules:list',
-    queryFn: async () => {
-      const res = await commissionRulesApi.list()
-      const payload = res.data?.data ?? res.data
-      return payload?.items ?? payload ?? []
-    },
-  })
-  // 员工 / 分销商下拉：非关键数据，失败静默降级为空
-  const employeesQ = useCachedQuery<Employee[]>({
-    queryKey: ['commission-rules', 'employees'],
-    cacheKey: 'commission-rules:employees',
-    queryFn: async () => {
-      try {
-        const res = await employeesApi.list({ page: 1, page_size: 100 })
-        const payload = res.data?.data ?? res.data
-        return payload?.items ?? payload ?? []
-      } catch {
-        return []
-      }
-    },
-  })
-  const brokersQ = useCachedQuery<Broker[]>({
-    queryKey: ['commission-rules', 'brokers'],
-    cacheKey: 'commission-rules:brokers',
-    queryFn: async () => {
-      try {
-        const res = await api.get('/brokers', { params: { page_size: 100 } })
-        const payload = res.data?.data ?? res.data
-        return (payload?.items ?? []).map((b: Broker) => ({ id: b.id, partner_name: b.partner_name }))
-      } catch {
-        return []
-      }
-    },
-  })
-
-  const items = rulesQ.data ?? []
-  const employees = employeesQ.data ?? []
-  const brokers = brokersQ.data ?? []
-  const loading = rulesQ.isPending && !rulesQ.data
-  const loadFailed = rulesQ.isError
-  const refresh = () => { void rulesQ.refetch({ cancelRefetch: false }) }
-
-  // 加载失败提示（保留原有 toast 行为）
-  useEffect(() => {
-    if (rulesQ.isError) {
-      message.error((rulesQ.error as any)?.response?.data?.message || t('commissionRules.fetchFailed'))
-    }
-  }, [rulesQ.isError, rulesQ.error, t])
-
-  // 分佣拆分规则加载 + 合作公司下拉
-  useEffect(() => {
-    void fetchSplitRules()
-    void fetchPartners()
-  }, [fetchSplitRules, fetchPartners])
-
-  // 前端本地分页（规则量小，保持现有接口不变）
-  const pageSize = 10
-  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
-  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
-
-  // 删除/禁用后当前页可能超出范围，自动回退到可用的最后一页
-  useEffect(() => {
-    if (page > pageCount) setPage(pageCount)
-  }, [page, pageCount])
-
-  const openCreate = () => {
-    setEditingId(null)
-    setForm(emptyForm())
-    setModalOpen(true)
-  }
-
-  const openEdit = (rule: CommissionRule) => {
-    setEditingId(rule.id)
-    setForm({
-      name: rule.name,
-      deal_type: rule.deal_type,
-      rate: String(rule.rate ?? ''),
-      scope: rule.scope,
-      department: rule.department || '',
-      employee_id: rule.employee_id || '',
-      broker_id: rule.broker_id || '',
-      broker_employee_id: rule.employee_id || '',
-      cap_amount: rule.cap_amount != null ? String(rule.cap_amount) : '',
-      minimum_amount: rule.minimum_amount != null ? String(rule.minimum_amount) : '',
-      description: rule.description || '',
-      is_active: rule.is_active,
-    })
-    setModalOpen(true)
-  }
-
-  const rateAsPercent = (rate: number) => `${Number(rate ?? 0)}%`
-
-  const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      message.error(t('commissionRules.errName'))
-      return
-    }
-    if (!form.rate || Number(form.rate) < 0) {
-      message.error(t('commissionRules.errRate'))
-      return
-    }
-    if (form.scope === 'by_department' && !form.department.trim()) {
-      message.error(t('commissionRules.errDept'))
-      return
-    }
-    if ((form.scope === 'by_employee' || form.scope === 'broker_employee') && form.scope === 'by_employee' && !form.employee_id) {
-      message.error(t('commissionRules.errEmployee'))
-      return
-    }
-    if (form.scope === 'broker_employee') {
-      if (!form.broker_id) {
-        message.error(t('commissionRules.errBrokerRequired'))
-        return
-      }
-      if (!form.broker_employee_id) {
-        message.error(t('commissionRules.errBrokerEmployee'))
-        return
-      }
-    }
-    try {
-      setSubmitting(true)
-      const payload: any = {
-        name: form.name,
-        deal_type: form.deal_type,
-        rate: Number(form.rate),
-        scope: form.scope === 'broker_employee' ? 'by_employee' : form.scope,
-        description: form.description || undefined,
-        is_active: form.is_active,
-      }
-      if (form.scope === 'by_department') payload.department = form.department
-      if (form.scope === 'by_employee' || form.scope === 'broker_employee') {
-        payload.employee_id = form.scope === 'broker_employee' ? form.broker_employee_id : form.employee_id
-      }
-      if (form.scope === 'broker_employee') payload.broker_id = form.broker_id
-      if (form.scope === 'by_broker' && isAdmin && !form.broker_id) {
-        message.error(t('commissionRules.errBrokerRequired'))
-        return
-      }
-      if (form.scope === 'by_broker' && isAdmin) payload.broker_id = form.broker_id
-      if (form.cap_amount !== '') payload.cap_amount = Number(form.cap_amount)
-      if (form.minimum_amount !== '') payload.minimum_amount = Number(form.minimum_amount)
-
-      if (editingId) {
-        await commissionRulesApi.update(editingId, payload)
-        message.success(t('commissionRules.updated'))
-      } else {
-        await commissionRulesApi.create(payload)
-        message.success(t('commissionRules.created'))
-      }
-      setModalOpen(false)
-      refresh()
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('commissionRules.saveFailed'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const toggleActive = async (rule: CommissionRule) => {
-    try {
-      await commissionRulesApi.update(rule.id, { is_active: !rule.is_active })
-      message.success(rule.is_active ? t('commissionRules.ruleDisabled') : t('commissionRules.ruleEnabled'))
-      refresh()
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('commissionRules.opFailed'))
-    }
-  }
-
-  const handleDelete = async (rule: CommissionRule) => {
-    if (!window.confirm(t('commissionRules.deleteConfirm', { name: rule.name }))) return
-    try {
-      await commissionRulesApi.delete(rule.id)
-      message.success(t('commissionRules.deleted'))
-      refresh()
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || t('commissionRules.deleteFailed'))
-    }
-  }
-
-  const set = (field: keyof FormState, value: string | boolean) =>
-    setForm((p) => ({ ...p, [field]: value }))
-
-  // 分销商员工：二级选择时的候选员工（按所选分销商过滤）
-  const brokerEmployeeOptions = form.scope === 'broker_employee' && form.broker_id
-    ? employees.filter((e) => e.broker_id === form.broker_id)
-    : employees
+  const labels = useCommissionLabels()
+  const list = useCommissionRulesList()
+  const ruleForm = useCommissionRuleForm(list.refresh, labels.isAdmin, list.employees)
+  const split = useSplitRules()
 
   return (
     <div className="rent-main">
@@ -516,7 +32,7 @@ const CommissionRules = () => {
           <p className="rent-page-header__subtitle">{t('commissionRules.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
-          <button className="rent-btn rent-btn--primary" onClick={openCreate}>
+          <button className="rent-btn rent-btn--primary" onClick={ruleForm.openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -533,496 +49,76 @@ const CommissionRules = () => {
             key: 'fees',
             label: t('commissionSplit.tabFees'),
             children: (
-              <>
-      {loadFailed && !loading && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={t('commissionRules.fetchFailed')}
-          action={<Button size="small" onClick={() => refresh()}>{t('common.retry')}</Button>}
-        />
-      )}
-
-      {loading ? (
-        <div className="rent-empty"><div className="rent-text-muted">{t('common.loading')}</div></div>
-      ) : (
-        <div className="rent-card">
-          <div className="rent-card__header">
-            <h3 className="rent-card__title">{t('commissionRules.listTitle')}</h3>
-            <span className="rent-badge rent-badge--neutral">{t('commissionRules.countItem', { count: items.length })}</span>
-          </div>
-          <div className="rent-card__body" style={{ padding: 0 }}>
-            {items.length === 0 ? (
-              <div className="rent-empty rent-text-muted">{t('commissionRules.empty')}</div>
-            ) : (
-              <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-                <table className="rent-table">
-                  <thead>
-                    <tr>
-                      <th>{t('commissionRules.colName')}</th>
-                      <th>{t('commissionRules.colDealType')}</th>
-                      <th>{t('commissionRules.colRate')}</th>
-                      <th>{t('commissionRules.colScope')}</th>
-                      <th>{t('commissionRules.colLimits')}</th>
-                      <th>{t('commissionRules.colStatus')}</th>
-                      <th>{t('commissionRules.colAction')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedItems.map((r) => {
-                      const scopeDetail =
-                        r.scope === 'by_department'
-                          ? r.department || '—'
-                          : r.scope === 'by_employee'
-                            ? r.employee_name || r.employee_id || '—'
-                            : r.scope === 'by_broker'
-                              ? brokers.find((b) => b.id === r.broker_id)?.partner_name || r.broker_id || '—'
-                              : t('commissionRules.allScope')
-                      const limits =
-                        r.minimum_amount != null || r.cap_amount != null
-                          ? `฿${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `฿${Number(r.cap_amount)}` : t('commissionRules.noCap')}`
-                          : t('commissionRules.noLimit')
-                      return (
-                        <tr key={r.id}>
-                          <td>
-                            <div>{r.name}</div>
-                            {r.description && (
-                              <div className="rent-text-sm rent-text-muted" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {r.description}
-                              </div>
-                            )}
-                          </td>
-                          <td>{dealTypeText[r.deal_type] || r.deal_type}</td>
-                          <td className="cr-rate">{rateAsPercent(r.rate)}</td>
-                          <td>
-                            <div>{scopeText[r.scope] || r.scope}</div>
-                            <div className="rent-text-sm rent-text-muted">{scopeDetail}</div>
-                          </td>
-                          <td><span className="rent-table__mono">{limits}</span></td>
-                          <td>
-                            <span className={`rent-badge ${r.is_active ? 'rent-badge--success' : 'rent-badge--neutral'}`}>
-                              {r.is_active ? t('commissionRules.active') : t('commissionRules.inactive')}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="rent-flex rent-gap-2">
-                              <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openEdit(r)}>{t('common.edit')}</button>
-                              <button
-                                className="rent-btn rent-btn--ghost rent-btn--sm"
-                                onClick={() => toggleActive(r)}
-                              >
-                                {r.is_active ? t('commissionRules.inactive') : t('commissionRules.active')}
-                              </button>
-                              <button
-                                className="rent-btn rent-btn--ghost rent-btn--sm"
-                                style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
-                                onClick={() => handleDelete(r)}
-                              >
-                                {t('common.delete')}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {items.length > 0 && (
-              <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
-                <span className="rent-pagination__info">共 {items.length} 条 · 每页 {pageSize} 条</span>
-                <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>上一页</button>
-                <span className="rent-pagination__info">{page} / {pageCount}</span>
-                <button className="rent-pagination__btn" onClick={() => setPage(Math.min(pageCount, page + 1))} disabled={page >= pageCount}>下一页</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      <div className="rent-form-hint" style={{ marginTop: 12 }}>
-        {t('commissionRules.rulesHint')}
-      </div>
-              </>
+              <CommissionRulesTab
+                loading={list.loading}
+                loadFailed={list.loadFailed}
+                items={list.items}
+                pagedItems={list.pagedItems}
+                page={list.page}
+                pageCount={list.pageCount}
+                pageSize={list.pageSize}
+                brokers={list.brokers}
+                dealTypeText={labels.dealTypeText}
+                scopeText={labels.scopeText}
+                onRefresh={list.refresh}
+                onPrev={() => list.setPage(Math.max(1, list.page - 1))}
+                onNext={() => list.setPage(Math.min(list.pageCount, list.page + 1))}
+                onEdit={ruleForm.openEdit}
+                onToggle={ruleForm.toggleActive}
+                onDelete={ruleForm.handleDelete}
+              />
             ),
           },
           {
             key: 'split',
             label: t('commissionSplit.tabSplit'),
             children: (
-              <div className="rent-card">
-                <div className="rent-card__header">
-                  <h3 className="rent-card__title">{t('commissionSplit.title')}</h3>
-                  <span className="rent-text-sm rent-text-muted">{t('commissionSplit.subtitle')}</span>
-                  <Button type="primary" size="small" style={{ marginLeft: 'auto' }} onClick={openSplitCreate}>
-                    {t('commissionSplit.addRule')}
-                  </Button>
-                </div>
-                <div className="rent-card__body" style={{ padding: 0 }}>
-                  {splitError && (
-                    <Alert
-                      type="warning"
-                      showIcon
-                      style={{ margin: 16 }}
-                      message={t('commissionSplit.errFetch')}
-                      action={<Button size="small" onClick={() => fetchSplitRules()}>{t('common.retry')}</Button>}
-                    />
-                  )}
-                  {!splitError && splitLoading && (
-                    <div className="rent-empty" style={{ padding: '32px 0' }}>
-                      <Spin size="small" style={{ marginRight: 8 }} />
-                      {t('common.loading')}
-                    </div>
-                  )}
-                  {!splitError && !splitLoading && (
-                    <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-                      <table className="rent-table">
-                        <thead>
-                          <tr>
-                            <th>{t('commissionSplit.colDealType')}</th>
-                            <th>{t('commissionSplit.colRole')}</th>
-                            <th>{t('commissionSplit.colPercent')}</th>
-                            <th>{t('commissionSplit.colScope')}</th>
-                            <th>{t('commissionSplit.colEffective')}</th>
-                            <th>{t('commissionSplit.colStatus')}</th>
-                            <th>{t('commissionRules.colAction')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {splitRules.length === 0 ? (
-                            <tr>
-                              <td colSpan={7}>
-                                <div className="rent-empty">
-                                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('commissionSplit.empty')} />
-                                </div>
-                              </td>
-                            </tr>
-                          ) : (
-                            splitRules.map((rule) => {
-                              const scopeText = SCOPE_LABELS[rule.scope] ? t(SCOPE_LABELS[rule.scope]) : rule.scope
-                              const partnerName = rule.scope === 'by_partner'
-                                ? (partners.find((p) => p.id === rule.partner_id)?.name || rule.partner_id || '—')
-                                : ''
-                              const eff = [rule.effective_from, rule.effective_to]
-                                .filter((x) => !!x)
-                                .map((x) => String(x).replace('T', ' ').slice(0, 10))
-                              return (
-                                <tr key={rule.id}>
-                                  <td>{t(`commissionRules.dealType.${rule.deal_type}`)}</td>
-                                  <td>
-                                    <div style={{ fontWeight: 600 }}>
-                                      {ROLE_LABELS[rule.role] ? t(ROLE_LABELS[rule.role]) : rule.role}
-                                    </div>
-                                  </td>
-                                  <td className="cr-rate">{Number(rule.percent)}%</td>
-                                  <td>
-                                    <div>{scopeText}</div>
-                                    {rule.scope === 'by_partner' && (
-                                      <div className="rent-text-sm rent-text-muted">{partnerName}</div>
-                                    )}
-                                  </td>
-                                  <td className="rent-text-sm rent-text-muted">
-                                    {eff.length ? eff.join(' ~ ') : '—'}
-                                  </td>
-                                  <td>
-                                    <span className={`rent-badge ${rule.is_active ? 'rent-badge--success' : 'rent-badge--neutral'}`}>
-                                      {rule.is_active ? t('commissionRules.active') : t('commissionRules.inactive')}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <div className="rent-flex rent-gap-2">
-                                      <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => openSplitEdit(rule)}>{t('common.edit')}</button>
-                                      <button
-                                        className="rent-btn rent-btn--ghost rent-btn--sm"
-                                        onClick={() => handleSplitToggle(rule)}
-                                      >
-                                        {rule.is_active ? t('commissionRules.inactive') : t('commissionRules.active')}
-                                      </button>
-                                      <Popconfirm
-                                        title={t('commissionSplit.deleteConfirm')}
-                                        okText={t('common.delete')}
-                                        okButtonProps={{ danger: true }}
-                                        onConfirm={() => handleSplitDelete(rule)}
-                                      >
-                                        <button
-                                          className="rent-btn rent-btn--ghost rent-btn--sm"
-                                          style={{ color: 'var(--state-error)', borderColor: 'var(--state-error)' }}
-                                        >
-                                          {t('common.delete')}
-                                        </button>
-                                      </Popconfirm>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <SplitRulesTab
+                splitRules={split.splitRules}
+                splitLoading={split.splitLoading}
+                splitError={split.splitError}
+                partners={split.partners}
+                onFetch={split.fetchSplitRules}
+                onCreate={split.openSplitCreate}
+                onEdit={split.openSplitEdit}
+                onToggle={split.handleSplitToggle}
+                onDelete={split.handleSplitDelete}
+              />
             ),
           },
         ]}
       />
 
       {/* 分佣拆分规则 Modal */}
-      <Modal
-        title={splitEditId ? t('commissionSplit.editTitle') : t('commissionSplit.createTitle')}
-        open={splitModalOpen}
-        onCancel={() => !splitSaving && setSplitModalOpen(false)}
-        onOk={() => handleSplitSubmit()}
-        confirmLoading={splitSaving}
-        destroyOnClose
-      >
-        <Form form={splitForm} layout="vertical">
-          <Form.Item name="deal_type" label={t('commissionSplit.labelDealType')} rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'new_rental', label: t('commissionRules.dealType.new_rental') },
-                { value: 'renewal', label: t('commissionRules.dealType.renewal') },
-                { value: 'management', label: t('commissionRules.dealType.management') },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="role" label={t('commissionSplit.labelRole')} rules={[{ required: true }]}>
-            <Select
-              options={Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: t(v) }))}
-            />
-          </Form.Item>
-          <Form.Item name="percent" label={t('commissionSplit.labelPercent')} rules={[{ required: true, type: 'number' }]}>
-            <InputNumber min={0} max={100} step={0.1} style={{ width: '100%' }} addonAfter="%" />
-          </Form.Item>
-          <Form.Item name="scope" label={t('commissionSplit.labelScope')} rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'all', label: t('commissionSplit.scope.all') },
-                { value: 'by_partner', label: t('commissionSplit.scope.byPartner') },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item
-            noStyle
-            shouldUpdate={(prev, cur) => prev.scope !== cur.scope}
-          >
-            {() => (
-              splitForm.getFieldValue('scope') === 'by_partner' ? (
-                <Form.Item name="partner_id" label={t('commissionSplit.labelPartner')} rules={[{ required: true, message: t('commissionSplit.errPartner') }]}>
-                  <Select
-                    showSearch
-                    optionFilterProp="label"
-                    placeholder={t('commissionSplit.placeholderPartner')}
-                    options={partners.map((p) => ({ value: p.id, label: p.name }))}
-                  />
-                </Form.Item>
-              ) : null
-            )}
-          </Form.Item>
-          <Form.Item name="is_active" label={t('commissionSplit.labelActive')} valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Form>
-      </Modal>
+      <SplitRuleModal
+        open={split.splitModalOpen}
+        editId={split.splitEditId}
+        form={split.splitForm}
+        partners={split.partners}
+        saving={split.splitSaving}
+        onSubmit={split.handleSplitSubmit}
+        onCancel={() => split.setSplitModalOpen(false)}
+      />
 
       {/* Modal */}
-      {modalOpen && (
-        <div className="rent-modal-backdrop" onClick={() => !submitting && setModalOpen(false)}>
-          <div className="rent-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="rent-modal__header">
-              <h3 className="rent-card__title">{editingId ? t('commissionRules.editTitle') : t('commissionRules.createTitle')}</h3>
-              <button className="rent-btn rent-btn--ghost rent-btn--sm" aria-label="关闭" onClick={() => setModalOpen(false)} disabled={submitting}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="rent-modal__body">
-              <div className="rent-form-group">
-                <label className="rent-form-label">{t('commissionRules.labelRuleName')}</label>
-                <input
-                  className="rent-form-input"
-                  type="text"
-                  placeholder={t('commissionRules.placeholderRuleName')}
-                  value={form.name}
-                  onChange={(e) => set('name', e.target.value)}
-                />
-              </div>
-              <div className="rent-form-row">
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelDealType')}</label>
-                  <select
-                    className="rent-form-select"
-                    value={form.deal_type}
-                    onChange={(e) => set('deal_type', e.target.value)}
-                  >
-                    {Object.entries(dealTypeText).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelRate')}</label>
-                  <input
-                    className="rent-form-input"
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    placeholder={t('commissionRules.placeholderRate')}
-                    value={form.rate}
-                    onChange={(e) => set('rate', e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="rent-form-group">
-                <label className="rent-form-label">{t('commissionRules.labelScope')}</label>
-                <select
-                  className="rent-form-select"
-                  value={form.scope}
-                  onChange={(e) => {
-                    set('scope', e.target.value)
-                    setForm((p) => ({ ...p, broker_employee_id: '' }))
-                  }}
-                >
-                  {(isAdmin ? scopeOptions : brokerScopeOptions).map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                {!isAdmin && (
-                  <div className="rent-text-sm rent-text-muted" style={{ marginTop: 6 }}>
-                    {t('commissionRules.brokerRestrict')}
-                  </div>
-                )}
-              </div>
-              {form.scope === 'by_department' && isAdmin && (
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelDepartment')}</label>
-                  <input
-                    className="rent-form-input"
-                    type="text"
-                    placeholder={t('commissionRules.placeholderDepartment')}
-                    value={form.department}
-                    onChange={(e) => set('department', e.target.value)}
-                  />
-                </div>
-              )}
-              {form.scope === 'by_employee' && (
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelEmployee')}</label>
-                  <SearchSelect
-                    placeholder={isAdmin ? t('commissionRules.placeholderEmployeeAdmin') : t('commissionRules.placeholderEmployeeBroker')}
-                    value={form.employee_id}
-                    options={employees.map((emp) => ({
-                      value: emp.id,
-                      label: emp.full_name + (emp.department ? ` · ${emp.department}` : ''),
-                    }))}
-                    onChange={(v) => set('employee_id', v)}
-                  />
-                  {!isAdmin && (
-                    <div className="rent-text-sm rent-text-muted" style={{ marginTop: 6 }}>
-                      {t('commissionRules.empRestrict')}
-                    </div>
-                  )}
-                </div>
-              )}
-              {form.scope === 'by_broker' && isAdmin && (
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelBroker')}</label>
-                  <SearchSelect
-                    placeholder={t('commissionRules.placeholderBroker')}
-                    value={form.broker_id}
-                    options={brokers.map((b) => ({ value: b.id, label: b.partner_name }))}
-                    onChange={(v) => set('broker_id', v)}
-                  />
-                </div>
-              )}
-              {form.scope === 'broker_employee' && isAdmin && (
-                <>
-                  <div className="rent-form-group">
-                    <label className="rent-form-label">{t('commissionRules.labelBroker')}</label>
-                    <SearchSelect
-                      placeholder={t('commissionRules.placeholderBroker')}
-                      value={form.broker_id}
-                      options={brokers.map((b) => ({ value: b.id, label: b.partner_name }))}
-                      onChange={(v) => {
-                        set('broker_id', v)
-                        setForm((p) => ({ ...p, broker_employee_id: '' }))
-                      }}
-                    />
-                  </div>
-                  <div className="rent-form-group">
-                    <label className="rent-form-label">{t('commissionRules.labelBrokerEmployee')}</label>
-                    <SearchSelect
-                      placeholder={t('commissionRules.placeholderBrokerEmployee')}
-                      value={form.broker_employee_id}
-                      options={brokerEmployeeOptions.map((emp) => ({
-                        value: emp.id,
-                        label: emp.full_name + (emp.department ? ` · ${emp.department}` : ''),
-                      }))}
-                      onChange={(v) => set('broker_employee_id', v)}
-                    />
-                  </div>
-                </>
-              )}
-              <div className="rent-form-row">
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelMinAmount')}</label>
-                  <input
-                    className="rent-form-input"
-                    type="number"
-                    min="0"
-                    placeholder={t('commissionRules.placeholderOptional')}
-                    value={form.minimum_amount}
-                    onChange={(e) => set('minimum_amount', e.target.value)}
-                  />
-                </div>
-                <div className="rent-form-group">
-                  <label className="rent-form-label">{t('commissionRules.labelCapAmount')}</label>
-                  <input
-                    className="rent-form-input"
-                    type="number"
-                    min="0"
-                    placeholder={t('commissionRules.placeholderOptional')}
-                    value={form.cap_amount}
-                    onChange={(e) => set('cap_amount', e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="rent-form-group">
-                <label className="rent-form-label">{t('common.detail')}</label>
-                <textarea
-                  className="rent-form-textarea"
-                  rows={2}
-                  placeholder={t('commissionRules.placeholderDescription')}
-                  value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                />
-              </div>
-              <div className="rent-flex rent-gap-2" style={{ alignItems: 'center' }}>
-                <label className="rent-switch">
-                  <input
-                    type="checkbox"
-                    checked={form.is_active}
-                    onChange={(e) => set('is_active', e.target.checked)}
-                  />
-                  <span className="rent-switch__track" />
-                  <span className="rent-switch__thumb" />
-                </label>
-                <span className="rent-text-sm">{t('commissionRules.enableRule')}</span>
-              </div>
-            </div>
-            <div className="rent-modal__footer">
-              <button className="rent-btn rent-btn--secondary" onClick={() => setModalOpen(false)} disabled={submitting}>{t('common.cancel')}</button>
-              <button className="rent-btn rent-btn--primary" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? t('commissionRules.saving') : t('common.save')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CommissionRuleModal
+        open={ruleForm.modalOpen}
+        editingId={ruleForm.editingId}
+        form={ruleForm.form}
+        isAdmin={labels.isAdmin}
+        employees={list.employees}
+        brokers={list.brokers}
+        brokerEmployeeOptions={ruleForm.brokerEmployeeOptions}
+        scopeOptions={labels.scopeOptions}
+        brokerScopeOptions={labels.brokerScopeOptions}
+        dealTypeText={labels.dealTypeText}
+        submitting={ruleForm.submitting}
+        onSet={ruleForm.set}
+        onScopeChange={ruleForm.handleScopeChange}
+        onBrokerChange={ruleForm.handleBrokerChange}
+        onSubmit={ruleForm.handleSubmit}
+        onClose={() => ruleForm.setModalOpen(false)}
+      />
     </div>
   )
 }

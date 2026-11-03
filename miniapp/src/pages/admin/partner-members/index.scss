@@ -66,7 +66,7 @@
 
 .pm-prop {
   padding: 18rpx 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1rpx solid var(--line);
 
   &:last-child {
     border-bottom: none;
@@ -199,7 +199,7 @@
     height: 76rpx;
     padding: 0 24rpx;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 28rpx;
     color: var(--ink);
@@ -212,7 +212,7 @@
     display: flex;
     align-items: center;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
   }
 
@@ -246,7 +246,7 @@
 
   &--ghost {
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
   }
 
   &--ghost .pm-btn__text {
@@ -351,7 +351,7 @@
     justify-content: flex-end;
     margin-top: 16rpx;
     padding-top: 16rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 }
 

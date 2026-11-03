@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 租房分类页（贝壳式，Web）。对齐 App 端 RentCategoryScreen 的信息结构。
  *
@@ -71,7 +72,7 @@ export default function RentCategory() {
   useEffect(() => {
     let alive = true
     api
-      .get('/public/listings', { params: { listing_type: 'rent', sort: 'latest', page_size: 6 } })
+      .get('/public/listings', { params: { listing_type: 'rent', sort: 'latest', page_size: CAROUSEL_PAGE_SIZE } })
       .then((res) => {
         const payload = res.data?.data ?? res.data
         if (alive) setRail(Array.isArray(payload?.items) ? payload.items : [])

@@ -1,3 +1,4 @@
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -10,6 +11,7 @@ import {
   Modal,
   Animated,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -94,7 +96,7 @@ export default function MaintenanceScreen() {
     queryKey: ['maint', 'list', user?.id ?? 'anon'],
     cacheKey: `maint:list:${user?.id ?? 'anon'}`,
     queryFn: async () => {
-      const res: any = await maintenanceApi.list({ page: 1, page_size: 100 });
+      const res: any = await maintenanceApi.list({ page: 1, page_size: OPTION_PAGE_SIZE });
       const d = res?.data;
       return Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [];
     },
@@ -105,9 +107,19 @@ export default function MaintenanceScreen() {
   const [statusTab, setStatusTab] = useState<StatusTabKey>('all');
   // 历史工单折叠（默认收起，保持「提交报修」表单优先可见）
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const refreshTickets = useCallback(() => {
     void q.refetch({ cancelRefetch: false });
+  }, [q]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await q.refetch({ cancelRefetch: false });
+    } finally {
+      setRefreshing(false);
+    }
   }, [q]);
 
   // 报修必须落到具体房源（后端 property_id 必填）。
@@ -278,6 +290,7 @@ export default function MaintenanceScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
       {/* Stat Row（真实工单统计） */}
       <View style={styles.statRow}>

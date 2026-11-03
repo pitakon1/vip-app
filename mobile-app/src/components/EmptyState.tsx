@@ -9,16 +9,26 @@ interface EmptyStateProps {
   icon?: IoniconName;
   title: string;
   sub?: string;
+  /** empty=空态；error=失败态（图标与语义区分，配 actionLabel 作为重试入口） */
+  tone?: 'empty' | 'error';
   actionLabel?: string;
   onAction?: () => void;
 }
 
-/** 统一空态：图标 + 主文案 + 副文案 + 可选操作，避免裸文字空占位 */
-export default function EmptyState({ icon = 'file-tray-outline', title, sub, actionLabel, onAction }: EmptyStateProps) {
+/** 统一空态/失败态：图标 + 主文案 + 副文案 + 可选操作，避免裸文字空占位 */
+export default function EmptyState({
+  icon,
+  title,
+  sub,
+  tone = 'empty',
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
+  const resolvedIcon = icon ?? (tone === 'error' ? 'alert-circle-outline' : 'file-tray-outline');
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} accessibilityRole={tone === 'error' ? 'alert' : undefined}>
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={30} color={colors.mutedForeground} />
+        <Ionicons name={resolvedIcon} size={30} color={colors.mutedForeground} />
       </View>
       <Text style={styles.title}>{title}</Text>
       {sub ? <Text style={styles.sub}>{sub}</Text> : null}

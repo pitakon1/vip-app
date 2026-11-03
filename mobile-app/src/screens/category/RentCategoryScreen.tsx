@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 租房分类页（贝壳式）。
  *
@@ -40,7 +41,7 @@ import {
   notAvailable,
 } from './categoryShared';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export default function RentCategoryScreen() {
   const { t } = useI18n();
@@ -55,7 +56,7 @@ export default function RentCategoryScreen() {
   // 「新上房源」rail：真实最新在租单，空则整块不渲染
   useEffect(() => {
     publicApi
-      .listings({ listing_type: 'rent', city: cityKey || undefined, sort: 'latest', page_size: 6 })
+      .listings({ listing_type: 'rent', city: cityKey || undefined, sort: 'latest', page_size: CAROUSEL_PAGE_SIZE })
       .then((res: any) => setRail(unwrapPage<PublicListing>(res?.data).items))
       .catch(() => setRail([]));
   }, [cityKey]);

@@ -4,8 +4,10 @@ import Taro from '@tarojs/taro'
 import { adminDataScopesApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /**
  * 管理端 · 数据范围（对齐 Web 端 /system/data-scopes）。
@@ -42,6 +44,7 @@ export default function AdminDataScopesPage() {
   const [users, setUsers] = useState<UserScope[]>([])
   const [values, setValues] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   const scopeLabel = (scope: string) => {
     const key = SCOPE_KEY[scope]
@@ -58,6 +61,7 @@ export default function AdminDataScopesPage() {
 
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await adminDataScopesApi.get()
       const d = res?.data ?? res
@@ -66,6 +70,7 @@ export default function AdminDataScopesPage() {
       setValues(d?.values ?? [])
     } catch (error) {
       console.error('[AdminDataScopes] 加载数据范围失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('scope.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -85,7 +90,7 @@ export default function AdminDataScopesPage() {
       )
       Taro.showToast({ title: t('scope.saved'), icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('scope.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('scope.saveFailed')), icon: 'none' })
     }
   }
 
@@ -101,7 +106,7 @@ export default function AdminDataScopesPage() {
       setUsers((prev) => prev.filter((u) => u.user_id !== row.user_id))
       Taro.showToast({ title: t('scope.cleared'), icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('scope.clearFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('scope.clearFailed')), icon: 'none' })
     }
   }
 
@@ -110,9 +115,14 @@ export default function AdminDataScopesPage() {
       <ShellHeader title={t('scope.title')} />
 
       {loading ? (
-        <View className='ds-state'>
-          <Text className='ds-state__text'>{t('common.loading')}</Text>
-        </View>
+        <StateBlock loading text={t('common.loading')} />
+      ) : loadError ? (
+        <StateBlock
+          error
+          text={t('scope.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={load}
+        />
       ) : (
         <>
           {/* 角色默认数据范围 */}

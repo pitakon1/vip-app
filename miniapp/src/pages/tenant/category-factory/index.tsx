@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 厂房分类页（贝壳式）· 小程序。
  *
@@ -35,7 +36,7 @@ import {
 } from '@/lib/categoryShared'
 import './index.scss'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 type TabKey = 'rent-factory' | 'sell-factory'
 

@@ -3,11 +3,11 @@ import math
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from pydantic import BaseModel, ConfigDict
-from sqlalchemy import exists, false, or_
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import exists, false, func, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
@@ -209,6 +209,8 @@ class PropertyDetail(BaseModel):
     furnished: Optional[bool] = None
     orientation: Optional[str] = None
     decoration: Optional[str] = None
+    # 租房专项：最短租期（月）
+    min_lease_months: Optional[int] = None
     amenities: Optional[list] = None
     available_from: Optional[datetime] = None
     video_url: Optional[str] = None
@@ -217,6 +219,16 @@ class PropertyDetail(BaseModel):
     # 创建人（房源归属人）：销售/经纪的数据隔离依据；NULL = 历史房源，仅管理员可见
     created_by: Optional[uuid.UUID] = None
     creator_name: Optional[str] = None
+
+
+class PropertyListOut(Page[PropertyDetail]):
+    """房源列表响应：在标准分页结构上新增 `status_counts`（不改既有字段/分页结构）。
+
+    `status_counts` 按「当前筛选维度」统计各租态数量，**不含 status 自身过滤**，
+    也不受分页影响，供前端用一次请求渲染状态徽标，替代逐状态探测请求。
+    """
+
+    status_counts: Dict[str, int] = Field(default_factory=dict)
 
 
 class PropertyLeaseItem(BaseModel):
@@ -318,7 +330,7 @@ def _keyword_conditions(terms: List[str]) -> list:
     return conditions
 
 
-@router.get("", response_model=Page[PropertyDetail])
+@router.get("", response_model=PropertyListOut)
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
@@ -426,7 +438,11 @@ def list_properties(
     if term_conditions:
         conditions.append(or_(*term_conditions))
     if status:
-        conditions.append(Property.status == status)
+        # status 过滤单独保存：分页查询用它，status_counts 需要「不含 status 维度」
+        # 的全状态分布（否则选「已出租」时另外两个状态的计数会变成 0）。
+        status_condition = Property.status == status
+    else:
+        status_condition = None
     if property_type:
         types = [t.strip() for t in property_type if t and t.strip()]
         if types:
@@ -581,7 +597,22 @@ def list_properties(
         # 这里 join 只为让楼盘名参与打分，必须用 LEFT JOIN：
         # 内连接会把没有关联楼盘的房源整行丢掉，等于「一搜索就少了一批房源」。
         stmt = stmt.outerjoin(Project, Property.project_id == Project.id)
-    stmt = stmt.where(*conditions).order_by(*order_by)
+    # 分页语句与状态计数共用同一组筛选条件（仅差 status 维度本身），
+    # 保证「状态徽标数字 + 翻页结果」口径一致，且计数不受分页影响。
+    base_stmt = stmt.where(*conditions)
+    status_counts = {
+        (s.value if isinstance(s, PropertyStatus) else str(s)): int(count or 0)
+        # 多列聚合必须走 session.execute（SQLModel 的 exec 会把结果当标量只取首列）
+        for s, count in session.execute(
+            base_stmt.with_only_columns(Property.status, func.count(Property.id))
+            .order_by(None)
+            .group_by(Property.status)
+        ).all()
+        if s is not None
+    }
+    stmt = base_stmt.order_by(*order_by)
+    if status_condition is not None:
+        stmt = stmt.where(status_condition)
     result = paginate_query(session, stmt, pagination)
     # 给本页每条房源补上项目名（小区名 + 房号 的展示对齐 C 端口径）。
     # 一次批量取项目映射，避免逐条 session.get 造成 N+1；保持 Page 结构不变，
@@ -646,11 +677,19 @@ def list_properties(
         }
         for p in result.items
     ]
+    out = PropertyListOut(
+        items=result.items,
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+        total_pages=result.total_pages,
+        status_counts=status_counts,
+    )
     # 与读取同源：只有 admin 的请求才写缓存，否则销售/经纪的小结果集会覆盖
     # 管理员的全量缓存，后续管理员就读到残缺数据。
     if use_cache:
-        set_cache(cache_key, result, ttl=60)
-    return result
+        set_cache(cache_key, out, ttl=60)
+    return out
 
 
 @router.post("")

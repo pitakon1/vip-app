@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 员工端 - 房源浏览（纯浏览）。
  *
@@ -27,7 +28,7 @@ import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
 import './index.scss'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 const RECENT_SEARCHES_KEY = 'recent_searches'
 const RECENT_SEARCHES_MAX = 10
@@ -211,7 +212,7 @@ export default function EmployeePropertyBrowsePage() {
 
   const fetchFavorites = async () => {
     try {
-      const res: any = await favoritesApi.list({ page: 1, page_size: 100 })
+      const res: any = await favoritesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE })
       const items = pickList(res)
       setFavSet(new Set(items.map((f: any) => String(f.property_id ?? f.id)).filter(Boolean)))
     } catch (err) {

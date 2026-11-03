@@ -1,8 +1,11 @@
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, Form, Input, Select, message, Popconfirm, Empty, Spin } from 'antd'
+import { Button, Modal, Form, Input, Select, message, Popconfirm } from 'antd'
+import DataState from '@/components/DataState'
 import { PlusOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
+import { errorText } from '@/lib/errorText'
 
 interface Partner {
   id: string
@@ -26,12 +29,22 @@ interface AgentOption {
 
 const fmtTime = (v?: string) => (v ? String(v).replace('T', ' ').slice(0, 16) : '—')
 
+// 编辑态回填值：Modal destroyOnClose 每次重建，需在 Form 挂载后再 setFieldsValue
+const formValuesFrom = (record: Partner) => ({
+  name: record.name,
+  contact_name: record.contact_name,
+  contact_phone: record.contact_phone,
+  license_no: record.license_no,
+  admin_user_id: record.admin_user_id,
+})
+
 const Partners = () => {
   const { t } = useTranslation()
   const [data, setData] = useState<Partner[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [query, setQuery] = useState<{ page: number; page_size: number; keyword?: string }>({ page: 1, page_size: 20 })
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [query, setQuery] = useState<{ page: number; page_size: number; keyword?: string }>({ page: 1, page_size: LIST_PAGE_SIZE })
   const [keywordDraft, setKeywordDraft] = useState('')
   const [form] = Form.useForm()
   const [modalOpen, setModalOpen] = useState(false)
@@ -42,6 +55,7 @@ const Partners = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await api.get('/admin/partners', {
         params: { page: query.page, page_size: query.page_size, keyword: query.keyword },
@@ -50,11 +64,11 @@ const Partners = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('partners.errFetch'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [query, t])
 
   useEffect(() => {
     fetchData()
@@ -64,7 +78,7 @@ const Partners = () => {
   const loadAgents = async () => {
     setAgentLoading(true)
     try {
-      const res = await api.get('/admin/users', { params: { role: 'agent', user_type: 'platform', page_size: 100 } })
+      const res = await api.get('/admin/users', { params: { role: 'agent', user_type: 'platform', page_size: OPTION_PAGE_SIZE } })
       const payload = res.data?.data ?? res.data
       setAgentOptions((payload?.items ?? []).map((u: any) => ({ id: u.id, full_name: u.full_name, email: u.email })))
     } catch {
@@ -83,16 +97,14 @@ const Partners = () => {
 
   const openEdit = (row: Partner) => {
     setEditing(row)
-    form.setFieldsValue({
-      name: row.name,
-      contact_name: row.contact_name,
-      contact_phone: row.contact_phone,
-      license_no: row.license_no,
-      admin_user_id: row.admin_user_id,
-    })
     loadAgents()
     setModalOpen(true)
   }
+
+  // 编辑态回填（Modal destroyOnClose 每次重建，Form 挂载后写入）
+  useEffect(() => {
+    if (modalOpen && editing) form.setFieldsValue(formValuesFrom(editing))
+  }, [modalOpen, editing, form])
 
   const handleSubmit = async () => {
     try {
@@ -112,7 +124,7 @@ const Partners = () => {
         form.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('partners.errSave'))
+      message.error(errorText(err, t('partners.errSave')))
     } finally {
       setSaving(false)
     }
@@ -124,7 +136,7 @@ const Partners = () => {
       message.success(active ? t('partners.msgActivated') : t('partners.msgDeactivated'))
       fetchData()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('partners.errOperation'))
+      message.error(errorText(err, t('partners.errOperation')))
     }
   }
 
@@ -194,19 +206,26 @@ const Partners = () => {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loadError && data.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="rent-loading-row">
-                      <Spin size="small" style={{ marginRight: 8 }} />
-                      {t('common.loading')}
+                    <td colSpan={7}>
+                      <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+                    </td>
+                  </tr>
+                ) : loading && data.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <DataState loading loadingText={t('common.loading')} skeletonRows={5} />
                     </td>
                   </tr>
                 ) : data.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="rent-empty">
-                        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('partners.empty')} />
-                      </div>
+                      <DataState
+                        empty
+                        filtered={!!query.keyword}
+                        emptyTitle={t('partners.empty')}
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -281,7 +300,7 @@ const Partners = () => {
         confirmLoading={saving}
         destroyOnClose
       >
-        <Form form={form} layout="vertical" preserve={false}>
+        <Form form={form} layout="vertical" preserve={false} initialValues={editing ? formValuesFrom(editing) : undefined}>
           <Form.Item name="name" label={t('partners.labelName')} rules={[{ required: true, message: t('partners.errNameRequired') }]}>
             <Input placeholder={t('partners.placeholderName')} />
           </Form.Item>

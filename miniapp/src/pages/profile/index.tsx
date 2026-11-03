@@ -12,6 +12,7 @@ import type { IconKey } from '@/utils/icons'
 import { useI18n } from '@/i18n'
 import type { User } from '@/types'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /** 一行列表入口：图标 + 文案 +（可选真实值）+ 箭头 */
 interface RowEntry {
@@ -329,7 +330,7 @@ export default function ProfilePage() {
           loadFromStorage()
           showToast('头像已更新')
         } catch (e: any) {
-          showToast(e?.message || '头像上传失败')
+          showToast(errorText(e, '头像上传失败'))
         }
       },
     })
@@ -370,7 +371,7 @@ export default function ProfilePage() {
       await authApi.requestOtp({ recipient: editPhone.trim(), channel: 'sms' })
       Taro.showToast({ title: '验证码已发送', icon: 'success' })
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '验证码发送失败', icon: 'none' })
+      Taro.showToast({ title:errorText(e, '验证码发送失败'), icon: 'none' })
     } finally {
       setEditSendingCode(false)
     }
@@ -405,7 +406,7 @@ export default function ProfilePage() {
       setEditVisible(false)
       showToast('已保存')
     } catch (e: any) {
-      showToast(e?.message || '保存失败')
+      showToast(errorText(e, '保存失败'))
     } finally {
       setEditSaving(false)
     }
@@ -451,7 +452,7 @@ export default function ProfilePage() {
       showToast('已修改，请重新登录')
       setTimeout(() => Taro.redirectTo({ url: '/pages/login/index' }), 800)
     } catch (e: any) {
-      showToast(e?.message || '修改失败')
+      showToast(errorText(e, '修改失败'))
     } finally {
       setPwdSaving(false)
     }
@@ -488,7 +489,7 @@ export default function ProfilePage() {
       setPrefVisible(false)
       showToast('已保存')
     } catch (e: any) {
-      showToast(e?.message || '保存失败')
+      showToast(errorText(e, '保存失败'))
     } finally {
       setPrefSaving(false)
     }
@@ -633,7 +634,7 @@ export default function ProfilePage() {
       setBusiness((b) => ({ ...b, ...patch }))
       Taro.showToast({ title: '已保存', icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || '保存失败', icon: 'none' })
+      Taro.showToast({ title:errorText(error, '保存失败'), icon: 'none' })
     }
   }
 

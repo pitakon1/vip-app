@@ -17,6 +17,7 @@ from app.schemas.dashboard import (
     RecentPaymentsOut,
 )
 from app.models import (
+    Employee,
     Lead,
     LeadStage,
     Lease,
@@ -190,6 +191,18 @@ def get_summary(
     # 成交率
     conversion_rate = round(closed_leads / (closed_leads + active_leads) * 100, 1) if (closed_leads + active_leads) > 0 else 0
 
+    # ---- 员工规模：总数 + 本月新增，合并为一次条件聚合 ----
+    # 口径与 /employees 列表一致（未软删除的员工档案）；本月新增按 created_at
+    # 归属当月，与前端原先「拉列表后按本月过滤」的算法同源。
+    employee_row = session.exec(
+        select(
+            func.count(Employee.id),
+            func.sum(case((Employee.created_at >= _month_start, 1), else_=0)),
+        ).where(Employee.deleted_at.is_(None))
+    ).one()
+    employee_count = int(employee_row[0] or 0)
+    new_employees = int(employee_row[1] or 0)
+
     result = {
         "total_properties": total,
         "vacant": vacant,
@@ -203,6 +216,8 @@ def get_summary(
         "active_leads": active_leads,
         "closed_leads": closed_leads,
         "conversion_rate": conversion_rate,
+        "employee_count": employee_count,
+        "new_employees": new_employees,
     }
     set_cache(cache_key, result, ttl=60)
     return result

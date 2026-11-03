@@ -23,21 +23,21 @@
 .rent-v17-step--active::before { background: var(--rent-primary); }
 .rent-v17-step__dot {
   width: 26px; height: 26px; margin: 0 auto 6px; border-radius: 50%;
-  background: var(--rent-surface-2); color: var(--rent-ink-3);
+  background: var(--rent-surface-2); color: var(--rent-ink-2);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 600; position: relative; z-index: 1;
+  font-size: var(--rent-fs-xs); font-weight: 600; position: relative; z-index: 1;
 }
 .rent-v17-step--active .rent-v17-step__dot {
   background: var(--rent-primary); color: #fff;
   box-shadow: 0 4px 12px -4px rgba(20,184,166,.5);
 }
 .rent-v17-step--done .rent-v17-step__dot { background: var(--state-success); color: #fff; }
-.rent-v17-step__label { font-size: 11px; color: var(--rent-ink-3); }
+.rent-v17-step__label { font-size: 11px; color: var(--rent-ink-2); }
 .rent-v17-step--active .rent-v17-step__label { color: var(--rent-primary); font-weight: 600; }
 
 /* ---- 房源选择项 ---- */
 .rent-v17-pick {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: var(--rent-s-3);
   border: 1px solid var(--rent-border); border-radius: var(--rent-radius-md);
   padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
 }
@@ -56,9 +56,9 @@
 
 /* ---- 字段行 ---- */
 .rent-v17-field {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: var(--rent-s-3);
   padding: 10px 0; border-bottom: 1px solid var(--rent-border);
 }
 .rent-v17-field:last-child { border-bottom: none; }
-.rent-v17-field__label { width: 88px; flex-shrink: 0; font-size: 13px; color: var(--rent-ink-3); }
-.rent-v17-field__value { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; color: var(--rent-ink); }
+.rent-v17-field__label { width: 88px; flex-shrink: 0; font-size: var(--rent-fs-sm); color: var(--rent-ink-2); }
+.rent-v17-field__value { flex: 1; min-width: 0; font-size: var(--rent-fs-base); font-weight: 500; color: var(--rent-ink); }

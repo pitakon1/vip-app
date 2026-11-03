@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 客户管理（CRM）
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
@@ -23,13 +23,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
+import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '../../components/EmptyState';
-import LoadingState from '../../components/LoadingState';
+import ListState from '../../components/ListState';
 import { chatApi, leadsApi } from '../../services/api';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
 import { useI18n } from '@/i18n';
+import { errorText } from '@/lib/errorText'
 
 const STAGES: { key: string; label: string; color: string; rgb: string }[] = [
   { key: 'inquiring', label: '咨询中', color: colors.info, rgb: colors.infoRgb },
@@ -54,7 +56,7 @@ export default function CRMScreen() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load } = useCrmLeads(stage);
+  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load, loadError } = useCrmLeads(stage);
 
   // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
   const [formOpen, setFormOpen] = useState(false);
@@ -103,11 +105,7 @@ export default function CRMScreen() {
       });
     } catch (e: any) {
       Alert.alert(
-        t('crm.cannotSend'),
-        e?.response?.data?.detail ||
-          e?.response?.data?.message ||
-          t('crm.notRegistered'),
-      );
+        t('crm.cannotSend'),errorText(e, t('crm.notRegistered')));
     }
   };
 
@@ -147,7 +145,7 @@ export default function CRMScreen() {
       setFormOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert(t('crm.edit'), e?.response?.data?.detail || t('crm.saveFail'));
+      Alert.alert(t('crm.edit'),errorText(e, t('crm.saveFail')));
     } finally {
       setSaving(false);
     }
@@ -257,11 +255,11 @@ export default function CRMScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <LoadingState label="正在加载客户数据…" />
-      </View>
-    );
+    return <ListState loading loadingLabel="正在加载客户数据…" />;
+  }
+
+  if (loadError && leads.length === 0) {
+    return <ListState error="客户数据加载失败" retryLabel="重试" onRetry={load} />;
   }
 
   return (
@@ -276,6 +274,24 @@ export default function CRMScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <>
+      {loadError && leads.length > 0 ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            padding: 10,
+            borderRadius: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+          }}
+        >
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>客户数据加载失败</Text>
+          <TouchableOpacity onPress={load} activeOpacity={0.7}>
+            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* 搜索 */}
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={colors.ink3} />
@@ -360,11 +376,12 @@ export default function CRMScreen() {
         }
       />
 
-      {/* 编辑客户状态弹窗（对齐管理员端表单） */}
-      <Modal visible={formOpen} transparent animationType="fade" onRequestClose={() => setFormOpen(false)}>
-        <View style={styles.modalMask}>
-          <ScrollView contentContainerStyle={styles.modalCardWrap}>
-            <View style={styles.modalCard}>
+      {/* 编辑客户状态弹层（仅结构调整，字段/请求保持原样） */}
+      <Modal visible={formOpen} transparent animationType="slide" onRequestClose={() => setFormOpen(false)}>
+        <View style={bottomSheetStyles.bsMask}>
+          <View style={bottomSheetStyles.bsSheet}>
+            <View style={bottomSheetStyles.bsGrabber} />
+            <ScrollView contentContainerStyle={bottomSheetStyles.bsContent}>
               <Text style={styles.modalTitle}>编辑客户状态</Text>
 
               <Text style={styles.fieldLabel}>姓名 *</Text>
@@ -394,17 +411,16 @@ export default function CRMScreen() {
 
               <Text style={styles.fieldLabel}>备注</Text>
               <TextInput style={[styles.fieldInput, styles.multilineInput]} value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} multiline placeholderTextColor={colors.ink3} />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
-                  <Text style={styles.modalCancelText}>取消</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
-                  <Text style={styles.modalOkText}>{saving ? '...' : '保存'}</Text>
-                </TouchableOpacity>
-              </View>
+            </ScrollView>
+            <View style={bottomSheetStyles.bsActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
+                <Text style={styles.modalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
+                <Text style={styles.modalOkText}>{saving ? '...' : '保存'}</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </>
@@ -433,7 +449,8 @@ const styles = StyleSheet.create({
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
   chip: {
-    flexDirection: 'row',
+     minHeight: 44,
+     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 6,

@@ -1,3 +1,4 @@
+import { CATEGORY_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 贝壳式分类页共用外壳（Web）。
  *
@@ -17,12 +18,13 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { CustomerServiceOutlined } from '@ant-design/icons'
 import { Dropdown, Pagination, Spin } from 'antd'
+import DataState from '@/components/DataState'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import type { FilterGroup, FilterValues, QuickTag } from './categoryShared'
 import './category.css'
 
-export const PAGE_SIZE = 12
+export const PAGE_SIZE = CATEGORY_PAGE_SIZE
 
 // ==================== 顶部栏 ====================
 
@@ -629,6 +631,9 @@ export function CategoryPage<T>({
   const [items, setItems] = useState<T[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  // 失败不再清空列表：保留上一次数据并置错误态，首次失败显示错误页而不是空态
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const reqSeq = useRef(0)
 
   // 关键词防抖：避免每敲一个字就打一次后端；同时把翻页重置到第 1 页。
@@ -650,6 +655,7 @@ export function CategoryPage<T>({
   useEffect(() => {
     const seq = ++reqSeq.current
     setLoading(true)
+    setLoadError(null)
     fetchPage(page, query)
       .then((res) => {
         if (seq !== reqSeq.current) return
@@ -658,13 +664,13 @@ export function CategoryPage<T>({
       })
       .catch(() => {
         if (seq !== reqSeq.current) return
-        setItems([])
-        setTotal(0)
+        // 保留上一次列表与总数，只置错误态，避免失败被读成「没有数据」
+        setLoadError(t('common.loadFailed'))
       })
       .finally(() => {
         if (seq === reqSeq.current) setLoading(false)
       })
-  }, [page, query, fetchPage])
+  }, [page, query, fetchPage, reloadTick, t])
 
   const updateValue = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -716,15 +722,28 @@ export function CategoryPage<T>({
 
         <div className="cat-count">{t('category.resultCount', { n: total })}</div>
 
-        {loading ? (
+        {loadError ? (
+          <DataState
+            error={loadError}
+            retryText={t('common.retry')}
+            onRetry={() => setReloadTick((n) => n + 1)}
+          />
+        ) : loading ? (
           <div className="cat-loading">
             <Spin />
           </div>
         ) : items.length === 0 ? (
-          <div className="cat-empty">
-            <div className="cat-empty__title">{emptyTitle}</div>
-            {emptySub ? <div className="cat-empty__sub">{emptySub}</div> : null}
-          </div>
+          <DataState
+            empty
+            filtered={
+              Boolean(debounced) ||
+              Object.entries(values).some(
+                ([key, value]) => key !== 'sort' && Boolean(value) && value !== defaultValues?.[key],
+              )
+            }
+            emptyTitle={emptyTitle}
+            emptySub={emptySub}
+          />
         ) : (
           <div className={listClass}>
             {items.map((item) => (

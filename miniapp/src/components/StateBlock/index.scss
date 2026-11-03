@@ -28,6 +28,33 @@
   margin-bottom: 16rpx;
 }
 
+.state-block__error-mark {
+  width: 56rpx;
+  height: 56rpx;
+  margin-bottom: 16rpx;
+  border: 2rpx solid var(--ink-3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.state-block--error .state-block__text {
+  color: var(--ink-3);
+}
+
+.state-block__retry {
+  margin-top: 24rpx;
+  padding: 12rpx 40rpx;
+  border: 1rpx solid var(--line);
+  border-radius: 999rpx;
+  color: var(--primary);
+  font-size: 28rpx;
+}
+
 @keyframes state-block-spin {
   to {
     transform: rotate(360deg);

@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -209,8 +210,8 @@ const statusText = (t: TFunc, status?: string) => {
       return t('status.vacant');
     case 'rented':
       return t('status.rented');
-    case 'reserved':
-      return t('status.reserved');
+    case 'renewing':
+      return t('status.renewing');
     case 'maintenance':
       return t('status.maintenance');
     default:
@@ -610,7 +611,7 @@ export default function HomeScreen() {
     queryFn: async () => {
       const [payRes, mRes] = await Promise.allSettled([
         paymentsApi.mine(),
-        maintenanceApi.list({ page: 1, page_size: 20 }),
+        maintenanceApi.list({ page: 1, page_size: LIST_PAGE_SIZE }),
       ]);
       const next: HomeUser = { payments: [], tickets: [] };
       if (payRes.status === 'fulfilled') {

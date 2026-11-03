@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 二手房分类页（贝壳式）。
  *
@@ -39,7 +40,7 @@ import {
 } from './categoryShared';
 import { fmtMoney } from '@/utils/format';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export default function ResaleScreen() {
   const { t } = useI18n();

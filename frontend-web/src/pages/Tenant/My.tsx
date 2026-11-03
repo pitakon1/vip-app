@@ -129,7 +129,7 @@ const TenantMy = () => {
               aria-label={t('tenantMy.changeAvatar')}
             >
               {user?.avatar_url ? (
-                <img className="rent-avatar__img" src={user.avatar_url} alt="avatar" />
+                <img className="rent-avatar__img" src={user.avatar_url} alt="avatar" loading="lazy" decoding="async" />
               ) : (
                 avatarChar
               )}
@@ -204,7 +204,7 @@ const TenantMy = () => {
           </div>
           <div className="rent-my__row">
             <span className="rent-text-sm">{t('tenantMy.help')}</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-3)' }}><polyline points="9 18 15 12 9 6"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-2)' }}><polyline points="9 18 15 12 9 6"/></svg>
           </div>
           <div className="rent-my__row">
             <span className="rent-text-sm">{t('tenantMy.about')}</span>

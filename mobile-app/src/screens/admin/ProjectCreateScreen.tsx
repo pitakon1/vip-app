@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 新增楼盘（管理端/员工端）
  * 调用 projectsApi.create（ProjectCreate 契约，需 agent/admin 权限，勿向业主/租客暴露入口）。
  * 字段：name/address/city/district/developer/total_units/completion_year/tenure/avg_price/sale_status/open_date。
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
+  chip: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },

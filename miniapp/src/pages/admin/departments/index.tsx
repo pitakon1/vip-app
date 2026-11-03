@@ -4,8 +4,10 @@ import Taro from '@tarojs/taro'
 import { adminDepartmentsApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /**
  * 管理端 · 部门管理（对齐 Web 端 /system/departments）。
@@ -68,17 +70,20 @@ export default function AdminDepartmentsPage() {
   const { t } = useI18n()
   const [rows, setRows] = useState<FlatRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await adminDepartmentsApi.tree()
       const list: DeptNode[] = Array.isArray(res) ? res : res?.data ?? res?.items ?? []
       setRows(flatten(list))
     } catch (error) {
       console.error('[AdminDepartments] 加载部门失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('dept.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -142,7 +147,7 @@ export default function AdminDepartmentsPage() {
       closeForm()
       load()
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('dept.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('dept.saveFailed')), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -160,7 +165,7 @@ export default function AdminDepartmentsPage() {
       Taro.showToast({ title: t('dept.deleteOk'), icon: 'success' })
       load()
     } catch (error: any) {
-      Taro.showToast({ title: error?.message || t('dept.removeFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(error, t('dept.removeFailed')), icon: 'none' })
     }
   }
 
@@ -175,14 +180,23 @@ export default function AdminDepartmentsPage() {
         </View>
       </View>
 
+      {!loading && loadError && rows.length > 0 && (
+        <View className='inline-error-bar' onClick={load}>
+          <Text className='inline-error-bar__text'>{t('dept.loadFailed')}</Text>
+          <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+        </View>
+      )}
       {loading ? (
-        <View className='dm-state'>
-          <Text className='dm-state__text'>{t('common.loading')}</Text>
-        </View>
+        <StateBlock loading text={t('common.loading')} />
+      ) : loadError && rows.length === 0 ? (
+        <StateBlock
+          error
+          text={t('dept.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={load}
+        />
       ) : rows.length === 0 ? (
-        <View className='dm-state'>
-          <Text className='dm-state__text'>{t('dept.empty')}</Text>
-        </View>
+        <StateBlock empty text={t('dept.empty')} />
       ) : (
         <View className='dm-list'>
           {rows.map(({ node, depth }) => (

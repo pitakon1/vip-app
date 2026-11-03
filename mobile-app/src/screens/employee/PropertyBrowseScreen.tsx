@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 员工端房源浏览（薄壳）
  *
@@ -34,7 +35,7 @@ import ListingsFeed, {
   type BizKey,
 } from '@/components/ListingsFeed';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 interface PropertyItem {
   id: string;
@@ -223,11 +224,7 @@ export default function PropertyBrowseScreen() {
         setTotalPages(data?.total_pages ?? 1);
         setPage(targetPage);
       } catch {
-        if (targetPage === 1) {
-          setItems([]);
-          setTotalPages(1);
-          setError(true);
-        }
+        if (targetPage === 1) setError(true);
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -254,7 +251,7 @@ export default function PropertyBrowseScreen() {
     if (schoolsLoaded) return;
     setSchoolsLoaded(true);
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
       .catch(() => setSchools([]));
   }, [schoolsLoaded]);
@@ -446,7 +443,7 @@ export default function PropertyBrowseScreen() {
     setMapError(false);
     try {
       const params: any = {
-        limit: 50,
+        limit: DETAIL_PAGE_SIZE,
         listing_type: biz === 'sale' ? 'sell' : 'rent',
         ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
         ...(keyword.trim() ? { q: keyword.trim() } : {}),

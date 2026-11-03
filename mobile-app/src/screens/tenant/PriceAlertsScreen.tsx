@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -41,7 +42,7 @@ export default function PriceAlertsScreen() {
   const load = useCallback(async () => {
     try {
       setFailed(false);
-      const res = await priceAlertsApi.mine({ page: 1, page_size: 50 });
+      const res = await priceAlertsApi.mine({ page: 1, page_size: DETAIL_PAGE_SIZE });
       const d: any = res?.data;
       const rows = Array.isArray(d) ? d : d?.items ?? d?.data ?? [];
       setItems(rows);

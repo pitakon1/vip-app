@@ -135,7 +135,7 @@ export default function TenantMaintenancePage() {
     }
   }
 
-  const { data: tickets, setData: setTickets, loading, refresh } = useSwrCache<MaintenanceTicket[]>({
+  const { data: tickets, setData: setTickets, loading, error, refresh } = useSwrCache<MaintenanceTicket[]>({
     key: `tenant:maintenance:${uid}`,
     fetcher: async () => {
       const res = await maintenanceApi.list()
@@ -267,7 +267,15 @@ export default function TenantMaintenancePage() {
           {loading && tickets.length === 0 && (
             <StateBlock loading text={t('common.loading')} />
           )}
-          {!loading && visibleTickets.length === 0 && (
+          {!loading && error && tickets.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!loading && !error && visibleTickets.length === 0 && (
             <View className='empty-state'>
               <View className='empty-state__icon icon-svg' style={iconStyle('clipboard', 80)} />
               <Text>{t('maint.emptyRecords')}</Text>

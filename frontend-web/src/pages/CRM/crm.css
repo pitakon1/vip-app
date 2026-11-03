@@ -2,7 +2,7 @@
 
 /* 弹窗表单行间距微调 */
 .crm-modal .rent-form-group {
-  margin-bottom: 16px;
+  margin-bottom: var(--rent-s-4);
 }
 
 /* 列表视图徽章统一对齐 */

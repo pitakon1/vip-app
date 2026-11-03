@@ -24,7 +24,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -63,7 +63,7 @@
   padding: 8rpx 20rpx;
   border-radius: var(--radius-full);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
 
   &--on {
     background: rgba(var(--primary-rgb), 0.1);
@@ -169,7 +169,7 @@
   z-index: 99;
   padding: 16rpx 24rpx;
   background: var(--card);
-  border-top: 1px solid var(--line);
+  border-top: 1rpx solid var(--line);
 }
 
 .pm-save-btn {

@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源详情（管理端）
  * 原型：admin-mobile-property-detail.html
@@ -128,7 +129,7 @@ export default function AdminPropertyDetailScreen() {
     const [propRes, leaseRes, ticketRes] = await Promise.allSettled([
       propertiesApi.get(propertyId),
       propertiesApi.leases(propertyId),
-      api.get('/maintenance-tickets', { params: { property_id: propertyId, page_size: 20 } }),
+      api.get('/maintenance-tickets', { params: { property_id: propertyId, page_size: LIST_PAGE_SIZE } }),
     ]);
 
     if (propRes.status === 'fulfilled') {
@@ -143,7 +144,7 @@ export default function AdminPropertyDetailScreen() {
       const current = rows.find((l) => l.status === 'active') ?? rows[0];
       if (current?.id) {
         try {
-          const payRes: any = await paymentsApi.list({ lease_id: current.id, page_size: 20 });
+          const payRes: any = await paymentsApi.list({ lease_id: current.id, page_size: LIST_PAGE_SIZE });
           const payRows = ((payRes?.data?.items ?? []) as { status?: string }[]) ?? [];
           setPendingPayments(
             payRows.filter((p) => p.status === 'pending' || p.status === 'expired').length,

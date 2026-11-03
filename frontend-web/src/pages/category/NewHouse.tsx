@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 新房分类页（贝壳式，Web）= 楼盘（项目）视角，数据面是 `/public/projects`。
  *
@@ -59,7 +60,7 @@ export default function NewHouse() {
   useEffect(() => {
     let alive = true
     api
-      .get('/public/projects', { params: { sort: 'hot', page_size: 6 } })
+      .get('/public/projects', { params: { sort: 'hot', page_size: CAROUSEL_PAGE_SIZE } })
       .then((res) => {
         const payload = res.data?.data ?? res.data
         if (alive) setRail(Array.isArray(payload?.items) ? payload.items : [])

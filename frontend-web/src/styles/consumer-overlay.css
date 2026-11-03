@@ -94,7 +94,7 @@ body {
 }
 
 .rent-app[data-ui="consumer"] .rent-prop-search-card__price-unit {
-  font-size: 12px; color: var(--rent-ink-3);
+  font-size: var(--rent-fs-xs); color: var(--rent-ink-2);
 }
 
 .rent-app[data-ui="consumer"] .rent-prop-search-card__tags .rent-badge,
@@ -110,12 +110,12 @@ body {
 }
 
 .rent-app[data-ui="consumer"] .rent-prop-search-card__name {
-  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  font-size: var(--rent-fs-lg); font-weight: 700; letter-spacing: -0.01em;
 }
 
 .rent-app[data-ui="consumer"] /* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
 .rent-quick-action {
-  border-radius: 18px;
+  border-radius: var(--rent-radius-lg);
   border: none;
   box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
 }
@@ -126,7 +126,7 @@ body {
 
 .rent-app[data-ui="consumer"] /* ===== 按钮：渐变 + 柔和投影 ===== */
 .rent-btn {
-  border-radius: 10px;
+  border-radius: var(--rent-radius-md);
 }
 
 .rent-app[data-ui="consumer"] .rent-btn--primary {
@@ -157,5 +157,5 @@ body {
 }
 
 .rent-app[data-ui="consumer"] .rent-avatar--sm {
-  border-radius: 10px;
+  border-radius: var(--rent-radius-md);
 }

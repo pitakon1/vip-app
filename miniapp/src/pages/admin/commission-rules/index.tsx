@@ -7,7 +7,9 @@ import useAuthStore from '@/stores/auth'
 import type { User } from '@/types'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /** 适用对象（对齐 Web 端 CommissionRules） */
 const SCOPE_OPTIONS: Array<{ value: string; label: string }> = [
@@ -73,6 +75,7 @@ export default function CommissionRulesPage() {
   const [brokers, setBrokers] = useState<Broker[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   // 表单
   const [showSheet, setShowSheet] = useState(false)
@@ -100,6 +103,7 @@ export default function CommissionRulesPage() {
 
   const load = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const tmpl = await Promise.allSettled([
         commissionRulesApi.list({ page: 1, page_size: MAX_PAGE_SIZE }), // 返回 {items}|[]
@@ -112,7 +116,11 @@ export default function CommissionRulesPage() {
       const brokerRes = tmpl[1].status === 'fulfilled' ? (tmpl[1].value as any) : null
       const empRes = tmpl[2].status === 'fulfilled' ? (tmpl[2].value as any) : null
       const unwrap = (d: any) => (Array.isArray(d) ? d : d?.items || [])
-      setRules(unwrap(rulesRes))
+      if (tmpl[0].status === 'fulfilled') {
+        setRules(unwrap(rulesRes))
+      } else {
+        setLoadError(true)
+      }
       setBrokers(unwrap(brokerRes))
       setEmployees(unwrap(empRes))
     } finally {
@@ -201,7 +209,7 @@ export default function CommissionRulesPage() {
       closeSheet()
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('common.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('common.saveFailed')), icon: 'none' })
     }
   }
 
@@ -216,7 +224,7 @@ export default function CommissionRulesPage() {
       Taro.showToast({ title: t('common.deleted'), icon: 'success' })
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('common.deleteFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('common.deleteFailed')), icon: 'none' })
     }
   }
 
@@ -268,8 +276,21 @@ export default function CommissionRulesPage() {
         {t('comm.hint')}
       </View>
 
+      {!loading && loadError && rules.length > 0 && (
+        <View className='inline-error-bar' onClick={() => void load()}>
+          <Text className='inline-error-bar__text'>{t('comm.loadFailed')}</Text>
+          <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+        </View>
+      )}
       {loading ? (
         <View className='cr-state'><Text className='cr-state__text'>{t('pub.loading')}</Text></View>
+      ) : loadError && rules.length === 0 ? (
+        <StateBlock
+          error
+          text={t('comm.loadFailed')}
+          retryText={t('acc.retry')}
+          onRetry={() => void load()}
+        />
       ) : rules.length === 0 ? (
         <View className='cr-state'><Text className='cr-state__text'>{t('comm.empty')}</Text></View>
       ) : (

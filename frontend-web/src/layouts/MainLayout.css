@@ -1,6 +1,18 @@
 /* MainLayout 专属样式：核心布局类已由全局 app.css 提供，
    此文件用于补充 MainLayout 内部细节与移动端底部 Tab 栏。 */
 
+/* 键盘可达性：导航项与品牌区由 <a>/<div> 改为 <button>，
+   补齐最小 reset，padding/尺寸仍沿用 app.css 原样式。 */
+:where(button.rent-nav-item, button.rent-mobile-nav__item, button.rent-sidebar__brand) {
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
 /* ===== 移动端底部 Tab 栏（对应 rental-full-draft mobile 形态）===== */
 .rent-mobile-tabbar {
   position: fixed;
@@ -29,7 +41,7 @@
   justify-content: center;
   gap: 3px;
   min-width: 0;
-  color: var(--rent-ink-3);
+  color: var(--rent-ink-2);
   text-decoration: none;
   cursor: pointer;
 }
@@ -47,7 +59,7 @@
 }
 
 .rent-mobile-nav__label {
-  font-size: 12px;
+  font-size: var(--rent-fs-xs);
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;

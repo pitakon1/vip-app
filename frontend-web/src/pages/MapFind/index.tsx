@@ -1,3 +1,5 @@
+import { MAP_LIMIT } from '@/lib/pagination'
+import { BANGKOK_CENTER } from '@/constants/location'
 /**
  * 地图找房（C 端公开页，免登录）。
  *
@@ -43,8 +45,8 @@ interface MapPoint {
   lng?: number
 }
 
-// 地图默认中心（曼谷），与 PublicListings 口径一致，避免两处各写一份
-const DEFAULT_CENTER = { lat: 13.7563, lng: 100.5018 }
+// 地图默认中心（曼谷），与 PublicListings 口径一致，统一取 constants/location
+const DEFAULT_CENTER = BANGKOK_CENTER
 
 const BIZ_TABS: BizKey[] = ['rent', 'resale', 'new', 'office', 'factory']
 const BIZ_LABEL_KEY: Record<BizKey, string> = {
@@ -113,7 +115,7 @@ export default function MapFind() {
   const fetchPoints = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, unknown> = { limit: 300, city: cityKey, ...bizParams }
+      const params: Record<string, unknown> = { limit: MAP_LIMIT, city: cityKey, ...bizParams }
       if (district) params.district = district
       if (keyword.trim()) params.q = keyword.trim()
       if (priceRange) {

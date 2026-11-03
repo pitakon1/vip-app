@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
-import { message, Empty, Spin, Alert, Button } from 'antd'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,8 +14,10 @@ import {
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
 import { formatMoney } from '@/lib/money'
 import { chartTheme } from '@/lib/chartTheme'
+import { useCachedQuery } from '@/lib/queryCache'
 import './dashboard.css'
 
 ChartJS.register(
@@ -74,11 +75,6 @@ interface RecentPayment {
   payer_name?: string | null
 }
 
-/** `/employees` 列表条目（本页只用来判断本月新增）。 */
-interface EmployeeRow {
-  created_at?: string
-}
-
 // 收入趋势的月度标签（近 12 个月）
 const monthLabels = (format: string) => {
   const labels: string[] = []
@@ -113,11 +109,62 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [range, setRange] = useState<RangeKey>('12m')
-  const [summary, setSummary] = useState<DashboardMetrics>({})
-  const [expiring, setExpiring] = useState<ExpiringLease[]>([])
-  const [payments, setPayments] = useState<RecentPayment[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
+
+  // 主指标（KPI/风险预警/趋势）依赖 /dashboard/summary；员工数已由该聚合接口返回，
+  // 不再额外拉一次 /employees 覆盖。
+  const summaryQuery = useCachedQuery<DashboardMetrics>({
+    queryKey: ['dashboard-summary'],
+    cacheKey: 'dashboard-summary',
+    queryFn: async () => {
+      const res = await api.get('/dashboard/summary')
+      return (res.data?.data ?? res.data ?? {}) as DashboardMetrics
+    },
+  })
+
+  // 以下为区块级非关键数据：失败只影响各自卡片，不阻断整页。
+  const expiringQuery = useCachedQuery<ExpiringLease[]>({
+    queryKey: ['dashboard-expiring-leases'],
+    cacheKey: 'dashboard-expiring-leases',
+    queryFn: async () => {
+      const res = await api.get('/dashboard/expiring-leases')
+      const payload = res.data?.data ?? res.data
+      return (payload?.items ?? []) as ExpiringLease[]
+    },
+  })
+
+  const paymentsQuery = useCachedQuery<RecentPayment[]>({
+    queryKey: ['dashboard-recent-payments'],
+    cacheKey: 'dashboard-recent-payments',
+    queryFn: async () => {
+      const res = await api.get('/dashboard/recent-payments')
+      const payload = res.data?.data ?? res.data
+      return (payload?.items ?? []) as RecentPayment[]
+    },
+  })
+
+  const loading = summaryQuery.isLoading && !summaryQuery.data
+  const loadFailed = summaryQuery.isError && !summaryQuery.data
+  const expiring = expiringQuery.data ?? []
+  const payments = paymentsQuery.data ?? []
+  const expiringFailed = expiringQuery.isError && !expiringQuery.data
+  const paymentsFailed = paymentsQuery.isError && !paymentsQuery.data
+
+  const summary: DashboardMetrics = useMemo(() => {
+    const base = summaryQuery.data ?? {}
+    const expiringProperty = expiring[0]?.property_name ?? ''
+    return {
+      ...base,
+      expiring_property: expiringProperty,
+      // 员工规模由 /dashboard/summary 聚合返回（employee_count / new_employees），
+      // 不再额外拉一次 /employees 列表
+    }
+  }, [summaryQuery.data, expiring])
+
+  const refreshAll = useCallback(() => {
+    summaryQuery.refetch()
+    expiringQuery.refetch()
+    paymentsQuery.refetch()
+  }, [summaryQuery, expiringQuery, paymentsQuery])
 
   const kpiMeta: KpiMeta[] = [
     {
@@ -255,57 +302,6 @@ const Dashboard = () => {
     { key: '12m' as RangeKey, label: t('dashboardOps.range12m') },
   ]
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    try {
-      let anyFailed = false
-      const markFailed = () => {
-        anyFailed = true
-        return { data: {} }
-      }
-      const [sumRes, expRes, payRes, empRes] = await Promise.all([
-        api.get('/dashboard/summary').catch(markFailed),
-        api.get('/dashboard/expiring-leases').catch(() => {
-          anyFailed = true
-          return { data: { items: [] } }
-        }),
-        api.get('/dashboard/recent-payments').catch(() => {
-          anyFailed = true
-          return { data: { items: [] } }
-        }),
-        api.get('/employees', { params: { page: 1, page_size: 100 } }).catch(markFailed),
-      ])
-      setSummary(sumRes.data?.data ?? sumRes.data ?? {})
-      const expPayload = expRes.data?.data ?? expRes.data
-      const expItems: ExpiringLease[] = expPayload?.items ?? []
-      setExpiring(expItems)
-      setSummary((prev) => ({
-        ...prev,
-        expiring_property: expItems[0]?.property_name ?? '',
-      }))
-      const payPayload = payRes.data?.data ?? payRes.data
-      setPayments(payPayload?.items ?? [])
-      const empPayload = empRes.data?.data ?? empRes.data
-      const empItems: EmployeeRow[] = empPayload?.items ?? []
-      const now = dayjs()
-      setSummary((prev) => ({
-        ...prev,
-        employee_count: empPayload?.total ?? empItems.length ?? 0,
-        new_employees: empItems.filter((e) => e.created_at && dayjs(e.created_at).isSame(now, 'month')).length,
-      }))
-      setLoadFailed(anyFailed)
-    } catch (err: any) {
-      setLoadFailed(true)
-      message.error(err?.response?.data?.detail || err?.response?.data?.message || t('dashboardOps.fetchFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }, [t])
-
-  useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
-
   const baseRevenue = Number(summary.monthly_revenue || summary.active_lease_revenue || 0)
 
   // 收入趋势：以真实月度收入为锚点，按设计稿相对形状生成
@@ -320,8 +316,8 @@ const Dashboard = () => {
         fill: true,
         tension: 0.3,
         borderWidth: 2,
-        pointBackgroundColor: '#14b8a6',
-        pointBorderColor: '#ffffff',
+        pointBackgroundColor: chartTheme.primary,
+        pointBorderColor: chartTheme.surface,
         pointBorderWidth: 2,
         pointRadius: 4,
         pointHoverRadius: 6,
@@ -336,9 +332,9 @@ const Dashboard = () => {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#1c2733',
-        titleColor: '#e8edf5',
-        bodyColor: '#e8edf5',
+        backgroundColor: chartTheme.tooltipBg,
+        titleColor: chartTheme.tooltipInk,
+        bodyColor: chartTheme.tooltipInk,
         borderColor: chartTheme.tooltipBorder,
         borderWidth: 1,
         padding: 12,
@@ -418,26 +414,15 @@ const Dashboard = () => {
       </div>
 
       {/* 风险预警区（置顶 · 视觉最重） */}
-      {loading && (
-        <div className="owner-loading-bar" style={{ marginBottom: 16 }}>
-          <Spin size="small" style={{ marginRight: 8 }} />
-          {t('dashboardOps.loadingData')}
-        </div>
-      )}
-      {loadFailed && !loading && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={t('dashboardOps.fetchFailed')}
-          description={t('dashboardOps.partialFailDesc')}
-          action={
-            <Button size="small" onClick={() => fetchAll()}>
-              {t('common.retry')}
-            </Button>
-          }
+      {loading ? (
+        <DataState loading loadingText={t('dashboardOps.loadingData')} skeletonRows={2} />
+      ) : loadFailed ? (
+        <DataState
+          error={`${t('dashboardOps.fetchFailed')} ${t('dashboardOps.partialFailDesc')}`}
+          retryText={t('common.retry')}
+          onRetry={() => refreshAll()}
         />
-      )}
+      ) : null}
       <div className="rent-risk-grid rent-mb-5">
         {riskMeta.map((card) => (
           <div className={`rent-risk-card rent-risk-card--${card.tone}`} key={card.label}>
@@ -594,11 +579,15 @@ const Dashboard = () => {
             </a>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            {expiringRows.length === 0 ? (
-              <div className="rent-empty">
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dashboardOps.expiringEmpty')} />
-              </div>
-            ) : (
+            {expiringFailed && expiringRows.length === 0 ? (
+              <DataState
+                error={t('dashboardOps.riskExpiringDesc')}
+                retryText={t('common.retry')}
+                onRetry={() => expiringQuery.refetch()}
+              />
+            ) : expiringRows.length === 0 && !loading ? (
+              <DataState empty emptyTitle={t('dashboardOps.expiringEmpty')} />
+            ) : expiringRows.length === 0 ? null : (
               <table className="rent-table">
                 <thead>
                   <tr>
@@ -643,11 +632,15 @@ const Dashboard = () => {
             </a>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            {paymentRows.length === 0 ? (
-              <div className="rent-empty">
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('dashboardOps.recentPayEmpty')} />
-              </div>
-            ) : (
+            {paymentsFailed && paymentRows.length === 0 ? (
+              <DataState
+                error={t('dashboardOps.payFailed')}
+                retryText={t('common.retry')}
+                onRetry={() => paymentsQuery.refetch()}
+              />
+            ) : paymentRows.length === 0 && !loading ? (
+              <DataState empty emptyTitle={t('dashboardOps.recentPayEmpty')} />
+            ) : paymentRows.length === 0 ? null : (
               <table className="rent-table">
                 <thead>
                   <tr>

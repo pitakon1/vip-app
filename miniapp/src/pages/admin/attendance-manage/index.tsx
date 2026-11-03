@@ -3,9 +3,12 @@ import { View, Text, ScrollView, Input, Textarea, Picker, Switch } from '@tarojs
 import Taro from '@tarojs/taro'
 import { attendanceApi, employeesApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
+import { BANGKOK_CENTER } from '@/constants/location'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 /**
  * 管理端「考勤管理」（对标 Web 端 AttendanceManage，四个页签）：
@@ -104,8 +107,8 @@ const emptyGroupForm = (): GroupForm => ({
   name: '',
   description: '',
   department: '',
-  office_lat: '13.7563',
-  office_lng: '100.5018',
+  office_lat: String(BANGKOK_CENTER.lat),
+  office_lng: String(BANGKOK_CENTER.lng),
   radius_km: '0.5',
   utc_offset_hours: '7',
   work_start: '09:00',
@@ -170,9 +173,12 @@ export default function AttendanceManagePage() {
   const [loadingRecords, setLoadingRecords] = useState(false)
   const [expanded, setExpanded] = useState<string[]>([])
   const [visibleCount, setVisibleCount] = useState(RECORD_PAGE_STEP)
+  const [recordsError, setRecordsError] = useState(false)
+  const [groupsError, setGroupsError] = useState(false)
 
   const loadRecords = useCallback(async () => {
     setLoadingRecords(true)
+    setRecordsError(false)
     try {
       const res: any = await attendanceApi.adminRecords({
         start_date: range.start,
@@ -185,7 +191,8 @@ export default function AttendanceManagePage() {
       setExpanded([])
       setVisibleCount(RECORD_PAGE_STEP)
     } catch (e: any) {
-      toast(e?.message || t('attAdm.recordsLoadFailed'))
+      setRecordsError(true)
+      toast(errorText(e, t('attAdm.recordsLoadFailed')))
     } finally {
       setLoadingRecords(false)
     }
@@ -234,7 +241,7 @@ export default function AttendanceManagePage() {
       setCalib(null)
       loadRecords()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.calibrateFailed'))
+      toast(errorText(e, t('attAdm.calibrateFailed')))
     } finally {
       setSaving(false)
     }
@@ -252,11 +259,13 @@ export default function AttendanceManagePage() {
 
   const loadGroups = useCallback(async () => {
     setLoadingGroups(true)
+    setGroupsError(false)
     try {
       const res: any = await attendanceApi.groups()
       setGroups(unwrapList(res))
     } catch (e: any) {
-      toast(e?.message || t('attAdm.groupsLoadFailed'))
+      setGroupsError(true)
+      toast(errorText(e, t('attAdm.groupsLoadFailed')))
     } finally {
       setLoadingGroups(false)
     }
@@ -324,7 +333,7 @@ export default function AttendanceManagePage() {
       setGroupSheet(null)
       loadGroups()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.groupSaveFailed'))
+      toast(errorText(e, t('attAdm.groupSaveFailed')))
     } finally {
       setSaving(false)
     }
@@ -341,7 +350,7 @@ export default function AttendanceManagePage() {
       toast(t('attAdm.groupDeleted'), 'success')
       loadGroups()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.groupDeleteFailed'))
+      toast(errorText(e, t('attAdm.groupDeleteFailed')))
     }
   }
 
@@ -368,7 +377,7 @@ export default function AttendanceManagePage() {
       toast(t('attAdm.memberAdded'), 'success')
       loadGroups()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.memberAddFailed'))
+      toast(errorText(e, t('attAdm.memberAddFailed')))
     }
   }
 
@@ -379,7 +388,7 @@ export default function AttendanceManagePage() {
       setMembers((prev) => prev.filter((m) => m.employee_id !== employeeId))
       loadGroups()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.memberRemoveFailed'))
+      toast(errorText(e, t('attAdm.memberRemoveFailed')))
     }
   }
 
@@ -398,7 +407,7 @@ export default function AttendanceManagePage() {
       )
       setLeaves(unwrapList(res))
     } catch (e: any) {
-      toast(e?.message || t('attAdm.leavesLoadFailed'))
+      toast(errorText(e, t('attAdm.leavesLoadFailed')))
     } finally {
       setLoadingLeaves(false)
     }
@@ -417,7 +426,7 @@ export default function AttendanceManagePage() {
       setReplyNote('')
       loadLeaves()
     } catch (e: any) {
-      toast(e?.message || t('attAdm.reviewFailed'))
+      toast(errorText(e, t('attAdm.reviewFailed')))
     } finally {
       setSaving(false)
     }
@@ -439,7 +448,7 @@ export default function AttendanceManagePage() {
       })
       setReport(res?.data ?? res)
     } catch (e: any) {
-      toast(e?.message || t('attAdm.reportLoadFailed'))
+      toast(errorText(e, t('attAdm.reportLoadFailed')))
     } finally {
       setLoadingReport(false)
     }
@@ -544,8 +553,21 @@ export default function AttendanceManagePage() {
               <View className='am-card__head'>
                 <Text className='am-card__title'>{t('attAdm.recordsTitle')}</Text>
               </View>
+              {!loadingRecords && recordsError && records.length > 0 && (
+                <View className='inline-error-bar' onClick={() => void loadRecords()}>
+                  <Text className='inline-error-bar__text'>{t('attAdm.recordsLoadFailed')}</Text>
+                  <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+                </View>
+              )}
               {loadingRecords ? (
-                <View className='am-empty'><Text className='am-empty__text'>{t('common.loading')}</Text></View>
+                <StateBlock loading text={t('common.loading')} />
+              ) : recordsError && records.length === 0 ? (
+                <StateBlock
+                  error
+                  text={t('attAdm.recordsLoadFailed')}
+                  retryText={t('acc.retry')}
+                  onRetry={() => void loadRecords()}
+                />
               ) : records.length === 0 ? (
                 <View className='am-empty'><Text className='am-empty__text'>{t('attAdm.noData')}</Text></View>
               ) : (
@@ -640,8 +662,21 @@ export default function AttendanceManagePage() {
         {/* ------------------------------------------------ 考勤组 */}
         {tab === 'groups' && (
           <View className='am-body'>
+            {!loadingGroups && groupsError && groups.length > 0 && (
+              <View className='inline-error-bar' onClick={() => void loadGroups()}>
+                <Text className='inline-error-bar__text'>{t('attAdm.groupsLoadFailed')}</Text>
+                <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+              </View>
+            )}
             {loadingGroups ? (
-              <View className='am-empty'><Text className='am-empty__text'>{t('common.loading')}</Text></View>
+              <StateBlock loading text={t('common.loading')} />
+            ) : groupsError && groups.length === 0 ? (
+              <StateBlock
+                error
+                text={t('attAdm.groupsLoadFailed')}
+                retryText={t('acc.retry')}
+                onRetry={() => void loadGroups()}
+              />
             ) : groups.length === 0 ? (
               <View className='am-empty'><Text className='am-empty__text'>{t('attAdm.noGroups')}</Text></View>
             ) : (

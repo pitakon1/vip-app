@@ -17,6 +17,7 @@ import {
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface LeadItem {
   id: string
@@ -58,6 +59,7 @@ export default function AdminCrmPage() {
   const [leads, setLeads] = useState<LeadItem[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [stage, setStage] = useState('')
@@ -110,7 +112,7 @@ export default function AdminCrmPage() {
       closeSheet()
       fetchLeads()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('common.saveFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('common.saveFailed')), icon: 'none' })
     }
   }
 
@@ -125,12 +127,13 @@ export default function AdminCrmPage() {
       Taro.showToast({ title: t('common.deleted'), icon: 'success' })
       fetchLeads()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('common.deleteFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('common.deleteFailed')), icon: 'none' })
     }
   }
 
   const fetchLeads = async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const res: any = await leadsApi.list({ page: 1, page_size: PAGE_SIZE })
       const d = res?.data ?? res
@@ -139,6 +142,7 @@ export default function AdminCrmPage() {
       setTotal(Number(d?.total ?? items.length))
     } catch (error) {
       console.error('[AdminCrm] 获取线索失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('crm.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -241,7 +245,21 @@ export default function AdminCrmPage() {
         {loading && visible.length === 0 && (
           <StateBlock loading text={t('pub.loading')} />
         )}
-        {!loading && visible.length === 0 && (
+        {!loading && loadError && visible.length > 0 && (
+          <View className='inline-error-bar' onClick={fetchLeads}>
+            <Text className='inline-error-bar__text'>{t('crm.loadFailed')}</Text>
+            <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
+          </View>
+        )}
+        {!loading && loadError && leads.length === 0 && (
+          <StateBlock
+            error
+            text={t('crm.loadFailed')}
+            retryText={t('acc.retry')}
+            onRetry={fetchLeads}
+          />
+        )}
+        {!loading && !loadError && visible.length === 0 && (
           <View className='crm-state'>
             <View className='icon-svg' style={iconStyle('user', 72)} />
             <Text className='crm-state__text'>{t('crm.empty')}</Text>

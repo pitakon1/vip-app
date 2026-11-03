@@ -1,3 +1,4 @@
+import { BROWSE_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 小区（楼盘）详情（匿名可看）。
  *
@@ -37,7 +38,7 @@ export default function PublicCommunityDetailPage() {
     let cancelled = false
     setLoading(true)
     publicApi
-      .project(id, { listing_limit: 30 })
+      .project(id, { listing_limit: BROWSE_PAGE_SIZE })
       .then((res) => {
         if (!cancelled) setProject(res ?? null)
       })

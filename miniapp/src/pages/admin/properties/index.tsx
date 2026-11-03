@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { propertiesApi, dashboardApi, listingApi } from '@/services/api'
 import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { fmtMoney as fmtRent } from '@/utils/format'
@@ -8,12 +9,14 @@ import { request } from '@/lib/api'
 import { buildListingPayload } from '@/lib/listingPayload'
 import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
+import { AREA_TIERS_5, PRICE_TIERS, SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface PropertyItem {
   id: string
@@ -45,8 +48,7 @@ const STATUS_LABELS: Record<string, string> = {
   vacant: 'prop.statusVacant',
   rented: 'prop.statusRented',
   renewing: 'prop.statusRenewing',
-  maintenance: 'prop.statusMaintenance',
-  reserved: 'prop.statusReserved'
+  maintenance: 'prop.statusMaintenance'
 } as const
 
 const FILTERS: { key: string; label: string }[] = [
@@ -57,7 +59,7 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'maintenance', label: 'prop.statusMaintenance' }
 ]
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 // 房型选项：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上, '4'=4室及以上（对齐租客端 4室+）
 const BEDROOM_OPTIONS = [
@@ -70,23 +72,29 @@ const BEDROOM_OPTIONS = [
 ]
 
 // 价格区间（单位 万/月 THB，语义与租客端对齐）：''=不限, 预设 key, 'custom'=自定义
+const PRICE_LABELS: Record<string, string> = {
+  u3: 'prop.priceU3',
+  '3-5': 'prop.price35',
+  '5-8': 'prop.price58',
+  g8: 'prop.priceG8'
+}
 const PRICE_OPTIONS = [
   { key: '', label: 'prop.priceAny' },
-  { key: 'u3', label: 'prop.priceU3' },
-  { key: '3-5', label: 'prop.price35' },
-  { key: '5-8', label: 'prop.price58' },
-  { key: 'g8', label: 'prop.priceG8' },
+  ...PRICE_TIERS.map((tier) => ({ key: tier.key, label: PRICE_LABELS[tier.key] })),
   { key: 'custom', label: 'prop.custom' }
 ]
 
 // 面积区间（对齐租客端）：''=不限, 预设 key, 'custom'=自定义
+const AREA_LABELS: Record<string, string> = {
+  '0-50': '≤50㎡',
+  '50-100': '50-100㎡',
+  '100-150': '100-150㎡',
+  '150-200': '150-200㎡',
+  '200+': '≥200㎡'
+}
 const AREA_OPTIONS = [
   { key: '', label: 'prop.areaAny' },
-  { key: '0-50', label: '≤50㎡' },
-  { key: '50-100', label: '50-100㎡' },
-  { key: '100-150', label: '100-150㎡' },
-  { key: '150-200', label: '150-200㎡' },
-  { key: '200+', label: '≥200㎡' },
+  ...AREA_TIERS_5.map((tier) => ({ key: tier.key, label: AREA_LABELS[tier.key] })),
   { key: 'custom', label: 'prop.custom' }
 ]
 
@@ -98,8 +106,8 @@ const SORT_OPTIONS = [
   { key: 'area_desc', label: 'prop.sortAreaDesc' }
 ]
 
-// 学校半径（与 C 端一致）：1 / 3 / 5 / 10 km
-const RADII = [1, 3, 5, 10]
+// 学校半径（与 C 端一致）
+const RADII = SCHOOL_RADIUS_OPTIONS
 
 // 筛选 chip：状态 / 房型 / 学校 / 更多 / 区域 / 排序（对齐浏览页）+ 只看视频
 type FilterTab = null | 'region' | 'price' | 'more' | 'sort'
@@ -122,7 +130,12 @@ function pickListPublic(res: any): PublicSchool[] {
 export default function AdminPropertiesPage() {
   const { t } = useI18n()
   const [list, setList] = useState<PropertyItem[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  // 分页
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [summary, setSummary] = useState<any>(null)
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
@@ -195,8 +208,8 @@ export default function AdminPropertiesPage() {
     priceCustomMin: string; priceCustomMax: string; areaRange: string;
     areaCustomMin: string; areaCustomMax: string; region: string;
     hasVideo: boolean; sort: string; schoolId: string; schoolKm: number
-  }> = {}) => {
-    const p: Record<string, any> = { page: 1, page_size: PAGE_SIZE, sort: 'latest' }
+  }> = {}, pg: number = 1) => {
+    const p: Record<string, any> = { page: pg, page_size: PAGE_SIZE, sort: 'latest' }
     const st = over.status ?? status
     const q = over.q ?? query
     const bd = over.bedrooms ?? bedrooms
@@ -225,27 +238,25 @@ export default function AdminPropertiesPage() {
       if (pr === 'custom') {
         if (pcMin) p.price_min = Number(pcMin) * 10000
         if (pcMax) p.price_max = Number(pcMax) * 10000
-      } else if (pr === 'u3') {
-        p.price_max = 30000
-      } else if (pr === 'g8') {
-        p.price_min = 80000
       } else {
-        const [mn, mx] = pr.split('-').map(Number)
-        if (!Number.isNaN(mn)) p.price_min = mn * 10000
-        if (!Number.isNaN(mx)) p.price_max = mx * 10000
+        const tier = PRICE_TIERS.find((x) => x.key === pr)
+        if (tier) {
+          if (tier.min > 0) p.price_min = tier.min
+          if (tier.max != null) p.price_max = tier.max
+        }
       }
     }
-    // 面积区间：200+按需设 min
+    // 面积区间
     if (ar) {
       if (ar === 'custom') {
         if (acMin) p.area_min = Number(acMin)
         if (acMax) p.area_max = Number(acMax)
-      } else if (ar === '200+') {
-        p.area_min = 200
       } else {
-        const [mn, mx] = ar.split('-').map(Number)
-        if (!Number.isNaN(mn)) p.area_min = mn
-        if (!Number.isNaN(mx)) p.area_max = mx
+        const tier = AREA_TIERS_5.find((x) => x.key === ar)
+        if (tier) {
+          p.area_min = tier.min
+          if (tier.max != null) p.area_max = tier.max
+        }
       }
     }
     // 区域/位置：选中的城区关键词走后端 keywords（与租客端同语义）
@@ -263,20 +274,37 @@ export default function AdminPropertiesPage() {
     return p
   }
 
-  const fetchList = async (over: Parameters<typeof buildParams>[0] = {}) => {
-    setLoading(true)
+  const fetchList = useCallback(async (over: Parameters<typeof buildParams>[0] = {}, pg: number = 1, append: boolean = false) => {
+    if (append && loadingMore) return
+    if (!append) { setLoading(true); setHasMore(true) }
+    else setLoadingMore(true)
     try {
-      const res: any = await propertiesApi.list(buildParams(over))
-      const items = pickList(res)
-      // 排序：后端支持 latest/price_asc/price_desc/area_desc，无需客户端兜底
-      setList(items)
+      const res: any = await propertiesApi.list(buildParams(over, pg))
+      const d = res?.data ?? res
+      const items = Array.isArray(d) ? d : d?.items || []
+      const t = Number(d?.total ?? items.length)
+      if (append) {
+        setList((prev) => [...prev, ...items])
+      } else {
+        setList(items)
+      }
+      setTotal(t)
+      setPage(pg)
+      setHasMore(items.length >= PAGE_SIZE && list.length + items.length < t)
     } catch (error) {
       console.error('[AdminProperties] 获取房源失败', error)
-      Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
+      if (!append) Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
-  }
+  }, [loadingMore, list.length, t])
+
+  useReachBottom(() => {
+    if (hasMore && !loading && !loadingMore) {
+      fetchList({}, page + 1, true)
+    }
+  })
 
   useDidShow(() => {
     fetchSummary()
@@ -290,7 +318,7 @@ export default function AdminPropertiesPage() {
     if (schoolsRequestedRef.current) return
     schoolsRequestedRef.current = true
     publicApi
-      .schools({ page_size: 100 })
+      .schools({ page_size: OPTION_PAGE_SIZE })
       .then((res: any) => setSchools(pickListPublic(res)))
       .catch(() => setSchools([]))
   }, [])
@@ -384,7 +412,7 @@ export default function AdminPropertiesPage() {
           await listingApi.create(buildListingPayload(item))
           Taro.showToast({ title: t('listing.listedOk'), icon: 'success' })
         } catch (err: any) {
-          Taro.showToast({ title: err?.data?.detail || err?.message || t('common.saveFailed'), icon: 'none' })
+          Taro.showToast({ title:errorText(err, t('common.saveFailed')), icon: 'none' })
         }
       }
     })

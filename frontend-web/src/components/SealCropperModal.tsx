@@ -65,7 +65,7 @@ const SealCropperModal = ({ open, src, title, onOk, onCancel }: Props) => {
         <button type="button" className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => cropperRef.current?.zoom(-0.1)}>{t('contracts.zoomOut')}</button>
       </div>
       <div style={{ background: '#111', borderRadius: 8, overflow: 'hidden' }}>
-        <img ref={imgRef} src={src || undefined} alt={t('contracts.cropSeal')} style={{ maxWidth: '100%', display: 'block' }} />
+        <img ref={imgRef} src={src || undefined} alt={t('contracts.cropSeal')} loading="eager" decoding="async" style={{ maxWidth: '100%', display: 'block' }} />
       </div>
     </Modal>
   )

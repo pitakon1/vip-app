@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 学校列表页（学区找房一级入口）。
  *
@@ -9,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Skeleton } from 'antd'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
 import PublicTopBar from '@/components/PublicTopBar'
 import { curriculumLabel, schoolStageLabel } from '@/lib/publicLabels'
 import '@/styles/public-site.css'
@@ -53,6 +55,9 @@ const SchoolsPage = () => {
   const { t } = useTranslation()
   const [items, setItems] = useState<SchoolCard[]>([])
   const [loading, setLoading] = useState(true)
+  // 请求失败不再清空列表：保留上一次数据并置错误态，首次失败则直接显示错误页
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const [keyword, setKeyword] = useState('')
   const [stage, setStage] = useState('')
   const [curriculum, setCurriculum] = useState('')
@@ -60,10 +65,11 @@ const SchoolsPage = () => {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
     api
       .get('/public/schools', {
         params: {
-          page_size: 60,
+          page_size: OPTION_PAGE_SIZE,
           q: keyword.trim() || undefined,
           stage: stage || undefined,
           curriculum: curriculum || undefined,
@@ -73,7 +79,7 @@ const SchoolsPage = () => {
         if (!cancelled) setItems(res.data?.items ?? [])
       })
       .catch(() => {
-        if (!cancelled) setItems([])
+        if (!cancelled) setLoadError(t('common.loadFailed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -81,7 +87,7 @@ const SchoolsPage = () => {
     return () => {
       cancelled = true
     }
-  }, [keyword, stage, curriculum])
+  }, [keyword, stage, curriculum, reloadTick, t])
 
   return (
     <div className="pub-page">
@@ -144,14 +150,24 @@ const SchoolsPage = () => {
             </div>
           </div>
 
-          {loading ? (
+          {loadError ? (
+            <DataState
+              error={loadError}
+              retryText={t('common.retry')}
+              onRetry={() => setReloadTick((n) => n + 1)}
+            />
+          ) : loading ? (
             <div className="pub-loading">
               <Skeleton active paragraph={{ rows: 1 }} />
               <Skeleton active paragraph={{ rows: 1 }} />
               <Skeleton active paragraph={{ rows: 1 }} />
             </div>
           ) : items.length === 0 ? (
-            <div className="pub-empty">{t('publicSite.schoolsEmpty')}</div>
+            <DataState
+              empty
+              filtered={Boolean(keyword.trim() || stage || curriculum)}
+              emptyTitle={t('publicSite.schoolsEmpty')}
+            />
           ) : (
             <div className="pub-row-list">
               {items.map((school) => (

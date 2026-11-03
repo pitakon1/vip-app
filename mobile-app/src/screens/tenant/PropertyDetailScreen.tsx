@@ -1,3 +1,4 @@
+﻿import { COUNT_ONLY_PAGE_SIZE, DETAIL_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -28,6 +29,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useI18n } from '@/i18n';
+import { errorText } from '@/lib/errorText'
 
 interface PropertyDetail {
   id: string;
@@ -95,8 +97,6 @@ const statusText = (t: TFunc, status?: string) => {
       return t('prop.status.renewing');
     case 'maintenance':
       return t('status.maintenance');
-    case 'reserved':
-      return t('status.reserved');
     default:
       return '';
   }
@@ -136,12 +136,11 @@ export default function PropertyDetailScreen() {
       }
       const [pRes, sRes] = await Promise.allSettled([
         propertiesApi.get(propertyId),
-        saleListingApi.list({ property_id: propertyId, limit: 1 }),
+        saleListingApi.list({ property_id: propertyId, limit: COUNT_ONLY_PAGE_SIZE }),
       ]);
       if (pRes.status === 'rejected') {
         throw (
-          (pRes.reason as any)?.response?.data?.detail ||
-          t('prop.detailLoadFail')
+          errorText(pRes.reason, t('prop.detailLoadFail'))
         );
       }
       const d: any = pRes.value?.data;
@@ -150,7 +149,7 @@ export default function PropertyDetailScreen() {
       let projectStats: DetailPayload['projectStats'] = null;
       if (property?.project_id) {
         try {
-          const res = await propertiesApi.list({ project_id: property.project_id, page_size: 50 });
+          const res = await propertiesApi.list({ project_id: property.project_id, page_size: DETAIL_PAGE_SIZE });
           const dd: any = res?.data;
           const rows = (Array.isArray(dd) ? dd : dd?.items ?? dd?.data ?? []) as PropertyDetail[];
           const rents = rows
@@ -307,7 +306,7 @@ export default function PropertyDetailScreen() {
       setBookingTime('');
       setBookingNote('');
     } catch (err: any) {
-      notify(t('maint.submitFail'), err?.response?.data?.detail || t('prop.retryLater'));
+      notify(t('maint.submitFail'),errorText(err, t('prop.retryLater')));
     } finally {
       setBookingBusy(false);
     }
@@ -327,7 +326,7 @@ export default function PropertyDetailScreen() {
         String(d?.translated_text ?? d?.translation ?? d?.text ?? JSON.stringify(d)),
       );
     } catch (err: any) {
-      notify(t('prop.translateFail'), err?.response?.data?.message || t('prop.retryLater'));
+      notify(t('prop.translateFail'),errorText(err, t('prop.retryLater')));
     } finally {
       setTranslating(false);
     }

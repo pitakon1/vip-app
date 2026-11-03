@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 interface Trip {
   id: string
@@ -301,7 +302,7 @@ export default function AttendancePage() {
       setAppealReason('')
       loadAppeals()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('att.submitFailed')), icon: 'none' })
     } finally {
       setAppealSubmitting(false)
     }
@@ -343,7 +344,7 @@ export default function AttendancePage() {
       setLeaveTypeIdx(0)
       loadLeaves()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('att.submitFailed')), icon: 'none' })
     } finally {
       setLeaveSubmitting(false)
     }
@@ -360,7 +361,7 @@ export default function AttendancePage() {
       Taro.showToast({ title: t('att.leaveCancelled'), icon: 'success' })
       loadLeaves()
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('att.leaveCancelFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('att.leaveCancelFailed')), icon: 'none' })
     }
   }
 
@@ -395,10 +396,7 @@ export default function AttendancePage() {
       Taro.showToast({ title: mode === 'in' ? t('att.checkInSuccess') : t('att.checkOutSuccess'), icon: 'success' })
       await loadToday()
     } catch (err: any) {
-      let msg = err?.message || t('att.checkFailed')
-      // 后端可能返回英文 detail，截断展示
-      if (typeof msg === 'string' && msg.length > 60) msg = `${msg.slice(0, 60)}...`
-      Taro.showToast({ title: msg, icon: 'none' })
+      Taro.showToast({ title: errorText(err, t('att.checkFailed')), icon: 'none' })
     } finally {
       setActing(false)
     }
@@ -419,7 +417,7 @@ export default function AttendancePage() {
       setShowForm(false)
       setReason('')
     } catch (err: any) {
-      Taro.showToast({ title: err?.message || t('att.submitFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(err, t('att.submitFailed')), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

@@ -25,7 +25,7 @@
     height: 80rpx;
     padding: 0 28rpx;
     background: var(--card);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     font-size: 28rpx;
     color: var(--ink);
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--primary);
+  border: 1rpx solid var(--primary);
   border-radius: var(--radius-full);
 
   &__text {
@@ -85,7 +85,7 @@
   align-items: center;
   justify-content: center;
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
 
   &--active {
@@ -135,7 +135,7 @@
     height: 76rpx;
     padding: 0 24rpx;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     font-size: 28rpx;
     color: var(--ink);
@@ -148,7 +148,7 @@
     display: flex;
     align-items: center;
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
   }
 
@@ -182,7 +182,7 @@
 
   &--ghost {
     background: var(--surface-2);
-    border: 1px solid var(--line);
+    border: 1rpx solid var(--line);
   }
 
   &--ghost .pn-btn__text {
@@ -271,8 +271,8 @@
 
   &__meta {
     padding: 16rpx 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
+    border-bottom: 1rpx solid var(--line);
   }
 
   &__meta-row {
@@ -327,7 +327,7 @@
     gap: 16rpx;
     margin-top: 20rpx;
     padding-top: 20rpx;
-    border-top: 1px solid var(--line);
+    border-top: 1rpx solid var(--line);
   }
 }
 

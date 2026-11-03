@@ -9,6 +9,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import OAuthButtons from '@/components/OAuthButtons'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './register.css'
+import { errorText } from '@/lib/errorText'
 
 // 可自助注册的角色：业主 / 租客（员工、经纪、管理员需由后台开通）
 type RegRole = 'owner' | 'tenant'
@@ -110,7 +111,7 @@ const Register = () => {
         setCountdown(60)
       }
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('register.otpFailed'))
+      message.error(errorText(err, t('register.otpFailed')))
     } finally {
       setSending(false)
     }
@@ -160,7 +161,7 @@ const Register = () => {
       const payload = res?.data?.data ?? res?.data
       if (!handleAuthSuccess(payload)) return
     } catch (err: any) {
-      message.error(err?.response?.data?.message || t('register.failed'))
+      message.error(errorText(err, t('register.failed')))
     } finally {
       setSubmitting(false)
     }
@@ -177,7 +178,7 @@ const Register = () => {
       <section className="rent-login-right">
         <div className="rent-login-card">
           <div className="rent-login-card__header">
-            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" />
+            <img className="rent-login-brand" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
             <h2 className="rent-login-card__title">{t('register.title')}</h2>
             <p className="rent-login-card__subtitle">{t('register.subtitle')}</p>
           </div>
@@ -211,7 +212,7 @@ const Register = () => {
               {/* 底部：已有账号？去登录 */}
               <p className="rent-login-footer">
                 {t('register.hasAccount')}
-                <a onClick={() => navigate('/login')}>{t('register.goLogin')}</a>
+                <button type="button" className="rent-login-footer__link" onClick={() => navigate('/login')}>{t('register.goLogin')}</button>
               </p>
             </>
           ) : (

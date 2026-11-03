@@ -75,7 +75,7 @@ export default function TenantServicesPage() {
   const [ordering, setOrdering] = useState<number | null>(null)
 
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
-  const { data: orders, loading: ordersLoading, refresh } = useSwrCache<ServiceOrderRow[]>({
+  const { data: orders, loading: ordersLoading, error: ordersError, refresh } = useSwrCache<ServiceOrderRow[]>({
     key: `tenant:services:${uid}`,
     fetcher: async () => {
       const res = await serviceOrdersApi.list()
@@ -185,7 +185,15 @@ export default function TenantServicesPage() {
           {ordersLoading && orders.length === 0 && (
             <StateBlock loading text={t('pub.loading')} />
           )}
-          {!ordersLoading && orders.length === 0 && (
+          {!ordersLoading && ordersError && orders.length === 0 && (
+            <StateBlock
+              error
+              text={t('common.loadFailedTapRetry')}
+              retryText={t('common.tapRetry')}
+              onRetry={() => refresh(true)}
+            />
+          )}
+          {!ordersLoading && !ordersError && orders.length === 0 && (
             <View className='empty-tip'>
               <Text>{t('svc.noOrders')}</Text>
             </View>

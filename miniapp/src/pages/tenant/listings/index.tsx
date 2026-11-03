@@ -1,3 +1,4 @@
+import { LIST_PAGE_SIZE, collectAllPages } from '@/lib/pagination'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
@@ -18,7 +19,7 @@ import ListingsFeed, {
 import './index.scss'
 import { useI18n } from '@/i18n'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 // 搜索历史：Taro storage，去重置顶、上限 10 条、越界丢最旧
 const RECENT_SEARCHES_KEY = 'recent_searches'
@@ -228,14 +229,18 @@ export default function TenantListingsPage() {
 
   const fetchFavorites = async () => {
     try {
-      const res: any = await favoritesApi.list({ page: 1, limit: 1000 })
-      const list = Array.isArray(res?.items)
-        ? res.items
-        : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : []
+      // `limit` 不是后端分页参数（会被忽略），且 1000 已超过单页硬顶。
+      // 收藏 id 需要完整集合用于心跳状态，按页累加取全量。
+      const list = await collectAllPages<any>(async (page, pageSize) => {
+        const res: any = await favoritesApi.list({ page, page_size: pageSize })
+        return Array.isArray(res?.items)
+          ? res.items
+          : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+          ? res
+          : []
+      })
       setFavSet(
         new Set(
           list.map((f: any) => String(f.property_id ?? f.id)).filter(Boolean)

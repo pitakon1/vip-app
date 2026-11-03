@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message, Empty } from 'antd'
+import { message } from 'antd'
+import DataState from '@/components/DataState'
 import { ownersApi } from '@/services/api'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -88,9 +89,9 @@ const Marketing = () => {
     cacheKey: `owner-marketing:${uid}:${year}`,
     queryFn: async (): Promise<MarketingPayload> => {
       const [mkRes, prRes, annRes] = await Promise.all([
-        ownersApi.marketing().catch(() => ({ data: {} })),
-        ownersApi.pricingSuggestion().catch(() => ({ data: { items: [] } })),
-        ownersApi.annualFinancialSummary(year).catch(() => ({ data: {} })),
+        ownersApi.marketing(),
+        ownersApi.pricingSuggestion(),
+        ownersApi.annualFinancialSummary(year),
       ])
 
       const mkPayload = mkRes.data?.data ?? mkRes.data
@@ -201,11 +202,8 @@ const Marketing = () => {
     : t('ownerMarketing.noRange')
   const dirMeta = DIRECTION_META[selectedPricing?.suggestion?.direction || 'keep'] || DIRECTION_META.keep
 
-  const emptyBlock = (desc: string) => (
-    <div className="rent-empty" style={{ padding: '28px 0' }}>
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={desc} />
-    </div>
-  )
+  const emptyBlock = (desc: string) =>
+    q.isError && !q.data ? null : <DataState empty emptyTitle={desc} />
 
   return (
     <div className="rent-main">
@@ -220,6 +218,16 @@ const Marketing = () => {
           </button>
         </div>
       </div>
+
+      {loading ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={2} />
+      ) : q.isError ? (
+        <DataState
+          error={t('common.loadFailed')}
+          retryText={t('common.retry')}
+          onRetry={() => q.refetch({ cancelRefetch: false })}
+        />
+      ) : null}
 
       {/* 概览卡 */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
@@ -323,7 +331,7 @@ const Marketing = () => {
                     <div className="rent-text-sm rent-text-muted">{t('ownerMarketing.suggestedRent')}</div>
                     <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--rent-primary)', fontVariantNumeric: 'tabular-nums' }}>
                       {suggestedPrice != null ? fmtMoney(suggestedPrice, selectedPricing.currency) : '—'}
-                      <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--rent-ink-3)' }}>{t('ownerMarketing.perMonth')}</span>
+                      <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--rent-ink-2)' }}>{t('ownerMarketing.perMonth')}</span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>

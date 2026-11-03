@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -219,9 +220,9 @@ export default function PerformanceScreen() {
         employeesApi.leaderboard(),
         performanceApi.mine(),
         employeesApi.mine(),
-        leasesApi.list({ page: 1, page_size: 100 }),
-        propertiesApi.list({ page: 1, page_size: 100 }),
-        viewingsApi.list({ page: 1, page_size: 100 }),
+        leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+        propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+        viewingsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
         performanceApi.agents(),
         canViewPartners ? performanceApi.partners() : Promise.resolve({} as any),
       ]);

@@ -6,6 +6,7 @@ import { iconStyle } from '@/utils/icons'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
+import { errorText } from '@/lib/errorText'
 
 const unwrap = (d: any): any => d?.data ?? d ?? {}
 
@@ -161,7 +162,7 @@ export default function StaffContractPage() {
       load()
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('lease.signFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('lease.signFailed')), icon: 'none' })
     } finally {
       setSigning(false)
     }
@@ -182,7 +183,7 @@ export default function StaffContractPage() {
       setKwHitCount(Number(d?.count) || hits.length)
       if (!hits.length) Taro.showToast({ title: t('contract.noKeywordMatch'), icon: 'none' })
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.searchKeyword'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.searchKeyword')), icon: 'none' })
     } finally {
       setKwBusy(false)
     }
@@ -204,7 +205,7 @@ export default function StaffContractPage() {
       Taro.showToast({ title: t('contract.fieldPlaced'), icon: 'success' })
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.createField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.createField')), icon: 'none' })
     } finally {
       setKwPlacing(false)
     }
@@ -233,7 +234,7 @@ export default function StaffContractPage() {
       load()
       setTimeout(() => Taro.navigateBack(), 800)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.decline'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.decline')), icon: 'none' })
     } finally {
       setDeclineBusy(false)
     }
@@ -370,7 +371,7 @@ export default function StaffContractPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.imprintStamp'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.imprintStamp')), icon: 'none' })
     } finally {
       setSealCropBusy(false)
     }
@@ -398,7 +399,7 @@ export default function StaffContractPage() {
       }
       setGeneratedSeal(url)
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.generateSealFailed'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.generateSealFailed')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -419,7 +420,7 @@ export default function StaffContractPage() {
       setShowSealMaker(false)
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveToLibrary')), icon: 'none' })
     } finally {
       setGenSealBusy(false)
     }
@@ -518,7 +519,7 @@ export default function StaffContractPage() {
               setShowSigDraw(false)
               refreshAssets()
             })
-            .catch((e: any) => Taro.showToast({ title: e?.message || t('contract.saveToLibrary'), icon: 'none' }))
+            .catch((e: any) => Taro.showToast({ title:errorText(e, t('contract.saveToLibrary')), icon: 'none' }))
         }, fail: () => {} })
       })
       .catch(() => {})
@@ -531,7 +532,7 @@ export default function StaffContractPage() {
       Taro.showToast({ title: t('contract.assetSaved'), icon: 'success' })
       await refreshAssets()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.removeAsset'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.removeAsset')), icon: 'none' })
     } finally {
       setAssetBusyId(null)
     }
@@ -656,7 +657,7 @@ export default function StaffContractPage() {
       setPlacing(false)
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -684,7 +685,7 @@ export default function StaffContractPage() {
       setDragField(null)
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.saveFields'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.saveFields')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }
@@ -699,7 +700,7 @@ export default function StaffContractPage() {
       Taro.showToast({ title: t('contract.fieldRemoved'), icon: 'none' })
       load()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || t('contract.deleteField'), icon: 'none' })
+      Taro.showToast({ title:errorText(e, t('contract.deleteField')), icon: 'none' })
     } finally {
       setFieldBusy(false)
     }

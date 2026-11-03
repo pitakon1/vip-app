@@ -1,6 +1,7 @@
+import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Spin, Empty, Modal, message } from 'antd'
+import { Modal, message } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   Chart as ChartJS,
@@ -13,6 +14,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
 import { downloadReport, saveTextFile } from '@/lib/download'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -61,7 +63,7 @@ interface IncomeRow {
 }
 
 // 表格每页条数（/payments/me 一次取回明细，分页在前端做）
-const PAGE_SIZE = 10
+const PAGE_SIZE = LIST_PAGE_SIZE
 
 const fmtMoney = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
 
@@ -137,29 +139,25 @@ const Income = () => {
     queryKey: ['owner-income', 'summary', uid, monthStr],
     cacheKey: `owner-income:summary:${uid}:${monthStr}`,
     queryFn: async () => {
-      try {
-        const res = await api.get('/owners/me/income', { params: { month: monthStr } })
-        const iPayload = res.data?.data ?? res.data
-        // 后端真实口径：total_income / receivable_total / overdue_total / records（逐笔含 month+status）。
-        // 「本月收入」按本月已到账（received）归集，「本月待收」按本月未到账归集。
-        const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
-        const monthRecords = records.filter((it: any) => it?.month === monthStr)
-        const monthlyReceived = monthRecords
-          .filter((it: any) => it?.status === 'received')
-          .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
-        const monthlyPending = monthRecords
-          .filter((it: any) => it?.status !== 'received')
-          .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
-        return {
-          summary: {
-            total_income: Number(iPayload?.total_income ?? 0),
-            monthly_income: monthlyReceived,
-            pending_amount: monthlyPending,
-          },
-          propertyCount: Number(iPayload?.property_count ?? 0),
-        }
-      } catch {
-        return { summary: { total_income: 0, monthly_income: 0, pending_amount: 0 }, propertyCount: 0 }
+      const res = await api.get('/owners/me/income', { params: { month: monthStr } })
+      const iPayload = res.data?.data ?? res.data
+      // 后端真实口径：total_income / receivable_total / overdue_total / records（逐笔含 month+status）。
+      // 「本月收入」按本月已到账（received）归集，「本月待收」按本月未到账归集。
+      const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
+      const monthRecords = records.filter((it: any) => it?.month === monthStr)
+      const monthlyReceived = monthRecords
+        .filter((it: any) => it?.status === 'received')
+        .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
+      const monthlyPending = monthRecords
+        .filter((it: any) => it?.status !== 'received')
+        .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
+      return {
+        summary: {
+          total_income: Number(iPayload?.total_income ?? 0),
+          monthly_income: monthlyReceived,
+          pending_amount: monthlyPending,
+        },
+        propertyCount: Number(iPayload?.property_count ?? 0),
       }
     },
   })
@@ -174,18 +172,19 @@ const Income = () => {
     queryKey: ['owner-income', 'payments', uid],
     cacheKey: `owner-income:payments:${uid}`,
     queryFn: async () => {
-      try {
-        const res = await api.get('/payments/me', { params: { payment_type: 'rent' } })
-        const pPayload = res.data?.data ?? res.data
-        return pPayload?.items ?? []
-      } catch {
-        return []
-      }
+      const res = await api.get('/payments/me', { params: { payment_type: 'rent' } })
+      const pPayload = res.data?.data ?? res.data
+      return pPayload?.items ?? []
     },
   })
   const payments = qPayments.data ?? []
 
   const loading = (qIncome.isPending && !qIncome.data) || (qPayments.isPending && !qPayments.data)
+  const error = qIncome.isError || qPayments.isError ? t('common.loadFailed') : null
+  const retryAll = () => {
+    void qIncome.refetch({ cancelRefetch: false })
+    void qPayments.refetch({ cancelRefetch: false })
+  }
 
   // 平均月租（基于已收租金记录）
   const avgRent = useMemo(() => {
@@ -374,7 +373,7 @@ const Income = () => {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1c2733',
+          backgroundColor: chartTheme.tooltipBg,
           padding: 12,
           cornerRadius: 8,
           callbacks: {
@@ -431,7 +430,7 @@ const Income = () => {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1c2733',
+          backgroundColor: chartTheme.tooltipBg,
           padding: 12,
           cornerRadius: 8,
           callbacks: {
@@ -469,12 +468,15 @@ const Income = () => {
 
   return (
     <div className="rent-main">
-      {loading && (
-        <div className="owner-loading-bar">
-          <Spin size="small" style={{ marginRight: 8 }} />
-          {t('ownerIncome.loadingData')}
-        </div>
-      )}
+      {loading ? (
+        <DataState loading loadingText={t('ownerIncome.loadingData')} skeletonRows={2} />
+      ) : error ? (
+        <DataState
+          error={error}
+          retryText={t('common.retry')}
+          onRetry={retryAll}
+        />
+      ) : null}
 
       {/* Page header */}
       <div className="rent-page-header">
@@ -539,7 +541,7 @@ const Income = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__label">{t('ownerIncome.statAvgRent')}</div>
           <div className="rent-stat-card__value">{fmtMoney(avgRentVal)}</div>
-          <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+          <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-2)' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
@@ -619,20 +621,20 @@ const Income = () => {
               </tr>
             </thead>
             <tbody>
-              {tableRows.length === 0 ? (
+              {tableRows.length === 0 && !loading && !error ? (
                 <tr>
                   <td colSpan={8}>
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('ownerIncome.emptyIncome')} />
+                    <DataState empty emptyTitle={t('ownerIncome.emptyIncome')} />
                   </td>
                 </tr>
-              ) : (
+              ) : tableRows.length === 0 ? null : (
                 pagedRows.map((r, i) => {
                 const diff = r.receivable - r.received
                 const rate = r.receivable > 0 ? ((r.received / r.receivable) * 100).toFixed(1) : '0.0'
                 const badge = statusBadgeMap[r.status] || statusBadgeMap.unpaid
                 const diffColor =
                   diff === 0
-                    ? 'var(--rent-ink-3)'
+                    ? 'var(--rent-ink-2)'
                     : r.status === 'unpaid'
                       ? 'var(--state-error)'
                       : 'var(--state-warning)'

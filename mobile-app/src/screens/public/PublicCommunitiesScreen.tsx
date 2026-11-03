@@ -1,3 +1,4 @@
+import { BROWSE_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 小区（楼盘）列表（匿名可看）。
  *
@@ -24,10 +25,9 @@ import BeikeHeader from '@/components/BeikeHeader';
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi';
 import { convertFromThb, loadRates, tenureLabel, type TFunction } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import ListState from '@/components/ListState';
 import { Badge } from './PublicFilterChip';
-const PAGE_SIZE = 30;
+const PAGE_SIZE = BROWSE_PAGE_SIZE;
 
 export default function PublicCommunitiesScreen() {
   const { t } = useI18n();
@@ -40,6 +40,7 @@ export default function PublicCommunitiesScreen() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -56,8 +57,12 @@ export default function PublicCommunitiesScreen() {
 
   const fetchPage = useCallback(
     async (targetPage: number) => {
-      if (targetPage === 1) setLoading(true);
-      else setLoadingMore(true);
+      if (targetPage === 1) {
+        setLoading(true);
+        setLoadError(null);
+      } else {
+        setLoadingMore(true);
+      }
       try {
         const res: any = await publicApi.projects({ page: targetPage, ...params });
         const pageData = unwrapPage<PublicProject>(res?.data);
@@ -65,10 +70,7 @@ export default function PublicCommunitiesScreen() {
         setPage(targetPage);
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]));
       } catch {
-        if (targetPage === 1) {
-          setItems([]);
-          setTotal(0);
-        }
+        if (targetPage === 1) setLoadError(t('loadFailed'));
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -98,10 +100,21 @@ export default function PublicCommunitiesScreen() {
 
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
 
-      {loading ? (
-        <LoadingState label={t('pub.loading')} />
-      ) : items.length === 0 ? (
-        <EmptyState icon="business-outline" title={t('pub.communitiesEmpty')} sub={t('pub.communitiesHint')} />
+      {loading || loadError || items.length === 0 ? (
+        <ListState
+          loading={loading}
+          loadingLabel={t('pub.loading')}
+          error={loadError}
+          empty={items.length === 0}
+          filtered={!!debounced}
+          emptyTitle={t('pub.communitiesEmpty')}
+          emptySub={t('pub.communitiesHint')}
+          retryLabel={t('retry')}
+          onRetry={() => {
+            setLoadError(null);
+            void fetchPage(1);
+          }}
+        />
       ) : (
         <FlatList
           data={items}

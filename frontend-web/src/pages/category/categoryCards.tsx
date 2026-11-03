@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
+import LazyImage from '@/components/LazyImage'
 import { decorationLabel, photoUrls, tenureLabel } from '@/lib/publicLabels'
 import { formatMoney } from '@/lib/money'
 
@@ -123,7 +124,7 @@ function Cover({
   placeholder: ReactNode
 }) {
   return uri ? (
-    <img className={className} src={uri} alt="" loading="lazy" />
+    <LazyImage className={className} src={uri} alt="" />
   ) : (
     <div className={`${className} cat-card__cover--ph`}>{placeholder}</div>
   )
@@ -359,7 +360,7 @@ export function ProjectCard({ item, onPress }: { item: PublicProject; onPress: (
   return (
     <button type="button" className="cat-project" onClick={onPress}>
       {item.cover ? (
-        <img className="cat-project__cover" src={item.cover} alt="" loading="lazy" />
+        <LazyImage className="cat-project__cover" src={item.cover} alt="" />
       ) : (
         <div className="cat-project__cover cat-card__cover--ph">
           <span className="cat-card__ph-icon">▤</span>
@@ -398,7 +399,7 @@ export function ProjectRailCard({ item, onPress }: { item: PublicProject; onPres
   return (
     <button type="button" className="cat-rail-card" onClick={onPress}>
       {item.cover ? (
-        <img className="cat-rail-card__cover" src={item.cover} alt="" loading="lazy" />
+        <LazyImage className="cat-rail-card__cover" src={item.cover} alt="" />
       ) : (
         <div className="cat-rail-card__cover cat-card__cover--ph">
           <span className="cat-card__ph-icon">▤</span>

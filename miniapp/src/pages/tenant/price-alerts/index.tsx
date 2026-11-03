@@ -1,3 +1,4 @@
+import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 降价提醒 —— C 端「我的 - 常用功能 - 降价提醒」。
  *
@@ -41,14 +42,13 @@ export default function PriceAlertsPage() {
   const load = async () => {
     setFailed(false)
     try {
-      const res: any = await priceAlertsApi.list({ page: 1, page_size: 50 })
+      const res: any = await priceAlertsApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE })
       const payload = res?.data ?? res
       const rows = Array.isArray(payload) ? payload : payload?.items ?? []
       setItems(rows)
     } catch (err) {
       console.error('[price-alerts] 加载失败', err)
       setFailed(true)
-      setItems([])
     } finally {
       setLoading(false)
     }
@@ -96,14 +96,18 @@ export default function PriceAlertsPage() {
           <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && failed && (
-          <View className='empty-tip' onClick={() => { setLoading(true); void load() }}>
-            <Text>{t('common.loadFailedTapRetry')}</Text>
-          </View>
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => {
+              setLoading(true)
+              void load()
+            }}
+          />
         )}
         {!loading && !failed && items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>{t('priceAlert.empty')}</Text>
-          </View>
+          <StateBlock empty text={t('priceAlert.empty')} />
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.photo) || ''

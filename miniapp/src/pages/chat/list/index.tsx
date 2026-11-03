@@ -33,15 +33,21 @@ export default function ChatListPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    const convRes = await chatApi.conversations().catch(() => null)
-    if (!convRes) {
+    setLoadError(false)
+    try {
+      const convRes = await chatApi.conversations()
+      setConversations(pickList<Conversation>(convRes))
+    } catch (error) {
+      console.error('[ChatList] 获取会话失败', error)
+      setLoadError(true)
       Taro.showToast({ title: t('chat.loadConvFailed'), icon: 'none' })
+    } finally {
+      setLoading(false)
     }
-    setConversations(convRes ? pickList<Conversation>(convRes) : [])
-    setLoading(false)
   }
 
   useDidShow(() => {
@@ -68,6 +74,17 @@ export default function ChatListPage() {
       <View className='page-container'>
         {loading && conversations.length === 0 && (
           <StateBlock loading text={t('common.loading')} />
+        )}
+        {!loading && loadError && conversations.length === 0 && (
+          <StateBlock
+            error
+            text={t('chat.loadConvFailed')}
+            retryText={t('acc.retry')}
+            onRetry={() => void load()}
+          />
+        )}
+        {!loading && !loadError && conversations.length === 0 && (
+          <StateBlock empty text={t('chat.noConversations')} />
         )}
         <View className='conversation-list'>
           {conversations.map((c) => (

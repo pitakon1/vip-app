@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { EARTH_RADIUS_KM } from '@/constants/location';
 import { listingTypeLabel } from '@/lib/publicSite';
 import { fmtMoney as formatRent } from '@/utils/format';
 import { useI18n } from '@/i18n';
@@ -29,7 +30,7 @@ const haversineKm = (
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
 ): number => {
-  const R = 6371;
+  const R = EARTH_RADIUS_KM;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);

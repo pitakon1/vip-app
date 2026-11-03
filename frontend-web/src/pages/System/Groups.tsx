@@ -1,8 +1,11 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useEffect, useState } from 'react'
 import { Card, Button, Space, Modal, Form, Input, Select, message, Popconfirm, Empty, Tag, Drawer, Avatar } from 'antd'
+import DataState from '@/components/DataState'
 import { PlusOutlined, TeamOutlined, DeleteOutlined, UserAddOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { useTranslation } from 'react-i18next'
+import { errorText } from '@/lib/errorText'
 
 interface GroupMember {
   user_id: string
@@ -28,6 +31,7 @@ const Groups = () => {
   const { t } = useTranslation()
   const [groups, setGroups] = useState<UserGroup[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [form] = Form.useForm()
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -38,16 +42,17 @@ const Groups = () => {
 
   const fetchGroups = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await api.get('/user-groups')
       const payload = res.data?.data ?? res.data
       setGroups(payload?.items ?? [])
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemGroups.errLoad'))
+      setLoadError(errorText(err, t('common.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchGroups()
@@ -55,7 +60,7 @@ const Groups = () => {
 
   const loadAccounts = async () => {
     try {
-      const res = await api.get('/admin/users', { params: { page_size: 100 } })
+      const res = await api.get('/admin/users', { params: { page_size: OPTION_PAGE_SIZE } })
       const payload = res.data?.data ?? res.data
       setAccounts((payload?.items ?? []).map((u: any) => ({ id: u.id, full_name: u.full_name, email: u.email })))
     } catch {
@@ -77,7 +82,7 @@ const Groups = () => {
         form.scrollToField(err.errorFields[0].name)
         return
       }
-      message.error(err?.response?.data?.detail || t('systemGroups.errCreate'))
+      message.error(errorText(err, t('systemGroups.errCreate')))
     } finally {
       setSaving(false)
     }
@@ -89,7 +94,7 @@ const Groups = () => {
       message.success(t('systemGroups.msgDeleted'))
       fetchGroups()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemGroups.errDelete'))
+      message.error(errorText(err, t('systemGroups.errDelete')))
     }
   }
 
@@ -109,7 +114,7 @@ const Groups = () => {
       message.success(t('systemGroups.msgAdded'))
       fetchGroups()
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || t('systemGroups.errAdd'))
+      message.error(errorText(err, t('systemGroups.errAdd')))
     }
   }
 
@@ -138,10 +143,10 @@ const Groups = () => {
         </div>
       </div>
 
-      {groups.length === 0 && !loading ? (
-        <div className="rent-empty">
-          <Empty description={t('systemGroups.emptyGroups')} />
-        </div>
+      {loadError && groups.length === 0 ? (
+        <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchGroups} />
+      ) : groups.length === 0 && !loading ? (
+        <DataState empty emptyTitle={t('systemGroups.emptyGroups')} />
       ) : (
         <div className="rent-grid rent-grid--3">
           {groups.map((g) => (
@@ -161,17 +166,17 @@ const Groups = () => {
                 </Popconfirm>
               }
             >
-              <p style={{ color: 'var(--rent-ink-3)', minHeight: 20, marginBottom: 16 }}>{g.description || t('systemGroups.noDescription')}</p>
+              <p style={{ color: 'var(--rent-ink-2)', minHeight: 20, marginBottom: 16 }}>{g.description || t('systemGroups.noDescription')}</p>
               <Space wrap>
                 {(g.members ?? []).slice(0, 8).map((m) => (
                   <Avatar key={m.user_id} size="small" style={{ background: 'var(--rent-primary)' }}>
                     {(m.full_name || '?').charAt(0).toUpperCase()}
                   </Avatar>
                 ))}
-                {g.member_count === 0 && <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{t('systemGroups.noMembers')}</span>}
+                {g.member_count === 0 && <span style={{ color: 'var(--rent-ink-2)', fontSize: 13 }}>{t('systemGroups.noMembers')}</span>}
               </Space>
               <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--rent-ink-3)', fontSize: 13 }}>{t('systemGroups.membersCount', { count: g.member_count })}</span>
+                <span style={{ color: 'var(--rent-ink-2)', fontSize: 13 }}>{t('systemGroups.membersCount', { count: g.member_count })}</span>
                 <Button size="small" icon={<UserAddOutlined />} onClick={() => openDrawer(g)}>
                   {t('systemGroups.manageMembers')}
                 </Button>
@@ -236,7 +241,7 @@ const Groups = () => {
                 </Avatar>
                 <div>
                   <div style={{ fontWeight: 600 }}>{m.full_name || t('systemGroups.unnamed')}</div>
-                  <div style={{ fontSize: 12, color: 'var(--rent-ink-3)' }}>{m.email}</div>
+                  <div style={{ fontSize: 12, color: 'var(--rent-ink-2)' }}>{m.email}</div>
                 </div>
               </Space>
               <Popconfirm title={t('systemGroups.confirmRemove')} onConfirm={() => removeMember(m.user_id)}>

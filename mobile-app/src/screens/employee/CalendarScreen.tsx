@@ -1,3 +1,4 @@
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -245,11 +246,11 @@ export default function CalendarScreen() {
   const load = useCallback(async () => {
     const [meRes, vwRes, lsRes, wbRes, pvRes, ceRes] = await Promise.allSettled([
       employeesApi.mine(),
-      viewingsApi.list({ pageSize: 100 }),
-      leasesApi.list({ page: 1, page_size: 100 }),
+      viewingsApi.list({ pageSize: OPTION_PAGE_SIZE }),
+      leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
       employeesApi.workbench(),
-      propertiesApi.list({ page: 1, page_size: 100 }),
-      calendarEventsApi.list({ page: 1, page_size: 100 }),
+      propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+      calendarEventsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
     ]);
 
     if (pvRes.status === 'fulfilled') {

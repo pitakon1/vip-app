@@ -1,3 +1,4 @@
+import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 新房分类页 = 楼盘（项目）视角，数据面是 `/public/projects`。
  *
@@ -35,7 +36,7 @@ import {
   notAvailable,
 } from './categoryShared';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export default function NewHouseScreen() {
   const { t } = useI18n();
@@ -50,7 +51,7 @@ export default function NewHouseScreen() {
   // 「近30天热销」rail：按后端 hot（近30天成交）排序的真实楼盘，空则整块不渲染
   useEffect(() => {
     publicApi
-      .projects({ city: cityKey || undefined, sort: 'hot', page_size: 6 })
+      .projects({ city: cityKey || undefined, sort: 'hot', page_size: CAROUSEL_PAGE_SIZE })
       .then((res: any) => setRail(unwrapPage<PublicProject>(res?.data).items))
       .catch(() => setRail([]));
   }, [cityKey]);

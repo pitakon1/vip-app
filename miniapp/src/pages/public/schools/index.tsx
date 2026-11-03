@@ -1,3 +1,4 @@
+import { BROWSE_PAGE_SIZE } from '@/lib/pagination'
 /**
  * 学校列表（学区找房一级入口，匿名可看）。
  *
@@ -20,7 +21,7 @@ import BottomNav from '@/components/BottomNav'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
-const PAGE_SIZE = 30
+const PAGE_SIZE = BROWSE_PAGE_SIZE
 
 export default function PublicSchoolsPage() {
   const { t } = useI18n()
@@ -33,6 +34,7 @@ export default function PublicSchoolsPage() {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(keyword.trim()), 350)
@@ -41,8 +43,10 @@ export default function PublicSchoolsPage() {
 
   const fetchPage = useCallback(
     async (targetPage: number) => {
-      if (targetPage === 1) setLoading(true)
-      else setLoadingMore(true)
+      if (targetPage === 1) {
+        setLoading(true)
+        setLoadError(false)
+      } else setLoadingMore(true)
       try {
         const res = await publicApi.schools({
           page: targetPage,
@@ -57,10 +61,7 @@ export default function PublicSchoolsPage() {
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]))
       } catch (err) {
         console.error('[public schools] 加载失败', err)
-        if (targetPage === 1) {
-          setItems([])
-          setTotal(0)
-        }
+        if (targetPage === 1) setLoadError(true)
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -120,8 +121,19 @@ export default function PublicSchoolsPage() {
 
         {loading ? (
           <StateBlock loading text={t('pub.loading')} />
+        ) : loadError ? (
+          <StateBlock
+            error
+            text={t('common.loadFailedTapRetry')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => fetchPage(1)}
+          />
         ) : items.length === 0 ? (
-          <View className='pub-empty'>{t('pub.schoolsEmpty')}</View>
+          <StateBlock
+            empty
+            filtered={!!(debounced || stage || curriculum)}
+            text={t('pub.schoolsEmpty')}
+          />
         ) : (
           <>
             {items.map((school) => (
