@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { message, Modal, Spin, Steps } from 'antd'
 import { brokerApi, brokerAgreementsApi, contractsApi } from '@/services/api'
+import useAuthStore from '@/stores/auth'
 import './agreements.css'
 import { errorText } from '@/lib/errorText'
 
@@ -17,7 +18,9 @@ interface Agreements {
 interface ContractParty {
   id: string
   name: string
+  email?: string | null
   role: string
+  user_id?: string | null
   signed?: boolean
 }
 interface ContractDetail {
@@ -33,6 +36,9 @@ const BrokerAgreements = () => {
   const [brokerId, setBrokerId] = useState<string | null>(null)
   const [agreements, setAgreements] = useState<Agreements | null>(null)
   const [loading, setLoading] = useState(false)
+  const [brokerError, setBrokerError] = useState<string | null>(null)
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const currentUserEmail = useAuthStore((s) => s.user?.email)
   const [signingKey, setSigningKey] = useState<string | null>(null)
   // 签约预览
   const [detail, setDetail] = useState<ContractDetail | null>(null)
@@ -49,14 +55,27 @@ const BrokerAgreements = () => {
   )
 
   const refreshBroker = useCallback(async () => {
+    setLoading(true)
+    setBrokerError(null)
     try {
       const res = await brokerApi.me()
       const b = res.data?.data ?? res.data
-      setBrokerId(b?.id || null)
-    } catch {
-      /* noop */
+      const id = b?.id || null
+      setBrokerId(id)
+      // 非经纪人账号没有档案：给出明确空态，而不是一直停在「正在加载」
+      if (!id) setBrokerError(t('brokerAgreements.noBrokerProfile'))
+    } catch (err: any) {
+      setBrokerId(null)
+      const status = err?.response?.status
+      setBrokerError(
+        status === 404
+          ? t('brokerAgreements.noBrokerProfile')
+          : errorText(err, t('brokerAgreements.loadBrokerFailed')),
+      )
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const loadAgreements = useCallback(async (bid: string) => {
     try {
@@ -87,7 +106,7 @@ const BrokerAgreements = () => {
         title: data.title,
         status: data.status,
         content_html: data.content_html,
-        parties: (data.parties || []).map((p: any) => ({ id: p.id, name: p.name, role: p.role, signed: p.signed })),
+        parties: (data.parties || []).map((p: any) => ({ id: p.id, name: p.name, email: p.email, role: p.role, user_id: p.user_id, signed: p.signed })),
       })
       setModalOpen(true)
     } catch (err: any) {
@@ -106,7 +125,7 @@ const BrokerAgreements = () => {
       message.success(t('brokerAgreements.signOk'))
       const detailRes = await contractsApi.get(detail.id)
       const data = detailRes.data?.data ?? detailRes.data
-      setDetail({ ...data, content_html: data.content_html || detail.content_html, parties: (data.parties || []).map((p: any) => ({ id: p.id, name: p.name, role: p.role, signed: p.signed })) })
+      setDetail({ ...data, content_html: data.content_html || detail.content_html, parties: (data.parties || []).map((p: any) => ({ id: p.id, name: p.name, email: p.email, role: p.role, user_id: p.user_id, signed: p.signed })) })
       if (brokerId) loadAgreements(brokerId)
     } catch (err: any) {
       const status = err?.response?.status
@@ -119,6 +138,17 @@ const BrokerAgreements = () => {
   }
 
   const allSigned = (detail?.parties?.length ?? 0) > 0 && (detail?.parties ?? []).every((p) => p.signed)
+  // 只允许签「本人」那一方：此前遍历所有未签方，员工可代签平台/他人。
+  // 归属判定与后端一致：优先 user_id，未绑定用户时按邮箱匹配登录账号。
+  const myParty = (detail?.parties ?? []).find(
+    (p) =>
+      !p.signed &&
+      ((!!p.user_id && p.user_id === currentUserId) ||
+        (!p.user_id && !!currentUserEmail && p.email === currentUserEmail)),
+  )
+  // 经纪人协议是平台单方预签类：乙方（本人）签署后服务端自动补签平台甲方，
+  // 所以未签方里有平台甲方是正常的，只需给出「当前账号无可签方」的说明。
+  const signPrompt = !myParty && !allSigned ? t('brokerAgreements.notYourParty') : null
 
   return (
     <div className="rent-main">
@@ -130,7 +160,14 @@ const BrokerAgreements = () => {
       </div>
 
       <Spin spinning={loading}>
-        {!agreements ? (
+        {brokerError ? (
+          <div className="rent-empty">
+            <p>{brokerError}</p>
+            <button className="rent-btn rent-btn--sm" onClick={() => void refreshBroker()}>
+              {t('common.retry')}
+            </button>
+          </div>
+        ) : !agreements ? (
           <div className="rent-empty">{t('brokerAgreements.loadingStatus')}</div>
         ) : (
           <div className="rent-agreement-list">
@@ -197,11 +234,12 @@ const BrokerAgreements = () => {
               ))}
             </div>
             <div className="rent-flex rent-gap-3" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
-              {detail.parties!.filter((p) => !p.signed).map((p) => (
-                <button key={p.id} className="rent-btn rent-btn--primary rent-btn--sm" disabled={signing} onClick={() => handleSignParty(p)}>
-                  {signing ? t('brokerAgreements.signingNow') : t('brokerAgreements.signParty', { name: p.name })}
+              {myParty && (
+                <button className="rent-btn rent-btn--primary rent-btn--sm" disabled={signing} onClick={() => handleSignParty(myParty)}>
+                  {signing ? t('brokerAgreements.signingNow') : t('brokerAgreements.signParty', { name: myParty.name })}
                 </button>
-              ))}
+              )}
+              {signPrompt && <span className="rent-text-sm rent-text-muted">{signPrompt}</span>}
               {allSigned && (
                 <span className="rent-text-bold" style={{ color: 'var(--state-success)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

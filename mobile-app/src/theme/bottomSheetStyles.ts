@@ -17,13 +17,13 @@ import colors from './colors';
 
 export const bottomSheetStyles = StyleSheet.create({
   /** 遮罩：全屏半透明 + 子元素靠底部 */
-  bsMask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'flex-end' },
+  bsMask: { flex: 1, backgroundColor: colors.alpha(colors.inkRgb, 0.4), justifyContent: 'flex-end' },
 
   /** 弹层外壳：贴底 + 顶部圆角 + 90% 视口限高 + 隐藏溢出 */
   bsSheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     maxHeight: '90%',
@@ -37,20 +37,24 @@ export const bottomSheetStyles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.border,
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: colors.spacing.sm,
+    marginBottom: colors.spacing.xs,
   },
 
   /** ScrollView contentContainerStyle：内容区内边距 */
-  bsContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  bsContent: {
+    paddingHorizontal: colors.spacing.xl,
+    paddingTop: colors.spacing.sm,
+    paddingBottom: colors.spacing.md,
+  },
 
   /** 固定底部操作区：带 borderTop 与上方内容视觉分隔 */
   bsActions: {
     flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    gap: colors.spacing.md,
+    paddingHorizontal: colors.spacing.xl,
+    paddingTop: colors.spacing.md,
+    paddingBottom: colors.spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },

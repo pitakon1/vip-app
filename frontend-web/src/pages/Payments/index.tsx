@@ -24,7 +24,7 @@ import DetailModal from './components/DetailModal'
 const Payments = () => {
   const { t } = useTranslation()
   const list = usePaymentsList()
-  const summary = usePaymentsSummary(list.data, list.total, list.queryParams.page, list.queryParams.pageSize)
+  const summary = usePaymentsSummary(list.serverSummary, list.total, list.queryParams.page, list.queryParams.pageSize)
   const actions = usePaymentActions(list.fetchData)
 
   return (
@@ -53,7 +53,7 @@ const Payments = () => {
 
       {/* Payments Table */}
       {list.loadError && list.data.length === 0 ? (
-        <DataState error={list.loadError} retryText={t('common.retry')} onRetry={list.fetchData} />
+        <DataState error={list.loadError} errorKind={list.loadErrorKind} retryText={t('common.retry')} onRetry={list.fetchData} />
       ) : list.loading && list.data.length === 0 ? (
         <DataState loading loadingText={t('common.loading')} skeletonRows={6} />
       ) : (

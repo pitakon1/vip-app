@@ -87,7 +87,9 @@ export default function CommissionRulesTab({
                             ? r.employee_name || r.employee_id || '—'
                             : r.scope === 'by_broker'
                               ? brokers.find((b) => b.id === r.broker_id)?.partner_name || r.broker_id || '—'
-                              : t('commissionRules.allScope')
+                              : r.scope === 'by_partner'
+                                ? r.partner_name || r.partner_id || '—'
+                                : t('commissionRules.allScope')
                       const limits =
                         r.minimum_amount != null || r.cap_amount != null
                           ? `฿${Number(r.minimum_amount ?? 0)} ~ ${r.cap_amount != null ? `฿${Number(r.cap_amount)}` : t('commissionRules.noCap')}`

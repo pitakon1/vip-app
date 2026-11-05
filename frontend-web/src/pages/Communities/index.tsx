@@ -168,7 +168,7 @@ const CommunitiesPage = () => {
                       </div>
 
                       <div className="pub-badge--row">
-                        <span className="pub-badge pub-badge--primary">
+                        <span className="pub-badge">
                           {t('publicSite.saleCount', { count: project.sale_count ?? 0 })}
                         </span>
                         <span className="pub-badge">

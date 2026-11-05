@@ -108,6 +108,8 @@ const TenantPropertyDetail = () => {
         onToggleFavorite={d.handleToggleFavorite}
         onOpenLoan={() => d.setLoanOpen(true)}
         onOpenBooking={() => d.setBookingOpen(true)}
+        onContactBroker={d.handleContactBroker}
+        contactBusy={d.contactBusy}
       />
 
       {/* 预约看房 */}

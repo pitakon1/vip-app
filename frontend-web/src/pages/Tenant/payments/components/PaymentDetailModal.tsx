@@ -4,6 +4,7 @@ import dayjs from 'dayjs'
 import { makeMethodLabelMap, makeRecordStatusMap, normalizeStatus } from '../constants'
 import type { PaymentVoucher } from '../types'
 import { openReceiptFile } from '../utils'
+import { formatMoney } from '@/lib/money'
 
 interface Props {
   bill: PaymentVoucher | null
@@ -52,7 +53,7 @@ const PaymentDetailModal = ({ bill, onClose }: Props) => {
             <div className="mt-detail__row">
               <span className="mt-detail__label">{t('tenantPayments.detailAmount')}</span>
               <span className="mt-detail__value">
-                ฿{Number(bill.amount || 0).toLocaleString()} {bill.currency || ''}
+                {formatMoney(bill.amount, bill.currency)}
               </span>
             </div>
             <div className="mt-detail__row">

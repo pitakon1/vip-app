@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
+import { errorKind, errorText, type ErrorKind } from '@/lib/errorText'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, { type PublicListingCardData } from '@/components/PublicListingCard'
@@ -50,6 +52,8 @@ const CommunityDetailPage = () => {
 
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<{ text: string; kind: ErrorKind } | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     loadRates()
@@ -59,13 +63,20 @@ const CommunityDetailPage = () => {
     if (!id) return
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
     api
       .get(`/public/projects/${id}`)
       .then((res) => {
         if (!cancelled) setProject(res.data)
       })
-      .catch(() => {
-        if (!cancelled) setProject(null)
+      .catch((err) => {
+        if (!cancelled) {
+          setProject(null)
+          setLoadError({
+            text: errorText(err, t('publicSite.communityNotFound')),
+            kind: errorKind(err),
+          })
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -73,7 +84,7 @@ const CommunityDetailPage = () => {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, t, retryKey])
 
   if (loading) {
     return (
@@ -84,11 +95,27 @@ const CommunityDetailPage = () => {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="pub-page">
+        <PublicTopBar />
+        <div className="pub-wrap">
+          <DataState
+            error={loadError.text}
+            errorKind={loadError.kind}
+            retryText={t('common.retry')}
+            onRetry={() => setRetryKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (!project) {
     return (
       <div className="pub-page">
         <PublicTopBar />
-        <div className="pub-empty">{t('publicSite.communityNotFound')}</div>
+        <DataState empty emptyTitle={t('publicSite.communityNotFound')} />
       </div>
     )
   }
@@ -122,7 +149,7 @@ const CommunityDetailPage = () => {
             </p>
 
             <div className="pub-badge--row" style={{ marginBottom: 18 }}>
-              <span className="pub-badge pub-badge--primary">
+              <span className="pub-badge">
                 {t('publicSite.saleCount', { count: project.sale_count ?? 0 })}
               </span>
               <span className="pub-badge">

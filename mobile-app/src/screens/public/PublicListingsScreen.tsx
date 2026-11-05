@@ -39,10 +39,36 @@ import ListState from '@/components/ListState';
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
 
-type TypeKey = '' | 'rent' | 'sell';
+type BizKey = 'all' | 'rent' | 'resale' | 'new';
 type SortKey = 'latest' | 'price_asc' | 'price_desc' | 'area_desc' | 'distance';
 
 const SORTS: SortKey[] = ['latest', 'price_asc', 'price_desc', 'area_desc'];
+
+/**
+ * 「类型」筛选口径：与 Web 找房页 / 销售端同一条规则。
+ * 公寓 = apartment + condo（后端没有 category 枚举，只能用 property_type 组合表达），
+ * 商铺办公 = office + shop；值以重复键下发 `/public/listings?property_type=...`。
+ */
+type TypeClassKey = '' | 'apartment' | 'villa' | 'commercial' | 'factory' | 'hotel' | 'land';
+
+const TYPE_CLASS_GROUPS: Record<Exclude<TypeClassKey, ''>, string[]> = {
+  apartment: ['apartment', 'condo'],
+  villa: ['villa', 'house'],
+  commercial: ['office', 'shop'],
+  factory: ['factory'],
+  hotel: ['hotel'],
+  land: ['land'],
+};
+
+const TYPE_CLASS_OPTIONS: { value: TypeClassKey; labelKey: string }[] = [
+  { value: '', labelKey: 'pub.filterAny' },
+  { value: 'apartment', labelKey: 'prop.type.apartment' },
+  { value: 'villa', labelKey: 'prop.type.house' },
+  { value: 'commercial', labelKey: 'pub.shopOffice' },
+  { value: 'factory', labelKey: 'prop.type.factory' },
+  { value: 'hotel', labelKey: 'prop.type.hotel' },
+  { value: 'land', labelKey: 'prop.type.land' },
+];
 
 /** 排序取值 → i18n key。抽成常量表而不是内联三元，避免取值增删时漏改文案。 */
 const SORT_LABEL_KEY: Record<SortKey, string> = {
@@ -59,7 +85,14 @@ export default function PublicListingsScreen() {
   const insets = useSafeAreaInsets();
 
   // ---- 筛选状态 ----
-  const [type, setType] = useState<TypeKey>('');
+  const [biz, setBiz] = useState<BizKey>('all');
+  // 类型面板草稿：点「应用」才一起提交，点「重置」只清空本面板
+  const [draftBiz, setDraftBiz] = useState<BizKey>('all');
+  const [draftType, setDraftType] = useState<TypeClassKey>('');
+  const [sortOpen, setSortOpen] = useState(false);
+  // 「类型」筛选（公寓 / 别墅 / 商铺办公 …），与租售分段是两个维度，可叠加
+  const [typeClass, setTypeClass] = useState<TypeClassKey>('');
+  const [typeOpen, setTypeOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   const [sort, setSort] = useState<SortKey>('latest');
@@ -105,7 +138,12 @@ export default function PublicListingsScreen() {
 
   const queryParams = useMemo(
     () => ({
-      listing_type: type || undefined,
+      listing_type: (biz === 'rent' ? 'rent' : biz === 'all' ? undefined : 'sell') as
+        | 'rent'
+        | 'sell'
+        | undefined,
+      is_new_development: biz === 'resale' ? false : biz === 'new' ? true : undefined,
+      property_type: typeClass ? TYPE_CLASS_GROUPS[typeClass] : undefined,
       q: debounced || undefined,
       sort: schoolId ? (sort === 'latest' ? ('distance' as SortKey) : sort) : sort,
       price_min: priceMin ? Number(priceMin) : undefined,
@@ -116,7 +154,7 @@ export default function PublicListingsScreen() {
       school_id: schoolId || undefined,
       school_radius_km: schoolId ? schoolKm : undefined,
     }),
-    [type, debounced, sort, priceMin, priceMax, areaMin, areaMax, bedsMin, schoolId, schoolKm],
+    [biz, typeClass, debounced, sort, priceMin, priceMax, areaMin, areaMax, bedsMin, schoolId, schoolKm],
   );
 
   const fetchPage = useCallback(
@@ -195,6 +233,47 @@ export default function PublicListingsScreen() {
     );
   }, [schools, schoolKw]);
 
+  // ---- 类型入口的回显与动作 ----
+  const bizLabel =
+    biz === 'all'
+      ? ''
+      : biz === 'rent'
+        ? t('pub.typeRent')
+        : biz === 'resale'
+          ? t('category.resaleTitle')
+          : t('category.newTitle');
+  const typeClassLabel = typeClass
+    ? t(TYPE_CLASS_OPTIONS.find((o) => o.value === typeClass)?.labelKey ?? 'pub.filterType')
+    : '';
+  const typeLabel =
+    [bizLabel, typeClassLabel].filter(Boolean).join('·') || t('pub.filterType');
+  const typeActive = biz !== 'all' || !!typeClass;
+  const openType = () => {
+    setDraftBiz(biz);
+    setDraftType(typeClass);
+    setTypeOpen(true);
+  };
+  const applyType = () => {
+    setBiz(draftBiz);
+    setTypeClass(draftType);
+    setTypeOpen(false);
+  };
+  const clearTypeFilter = () => {
+    setBiz('all');
+    setTypeClass('');
+  };
+  const filtered = !!(
+    biz !== 'all' ||
+    typeClass ||
+    debounced ||
+    schoolId ||
+    priceMin ||
+    priceMax ||
+    areaMin ||
+    areaMax ||
+    bedsMin
+  );
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <PublicBackRow />
@@ -212,25 +291,17 @@ export default function PublicListingsScreen() {
         />
       </View>
 
-      {/* ---- 租/售 分段 ---- */}
-      <View style={styles.segment}>
-        {([['', 'pub.typeAll'], ['rent', 'pub.typeRent'], ['sell', 'pub.typeSell']] as const).map(
-          ([key, labelKey]) => (
-            <TouchableOpacity
-              key={key || 'all'}
-              style={[styles.segmentItem, type === key && styles.segmentItemActive]}
-              onPress={() => setType(key)}
-            >
-              <Text style={[styles.segmentText, type === key && styles.segmentTextActive]}>
-                {t(labelKey)}
-              </Text>
-            </TouchableOpacity>
-          ),
-        )}
-      </View>
 
-      {/* ---- 筛选行：学校 / 更多 ---- */}
+      {/* ---- 筛选行：类型 / 学校 / 更多 ---- */}
       <View style={styles.chipRow}>
+        <TouchableOpacity
+          style={[styles.chip, typeActive && styles.chipActive]}
+          onPress={openType}
+        >
+          <Text style={[styles.chipText, typeActive && styles.chipTextActive]} numberOfLines={1}>
+            {typeLabel}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.chip, !!schoolId && styles.chipActive]}
           onPress={() => setSchoolPickOpen(true)}
@@ -247,12 +318,38 @@ export default function PublicListingsScreen() {
             {t('pub.filterMore')}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.chip, sort !== 'latest' && styles.chipActive]}
+          onPress={() => setSortOpen(true)}
+        >
+          <Text style={[styles.chipText, sort !== 'latest' && styles.chipTextActive]} numberOfLines={1}>
+            {sort === 'latest' ? t('pub.sort') : t(SORT_LABEL_KEY[sort])}
+          </Text>
+        </TouchableOpacity>
         {schoolId ? (
           <TouchableOpacity style={styles.chipGhost} onPress={resetSchool}>
             <Text style={styles.chipGhostText}>{t('pub.schoolAny')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
+
+      {/* ---- 已选条件回显：业务线与房产类型各一条，点 × 各自清除 ---- */}
+      {typeActive ? (
+        <View style={styles.activeRow}>
+          {biz !== 'all' ? (
+            <TouchableOpacity style={styles.activeChip} onPress={() => setBiz('all')}>
+              <Text style={styles.activeChipText}>{bizLabel}</Text>
+              <Text style={styles.activeChipX}>×</Text>
+            </TouchableOpacity>
+          ) : null}
+          {typeClass ? (
+            <TouchableOpacity style={styles.activeChip} onPress={() => setTypeClass('')}>
+              <Text style={styles.activeChipText}>{typeClassLabel}</Text>
+              <Text style={styles.activeChipX}>×</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* ---- 结果数 ---- */}
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
@@ -264,9 +361,11 @@ export default function PublicListingsScreen() {
           loadingLabel={t('pub.loading')}
           error={loadError}
           empty={items.length === 0}
-          filtered={!!(type || debounced || schoolId || priceMin || priceMax || areaMin || areaMax || bedsMin)}
-          emptyTitle={t('pub.empty')}
-          emptySub={t('pub.listingsHint')}
+          filtered={filtered}
+          emptyTitle={filtered ? t('pub.emptyFiltered') : t('pub.empty')}
+          emptySub={filtered ? t('pub.emptyFilteredSub') : t('pub.listingsHint')}
+          emptyActionLabel={typeActive ? t('pub.clearType') : undefined}
+          onEmptyAction={typeActive ? clearTypeFilter : undefined}
           retryLabel={t('retry')}
           onRetry={() => {
             setLoadError(null);
@@ -301,6 +400,102 @@ export default function PublicListingsScreen() {
           }
         />
       )}
+
+      {/* ==================== 类型筛选 ==================== */}
+      <Modal visible={typeOpen} animationType="slide" transparent onRequestClose={() => setTypeOpen(false)}>
+        <View style={styles.modalMask}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{t('pub.filterType')}</Text>
+              <TouchableOpacity onPress={() => setTypeOpen(false)}>
+                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 业务线：单选，对应 listing_type 与 is_new_development */}
+            <Text style={styles.fieldLabel}>{t('pub.bizLine')}</Text>
+            <View style={styles.radiusRow}>
+              {([
+                { value: 'all', label: t('pub.bizAll') },
+                { value: 'rent', label: t('pub.typeRent') },
+                { value: 'resale', label: t('category.resaleTitle') },
+                { value: 'new', label: t('category.newTitle') },
+              ] as const).map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  style={[styles.radiusChip, draftBiz === o.value && styles.chipActive]}
+                  onPress={() => setDraftBiz(o.value)}
+                >
+                  <Text style={[styles.chipText, draftBiz === o.value && styles.chipTextActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* 房产类型：单选一组 property_type，可与业务线叠加 */}
+            <Text style={styles.fieldLabel}>{t('pub.propertyTypeGroup')}</Text>
+            <View style={styles.radiusRow}>
+              {TYPE_CLASS_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value || 'any'}
+                  style={[styles.radiusChip, draftType === o.value && styles.chipActive]}
+                  onPress={() => setDraftType(o.value)}
+                >
+                  <Text style={[styles.chipText, draftType === o.value && styles.chipTextActive]}>
+                    {t(o.labelKey)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.sheetReset}
+                onPress={() => {
+                  setDraftBiz('all');
+                  setDraftType('');
+                }}
+              >
+                <Text style={styles.sheetResetText}>{t('pub.reset')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.sheetApply} onPress={applyType}>
+                <Text style={styles.sheetApplyText}>{t('pub.apply')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================== 排序 ==================== */}
+      <Modal visible={sortOpen} animationType="slide" transparent onRequestClose={() => setSortOpen(false)}>
+        <View style={styles.modalMask}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{t('pub.sort')}</Text>
+              <TouchableOpacity onPress={() => setSortOpen(false)}>
+                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.radiusRow, { marginTop: 16 }]}>
+              {SORTS.map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.radiusChip, sort === key && styles.chipActive]}
+                  onPress={() => {
+                    setSort(key);
+                    setSortOpen(false);
+                  }}
+                >
+                  <Text style={[styles.chipText, sort === key && styles.chipTextActive]}>
+                    {t(SORT_LABEL_KEY[key])}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ==================== 学校筛选（空间筛选）==================== */}
       <Modal visible={schoolPickOpen} animationType="slide" transparent onRequestClose={() => setSchoolPickOpen(false)}>
@@ -509,19 +704,21 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginTop: 10,
   },
-  segment: {
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 12 },
+  activeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 10 },
+  activeChip: {
     flexDirection: 'row',
-    marginTop: 10,
-    marginHorizontal: 16,
+    alignItems: 'center',
+    gap: 6,
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: colors.radius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.primary,
     backgroundColor: colors.fieldFill,
-    borderRadius: colors.radius.md,
-    padding: 3,
   },
-  segmentItem: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: colors.radius.sm },
-  segmentItemActive: { backgroundColor: colors.card, ...colors.shadow.sm },
-  segmentText: { fontSize: colors.fontSize.base, color: colors.ink2 },
-  segmentTextActive: { color: colors.ink, fontWeight: '700' },
-  chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginTop: 12 },
+  activeChipText: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '600' },
+  activeChipX: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700' },
   chip: {
      minHeight: 44,
      maxWidth: 200,

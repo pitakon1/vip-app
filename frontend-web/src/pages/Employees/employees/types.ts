@@ -31,5 +31,6 @@ export interface EmployeeStats {
   topName: string
   topPerf: number
   avg: number
-  completion: number
+  /** 全员累计业绩（后端全局汇总） */
+  totalPerf: number
 }

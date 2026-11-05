@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { message } from 'antd'
+
+
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,9 +12,10 @@ import {
 } from 'chart.js'
 import { Bar } from 'react-chartjs-2'
 import { financialApi } from '@/services/api'
+import DataState from '@/components/DataState'
 import { chartTheme } from '@/lib/chartTheme'
 import './trend.css'
-import { errorText } from '@/lib/errorText'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
@@ -29,16 +32,23 @@ const fmtMoney = (v: number) => `฿${Number(v || 0).toLocaleString(undefined, {
 const Trend = () => {
   const [series, setSeries] = useState<SeriesPoint[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<{ text: string; kind: ErrorKind } | null>(null)
   const [months, setMonths] = useState(12)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const res = await financialApi.trend({ months })
       const payload = res.data?.data ?? res.data
       setSeries(payload?.series ?? [])
     } catch (err: any) {
-      message.error(errorText(err, '获取运营趋势失败'))
+      // 失败必须显式展示：此前只弹 toast，随后渲染成「暂无运营趋势数据」
+      setSeries([])
+      setLoadError({
+        text: errorText(err, '获取运营趋势失败'),
+        kind: errorKind(err),
+      })
     } finally {
       setLoading(false)
     }
@@ -197,7 +207,14 @@ const Trend = () => {
         ))}
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <DataState
+          error={loadError.text}
+          errorKind={loadError.kind}
+          retryText="重试"
+          onRetry={fetchData}
+        />
+      ) : loading ? (
         <div className="rent-empty"><div className="rent-text-muted">加载中...</div></div>
       ) : series.length === 0 ? (
         <div className="rent-empty rent-text-muted">暂无运营趋势数据</div>

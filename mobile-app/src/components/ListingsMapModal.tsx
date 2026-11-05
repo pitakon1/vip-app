@@ -220,5 +220,5 @@ const styles = StyleSheet.create({
   mapRight: { alignItems: 'flex-end', gap: 4 },
   mapPrice: { fontSize: 15, color: colors.primary, fontWeight: '700' },
   mapDist: { fontSize: 12, color: colors.ink2 },
-  mapNoLoc: { fontSize: 11, color: colors.ink3, maxWidth: 96, textAlign: 'right' },
+  mapNoLoc: { fontSize: colors.fontSize.xs, color: colors.ink3, maxWidth: 96, textAlign: 'right', lineHeight: colors.lineHeight.tight},
 });

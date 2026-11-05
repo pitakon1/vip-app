@@ -22,6 +22,7 @@ export const emptyForm = (): FormState => ({
   department: '',
   employee_id: '',
   broker_id: '',
+  partner_id: '',
   broker_employee_id: '',
   cap_amount: '',
   minimum_amount: '',

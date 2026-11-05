@@ -108,6 +108,7 @@ const CommissionRules = () => {
         isAdmin={labels.isAdmin}
         employees={list.employees}
         brokers={list.brokers}
+        partners={split.partners}
         brokerEmployeeOptions={ruleForm.brokerEmployeeOptions}
         scopeOptions={labels.scopeOptions}
         brokerScopeOptions={labels.brokerScopeOptions}

@@ -5,7 +5,7 @@
  * 成功/失败文案完全保持不变。
  */
 import { useState } from 'react'
-import { message } from 'antd'
+import { Modal, message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { contractsApi } from '@/services/api'
 import { errorText } from '@/lib/errorText'
@@ -144,21 +144,45 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     const c = detail.contract
     if (!c) return
     setEditTitle(c.title)
-    setEditContent('')
+    // 必须载入现有正文：原来置空会导致「只改标题」也把正文写成空串并重算哈希
+    setEditContent(c.content_html ?? '')
     setEditOpen(true)
   }
 
   const handleEditSave = () => {
-    if (!detail.contract) return
-    contractsApi
-      .updateContract(detail.contract.id, { title: editTitle, content_html: editContent })
-      .then(() => {
-        message.success(t('contracts.msgEdited'))
-        setEditOpen(false)
-        onChanged()
-        handleOpen(detail.contract!.id)
+    const c = detail.contract
+    if (!c) return
+    const titleChanged = editTitle.trim() !== c.title
+    const contentChanged = editContent !== (c.content_html ?? '')
+    if (!titleChanged && !contentChanged) {
+      message.info(t('contracts.noChanges'))
+      return
+    }
+    // 正文变更会重算 document_hash，属于不可逆留痕变更，先二次确认
+    const save = () => {
+      const payload: { title?: string; content_html?: string } = { title: editTitle }
+      if (contentChanged) payload.content_html = editContent
+      contractsApi
+        .updateContract(c.id, payload)
+        .then(() => {
+          message.success(t('contracts.msgEdited'))
+          setEditOpen(false)
+          onChanged()
+          handleOpen(c.id)
+        })
+        .catch((err) => message.error(errorText(err, t('contracts.errEdit'))))
+    }
+    if (contentChanged) {
+      Modal.confirm({
+        title: t('contracts.confirmOverwriteTitle'),
+        content: t('contracts.confirmOverwriteBody'),
+        okText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        onOk: save,
       })
-      .catch(() => message.error(t('contracts.errEdit')))
+    } else {
+      save()
+    }
   }
 
   // 追加签署方

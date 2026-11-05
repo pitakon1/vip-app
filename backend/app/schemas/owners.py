@@ -21,12 +21,19 @@ class OwnerPropertyIncomeOut(BaseModel):
 
 
 class OwnerIncomeRecordOut(BaseModel):
-    """逐笔租金记录（`status` 为 received/pending/overdue）。"""
+    """逐笔租金记录（`status` 为 received/pending/overdue）。
+
+    这是业主收入页唯一的账单模型：汇总、趋势、明细表都从这里派生，
+    不再另读 `/payments/me`（那边会把 payer/payee 双方记录都返回）。
+    """
 
     id: str
+    property_id: Optional[str] = None
     property: Optional[str] = None
     month: str
     amount: float
+    currency: Optional[str] = None
+    payment_type: Optional[str] = None
     status: str
 
 

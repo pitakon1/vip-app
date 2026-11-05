@@ -79,6 +79,14 @@ def _create_commission_settlements(
     emp = session.get(Employee, agent_id)
     broker_id = emp.broker_id if emp else None
     broker_base = get_broker_base_rate(session, broker_id)
+
+    # 该租客/经办所属合作公司（经员工 → user → partner）；
+    # 用于 by_partner 费率匹配，以及 partner_company 分佣角色归属。
+    partner_id = None
+    if emp and emp.user_id:
+        owner_user = session.get(User, emp.user_id)
+        partner_id = getattr(owner_user, "partner_id", None) if owner_user else None
+
     rate = resolve_commission_rate(
         session,
         deal_type=deal_type.value,
@@ -86,18 +94,13 @@ def _create_commission_settlements(
         employee_id=agent_id,
         department=emp.department if emp else None,
         broker_id=broker_id,
+        partner_id=partner_id,
         broker_base_rate=broker_base,
     )
     # rate 统一为百分比 0-100（规则/broker 如 5 = 5%；fallback=100.0 = 1 个月
     # 租金），除以 100 换算成月租倍数后乘以月租得到佣金
     factor = rate / 100.0
     base = round(lease.monthly_rent * factor, 2)
-
-    # 该租客/经办所属合作公司（经员工 → user → partner）
-    partner_id = None
-    if emp and emp.user_id:
-        owner_user = session.get(User, emp.user_id)
-        partner_id = getattr(owner_user, "partner_id", None) if owner_user else None
 
     splits = _collect_split_roles(session, deal_type, partner_id)
     total = sum(p for _, p in splits) or 100.0

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_
+from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -71,19 +71,41 @@ def list_leads(
     stage: Optional[LeadStage] = None,
     assigned_to: Optional[uuid.UUID] = None,
     keyword: Optional[str] = None,
+    mine: bool = False,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """线索列表（分页，可按 stage 筛选、按关键词搜索姓名/电话/邮箱/社交账号）。"""
+    """线索列表（分页，可按 stage 筛选、按关键词搜索姓名/电话/邮箱/社交账号）。
+
+    `mine=true`：非 admin 只看派给自己员工档案的线索（员工端 CRM 必须带）；
+    admin 仍看全量。非 admin 传他人的 `assigned_to` 直接 403，防止枚举他人客户。
+    """
     # 线索含 phone/email/wechat/line 等客户联系方式，仅内部员工/经纪可见
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Access denied. Staff only")
     conditions = [Lead.deleted_at.is_(None)]
+    # 非 admin 的归属边界：只能看/筛自己的员工档案
+    emp = None
+    if user.role != UserRole.admin:
+        emp = session.exec(
+            select(Employee).where(
+                Employee.user_id == user.id, Employee.deleted_at.is_(None)
+            )
+        ).first()
     # stage 过滤单独保存：分页查询用它，stage_counts 需要「不含 stage 维度」的
     # 全阶段分布（否则切到某个阶段时，其他阶段的计数会变成 0）。
     stage_condition = Lead.stage == stage if stage else None
     if assigned_to:
+        if user.role != UserRole.admin and (not emp or assigned_to != emp.id):
+            raise HTTPException(
+                status_code=403,
+                detail="Can only filter leads assigned to yourself",
+            )
         conditions.append(Lead.assigned_to == assigned_to)
+    if mine and user.role != UserRole.admin:
+        # 没有员工档案就没有「我的线索」；用恒假条件返回空集，
+        # 不能退化成 `assigned_to IS NULL` 否则会拿到全部未分配线索。
+        conditions.append(Lead.assigned_to == emp.id if emp else false())
     if keyword and keyword.strip():
         kw = f"%{keyword.strip()}%"
         conditions.append(

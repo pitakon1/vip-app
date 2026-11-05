@@ -309,7 +309,7 @@ export const styles = StyleSheet.create({
   assetThumb: { width: 40, height: 40, borderRadius: colors.radius.sm, backgroundColor: colors.surface2 },
   assetInfo: { flex: 1, minWidth: 0 },
   assetName: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  assetMeta: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  assetMeta: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   assetAct: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   assetEmpty: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 6 },
   assetEmptyText: { fontSize: 12, color: colors.ink3, textAlign: 'center' },
@@ -331,7 +331,7 @@ export const styles = StyleSheet.create({
   pdfPageWrapActive: { borderColor: colors.primary, borderWidth: 1.5 },
   pdfPageImage: { width: '100%', aspectRatio: 210 / 297, backgroundColor: colors.surface2 },
   // 文档上签署框内的类型 · 归属姓名小字标签
-  fieldTag: { fontSize: 9, lineHeight: 12, color: colors.primary, fontWeight: '700', textAlign: 'center' },
+  fieldTag: { fontSize: colors.fontSize.xs, lineHeight: 12, color: colors.primary, fontWeight: '700', textAlign: 'center' },
   pdfLoading: {
     width: '100%',
     aspectRatio: 210 / 297,

@@ -25,6 +25,7 @@ import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
 import { dashboardApi, paymentsApi, propertiesApi, usersAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
+import { fetchAllPages } from '@/lib/fetchAll';
 
 const PAGE_SIZE = DETAIL_PAGE_SIZE;
 
@@ -154,11 +155,15 @@ export default function AdminPaymentsScreen() {
   const load = useCallback(
     async (status: ChipKey) => {
       setLoadError(null);
-      const params: Record<string, unknown> = { page: 1, page_size: PAGE_SIZE };
+      const params: Record<string, unknown> = {};
       if (status !== 'all') params.status = status;
 
       const [payRes, sumRes, reconRes, userRes, propRes] = await Promise.allSettled([
-        paymentsApi.list(params),
+        // 显式全量加载：本页按状态 chip 展示并用 countN 展示总数，只取第一页会少数据
+        fetchAllPages<PaymentRow>(
+          (page) => paymentsApi.list({ ...params, page, page_size: PAGE_SIZE }),
+          PAGE_SIZE,
+        ),
         dashboardApi.summary(),
         dashboardApi.financialReconciliation(),
         usersAdminApi.list({ page_size: OPTION_PAGE_SIZE }),
@@ -166,10 +171,9 @@ export default function AdminPaymentsScreen() {
       ]);
 
       if (payRes.status === 'fulfilled') {
-        const d = (payRes.value as any)?.data ?? {};
-        const rows = (Array.isArray(d) ? d : d.items ?? []) as PaymentRow[];
+        const { items: rows, total: rowTotal } = payRes.value as { items: PaymentRow[]; total: number };
         setPayments(rows);
-        setTotal(typeof d.total === 'number' ? d.total : rows.length);
+        setTotal(rowTotal);
       } else {
         setLoadError(t('admPay.loadFailed'));
       }
@@ -728,7 +732,7 @@ const styles = StyleSheet.create({
   },
   incomeCell: { flex: 1 },
   incomeDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.alpha('255, 255, 255', 0.25) },
-  incomeCellLabel: { fontSize: 11, color: colors.alpha('255, 255, 255', 0.75) },
+  incomeCellLabel: { fontSize: colors.fontSize.xs, color: colors.alpha('255, 255, 255', 0.75), lineHeight: colors.lineHeight.tight},
   incomeCellValue: {
     fontSize: 15,
     fontWeight: '700',
@@ -781,7 +785,7 @@ const styles = StyleSheet.create({
   },
   listHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  listHint: { fontSize: 11, color: colors.ink3 },
+  listHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -811,11 +815,11 @@ const styles = StyleSheet.create({
   },
   payBody: { flex: 1, minWidth: 0 },
   payTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  paySub: { fontSize: 11, color: colors.ink3, marginTop: 4 },
+  paySub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 4, lineHeight: colors.lineHeight.tight},
   payRight: { alignItems: 'flex-end', gap: 5 },
   payAmount: { fontSize: 15, fontWeight: '800', color: colors.ink, fontVariant: ['tabular-nums'] },
   badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   payActions: {
     flexDirection: 'row',
     gap: 12,
@@ -842,7 +846,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
   fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
   fieldError: { borderColor: colors.error, borderWidth: 1 },
-  fieldErrorText: { fontSize: 11, color: colors.error, marginTop: 5 },
+  fieldErrorText: { fontSize: colors.fontSize.xs, color: colors.error, marginTop: 5, lineHeight: colors.lineHeight.tight},
   textInput: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -894,7 +898,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   pickerName: { fontSize: 15, color: colors.ink },
-  pickerSub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  pickerSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
 
   /* ===== 详情 ===== */
   detailRow: {
@@ -916,5 +920,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   docTitle: { fontSize: 12, fontWeight: '700', color: colors.ink, marginBottom: 6 },
-  docBody: { fontSize: 11, color: colors.ink2, lineHeight: 16 },
+  docBody: { fontSize: colors.fontSize.xs, color: colors.ink2, lineHeight: 16 },
 });

@@ -740,6 +740,37 @@
   max-width: calc(100vw - 32px);
 }
 
+/* 「类型」面板：业务线与房产类型各自成组，组与组之间留一档间距 */
+.rent-type-panel__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rent-s-2);
+}
+.rent-type-panel__group + .rent-type-panel__group {
+  margin-top: var(--rent-s-4);
+}
+
+/* 已选条件回显 chip（类型筛选的业务线 / 房产类型）：独立可清除 */
+.rent-filter-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--rent-radius-full);
+  border: 1px solid var(--rent-primary);
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary);
+  font-size: var(--rent-fs-xs);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rent-filter-active-chip:hover {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+
 /* ---- 学校筛选面板（按学校找房的一级入口）---- */
 .rent-school-panel {
   width: 460px;

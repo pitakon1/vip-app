@@ -24,6 +24,9 @@ interface Props {
 export default function PublicListingRow({ item, t, onPress }: Props) {
   const cover = coverOf(item);
   const isSell = item.listing_type === 'sell';
+  // 出租走住宅档、出售走商业档：与首页/学校卡的浅色语义标签同一套色，
+  // 不再用品牌绿实心块或深灰实心块。
+  const typeBadge = colors.badge;
   const price = item.price ?? (isSell ? item.asking_price : item.monthly_rent);
   const title = item.project_name || item.room_number || item.address || t('pub.listingsTitle');
 
@@ -53,8 +56,8 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
           </View>
         )}
         {item.listing_type ? (
-          <View style={[styles.typeTag, isSell ? styles.typeTagSell : styles.typeTagRent]}>
-            <Text style={styles.typeTagText}>{listingTypeLabel(item.listing_type, t)}</Text>
+          <View style={styles.typeTag}>
+            <Text style={[styles.typeTagText, { color: typeBadge.fg }]}>{listingTypeLabel(item.listing_type, t)}</Text>
           </View>
         ) : null}
       </View>
@@ -147,10 +150,11 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     paddingHorizontal: 8,
     paddingVertical: 2,
+    backgroundColor: colors.badge.bg,
+    borderWidth: 1,
+    borderColor: colors.badge.border,
   },
-  typeTagRent: { backgroundColor: colors.primary },
-  typeTagSell: { backgroundColor: colors.ink2 },
-  typeTagText: { fontSize: colors.fontSize.xs, color: '#fff', fontWeight: '600' },
+  typeTagText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   body: { flex: 1, justifyContent: 'center' },
   title: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
   unit: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
@@ -160,13 +164,15 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   tag: {
     backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.line,
     borderRadius: colors.radius.sm,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  tagText: { fontSize: colors.fontSize.xs, color: colors.ink2 },
+  tagText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 6 },
-  price: { fontSize: colors.fontSize.xl, fontWeight: '800', color: colors.primary },
+  price: { fontSize: colors.fontSize.xl, fontWeight: colors.fontWeight.bold, color: colors.primary },
   priceUnit: { fontSize: colors.fontSize.sm, color: colors.ink3 },
   school: { fontSize: colors.fontSize.xs, color: colors.accent, marginTop: 4 },
 });

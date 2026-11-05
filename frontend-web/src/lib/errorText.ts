@@ -36,6 +36,19 @@ function t(key: string): string {
   }
 }
 
+/** 错误分类：供 DataState 区分「无权限 / 不存在 / 服务异常 / 网络异常」 */
+export type ErrorKind = 'forbidden' | 'notFound' | 'network' | 'server' | 'unknown'
+
+export function errorKind(err: unknown): ErrorKind {
+  const e = (err ?? {}) as ErrorLike
+  const status = e.response?.status
+  if (status === 401 || status === 403) return 'forbidden'
+  if (status === 404) return 'notFound'
+  if (status && status >= 500) return 'server'
+  if (status) return 'unknown'
+  return 'network'
+}
+
 export function errorText(err: unknown, fallback?: string): string {
   const e = (err ?? {}) as ErrorLike
   const status = e.response?.status

@@ -30,10 +30,11 @@ const styles = StyleSheet.create({
     ...colors.shadow.card,
   },
   title: {
-    fontSize: colors.fontSize.lg, // 16
-    fontWeight: '700',
+    fontSize: colors.fontSize.lg,
+    lineHeight: colors.lineHeight.relaxed,
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
-    marginBottom: colors.spacing.md, // 12
+    marginBottom: colors.spacing.md,
     letterSpacing: -0.2,
   },
 });

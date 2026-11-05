@@ -14,6 +14,8 @@ export default function PropertyCard({
   onClick,
   propertyTypeMap,
   statusLabelMap,
+  favorited,
+  onToggleFavorite,
 }: {
   item: any
   biz: string
@@ -21,6 +23,8 @@ export default function PropertyCard({
   onClick: (item: any) => void
   propertyTypeMap: Record<string, string>
   statusLabelMap: Record<string, string>
+  favorited?: boolean
+  onToggleFavorite?: (item: any) => void
 }) {
   const { t } = useTranslation()
 
@@ -38,12 +42,13 @@ export default function PropertyCard({
   const seed = String(item.id || item.room_number || '')
   const cover = typeof item.cover === 'string' ? item.cover : ''
 
-  const tags: { label: string; type: string }[] = []
-  if (item.is_featured) tags.push({ label: t('browse.featured'), type: 'primary' })
-  if (item.owner_direct) tags.push({ label: t('browse.ownerDirect'), type: 'success' })
-  if (item.vr_url) tags.push({ label: t('browse.vr'), type: 'primary' })
-  if (item.furnished) tags.push({ label: t('browse.furnished'), type: 'primary' })
-  tags.push({ label: t('browse.moveIn'), type: 'success' })
+  // 卡面只保留价格一个强调色：其余 tag 一律中性
+  const tags: string[] = []
+  if (item.is_featured) tags.push(t('browse.featured'))
+  if (item.owner_direct) tags.push(t('browse.ownerDirect'))
+  if (item.vr_url) tags.push(t('browse.vr'))
+  if (item.furnished) tags.push(t('browse.furnished'))
+  tags.push(t('browse.moveIn'))
 
   return (
     <div className="rent-prop-search-card" onClick={() => onClick(item)}>
@@ -57,9 +62,11 @@ export default function PropertyCard({
         <button
           className="rent-fav-btn"
           aria-label={t('property.followProperty')}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+          data-active={!!favorited}
+          style={{ color: favorited ? 'var(--rent-primary)' : undefined }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite?.(item) }}
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill={favorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
           </svg>
         </button>
@@ -77,7 +84,7 @@ export default function PropertyCard({
             {t('browse.video')}
           </span>
         )}
-        <span className="rent-prop-search-card__type-badge">
+        <span className="rent-pill rent-prop-search-card__type-badge">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d={TYPE_ICON_PATH(ptypeKey)} />
           </svg>
@@ -105,7 +112,7 @@ export default function PropertyCard({
         ) : null}
         <div className="rent-prop-search-card__tags">
           {tags.map((tag, i) => (
-            <span key={i} className={`rent-badge rent-badge--${tag.type}`}>{tag.label}</span>
+            <span key={i} className="rent-badge rent-badge--neutral">{tag}</span>
           ))}
         </div>
         <div className="rent-prop-search-card__stats">

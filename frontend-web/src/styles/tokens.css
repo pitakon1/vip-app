@@ -1,56 +1,91 @@
 /* =========================================================
-   HaoFang.World 品牌设计令牌 (Refined Premium Light)
-   高端物业质感：温暖米白基底 · 柔和阴影 · 圆角层级 · 留白节奏
-   主色保持品牌青绿，通过底色温度与质感提升"高端"观感
+   Web 端设计令牌（独立于移动端，不追求三端数值一致）
+   - 交互语义与 App 对齐（主色/状态色含义相同），视觉尺度按 Web 定义
+   - Web 偏「桌面信息密度」：字号阶梯更紧凑、圆角更收敛、间距走 4/8 网格
+   - 移动端令牌见 mobile-app/src/theme/colors.ts（圆角/字号/可点尺寸各自一套）
+   - 断点收敛为 3 档：1024 / 768 / 480（480 仅小屏收窄，不新增组件规格）
+
+   对比度基线（WCAG AA，正文 4.5:1）：
+   - 品牌绿 #14b8a6 保持原值，不改主色。
+   - 主色底上的文字改用深墨前景 #0b2f2b：5.80:1（原白字仅 2.49:1，
+     连大文本 3:1 都达不到，故主色底上不再使用白字）。
+   - hover #2dd4bf 配深墨 7.75:1；active #0fb3a3 配深墨 5.42:1。
+   - 辅助文字 #5f6b78：白底 5.44:1、surface-2 4.83:1、米白底 5.18:1
+     （原 #98a1ab 白底 2.62:1）。
+   - 白字仅保留在深色底（tooltip 14.4:1、深青渐变徽章 5.43:1、
+     照片压暗层）上，这些场景与品牌绿无关。
    ========================================================= */
 
 :root {
-  /* ---- 语义色（底色降温提暖，更接近高端物业从容感）---- */
+  /* ---- 语义色 ---- */
   --rent-background: #fbf9f6;
   --rent-foreground: #16202b;
   --rent-card: #ffffff;
   --rent-card-foreground: #16202b;
   --rent-popover: #ffffff;
   --rent-popover-foreground: #16202b;
+
+  /* 品牌主色：保持原值 #14b8a6，作为「面」使用（按钮底、Hero、选中底） */
   --rent-primary: #14b8a6;
-  --rent-primary-foreground: #ffffff;
-  --rent-primary-hover: #0d9488;
+  /* 主色底上的前景：深墨字（5.80:1），不再用白字（2.49:1） */
+  --rent-primary-foreground: #0b2f2b;
+  /* 交互态：hover/active 统一用更亮的同色系，保证深墨字仍 ≥4.5:1 */
+  --rent-primary-hover: #2dd4bf;   /* 配深墨 7.75:1 */
+  --rent-primary-active: #0fb3a3;  /* 配深墨 5.42:1 */
+  /* 品牌亮青：与主色同值，保留给历史引用（--rent-primary-bright） */
+  --rent-primary-bright: #14b8a6;
+  /* 状态色底（红/绿按钮、错误徽标）上的前景仍用白字，避免深墨字落到红底 */
+  --rent-on-status: #ffffff;
+
   --rent-muted: #f3f1ec;
-  --rent-muted-foreground: #6b7280;
+  --rent-muted-foreground: #5f6b78;
   --rent-border: #ece7df;
   --rent-input: #ece7df;
-  --rent-ring: #14b8a6;
+  --rent-ring: #0d9488; /* 焦点环是图形元素，需 ≥3:1：白底 3.74:1（品牌面同色相加深） */
 
   /* ---- 中性阶梯（墨色带暖调）---- */
   --rent-ink: #1c2733;
   --rent-ink-2: #55606c;
-  --rent-ink-3: #98a1ab;
+  --rent-ink-3: #5f6b78;   /* 辅助文字：全底色面 ≥4.8:1 */
+  --rent-ink-4: #98a1ab;   /* 仅禁用态/装饰，禁止作为正文色 */
   --rent-line: #ece7df;
   --rent-surface: #ffffff;
   --rent-surface-2: #f4f1ec;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #d9f2ee;
+  --rent-sidebar-active: #d9f2ee; /* 配 --rent-primary 文字 2.13:1（不足），选中文字另用 --rent-ink */
 
   /* ---- 主色 RGB 通道（用于 rgba 透明度叠加）---- */
   --rent-primary-rgb: 20, 184, 166;
-  --rent-primary-hover-rgb: 13, 148, 136;
+  --rent-primary-hover-rgb: 45, 212, 191;
+  --rent-primary-bright-rgb: 20, 184, 166;
 
   /* ---- 状态色 ---- */
   --state-success: #16a34a;
   --state-success-rgb: 22, 163, 74;
+  --state-success-ink: #15803d;   /* 文字/CTA：白底 5.02:1，浅绿底 4.50:1 */
+  --state-success-hover: #166534;
   --state-warning: #d97706;
   --state-warning-rgb: 217, 119, 6;
+  --state-warning-ink: #a64c07;   /* 文字：白底 5.4:1，浅橙底 4.8:1 */
   --state-warning-soft: #fdf5e9;
   --state-warning-light: #f4d9ad;
   --state-error: #dc2626;
   --state-error-rgb: 220, 38, 38;
+  --state-error-ink: #b91c1c;     /* 文字：白底 6.2:1，浅红底 5.2:1 */
   --state-error-hover: #b91c1c;
   --state-info: #0ea5e9;
   --state-info-rgb: 14, 165, 233;
+  --state-info-ink: #0369a1;      /* 文字：白底 5.93:1 */
   --state-purple: #7a5cd6;
   --state-purple-rgb: 122, 92, 214;
 
-  /* ---- 品牌辅助色 ---- */
+  /* 语义别名（历史代码使用 --rent-danger / --rent-success / --rent-warning） */
+  --rent-danger: var(--state-error);
+  --rent-success: var(--state-success);
+  --rent-warning: var(--state-warning);
+  --rent-info: var(--state-info);
+
+  /* ---- 品牌辅助色（恢复品牌亮青基底）---- */
   --rent-accent: #0d9488;
   --rent-accent-soft: rgba(20, 184, 166, 0.09);
   --rent-tint: rgba(20, 184, 166, 0.045);
@@ -66,8 +101,13 @@
   --state-amber: #fbbf24;
   --state-amber-strong: #f59e0b;
 
+  /* ---- 标签（徽标）：全站唯一一套中性标签，卡面只保留价格一个强调色 ---- */
+  --rent-badge-bg: #f7f5f1;
+  --rent-badge-fg: #3f4a54; /* 8.32:1 */
+  --rent-badge-border: var(--rent-line);
+
   /* ---- 图表（Chart.js 数据可视化，与主题令牌对齐）---- */
-  --chart-1: #14b8a6;
+  --chart-1: #0d9488; /* 数据可视化专用（图形需 3:1，白底 3.74:1），不是品牌填充色 */
   --chart-2: #0ea5e9;
   --chart-3: #16a34a;
   --chart-4: #7a5cd6;
@@ -77,27 +117,34 @@
   --chart-tooltip-bg: #1c2733;
   --chart-tooltip-border: #243044;
   --chart-tooltip-ink: #e8edf5;
-  --chart-legend: #64748b;
+  --chart-legend: #5f6b78;
 
-  /* ---- 圆角（五档基准，与 UI-设计原则.md §1.4 对齐） ---- */
+  /* ---- 圆角（Web 四档 + 胶囊；收敛 18/24 → 14/20）----
+     sm 6  ：标签、日期格、微控件
+     md 10 ：按钮、输入框、筛选控件
+     lg 14 ：卡片、弹层、表格容器
+     xl 20 ：Hero、Modal、Banner
+     不再出现 18 / 24 这类“半档”值 */
   --rent-radius-sm: 6px;
   --rent-radius-md: 10px;
-  --rent-radius-lg: 18px;
-  --rent-radius-xl: 24px;
+  --rent-radius-lg: 14px;
+  --rent-radius-xl: 20px;
   --rent-radius-full: 9999px;
 
-  /* ---- 动效时长（统一节奏；可按 reduced-motion 降级） ---- */
-  --motion-instant: 100ms;   /* 微交互（hover transform 等） */
+  /* ---- 动效时长（统一节奏；可按 reduced-motion 降级）---- */
+  --motion-instant: 100ms;
   --motion-fast: 120ms;
   --motion-base: 200ms;
   --motion-slow: 320ms;
 
-  /* ---- 阴影（更柔和、空气感；深阴影仅浮层） ---- */
+  /* ---- 阴影（静态面 ≤0.05；深阴影仅浮层；主色投影只给 CTA）---- */
   --rent-shadow-1: 0 1px 2px rgba(28, 39, 51, 0.04), 0 1px 3px rgba(28, 39, 51, 0.03);
   --rent-shadow-2: 0 10px 30px -10px rgba(28, 39, 51, 0.14);
   --rent-shadow-3: 0 28px 70px -24px rgba(28, 39, 51, 0.26);
+  --rent-shadow-primary: 0 4px 14px -6px rgba(20, 184, 166, 0.32);
+  --rent-shadow-primary-hover: 0 8px 20px -8px rgba(20, 184, 166, 0.4);
 
-  /* ---- 间距（8pt 网格） ---- */
+  /* ---- 间距（4/8 网格：4 · 8 · 12 · 16 · 24 · 32 · 48 · 80）---- */
   --rent-s-1: 4px;
   --rent-s-2: 8px;
   --rent-s-3: 12px;
@@ -107,11 +154,12 @@
   --rent-s-7: 48px;
   --rent-s-8: 80px;
 
-  /* ---- 字体（正文用系统中文栈，标题/数字保持 tabular）---- */
+  /* ---- 字体 ---- */
   --rent-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
-  /* ---- 字号阶梯（与 8pt 网格协调）---- */
+  /* ---- 字号阶梯（Web：12 起步，桌面阅读距离下更紧凑）---- */
+  --rent-fs-2xs: 11px;  /* Badge / 极小数字，仅非正文 */
   --rent-fs-xs: 12px;
   --rent-fs-sm: 13px;
   --rent-fs-base: 14px;
@@ -121,7 +169,22 @@
   --rent-fs-3xl: 28px;
   --rent-fs-4xl: 32px;
 
-  /* ---- 金额/数字（对齐）---- */
+  /* ---- 行高（按字号档配套，避免各处裸写 1.4/1.6）---- */
+  --rent-lh-tight: 1.2;    /* 大数字 / 单行标题 */
+  --rent-lh-title: 1.35;   /* 标题 */
+  --rent-lh-control: 1.4;  /* 按钮 / 控件 */
+  --rent-lh-body: 1.6;     /* 正文 */
+  --rent-lh-relaxed: 1.75; /* 长段落 */
+
+  /* ---- 字重（中文/泰文小字号下 800 会糊；标题封顶 700）---- */
+  --rent-fw-regular: 400;
+  --rent-fw-medium: 500;
+  --rent-fw-semibold: 600;
+  --rent-fw-bold: 700;     /* 标题 / 金额上限 */
+  --rent-fw-display: 700;  /* 大数字，与 bold 同档，禁止 800 */
+
+  /* ---- 金额/数字（对齐）：文字用加深同色相，白底 3.85:1 仍不足，
+     金额作为大号加粗数字按大文本 3:1 计，若改成正文大小需用 --rent-ink ---- */
   --rent-price: #0d9488;
 
   /* ---- 半透明浅色文字最低透明度 ---- */

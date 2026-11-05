@@ -15,6 +15,8 @@ import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
 import LazyImage from '@/components/LazyImage'
+import DataState from '@/components/DataState'
+import { errorKind, type ErrorKind } from '@/lib/errorText'
 import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, {
@@ -119,6 +121,10 @@ const ListingDetailPage = () => {
   const [detail, setDetail] = useState<ListingDetail | null>(null)
   const [similar, setSimilar] = useState<SimilarListing[]>([])
   const [loading, setLoading] = useState(true)
+  // 详情请求失败不能再落到「房源不存在」：403/500/断网必须各自可辨
+  const [loadError, setLoadError] = useState<{ text: string; kind: ErrorKind } | null>(null)
+  // 失败后可重试：403/404 不显示重试（DataState 内判断）
+  const [retryKey, setRetryKey] = useState(0)
 
   const [form, setForm] = useState({
     name: '',
@@ -139,6 +145,69 @@ const ListingDetailPage = () => {
   const [viewingName, setViewingName] = useState('')
   const [viewingPhone, setViewingPhone] = useState('')
   const [viewingSubmitting, setViewingSubmitting] = useState(false)
+  const [favorited, setFavorited] = useState(false)
+  const [favBusy, setFavBusy] = useState(false)
+  const [contactBusy, setContactBusy] = useState(false)
+
+  // 收藏状态：以 property_id 为键（公开详情返回的 listing id 不是收藏主键）
+  useEffect(() => {
+    const pid = detail?.property_id
+    if (!isLoggedIn || !pid) {
+      setFavorited(false)
+      return
+    }
+    let alive = true
+    api.get(`/favorites/status/${pid}`)
+      .then((res) => {
+        const body = res.data?.data ?? res.data
+        if (alive) setFavorited(Boolean(body?.favorited))
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [detail?.property_id, isLoggedIn])
+
+  const toggleFavorite = async () => {
+    if (!detail?.property_id || favBusy) return
+    if (!isLoggedIn) {
+      navigate(`/login?redirect=${encodeURIComponent(`/listing/${detail.id}`)}`)
+      return
+    }
+    setFavBusy(true)
+    const next = !favorited
+    setFavorited(next)
+    try {
+      if (next) await api.post('/favorites', { property_id: detail.property_id })
+      else await api.delete(`/favorites/${detail.property_id}`)
+    } catch {
+      setFavorited(!next)
+      setFeedback({ tone: 'error', text: t('browse.favFailed') })
+    } finally {
+      setFavBusy(false)
+    }
+  }
+
+  // 联系经纪人：登录用户按房源建会话后直接进入；未登录先引导登录
+  const contactBroker = async () => {
+    if (!detail) return
+    if (!isLoggedIn) {
+      navigate(`/login?redirect=${encodeURIComponent(`/listing/${detail.id}`)}`)
+      return
+    }
+    setContactBusy(true)
+    try {
+      const res = await api.post('/chat/conversations', {
+        listing_id: detail.id,
+        title: t('tenantPropertyDetail.contactChatTitle', { name: detail.room_number || detail.project_name || '' }),
+      })
+      const conv = res.data?.data ?? res.data
+      if (!conv?.id) throw new Error('conversation not created')
+      navigate(`/chat?id=${conv.id}`)
+    } catch {
+      setFeedback({ tone: 'error', text: t('tenantPropertyDetail.contactFailed') })
+    } finally {
+      setContactBusy(false)
+    }
+  }
 
   // 未登录也可约看：走匿名 /public/viewings（需留姓名+手机），不再拦截跳登录
   const openBooking = () => {
@@ -158,13 +227,20 @@ const ListingDetailPage = () => {
     if (!id) return
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
     api
       .get(`/public/listings/${id}`)
       .then((res) => {
         if (!cancelled) setDetail(res.data)
       })
-      .catch(() => {
-        if (!cancelled) setDetail(null)
+      .catch((err) => {
+        if (!cancelled) {
+          setDetail(null)
+          setLoadError({
+            text: errorText(err, t('publicSite.listingNotFound')),
+            kind: errorKind(err),
+          })
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -172,7 +248,7 @@ const ListingDetailPage = () => {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, t, retryKey])
 
   // 相似房源推荐：进详情页顺带取一次（失败静默置空，不阻塞主内容）
   useEffect(() => {
@@ -280,11 +356,27 @@ const ListingDetailPage = () => {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="pub-page">
+        <PublicTopBar />
+        <div className="pub-wrap">
+          <DataState
+            error={loadError.text}
+            errorKind={loadError.kind}
+            retryText={t('common.retry')}
+            onRetry={() => setRetryKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (!detail) {
     return (
       <div className="pub-page">
         <PublicTopBar />
-        <div className="pub-empty">{t('publicSite.listingNotFound')}</div>
+        <DataState empty emptyTitle={t('publicSite.listingNotFound')} />
       </div>
     )
   }
@@ -349,8 +441,16 @@ const ListingDetailPage = () => {
                 {[detail.address, detail.district, detail.city].filter(Boolean).join(' · ')}
               </p>
 
-              <div className="pub-badge--row" style={{ marginBottom: 16 }}>
-                <span className="pub-badge pub-badge--primary">
+              <div className="pub-badge--row" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  className="rent-btn rent-btn--sm"
+                  disabled={favBusy}
+                  onClick={toggleFavorite}
+                >
+                  {favorited ? t('publicSite.favorited') : t('property.followProperty')}
+                </button>
+                <span className="pub-badge">
                   {isRent ? t('browse.rent') : t('browse.buy')}
                 </span>
                 {detail.bedrooms ? (
@@ -663,6 +763,14 @@ const ListingDetailPage = () => {
                     </span>
                   ) : null}
                 </div>
+                <button
+                  type="button"
+                  className="rent-btn rent-btn--primary rent-btn--block rent-mt-4"
+                  disabled={contactBusy}
+                  onClick={contactBroker}
+                >
+                  {!isLoggedIn ? t('publicSite.contactLogin') : t('tenantPropertyDetail.contactBroker')}
+                </button>
               </div>
             ) : null}
 

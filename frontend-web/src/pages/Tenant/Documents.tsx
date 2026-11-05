@@ -19,7 +19,6 @@ import { errorText } from '@/lib/errorText'
 
 type DocCategory = 'all' | 'contract' | 'receipt' | 'ownership' | 'tax' | 'other'
 type CatKey = Exclude<DocCategory, 'all'>
-type DocStatus = 'success' | 'neutral' | 'warning'
 
 interface DocItem {
   id: string
@@ -29,11 +28,7 @@ interface DocItem {
   /** 文件大小（字节） */
   size: number
   date: string
-  status: DocStatus
-  statusLabel: string
   url: string
-  /** 是否来自接口（false 为演示兜底数据，不可下载/删除） */
-  fromApi: boolean
 }
 
 const catLabelKey: Record<CatKey, string> = {
@@ -58,12 +53,6 @@ const catIconCls: Record<CatKey, string> = {
   ownership: 'rent-doc-card__icon--other',
   tax: 'rent-doc-card__icon--other',
   other: 'rent-doc-card__icon--other',
-}
-
-const statusCls: Record<DocStatus, string> = {
-  success: 'rent-doc-status--success',
-  neutral: 'rent-doc-status--neutral',
-  warning: 'rent-doc-status--warning',
 }
 
 // 后端 DocumentType（contract / receipt / inspection_photo / tax_invoice / wht_certificate / other）
@@ -99,19 +88,6 @@ const formatBytes = (bytes: number): string => {
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`
   return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
-
-// 设计稿静态演示数据（接口无数据时兜底，字段与卡片展示一致）
-const FALLBACK_DOCS: DocItem[] = [
-  { id: 'fb-1', name: 'Sunway Mesmerrra 租赁合同.pdf', category: 'contract', property: 'Sunway Mesmerrra', size: 2.4 * 1024 ** 2, date: '2024-01-15', status: 'success', statusLabel: 'ownerDocuments.stValid', url: '', fromApi: false },
-  { id: 'fb-2', name: '2024年Q3租金收据.pdf', category: 'receipt', property: 'Sunway Mesmerrra', size: 856 * 1024, date: '2024-10-05', status: 'neutral', statusLabel: 'ownerDocuments.stArchived', url: '', fromApi: false },
-  { id: 'fb-3', name: '房产产权证明.jpg', category: 'ownership', property: '双威金沙国际公寓', size: 3.1 * 1024 ** 2, date: '2023-06-20', status: 'success', statusLabel: 'ownerDocuments.stValid', url: '', fromApi: false },
-  { id: 'fb-4', name: '2024年度房产税申报表.xlsx', category: 'tax', property: '多处房产', size: 1.2 * 1024 ** 2, date: '2024-03-12', status: 'neutral', statusLabel: 'ownerDocuments.stArchived', url: '', fromApi: false },
-  { id: 'fb-5', name: 'Sunway Rio Sintra 物业管理协议.pdf', category: 'contract', property: 'Sunway Rio Sintra', size: 1.8 * 1024 ** 2, date: '2024-02-08', status: 'success', statusLabel: 'ownerDocuments.stValid', url: '', fromApi: false },
-  { id: 'fb-6', name: '2024年Q1租金收据.pdf', category: 'receipt', property: 'Sunway Rio Sintra', size: 780 * 1024, date: '2024-04-10', status: 'neutral', statusLabel: 'ownerDocuments.stArchived', url: '', fromApi: false },
-  { id: 'fb-7', name: '房屋租赁登记备案证明.pdf', category: 'ownership', property: 'Sunway Mesmerrra', size: 640 * 1024, date: '2023-08-15', status: 'success', statusLabel: 'ownerDocuments.stValid', url: '', fromApi: false },
-  { id: 'fb-8', name: '2024年物业费缴费凭证.png', category: 'other', property: 'Sunway Rio Sintra', size: 1.5 * 1024 ** 2, date: '2024-05-22', status: 'warning', statusLabel: 'ownerDocuments.stPendingReview', url: '', fromApi: false },
-  { id: 'fb-9', name: '2024年度个人所得税清单.pdf', category: 'tax', property: '多处房产', size: 920 * 1024, date: '2024-06-30', status: 'neutral', statusLabel: 'ownerDocuments.stArchived', url: '', fromApi: false },
-]
 
 const DocIcon = ({ cat }: { cat: CatKey }) => {
   if (cat === 'ownership') {
@@ -168,8 +144,7 @@ const TenantDocuments = () => {
       const res = await api.get('/documents')
       const payload = res.data?.data ?? res.data
       const items: any[] = payload?.items ?? []
-      // 接口无数据时回落到演示数据（保留原租客端行为）
-      if (!items.length) return FALLBACK_DOCS
+      // 只渲染真实档案：不再用演示数据兜底，空就是空态
       return items.map((d) => ({
         id: String(d.id),
         name: d.title || d.name || '',
@@ -177,10 +152,7 @@ const TenantDocuments = () => {
         property: d.property_name || d.property || '-',
         size: Number(d.file_size || 0),
         date: d.created_at ? dayjs(d.created_at).format('YYYY-MM-DD') : '',
-        status: 'neutral' as DocStatus,
-        statusLabel: 'ownerDocuments.stArchived',
         url: d.file_url || '',
-        fromApi: true,
       }))
     },
   })
@@ -193,7 +165,7 @@ const TenantDocuments = () => {
   // 证件、合同等敏感文档由鉴权接口取件（/documents/{id}/file 预览、/download 下载）。
   // 用 blob 中转而不是把 token 拼进 URL：URL 会留在历史记录、日志与 Referer 里。
   const openDocument = async (doc: DocItem, download: boolean) => {
-    if (!doc.fromApi || !doc.url) {
+    if (!doc.url) {
       message.error(t('ownerDocuments.errNoFileUrl'))
       return
     }
@@ -253,10 +225,6 @@ const TenantDocuments = () => {
   }
 
   const handleDelete = (doc: DocItem) => {
-    if (!doc.fromApi) {
-      message.warning(t('ownerDocuments.warnDemoNoDelete'))
-      return
-    }
     Modal.confirm({
       title: t('ownerDocuments.modalDeleteTitle'),
       content: t('ownerDocuments.modalDeleteContent', { name: doc.name }),
@@ -291,9 +259,9 @@ const TenantDocuments = () => {
     return list
   }, [data, activeTab, keyword, timeFilter])
 
-  // 存储用量（真实 file_size 汇总；演示兜底数据不计入）
+  // 存储用量：真实 file_size 汇总
   const usedBytes = useMemo(
-    () => data.filter((d) => d.fromApi).reduce((sum, d) => sum + Number(d.size || 0), 0),
+    () => data.reduce((sum, d) => sum + Number(d.size || 0), 0),
     [data],
   )
   const usedPercent = Math.min(100, (usedBytes / STORAGE_QUOTA_BYTES) * 100)
@@ -409,7 +377,7 @@ const TenantDocuments = () => {
         ) : filteredData.length ? (
           filteredData.map((d) => {
             const sizeStr = formatBytes(Number(d.size || 0))
-            const canOpen = d.fromApi && !!d.url
+            const canOpen = !!d.url
             return (
               <div key={d.id} className="rent-doc-card">
                 <div className="rent-doc-card__head">
@@ -428,7 +396,6 @@ const TenantDocuments = () => {
                 <div className="rent-doc-card__foot">
                   <div className="rent-doc-card__meta-row">
                     {d.date && <span className="rent-doc-card__date">{t('tenantDocuments.uploadedAt', { date: d.date })}</span>}
-                    <span className={`rent-doc-status ${statusCls[d.status]}`}><span className="rent-doc-status__dot"></span>{t(d.statusLabel)}</span>
                   </div>
                   <div className="rent-doc-card__actions">
                     <button className="rent-btn rent-btn--secondary rent-btn--sm" disabled={!canOpen} onClick={() => void openDocument(d, true)}>

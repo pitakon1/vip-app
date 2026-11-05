@@ -1393,7 +1393,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
+  filterTabBadgeText: { color: colors.primaryForeground, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dropPanel: {
     marginHorizontal: 0,
     marginTop: 6,
@@ -1609,7 +1609,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...colors.shadow.sm,
   },
-  statLabel: { fontSize: 11, color: colors.ink3 },
+  statLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   statValue: { fontSize: 20, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
 
   sectionTitle: {
@@ -1645,7 +1645,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  typeBadgeText: { fontSize: 11, fontWeight: '700' },
+  typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   statusBadge: {
     position: 'absolute',
     right: 12,
@@ -1654,7 +1654,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  statusBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
 
   cardBody: { padding: 14 },
   name: { fontSize: 15, fontWeight: '700', color: colors.ink },
@@ -1663,7 +1663,7 @@ const styles = StyleSheet.create({
   spec: { fontSize: 12, color: colors.ink2, marginTop: 6 },
   priceRow: { marginTop: 8 },
   price: { fontSize: 16, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'] },
-  priceUnit: { fontSize: 11, fontWeight: '500', color: colors.ink3 },
+  priceUnit: { fontSize: colors.fontSize.xs, fontWeight: '500', color: colors.ink3, lineHeight: colors.lineHeight.tight},
   ownerRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   ownerText: { flex: 1, fontSize: 12, color: colors.ink2 },
   ownerTextEmpty: { color: colors.warning, fontWeight: '600' },

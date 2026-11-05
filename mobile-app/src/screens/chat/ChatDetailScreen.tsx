@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   otherBubble: { backgroundColor: colors.surface },
   msgText: { fontSize: 15, color: colors.text, lineHeight: 21 },
   mineText: { color: colors.primaryForeground },
-  msgTime: { fontSize: 11, color: colors.ink3, marginTop: 6, textAlign: 'right' },
+  msgTime: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, textAlign: 'right', lineHeight: colors.lineHeight.tight},
   mineTime: { color: 'rgba(255,255,255,0.85)' },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 32 },
   inputBar: {

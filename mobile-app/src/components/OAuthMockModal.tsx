@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     ...colors.shadow.lg,
   },
-  title: { fontSize: 17, fontWeight: '800', color: colors.ink, textAlign: 'center' },
+  title: { fontSize: 17, fontWeight: colors.fontWeight.bold, color: colors.ink, textAlign: 'center' },
   desc: { fontSize: 13, color: colors.ink2, textAlign: 'center', marginTop: 8, lineHeight: 19 },
   input: {
     backgroundColor: colors.fieldFill,
@@ -114,5 +114,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
+  buttonText: { color: colors.primaryForeground, fontSize: 15, fontWeight: colors.fontWeight.semibold, letterSpacing: 0.2 },
 });

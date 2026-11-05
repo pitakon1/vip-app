@@ -184,5 +184,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: '600', color: colors.ink },
   address: { fontSize: 12, color: colors.ink3, marginTop: 4 },
   price: { fontSize: 15, fontWeight: '700', color: colors.error, marginTop: 6 },
-  priceUnit: { fontSize: 11, fontWeight: '400', color: colors.ink3 },
+  priceUnit: { fontSize: colors.fontSize.xs, fontWeight: '400', color: colors.ink3, lineHeight: colors.lineHeight.tight},
 });

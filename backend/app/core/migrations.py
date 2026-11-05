@@ -79,6 +79,10 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
     "contracts": {"contract_no": "varchar(32)"},
     "leases": {"lease_no": "varchar(32)"},
     "payments": {"receipt_no": "varchar(32)"},
+    # 佣金规则：按合作公司（Partner）差异化定价
+    "commission_rules": {
+        "partner_id": "uuid",
+    },
 }
 
 # 表 -> 需要建立索引的列（索引名按 SQLAlchemy 约定 ix_<table>_<column>）
@@ -90,6 +94,7 @@ _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "contracts": ["contract_no"],
     "leases": ["lease_no"],
     "payments": ["receipt_no"],
+    "commission_rules": ["partner_id"],
 }
 
 

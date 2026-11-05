@@ -630,18 +630,6 @@
   align-items: flex-end;
   padding: var(--rent-s-3);
 }
-.rv17-prop__badge {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: rgba(15, 23, 42, 0.55);
-  color: #fff;
-  font-size: var(--rent-fs-xs);
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: var(--rent-radius-full);
-  backdrop-filter: blur(4px);
-}
 .rv17-prop__fav {
   position: absolute;
   top: 10px;

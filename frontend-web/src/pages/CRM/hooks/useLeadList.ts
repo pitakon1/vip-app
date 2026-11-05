@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { leadsApi } from '@/services/api'
 import type { Lead, LeadStatus } from '@/types'
 import { useCachedQuery } from '@/lib/queryCache'
-import { errorText } from '@/lib/errorText'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 import { statusToColumn } from '../constants'
 import type { KanbanColumnKey, QueryParams } from '../types'
 
@@ -24,7 +24,7 @@ export function useLeadList() {
     queryParams.stage ?? '',
     queryParams.keyword ?? '',
   ].join(':')
-  const listQuery = useCachedQuery<{ items: Lead[]; total: number }>({
+  const listQuery = useCachedQuery<{ items: Lead[]; total: number; stageCounts: Record<string, number> }>({
     queryKey: ['crm-leads', listKey],
     cacheKey: `crm-leads:${listKey}`,
     keepPreviousData: true,
@@ -36,7 +36,12 @@ export function useLeadList() {
         keyword: queryParams.keyword,
       })
       const payload = res.data?.data ?? res.data
-      return { items: (payload?.items ?? []) as Lead[], total: Number(payload?.total ?? 0) }
+      return {
+        items: (payload?.items ?? []) as Lead[],
+        total: Number(payload?.total ?? 0),
+        // 后端已提供全阶段计数（不含 stage 自身过滤），用于顶部统计卡
+        stageCounts: (payload?.stage_counts ?? {}) as Record<string, number>,
+      }
     },
   })
 
@@ -44,6 +49,7 @@ export function useLeadList() {
   const total = listQuery.data?.total ?? 0
   const loading = listQuery.isFetching && !listQuery.data
   const loadError = listQuery.isError ? errorText(listQuery.error, t('common.loadFailed')) : null
+  const loadErrorKind: ErrorKind = listQuery.isError ? errorKind(listQuery.error) : 'unknown'
 
   useEffect(() => {
     if (listQuery.isError) message.error(errorText(listQuery.error, t('common.loadFailed')))
@@ -73,13 +79,14 @@ export function useLeadList() {
     return groups
   }, [displayData])
 
-  // 统计指标（基于真实数据计算，无数据时展示空态）
+  // 统计指标：用后端全阶段 stage_counts（当前页冒充全局会导致翻页后总数/转化率跳变）
   const pipelineStats = useMemo(() => {
-    const totalLeads = displayData.length
-    const closedCount = kanbanGroups.closed.length
+    const stageCounts = listQuery.data?.stageCounts ?? {}
+    const totalLeads = Object.values(stageCounts).reduce((a, b) => a + Number(b || 0), 0)
+    const closedCount = Number(stageCounts.closed ?? 0)
     const conversionRate = totalLeads > 0 ? Math.round((closedCount / totalLeads) * 1000) / 10 : 0
     return { totalLeads, closedCount, conversionRate }
-  }, [displayData, kanbanGroups])
+  }, [listQuery.data])
 
   const hasLeads = displayData.length > 0
 
@@ -98,6 +105,7 @@ export function useLeadList() {
     queryParams,
     loading,
     loadError,
+    loadErrorKind,
     fetchData,
     displayData,
     showDataView,

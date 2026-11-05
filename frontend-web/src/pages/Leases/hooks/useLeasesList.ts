@@ -7,8 +7,8 @@ import { leasesApi, propertiesApi } from '@/services/api'
 import { downloadReport } from '@/lib/download'
 import { useCachedQuery } from '@/lib/queryCache'
 import type { Lease, LeaseStatus, Property } from '@/types'
-import { errorText } from '@/lib/errorText'
-import { buildPageNumbers, getDisplayStatus } from '../utils'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
+import { buildPageNumbers } from '../utils'
 import type { LeaseStatusCounts, QueryParams } from '../types'
 
 /** 租约列表：查询参数、缓存查询、筛选/分页/导出、房源名兜底 */
@@ -60,6 +60,7 @@ export function useLeasesList() {
   const total = listQuery.data?.total ?? 0
   const loading = listQuery.isFetching && !listQuery.data
   const loadError = listQuery.isError ? errorText(listQuery.error, t('common.loadFailed')) : null
+  const loadErrorKind: ErrorKind = listQuery.isError ? errorKind(listQuery.error) : 'unknown'
 
   // 失败提示与旧行为一致：保留上一页数据，同时弹一次 toast
   useEffect(() => {
@@ -87,24 +88,60 @@ export function useLeasesList() {
   // 「即将到期」已改为服务端筛选（ending_within_days），页面直接渲染接口结果
   const displayData = data
 
-  // 计算状态计数（用于顶部统计卡片）
-  const statusCounts = useMemo<LeaseStatusCounts>(() => {
-    const counts = { total: displayData.length, active: 0, expiring: 0, expired: 0, terminated: 0 }
-    for (const lease of displayData) {
-      const ds = getDisplayStatus(lease)
-      if (ds === 'active') counts.active++
-      else if (ds === 'expiring') counts.expiring++
-      else if (ds === 'expired') counts.expired++
-      else if (ds === 'terminated') counts.terminated++
+  // 状态计数走服务端 total（只取 1 条），不再对当前页 reduce：
+  // 此前翻页后「在租/即将到期/已终止」会随当前页内容跳动。
+  const countFilterKey = [
+    queryParams.status ?? '',
+    queryParams.keyword ?? '',
+    queryParams.propertyType ?? '',
+    queryParams.dateFrom ?? '',
+    queryParams.dateTo ?? '',
+  ].join(':')
+  const [statusCounts, setStatusCounts] = useState<LeaseStatusCounts | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const base = {
+      page: 1,
+      pageSize: 1,
+      property_type: queryParams.propertyType,
+      keyword: queryParams.keyword,
+      date_from: queryParams.dateFrom,
+      date_to: queryParams.dateTo,
     }
-    return counts
-  }, [displayData])
+    const readTotal = (res: any) => Number((res.data?.data ?? res.data)?.total ?? 0)
+    Promise.allSettled([
+      leasesApi.list({ ...base, status: 'active' as LeaseStatus }),
+      leasesApi.list({
+        ...base,
+        status: 'active' as LeaseStatus,
+        ending_within_days: 60,
+      }),
+      leasesApi.list({ ...base, status: 'expired' as LeaseStatus }),
+      leasesApi.list({ ...base, status: 'terminated' as LeaseStatus }),
+    ]).then((results) => {
+      if (cancelled) return
+      const activeTotal = results[0].status === 'fulfilled' ? readTotal(results[0].value) : 0
+      const expiring = results[1].status === 'fulfilled' ? readTotal(results[1].value) : 0
+      const expired = results[2].status === 'fulfilled' ? readTotal(results[2].value) : 0
+      const terminated = results[3].status === 'fulfilled' ? readTotal(results[3].value) : 0
+      setStatusCounts({
+        total: 0,
+        active: Math.max(0, activeTotal - expiring),
+        expiring,
+        expired,
+        terminated,
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [countFilterKey])
 
-  // 顶部统计卡片数值（按真实数据口径展示）
+  // 顶部统计卡片数值（服务端全局口径；total 随筛选条件变化）
   const statTotal = total
-  const statActive = statusCounts.active
-  const statExpiring = statusCounts.expiring
-  const statTerminated = statusCounts.terminated
+  const statActive = statusCounts?.active ?? 0
+  const statExpiring = statusCounts?.expiring ?? 0
+  const statTerminated = statusCounts?.terminated ?? 0
 
   // 分页页码（对齐原型 rent-pagination 结构）
   const totalPages = Math.max(1, Math.ceil(total / queryParams.pageSize))
@@ -213,6 +250,7 @@ export function useLeasesList() {
     total,
     loading,
     loadError,
+    loadErrorKind,
     fetchData,
     statTotal,
     statActive,

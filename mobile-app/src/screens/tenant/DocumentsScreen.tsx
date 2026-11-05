@@ -70,6 +70,7 @@ export default function DocumentsScreen() {
   const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<string>('all');
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
 
   const q = useCachedQuery<DocItem[]>({
     queryKey: ['docs', 'list'],
@@ -163,7 +164,7 @@ export default function DocumentsScreen() {
     Linking.openURL(url);
   };
 
-  // 租客上传（仅在有上传能力时显示）
+  // 租客上传：真实调用 /documents/upload（后端按本人租约推导归属与可见性）
   const handleUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -171,13 +172,23 @@ export default function DocumentsScreen() {
         quality: 0.8,
       });
       if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+      const name = asset.fileName || `document-${Date.now()}.jpg`;
       setUploading(true);
-      Alert.alert('已选择文件', '文件已选择，正在上传…');
-      await loadDocs();
+      setUploadPct(0);
+      await documentsApi.upload({
+        file: { uri: asset.uri, name, type: asset.mimeType || 'image/jpeg' },
+        type: 'other',
+        title: name.replace(/\.[^.]+$/, ''),
+        onProgress: setUploadPct,
+      });
+      loadDocs();
     } catch (err: any) {
-      Alert.alert('上传失败', errorText(err, '请稍后重试'));
+      Alert.alert(t('prop.uploadFail'), errorText(err, t('doc.loadFailMsg')));
     } finally {
       setUploading(false);
+      setUploadPct(0);
     }
   };
 
@@ -246,7 +257,10 @@ export default function DocumentsScreen() {
                   disabled={uploading}
                 >
                   {uploading ? (
-                    <ActivityIndicator color={colors.primaryForeground} size="small" />
+                    <>
+                      <ActivityIndicator color={colors.primaryForeground} size="small" />
+                      <Text style={styles.actionText}>{uploadPct}%</Text>
+                    </>
                   ) : (
                     <>
                       <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryForeground} />

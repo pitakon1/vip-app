@@ -6,6 +6,9 @@
     "jsx": "react-jsx",
     "noImplicitAny": false,
     "allowSyntheticDefaultImports": true,
+    // Taro 依赖声明引用了未安装的可选 peer（react-native / vue），属第三方类型噪声；
+    // 跳过 .d.ts 检查，只校验本项目 src。
+    "skipLibCheck": true,
     "outDir": "lib",
     "sourceMap": true,
     "rootDir": ".",

@@ -1,3 +1,2 @@
-/** 货币符号：USD→$ / CNY→¥ / MYR→RM / 其它（默认 THB）→฿ */
-export const currencySymbol = (c?: string | null) =>
-  c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿';
+/** 货币符号：唯一来源在 utils/format，避免两套币种表漂移。 */
+export { currencySymbol, CURRENCY_SYMBOL } from '@/utils/format';

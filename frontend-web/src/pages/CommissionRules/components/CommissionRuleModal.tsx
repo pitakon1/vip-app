@@ -9,6 +9,7 @@ interface CommissionRuleModalProps {
   isAdmin: boolean
   employees: Employee[]
   brokers: Broker[]
+  partners: { id: string; name: string }[]
   brokerEmployeeOptions: Employee[]
   scopeOptions: { value: string; label: string }[]
   brokerScopeOptions: { value: string; label: string }[]
@@ -28,6 +29,7 @@ export default function CommissionRuleModal({
   isAdmin,
   employees,
   brokers,
+  partners,
   brokerEmployeeOptions,
   scopeOptions,
   brokerScopeOptions,
@@ -147,6 +149,17 @@ export default function CommissionRuleModal({
                 value={form.broker_id}
                 options={brokers.map((b) => ({ value: b.id, label: b.partner_name }))}
                 onChange={(v) => onSet('broker_id', v)}
+              />
+            </div>
+          )}
+          {form.scope === 'by_partner' && isAdmin && (
+            <div className="rent-form-group">
+              <label className="rent-form-label">{t('commissionRules.labelPartner')}</label>
+              <SearchSelect
+                placeholder={t('commissionRules.placeholderPartner')}
+                value={form.partner_id}
+                options={partners.map((p) => ({ value: p.id, label: p.name }))}
+                onChange={(v) => onSet('partner_id', v)}
               />
             </div>
           )}

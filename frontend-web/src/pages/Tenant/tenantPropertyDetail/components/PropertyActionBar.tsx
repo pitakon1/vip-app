@@ -9,6 +9,8 @@ interface Props {
   onToggleFavorite: () => void
   onOpenLoan: () => void
   onOpenBooking: () => void
+  onContactBroker: () => void
+  contactBusy?: boolean
 }
 
 /** 底部固定操作栏：收藏 / 贷款试算 / 预约看房 */
@@ -20,6 +22,8 @@ const PropertyActionBar = ({
   onToggleFavorite,
   onOpenLoan,
   onOpenBooking,
+  onContactBroker,
+  contactBusy,
 }: Props) => {
   const { t } = useTranslation()
 
@@ -36,6 +40,14 @@ const PropertyActionBar = ({
         >
           <Icon d={ICONS.heart} />
           <span>{favorited ? t('tenantPropertyDetail.favorited') : t('tenantPropertyDetail.addFavorite')}</span>
+        </button>
+        <button
+          className="rent-btn rent-detail-bar__contact"
+          type="button"
+          disabled={contactBusy}
+          onClick={onContactBroker}
+        >
+          {t('tenantPropertyDetail.contactBroker')}
         </button>
         <button
           className="rent-btn rent-v17-bar__loan"

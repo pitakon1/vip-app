@@ -44,9 +44,12 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // 开发环境下聊天 WebSocket 也走 /api 前缀（/api/v1/chat/ws/chat/*），
+      // 缺少 ws: true 时 Vite 只代理普通 HTTP，WS 升级请求会被直接断开。
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        ws: true,
       },
       // 上传文件（房源照片、文档、看房视频）由后端 /uploads 静态服务托管
       '/uploads': {

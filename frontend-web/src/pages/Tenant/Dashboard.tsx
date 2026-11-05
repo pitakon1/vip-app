@@ -1,15 +1,17 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import api, { MAX_PAGE_SIZE } from '@/lib/api'
+import { message } from 'antd'
+import api from '@/lib/api'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import { formatMoney } from '@/lib/money'
 import { chartTheme } from '@/lib/chartTheme'
-import { propertiesApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { makePropertyTypeLabel, toItems } from './tenantPropertyDetail/utils'
 
 interface PropertyItem {
   id: string
@@ -248,68 +250,130 @@ const TenantDashboard = () => {
   const uid = user?.id ?? 'anon'
   const isOwner = user?.role === 'owner'
 
-  const homeQ = useCachedQuery<{ allItems: PropertyItem[]; notifications: Notification[] }>({
+  // 首页推荐流只读 C 端公开接口：B 端 /properties 是内部台账（100 条封顶、
+  // 含业主/内部字段），不能拿来当门户推荐数据。
+  const homeQ = useCachedQuery<{
+    featured: PropertyItem[]
+    latestRent: PropertyItem[]
+    latestSale: PropertyItem[]
+    notifications: Notification[]
+  }>({
     queryKey: ['tenant-dashboard', 'home', uid],
     cacheKey: `tenant-dashboard:home:${uid}`,
     queryFn: async () => {
-        const [propsRes, notifRes] = await Promise.all([
-          // ⚠️ 技术债：首页一次性拉「推荐房源」，同样是拿分页接口当全量接口用。
-          // 取值贴住后端硬顶，超过 100 条时会静默少数据。正确解法是按首页实际
-          // 需要的条数（十几条）取，或改用专门的推荐接口。
-          propertiesApi.list({ page: 1, pageSize: MAX_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-          api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
-        ])
-      const pPayload = propsRes.data?.data ?? propsRes.data
+      const [featuredRes, rentRes, saleRes, notifRes] = await Promise.all([
+        api.get('/public/listings', { params: { listing_type: 'rent', is_featured: true, sort: 'latest', page_size: 6 } }).catch(() => null),
+        api.get('/public/listings', { params: { listing_type: 'rent', sort: 'latest', page_size: 6 } }).catch(() => null),
+        api.get('/public/listings', { params: { listing_type: 'sell', sort: 'latest', page_size: 6 } }).catch(() => null),
+        api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
+      ])
+      const toProps = (res: any): PropertyItem[] =>
+        toItems(res)
+          .map((p: any) => ({
+            ...p,
+            // 公开卡把租/售统一成 price；这里还原成页面既有的租/售字段
+            monthly_rent: Number(p.monthly_rent ?? (p.listing_type === 'rent' ? p.price : 0) ?? 0),
+            sale_price: Number(p.sale_price ?? p.asking_price ?? (p.listing_type === 'sell' ? p.price : 0) ?? 0),
+            room_number: p.room_number || '',
+            address: p.address || p.city || '',
+            project_name: p.project_name || '',
+            currency: p.currency || 'THB',
+          }))
+          .filter((p: PropertyItem) => p.id)
       const nPayload = notifRes.data?.data ?? notifRes.data
       return {
-        allItems: pPayload?.items ?? [],
+        featured: toProps(featuredRes),
+        latestRent: toProps(rentRes),
+        latestSale: toProps(saleRes),
         notifications: nPayload?.items ?? [],
       }
     },
   })
-  const allItems = homeQ.data?.allItems ?? []
+  const featuredItems = homeQ.data?.featured ?? []
+  const newItems = homeQ.data?.latestRent ?? []
+  const saleItems = homeQ.data?.latestSale ?? []
+  const commItems = useMemo(() => saleItems.slice(0, 3), [saleItems])
   const notifications = homeQ.data?.notifications ?? []
   const loading = homeQ.isPending && !homeQ.data
 
-  // ===== 主题模块数据 =====
-  const rentItems = useMemo(() => {
-    return allItems
-      .filter((it) => !it.sale_price || it.monthly_rent)
-      .sort((a, b) => dayjs(b.created_at || b.published_at || 0).valueOf() - dayjs(a.created_at || a.published_at || 0).valueOf())
-  }, [allItems])
+  // 搜索走服务端：关键词只匹配公开接口的全量数据，而不是本地某一页
+  const [searchKw, setSearchKw] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchKw(keyword.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [keyword])
+  const searchQ = useQuery({
+    queryKey: ['tenant-home-search', biz, searchKw],
+    enabled: !!searchKw,
+    queryFn: async () => {
+      const res = await api.get('/public/listings', {
+        params: {
+          q: searchKw,
+          listing_type: biz === 'rent' ? 'rent' : 'sell',
+          sort: 'relevance',
+          page_size: 9,
+        },
+      })
+      return toItems(res).map((p: any) => ({
+        ...p,
+        monthly_rent: Number(p.monthly_rent ?? (p.listing_type === 'rent' ? p.price : 0) ?? 0),
+        sale_price: Number(p.sale_price ?? p.asking_price ?? (p.listing_type === 'sell' ? p.price : 0) ?? 0),
+        room_number: p.room_number || '',
+        address: p.address || p.city || '',
+        project_name: p.project_name || '',
+        currency: p.currency || 'THB',
+      })) as PropertyItem[]
+    },
+  })
+  const searchResults = searchQ.data ?? []
 
-  const saleItems = useMemo(() => {
-    return allItems
-      .filter((it) => Number(it.sale_price) > 0)
-      .sort((a, b) => Number(b.sale_price || 0) - Number(a.sale_price || 0))
-  }, [allItems])
-
-  const featuredItems = useMemo(() => {
-    return [...rentItems]
-      .sort((a, b) => Number(b.monthly_rent || 0) - Number(a.monthly_rent || 0))
-      .slice(0, 6)
-  }, [rentItems])
-
-  const newItems = useMemo(() => {
-    return rentItems.slice(0, 6)
-  }, [rentItems])
-
-  const commItems = useMemo(() => {
-    return saleItems.slice(0, 3)
-  }, [saleItems])
-
-  const searchResults = useMemo(() => {
-    const kw = keyword.trim().toLowerCase()
-    if (!kw) return []
-    const pool = biz === 'rent' ? rentItems : saleItems
-    return pool
-      .filter((it) =>
-        [it.room_number, it.address, it.project_id, it.project_name, it.building, it.city]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(kw)),
+  // ===== 收藏（真实接口，按 property_id 落库） =====
+  const token = useAuthStore((s) => s.token)
+  const [favOverride, setFavOverride] = useState<Record<string, boolean>>({})
+  const favPropIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...featuredItems, ...newItems, ...saleItems, ...searchResults]
+            .map((it) => it.property_id || '')
+            .filter(Boolean),
+        ),
+      ).slice(0, 100),
+    [featuredItems, newItems, saleItems, searchResults],
+  )
+  const favQ = useQuery({
+    queryKey: ['tenant-home-fav', uid, favPropIds.join(',')],
+    enabled: !!token && favPropIds.length > 0,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const res = await api.get('/favorites/status', { params: { property_ids: favPropIds.join(',') } })
+      const payload = res.data?.data ?? res.data
+      return new Set<string>(
+        (payload?.items ?? []).filter((x: any) => x.favorited).map((x: any) => String(x.property_id)),
       )
-      .slice(0, 9)
-  }, [keyword, biz, rentItems, saleItems])
+    },
+  })
+  const favSet = favQ.data ?? new Set<string>()
+  const isFav = (it: PropertyItem) =>
+    favOverride[it.property_id || ''] ?? favSet.has(String(it.property_id || ''))
+
+  const toggleFavorite = async (it: PropertyItem) => {
+    if (!it.property_id) return
+    if (!token) {
+      message.info(t('browse.loginRequired'))
+      navigate('/login')
+      return
+    }
+    const next = !isFav(it)
+    setFavOverride((prev) => ({ ...prev, [it.property_id!]: next }))
+    try {
+      if (next) await api.post('/favorites', { property_id: it.property_id })
+      else await api.delete(`/favorites/${it.property_id}`)
+    } catch {
+      setFavOverride((prev) => ({ ...prev, [it.property_id!]: !next }))
+      message.error(t('browse.favFailed'))
+    }
+  }
 
   const reminders = useMemo(() => {
     return notifications.slice(0, 3).map((n) => ({
@@ -340,6 +404,14 @@ const TenantDashboard = () => {
       ? <span className="rv17-prop__price">{formatPrice(item.sale_price, item.currency)}</span>
       : <span className="rv17-prop__price">{formatRent(item.monthly_rent, item.currency)}<span className="rv17-prop__price-unit">{t('browse.rentUnit')}</span></span>
     const meta = t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })
+    // 标签只展示后端真实字段，不再写死「近地铁/带家具/拎包入住」这类无数据支撑的文案
+    const typeLabel = makePropertyTypeLabel(t)[String(item.property_type || '')]
+    const tags = [
+      item.is_featured ? { label: t('browse.featured'), cls: 'rent-badge--neutral' } : null,
+      item.owner_direct ? { label: t('browse.ownerDirect'), cls: 'rent-badge--neutral' } : null,
+      item.furnished ? { label: t('tenantPropertyDetail.furnitureFull'), cls: 'rent-badge--neutral' } : null,
+      typeLabel ? { label: typeLabel, cls: 'rent-badge--neutral' } : null,
+    ].filter(Boolean) as Array<{ label: string; cls: string }>
 
     return (
       <div
@@ -349,26 +421,32 @@ const TenantDashboard = () => {
         style={{ cursor: 'pointer' }}
       >
         <div className="rv17-prop__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
-          <span className="rv17-prop__badge">{tag}</span>
+          <span className="rent-pill rv17-prop__badge">{tag}</span>
           <button
             className="rv17-prop__fav"
-            aria-label={t('browse.more')}
-            onClick={(e) => e.stopPropagation()}
+            aria-label={t('tenantPropertyDetail.ariaFavorite')}
+            data-active={isFav(item)}
+            style={{ color: isFav(item) ? 'var(--rent-primary)' : undefined }}
+            onClick={(e) => {
+              e.stopPropagation()
+              void toggleFavorite(item)
+            }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav(item) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
           </button>
         </div>
         <div className="rv17-prop__body">
           <h3 className="rv17-prop__name">{title}</h3>
           <p className="rv17-prop__addr">{addr} · {meta}</p>
-          <div className="rv17-prop__tags">
-            <span className="rent-badge rent-badge--primary">{t('browse.nearMetro')}</span>
-            <span className="rent-badge rent-badge--neutral">{t('browse.furnished')}</span>
-            <span className="rent-badge rent-badge--neutral">{t('browse.moveIn')}</span>
-          </div>
+          {tags.length > 0 && (
+            <div className="rv17-prop__tags">
+              {tags.map((tg) => (
+                <span key={tg.label} className={`rent-badge ${tg.cls}`}>{tg.label}</span>
+              ))}
+            </div>
+          )}
           <div className="rv17-prop__bottom">
             {price}
-            <span className="rv17-prop__meta">{t('browse.hotToday')}</span>
           </div>
         </div>
       </div>
@@ -391,7 +469,7 @@ const TenantDashboard = () => {
       >
         <div className="rv17-comm__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
           <svg className="rv17-comm__img-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
-          <span className="rv17-comm__badge">{t('tenantDashboard.forSale')}</span>
+          <span className="rent-pill rv17-comm__badge">{t('tenantDashboard.forSale')}</span>
         </div>
         <div className="rv17-comm__body">
           <h3 className="rv17-comm__name">{title}</h3>

@@ -3,6 +3,19 @@
    提取自 tenant-dashboard.html（顶栏门户 + 贝壳消费级覆盖层）
    =========================================================
 */
+
+/* ---- 标签胶囊（唯一来源）----
+   全站只有一套中性标签：浅中性底 + 深中性字 + 1px 中性描边。
+   不再按类别分色 —— 卡面上只保留价格一个强调色。 */
+.rent-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--rent-radius-full);
+  font-weight: 600;
+  background: var(--rent-badge-bg);
+  color: var(--rent-badge-fg);
+  border: 1px solid var(--rent-badge-border);
+}
 .rent-portal {
   min-height: 100vh;
   background: var(--rent-background);
@@ -113,7 +126,7 @@
   gap: 6px;
   padding: var(--rent-s-2) var(--rent-s-4);
   /* 对齐 tenant-dashboard.html 原型：无边框胶囊导航项（元素为 <button>，须重置其默认边框/底色/字体） */
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   border: none;
   background: transparent;
   font-family: inherit;
@@ -129,7 +142,8 @@
 }
 .rent-portal__nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
 .rent-portal__nav-item[data-active="true"] {
-  color: var(--rent-primary);
+  /* 品牌绿在浅青底上仅 2.13:1，选中文字改深墨 */
+  color: var(--rent-ink);
   font-weight: 600;
   background: var(--rent-sidebar-active);
 }
@@ -250,7 +264,8 @@
 .rent-hero__hi {
   font-size: var(--rent-fs-sm);
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.82);
+  /* 主色底上不再用半透明白字；深墨字 5.80:1 */
+  color: var(--rent-primary-foreground);
   margin: 0 0 10px;
   letter-spacing: 0.02em;
 }
@@ -290,7 +305,8 @@
 }
 .rent-hero__panel-label {
   font-size: var(--rent-fs-xs);
-  color: rgba(255, 255, 255, 0.75);
+  /* 原 0.75 白字在主色底上不足 3:1，改深墨 */
+  color: var(--rent-primary-foreground);
   margin-bottom: 6px;
   letter-spacing: 0.02em;
 }
@@ -307,7 +323,7 @@
 }
 .rent-hero__panel-tag {
   font-size: var(--rent-fs-xs);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--rent-primary-foreground);
   margin-top: 6px;
 }
 .rent-hero__lease-bar {
@@ -330,7 +346,8 @@
   padding: 12px 22px;
   border-radius: var(--rent-radius-full);
   background: var(--rent-card);
-  color: var(--rent-primary);
+  /* 白底按钮上用深墨字（14.4:1）；品牌绿作文字仅 2.49:1 */
+  color: var(--rent-ink);
   font-size: var(--rent-fs-base);
   font-weight: 600;
   text-decoration: none;
@@ -365,7 +382,7 @@
 .rent-quick-card__icon {
   width: 52px;
   height: 52px;
-  border-radius: 14px;
+  border-radius: var(--rent-radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,7 +611,7 @@
 }
 
 /* ----- Responsive ----- */
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .rent-row-2 { grid-template-columns: 1fr; }
   .rent-quick-grid { grid-template-columns: 1fr; }
   .rent-maint-flow { grid-template-columns: 1fr; }
@@ -635,27 +652,27 @@ body {
   box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
 }
 .rent-portal__nav-item,
-.rent-portal__nav-item[data-active="true"] { border-radius: 999px; }
+.rent-portal__nav-item[data-active="true"] { border-radius: var(--rent-radius-full); }
 
 /* ===== 搜索体验：胶囊搜索 ===== */
-.rent-search { border-radius: 999px; background: var(--rent-surface-2); }
+.rent-search { border-radius: var(--rent-radius-full); background: var(--rent-surface-2); }
 .rent-search input { background: transparent; }
 .rent-search-hero__bar {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-card);
   box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
 }
 .rent-search-hero__search-btn {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
   box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
 }
-.rent-search-hero__tag { border-radius: 999px; }
+.rent-search-hero__tag { border-radius: var(--rent-radius-full); }
 
 /* ===== 筛选 chips：胶囊 ===== */
 .rent-filter-chip,
 .lj-filter-bar__chip,
-.rent-filter-chip[data-active="true"] { border-radius: 999px; }
+.rent-filter-chip[data-active="true"] { border-radius: var(--rent-radius-full); }
 .rent-filter-bar {
   border-radius: var(--rent-radius-lg);
   background: var(--rent-card);
@@ -668,7 +685,7 @@ body {
   align-items: center;
   gap: var(--rent-s-1);
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   border: 1px solid var(--rent-border);
   background: var(--rent-card);
   color: var(--rent-ink-2);
@@ -705,9 +722,9 @@ body {
   left: 12px;
   z-index: 3;
   padding: var(--rent-s-1) var(--rent-s-3);
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
+  font-size: var(--rent-fs-2xs);
   color: var(--rent-ink-2);
   box-shadow: var(--rent-shadow-1);
 }
@@ -777,7 +794,7 @@ body {
 .rv17-map__mini-price {
   margin-top: 3px;
   font-size: var(--rent-fs-base);
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   color: var(--rent-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -786,68 +803,68 @@ body {
   display: inline-block;
   margin-top: var(--rent-s-1);
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(20, 184, 166, 0.08);
   color: var(--rent-primary);
   font-size: 10px;
   font-weight: 600;
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .rv17-map { height: 420px; }
   .rv17-map__mini { flex: 0 0 132px; }
 }
 
-/* ===== 卡片：大圆角 + 柔和浮起 ===== */
-.rent-card,
-.rent-stat-card,
+/* ===== 卡片：基础规格见 primitives.css =====
+   此处仅补门户 / C 端专属卡片形态，避免二次定义 .rent-card 的圆角与阴影 */
 .rent-mobile__card,
 .rent-quick-action,
 .rent-prop-search-card,
 .rent-table-wrap {
   border-radius: var(--rent-radius-lg);
-  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+}
+.rent-mobile__card,
+.rent-quick-action,
+.rent-prop-search-card {
+  box-shadow: var(--rent-shadow-2);
 }
 
-/* ===== 房源卡片：图片圆角 + 价格强调 ===== */
+/* ===== 房源卡片：图片圆角 + 价格强调（字重封顶 700）===== */
 .rent-prop-search-card { overflow: hidden; }
 .rent-prop-search-card__banner { border-radius: 0; }
 .rent-prop-search-card__price-value {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: var(--rent-fs-xl);
+  font-weight: var(--rent-fw-bold);
   color: var(--rent-primary);
   letter-spacing: -0.02em;
 }
-.rent-prop-search-card__price-unit { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); }
-.rent-prop-search-card__tags .rent-badge,
-.rent-badge { border-radius: 999px; padding: 3px 10px; }
+.rent-prop-search-card__price-unit { font-size: var(--rent-fs-xs); color: var(--rent-ink-3); }
+.rent-prop-search-card__tags .rent-badge { border-radius: var(--rent-radius-full); padding: 3px 10px; }
 .rent-prop-search-card__cta {
-  border-radius: 999px;
-  background: rgba(20,184,166, 0.08);
+  border-radius: var(--rent-radius-full);
+  background: rgba(var(--rent-primary-rgb), 0.08);
   color: var(--rent-primary);
-  font-weight: 600;
+  font-weight: var(--rent-fw-semibold);
 }
-.rent-prop-search-card__name { font-size: var(--rent-fs-lg); font-weight: 700; letter-spacing: -0.01em; }
+.rent-prop-search-card__name {
+  font-size: var(--rent-fs-lg);
+  font-weight: var(--rent-fw-bold);
+  letter-spacing: -0.01em;
+}
 
 /* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
 .rent-quick-action,
 .rent-mobile__quick-action {
   border-radius: var(--rent-radius-lg);
   border: none;
-  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--rent-shadow-2);
 }
 .rent-quick-action__icon,
-.rent-mobile__quick-action-icon { border-radius: 16px; }
+.rent-mobile__quick-action-icon { border-radius: var(--rent-radius-lg); }
 
-/* ===== 按钮：渐变 + 柔和投影 ===== */
-.rent-btn { border-radius: var(--rent-radius-md); }
-.rent-btn--primary {
-  border-radius: 12px;
-  background: var(--rent-primary);
-  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
-}
+/* 按钮基础规格见 primitives.css，此处不再覆盖 */
 
 /* ===== 底部导航 (App / 小程序)：激活胶囊 ===== */
-.rent-mobile__tab { border-radius: 14px; }
+.rent-mobile__tab { border-radius: var(--rent-radius-lg); }
 .rent-mobile__tab[data-active="true"] {
   background: rgba(20,184,166, 0.08);
   font-weight: 600;
@@ -870,7 +887,7 @@ body {
 }
 
 /* ===== 头像 ===== */
-.rent-avatar { border-radius: 14px; }
+.rent-avatar { border-radius: var(--rent-radius-lg); }
 .rent-avatar--sm { border-radius: var(--rent-radius-md); }
 
     
@@ -881,9 +898,9 @@ body {
       .rent-todo-pay__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; position: relative; z-index: 1; }
       .rent-todo-pay__due { font-size: var(--rent-fs-sm); font-weight: 600; color: var(--state-warning); }
       .rent-todo-pay__label { font-size: var(--rent-fs-base); color: var(--rent-ink-2); margin-bottom: 2px; position: relative; z-index: 1; }
-      .rent-todo-pay__amount { font-size: 40px; font-weight: 800; color: var(--rent-ink); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
+      .rent-todo-pay__amount { font-size: 40px; font-weight: var(--rent-fw-display); color: var(--rent-ink); letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 6px; font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
       .rent-todo-pay__sub { font-size: var(--rent-fs-sm); color: var(--rent-ink-2); margin: 0 0 var(--rent-s-4); position: relative; z-index: 1; }
-      .rent-todo-pay__cta { font-size: var(--rent-fs-lg); height: 48px; border-radius: 14px; position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(20,184,166,0.55); }
+      .rent-todo-pay__cta { font-size: var(--rent-fs-lg); height: 48px; border-radius: var(--rent-radius-lg); position: relative; z-index: 1; box-shadow: 0 8px 20px -8px rgba(20,184,166,0.55); }
       .rent-todo-maint__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
       .rent-todo-maint__id { font-family: var(--rent-font-mono); font-size: var(--rent-fs-xs); color: var(--rent-ink-2); }
       .rent-todo-maint__title { font-size: 17px; font-weight: 700; color: var(--rent-ink); margin-bottom: var(--rent-s-1); }
@@ -902,7 +919,7 @@ body {
       .rent-todo-feed__date { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); margin-top: 2px; }
       .rent-todo-quick-4 { grid-template-columns: repeat(4, 1fr); }
       .rent-pad__main .rent-quick-action { text-decoration: none; color: var(--rent-ink); }
-      @media (max-width: 980px) { .rent-todo-strip, .rent-todo-main-grid { grid-template-columns: 1fr; } }
+      @media (max-width: 1024px) { .rent-todo-strip, .rent-todo-main-grid { grid-template-columns: 1fr; } }
     
 
 /* =========================================================
@@ -913,7 +930,7 @@ body {
    ========================================================= */
 .rv17-hero {
   background: var(--rent-primary);
-  border-radius: 20px;
+  border-radius: var(--rent-radius-xl);
   padding: 18px 20px;
   color: var(--rent-primary-foreground);
   margin-bottom: var(--rent-s-4);
@@ -938,7 +955,7 @@ body {
   align-items: center;
   gap: var(--rent-s-2);
   background: var(--rent-card);
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   padding: var(--rent-s-2) var(--rent-s-2) var(--rent-s-2) var(--rent-s-4);
   box-shadow: 0 10px 28px -12px rgba(15, 23, 42, 0.4);
 }
@@ -1016,7 +1033,7 @@ body {
   align-items: center;
   gap: var(--rent-s-2);
   padding: var(--rent-s-2) var(--rent-s-1);
-  border-radius: 14px;
+  border-radius: var(--rent-radius-lg);
   text-decoration: none;
   transition: background var(--motion-fast);
 }
@@ -1024,7 +1041,7 @@ body {
 .rv17-func-icon {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: var(--rent-radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1097,11 +1114,8 @@ body {
   top: 10px;
   left: 10px;
   padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
-  color: var(--rent-primary-foreground);
-  font-size: 11px;
+  border-radius: var(--rent-radius-full);
+  font-size: var(--rent-fs-2xs);
   font-weight: 600;
 }
 .rv17-prop__fav {
@@ -1140,11 +1154,11 @@ body {
   text-overflow: ellipsis;
 }
 .rv17-prop__tags { display: flex; gap: var(--rent-s-1); flex-wrap: wrap; margin-bottom: 10px; }
-.rv17-prop__tags .rent-badge { padding: 2px 8px; font-size: 11px; }
+.rv17-prop__tags .rent-badge { padding: 2px 8px; font-size: var(--rent-fs-2xs); }
 .rv17-prop__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--rent-s-2); }
 .rv17-prop__price {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   color: var(--rent-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -1182,10 +1196,8 @@ body {
   top: 10px;
   left: 10px;
   padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(20,184,166, 0.92);
-  color: var(--rent-primary-foreground);
-  font-size: 11px;
+  border-radius: var(--rent-radius-full);
+  font-size: var(--rent-fs-2xs);
   font-weight: 600;
 }
 .rv17-comm__body { padding: 12px 14px 14px; }
@@ -1208,14 +1220,14 @@ body {
 }
 .rv17-comm__price {
   font-size: 17px;
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   color: var(--rent-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 .rv17-comm__price-unit { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); font-weight: 500; margin-left: 2px; }
 .rv17-comm__sub { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); margin-top: var(--rent-s-1); }
-@media (max-width: 560px) {
+@media (max-width: 768px) {
   .rv17-prop { width: 205px; }
   .rv17-prop__img { height: 122px; }
   .rv17-comm { width: 195px; }
@@ -1273,7 +1285,7 @@ body {
 .rent-search-hero__inner {
   position: relative;
   z-index: 1;
-  max-width: 720px;
+  max-width: 768px;
   animation: heroFadeIn 0.7s ease-out;
 }
 @keyframes heroFadeIn {
@@ -1282,7 +1294,7 @@ body {
 }
 .rent-search-hero__title {
   font-size: 42px;
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   margin: 0 0 var(--rent-s-3);
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -1507,7 +1519,7 @@ body {
   bottom: 4px;
   width: 22px;
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
 }
 
@@ -1596,13 +1608,9 @@ body {
   align-items: center;
   gap: 5px;
   padding: 5px 12px;
-  background: rgba(255, 255, 255, 0.92);
   border-radius: var(--rent-radius-full);
   font-size: var(--rent-fs-xs);
   font-weight: 600;
-  color: var(--rent-ink);
-  backdrop-filter: blur(6px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 .rent-prop-search-card__status-tag {
   position: absolute;
@@ -1614,16 +1622,21 @@ body {
   gap: var(--rent-s-1);
   padding: 4px 11px;
   border-radius: var(--rent-radius-full);
-  font-size: 11px;
+  font-size: var(--rent-fs-2xs);
   font-weight: 600;
-  color: var(--rent-primary-foreground);
+  color: var(--rent-badge-fg);
   backdrop-filter: blur(4px);
   letter-spacing: 0.01em;
 }
-.rent-status-tag--vacant { background: rgba(var(--state-success-rgb), 0.85); }
-.rent-status-tag--rented { background: rgba(var(--rent-primary-rgb), 0.85); }
-.rent-status-tag--renewing { background: rgba(var(--state-purple-rgb), 0.85); }
-.rent-status-tag--maintenance { background: rgba(var(--state-warning-rgb), 0.85); }
+/* 状态标签也走同一套中性标签：卡面只保留价格一个强调色 */
+.rent-status-tag--vacant,
+.rent-status-tag--rented,
+.rent-status-tag--renewing,
+.rent-status-tag--maintenance {
+  background: var(--rent-badge-bg);
+  color: var(--rent-badge-fg);
+  border: 1px solid var(--rent-badge-border);
+}
 .rent-prop-search-card__body {
   padding: 18px 16px 16px;
   display: flex;
@@ -1692,7 +1705,7 @@ body {
 }
 .rent-prop-search-card__price-value {
   font-size: var(--rent-fs-2xl);
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   color: var(--rent-primary);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -1805,7 +1818,7 @@ body {
 .rent-page-btn:disabled:hover { border-color: var(--rent-border); color: var(--rent-ink-2); }
 
 /* ----- Responsive ----- */
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .rent-search-hero { padding: 32px 28px 28px; }
   .rent-search-hero__title { font-size: 30px; }
   .rent-prop-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--rent-s-4); }
@@ -1813,7 +1826,7 @@ body {
   .rent-portal__header { padding: 0 20px; }
   .rent-portal__nav { display: none; }
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .rent-prop-grid { grid-template-columns: 1fr; }
   .rent-search-hero__bar { flex-direction: column; border-radius: var(--rent-radius-lg); padding: var(--rent-s-3); gap: 10px; }
   .rent-search-hero__bar input { padding: var(--rent-s-2) var(--rent-s-1); text-align: center; }
@@ -1873,7 +1886,7 @@ body {
 }
 .rent-cta__title {
   font-size: var(--rent-fs-3xl);
-  font-weight: 800;
+  font-weight: var(--rent-fw-display);
   color: var(--rent-primary-foreground);
   margin-bottom: var(--rent-s-2);
   letter-spacing: -0.02em;
@@ -1908,7 +1921,7 @@ body {
   transform: translateY(-1px);
 }
 .rent-cta__primary {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-card);
   color: var(--rent-primary);
   box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.25);
@@ -1980,11 +1993,11 @@ body {
   font-size: var(--rent-fs-sm);
   color: var(--rent-ink-2);
 }
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .rent-cta { padding: 32px 28px; }
   .rent-footer__inner { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .rent-cta { flex-direction: column; text-align: center; padding: 28px 20px; }
   .rent-cta__inner { flex-direction: column; justify-content: center; }
   .rent-cta__actions { width: 100%; justify-content: center; }
@@ -2258,7 +2271,7 @@ body {
 .rent-pay-record__status--error .rent-pay-record__status-dot { background: var(--state-error); box-shadow: 0 0 0 3px rgba(220,38,38,0.15); }
 .rent-pay-record__actions { display: flex; align-items: center; gap: var(--rent-s-2); flex-shrink: 0; }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .rent-pay-hero { padding: 28px; }
   .rent-pay-hero__amount { font-size: 40px; }
   .rent-pay-summary { flex-direction: column; gap: var(--rent-s-4); padding: 20px; }
@@ -2362,7 +2375,7 @@ body {
 @media (max-width: 1024px) {
   .rent-doc-grid { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .rent-doc-grid { grid-template-columns: 1fr; }
   .rent-doc-hero { align-items: flex-start; }
 }
@@ -2571,7 +2584,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 5px 14px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255,255,255,0.18);
   border: 1px solid rgba(255,255,255,0.25);
   font-size: var(--rent-fs-xs);
@@ -2599,7 +2612,7 @@ body {
   align-items: center;
   gap: var(--rent-s-2);
   padding: 13px 30px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-card);
   color: var(--rent-primary);
   font-size: 15px;
@@ -2675,7 +2688,7 @@ body {
 .svc-category-card {
   background: var(--rent-card);
   border: 1px solid var(--rent-border);
-  border-radius: 20px;
+  border-radius: var(--rent-radius-xl);
   padding: var(--rent-s-5);
   transition: transform var(--motion-slow), box-shadow var(--motion-slow), border-color var(--motion-slow);
   display: flex;
@@ -2695,7 +2708,7 @@ body {
 .svc-category-card__icon {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--rent-radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2706,7 +2719,7 @@ body {
   align-items: center;
   gap: var(--rent-s-1);
   padding: 4px 13px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   font-size: var(--rent-fs-xs);
   font-weight: 600;
   line-height: 1.4;
@@ -2761,7 +2774,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 10px 24px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
   font-size: var(--rent-fs-base);
@@ -2863,7 +2876,7 @@ body {
 .svc-reviews {
   background: var(--rent-card);
   border: 1px solid var(--rent-border);
-  border-radius: 20px;
+  border-radius: var(--rent-radius-xl);
   padding: 8px 28px;
 }
 .svc-review {
@@ -2974,7 +2987,7 @@ body {
 .svc-promo__icon {
   width: 68px;
   height: 68px;
-  border-radius: 20px;
+  border-radius: var(--rent-radius-xl);
   background: rgba(255,255,255,0.18);
   display: flex;
   align-items: center;
@@ -3014,7 +3027,7 @@ body {
 .svc-promo__save {
   display: inline-flex;
   padding: 5px 14px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   background: rgba(255,255,255,0.22);
   color: var(--rent-primary-foreground);
   font-size: var(--rent-fs-sm);
@@ -3027,7 +3040,7 @@ body {
   align-items: center;
   gap: var(--rent-s-2);
   padding: 14px 34px;
-  border-radius: 9999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-card);
   color: var(--rent-primary);
   font-size: var(--rent-fs-lg);
@@ -3043,7 +3056,7 @@ body {
 }
 
 /* ----- Responsive ----- */
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .svc-hero { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
   .svc-hero__title { font-size: 26px; }
   .svc-hero__stats { width: 100%; justify-content: space-between; gap: var(--rent-s-4); }
@@ -3639,7 +3652,7 @@ body {
 .rent-pay-file-drop__hint { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); }
 .rent-pay-file-name { font-size: var(--rent-fs-sm); color: var(--rent-ink-2); margin-top: var(--rent-s-2); }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .rent-pay-form-row { grid-template-columns: 1fr; }
 }
 
@@ -3656,9 +3669,9 @@ body {
 .rent-detail-back:hover { color: var(--rent-primary); }
 .rent-detail-back svg { width: 15px; height: 15px; }
 
-.rent-detail-wrap { max-width: 980px; margin: 0 auto; padding-bottom: 96px; display: flex; flex-direction: column; gap: var(--rent-s-4); }
+.rent-detail-wrap { max-width: 1024px; margin: 0 auto; padding-bottom: 96px; display: flex; flex-direction: column; gap: var(--rent-s-4); }
 
-.rent-detail-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: 20px; box-shadow: 0 1px 2px rgba(28, 39, 51, 0.05), 0 8px 24px -12px rgba(28, 39, 51, 0.08); padding: 20px; }
+.rent-detail-card { background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-xl); box-shadow: 0 1px 2px rgba(28, 39, 51, 0.05), 0 8px 24px -12px rgba(28, 39, 51, 0.08); padding: 20px; }
 .rent-detail-card--pad0 { padding: 0; overflow: hidden; }
 
 /* 1 图片轮播 */
@@ -3668,7 +3681,7 @@ body {
   background:
     linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px),
-    linear-gradient(135deg, #14b8a6 0%, #2dd4bf 52%, #8a9cfb 100%);
+    linear-gradient(135deg, var(--rent-primary) 0%, var(--rent-primary-hover) 52%, #8a9cfb 100%);
   background-size: 44px 44px, 44px 44px, 100% 100%;
 }
 .rent-detail-gallery__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -3676,20 +3689,20 @@ body {
 .rent-detail-gallery__count {
   position: absolute; right: 14px; bottom: 14px;
   display: inline-flex; align-items: center; gap: var(--rent-s-1);
-  padding: 5px 11px; border-radius: 999px;
-  background: rgba(28, 39, 51, 0.45); color: #fff; font-size: var(--rent-fs-xs); font-weight: 600;
+  padding: 5px 11px; border-radius: var(--rent-radius-full);
+  background: rgba(28, 39, 51, 0.45); color: var(--rent-surface); font-size: var(--rent-fs-xs); font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 .rent-detail-gallery__views { position: absolute; left: 14px; bottom: 14px; display: flex; align-items: center; gap: var(--rent-s-2); }
 .rent-detail-gallery__video {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: 999px;
-  background: linear-gradient(90deg, #ff6b35, #ff8e53); color: #fff;
+  padding: 6px 12px; border-radius: var(--rent-radius-full);
+  background: linear-gradient(90deg, #ff6b35, #ff8e53); color: var(--rent-surface);
   font-size: var(--rent-fs-xs); font-weight: 600; box-shadow: 0 6px 16px -4px rgba(255, 107, 53, 0.55);
   cursor: pointer;
 }
 .rent-detail-gallery__video svg { width: 13px; height: 13px; }
-.rent-detail-gallery__vr { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: linear-gradient(90deg, #14b8a6, #6d4fc0); color: #fff; font-size: var(--rent-fs-xs); font-weight: 600; box-shadow: 0 6px 16px -4px rgba(20, 184, 166, 0.5); cursor: pointer; }
+.rent-detail-gallery__vr { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--rent-radius-full); background: linear-gradient(90deg, #0f766e, #5b3fa8); color: var(--rent-surface); font-size: var(--rent-fs-xs); font-weight: 600; box-shadow: 0 6px 16px -4px rgba(15, 118, 110, 0.5); cursor: pointer; }
 .rent-detail-gallery__vr svg { width: 13px; height: 13px; }
 .rent-detail-gallery__thumbs { display: flex; gap: var(--rent-s-2); padding: var(--rent-s-3); }
 .rent-detail-gallery__thumb { flex: 1; height: 44px; border-radius: var(--rent-radius-md); border: 2px solid transparent; cursor: pointer; background-size: cover; background-position: center; }
@@ -3714,20 +3727,20 @@ body {
 
 /* 3 核心信息 */
 .rent-detail-facts__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-.rent-detail-fact { background: var(--rent-surface-2); border: 1px solid var(--rent-border); border-radius: 14px; padding: 14px 8px; text-align: center; }
+.rent-detail-fact { background: var(--rent-surface-2); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-lg); padding: 14px 8px; text-align: center; }
 .rent-detail-fact__icon { width: 38px; height: 38px; margin: 0 auto var(--rent-s-2); border-radius: 12px; background: rgba(20, 184, 166, 0.1); color: var(--rent-primary); display: flex; align-items: center; justify-content: center; }
 .rent-detail-fact__icon svg { width: 19px; height: 19px; }
 .rent-detail-fact__value { font-size: var(--rent-fs-base); font-weight: 600; color: var(--rent-ink); font-variant-numeric: tabular-nums; }
-.rent-detail-fact__label { font-size: 11px; color: var(--rent-ink-2); margin-top: 3px; }
+.rent-detail-fact__label { font-size: var(--rent-fs-2xs); color: var(--rent-ink-2); margin-top: 3px; }
 
 /* 4 卖点与基础配套 */
 .rent-detail-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-.rent-detail-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); font-size: var(--rent-fs-sm); font-weight: 500; color: var(--rent-ink-2); }
+.rent-detail-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--rent-radius-full); background: var(--rent-surface-2); border: 1px solid var(--rent-border); font-size: var(--rent-fs-sm); font-weight: 500; color: var(--rent-ink-2); }
 .rent-detail-chip svg { width: 16px; height: 16px; color: var(--rent-primary); }
 
 /* 5 地图与周边 */
 .rent-detail-map__canvas {
-  position: relative; height: 220px; border-radius: 14px; overflow: hidden; border: 1px solid var(--rent-border);
+  position: relative; height: 220px; border-radius: var(--rent-radius-lg); overflow: hidden; border: 1px solid var(--rent-border);
   background:
     linear-gradient(rgba(20, 184, 166, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(20, 184, 166, 0.1) 1px, transparent 1px),
@@ -3739,13 +3752,13 @@ body {
 .rent-detail-map__canvas::before { left: -10%; right: -10%; top: 60%; height: 14px; border-radius: 8px; transform: rotate(-7deg); }
 .rent-detail-map__canvas::after { top: -10%; bottom: -10%; left: 32%; width: 12px; border-radius: 8px; transform: rotate(68deg); }
 .rent-detail-map__pin { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -100%); width: 38px; height: 38px; color: var(--rent-primary); filter: drop-shadow(0 8px 12px rgba(20, 184, 166, 0.4)); z-index: 2; }
-.rent-detail-map__pin-label { position: absolute; left: 50%; top: 48%; transform: translateX(-50%); z-index: 2; background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: 999px; padding: 5px 12px; font-size: var(--rent-fs-xs); font-weight: 600; color: var(--rent-ink); box-shadow: 0 4px 12px -4px rgba(28, 39, 51, 0.18); white-space: nowrap; }
+.rent-detail-map__pin-label { position: absolute; left: 50%; top: 48%; transform: translateX(-50%); z-index: 2; background: var(--rent-card); border: 1px solid var(--rent-border); border-radius: var(--rent-radius-full); padding: 5px 12px; font-size: var(--rent-fs-xs); font-weight: 600; color: var(--rent-ink); box-shadow: 0 4px 12px -4px rgba(28, 39, 51, 0.18); white-space: nowrap; }
 .rent-detail-map__pois { display: flex; gap: 10px; margin-top: 14px; }
-.rent-detail-poi { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: var(--rent-s-3); border-radius: 14px; background: var(--rent-surface-2); border: 1px solid var(--rent-border); }
+.rent-detail-poi { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: var(--rent-s-3); border-radius: var(--rent-radius-lg); background: var(--rent-surface-2); border: 1px solid var(--rent-border); }
 .rent-detail-poi__icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 11px; background: var(--rent-card); color: var(--rent-primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(28, 39, 51, 0.08); }
 .rent-detail-poi__icon svg { width: 17px; height: 17px; }
 .rent-detail-poi__name { font-size: var(--rent-fs-sm); font-weight: 600; color: var(--rent-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rent-detail-poi__dist { font-size: 11px; color: var(--rent-ink-2); margin-top: 2px; }
+.rent-detail-poi__dist { font-size: var(--rent-fs-2xs); color: var(--rent-ink-2); margin-top: 2px; }
 
 /* 6 底部固定操作栏 */
 .rent-detail-bar {
@@ -3759,7 +3772,7 @@ body {
   max-width: 1200px; margin: 0 auto; padding: 12px 40px;
   display: flex; align-items: center; gap: 10px;
 }
-.rent-detail-bar__fav { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; padding: 6px 8px; border: none; background: transparent; cursor: pointer; color: var(--rent-ink-2); font-size: 11px; font-weight: 500; }
+.rent-detail-bar__fav { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 52px; padding: 6px 8px; border: none; background: transparent; cursor: pointer; color: var(--rent-ink-2); font-size: var(--rent-fs-2xs); font-weight: 500; }
 .rent-detail-bar__fav svg { width: 22px; height: 22px; color: var(--rent-primary); }
 .rent-detail-bar__fav[data-active="true"] svg { fill: var(--rent-primary); }
 .rent-detail-bar__agent { flex: 1; max-width: 200px; background: var(--rent-surface); border: 1px solid var(--rent-border); color: var(--rent-ink-2); }
@@ -3784,7 +3797,7 @@ body {
 .rent-v17-bar__loan:hover { background: rgba(20, 184, 166, 0.15); }
 .rent-v17-bar__loan[hidden] { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
   .rent-detail-wrap { padding-bottom: 88px; gap: var(--rent-s-3); }
   .rent-detail-facts__grid { grid-template-columns: repeat(3, 1fr); }
   .rent-detail-gallery__thumbs { padding: 10px; gap: 6px; }

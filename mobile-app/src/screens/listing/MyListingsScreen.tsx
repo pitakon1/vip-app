@@ -1,11 +1,12 @@
-import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 我的上架单：展示当前登录用户发布的上架单（状态 / 分成 / 去重状态）。
- * 说明：非 staff 后端 list 仅返回 active，故业主端此处能看到的是「已上架/可查」项；
- * staff（经纪人/员工/管理员）可见其发布的全量状态。进入可编辑，可关闭下架。
+ * 归属过滤由服务端 `mine=true` 完成（本人 / 本合作方 / 本人业主），
+ * 客户端不再拉首页 100 条后本地筛选。进入可编辑，可关闭下架（带二次确认）。
  */
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   FlatList,
@@ -50,51 +51,89 @@ export default function MyListingsScreen() {
   const queryClient = useQueryClient();
   const uid = user?.id ?? 'anon';
   const LISTINGS_KEY: string[] = ['my-listings', uid];
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<Listing[]>([]);
+  const [total, setTotal] = useState(0);
 
-  const q = useCachedQuery<Listing[]>({
-    queryKey: LISTINGS_KEY,
-    cacheKey: `my-listings:${uid}`,
+  const q = useCachedQuery<{ items: Listing[]; total: number }>({
+    queryKey: [...LISTINGS_KEY, String(page)],
+    cacheKey: `my-listings:${uid}:p${page}`,
     queryFn: async () => {
-      const res: any = await listingApi.list({ page: 1, page_size: OPTION_PAGE_SIZE });
+      const res: any = await listingApi.list({
+        page,
+        page_size: LIST_PAGE_SIZE,
+        // 归属收窄交给服务端：staff 不带 mine 会拿到全平台上架单
+        mine: true,
+      });
       const d = res?.data;
-      const rows = Array.isArray(d) ? d : d?.items ?? [];
-      return rows as Listing[];
+      const items = Array.isArray(d) ? d : d?.items ?? [];
+      return { items: items as Listing[], total: Array.isArray(d) ? items.length : d?.total ?? 0 };
     },
   });
 
-  const allRows = q.data ?? [];
-  const loadError = q.isError && allRows.length === 0 ? '上架单加载失败' : null;
+  // 逐页合并（按 id 去重，避免刷新/回填造成重复行）；回到第 1 页时重置
+  useEffect(() => {
+    const next = q.data;
+    if (!next) return;
+    setTotal(next.total);
+    setRows((prev) => {
+      if (page === 1) return next.items;
+      const merged = new Map(prev.map((x) => [x.id, x]));
+      for (const x of next.items) merged.set(x.id, x);
+      return Array.from(merged.values());
+    });
+  }, [q.data, page]);
+
+  const loadError = q.isError && rows.length === 0 ? '上架单加载失败' : null;
   const retry = () => {
     void q.refetch({ cancelRefetch: false });
   };
-  const items = user?.id
-    ? allRows.filter((r) => String(r.publisher_user_id) === String(user.id))
-    : allRows;
-  const loading = q.isPending && !q.data;
+  const items = rows;
+  const loading = q.isPending && rows.length === 0;
   const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
-    void q.refetch({ cancelRefetch: false });
-  }, [q]);
+    if (page === 1) void q.refetch({ cancelRefetch: false });
+    else setPage(1);
+  }, [q, page]);
+  const loadMore = () => {
+    if (q.isFetching || rows.length >= total) return;
+    setPage((p) => p + 1);
+  };
 
   const closeListing = (item: Listing) => {
     const doClose = async () => {
       try {
         await listingApi.close(item.id, {});
         notify('已下架', '该上架单已关闭');
-        queryClient.setQueryData<Listing[]>(LISTINGS_KEY, (prev) =>
-          (prev ?? []).map((x) => (x.id === item.id ? { ...x, status: 'closed' as const } : x)),
+        setRows((prev) =>
+          prev.map((x) => (x.id === item.id ? { ...x, status: 'closed' as const } : x)),
+        );
+        // 同步更新当前页缓存，避免下拉刷新前又被旧数据覆盖
+        queryClient.setQueryData<{ items: Listing[]; total: number }>(
+          [...LISTINGS_KEY, String(page)],
+          (prev) =>
+            prev
+              ? {
+                  ...prev,
+                  items: prev.items.map((x) =>
+                    x.id === item.id ? { ...x, status: 'closed' as const } : x,
+                  ),
+                }
+              : prev,
         );
       } catch (e: any) {
         notifyError('操作失败', e);
       }
     };
-    const msg = '确定关闭该上架单并下架吗？';
+    const msg = '确定关闭该上架单并下架吗？下架后买家/租客将无法再看到该房源。';
     if (Platform.OS === 'web') {
       if (window.confirm(msg)) void doClose();
-    } else {
-      // 复用 notify 不可阻塞确认，这里用简单分支：直接弹出原生确认由 doClose 完成
-      void doClose();
+      return;
     }
+    Alert.alert('下架确认', msg, [
+      { text: '取消', style: 'cancel' },
+      { text: '确认下架', style: 'destructive', onPress: () => void doClose() },
+    ]);
   };
 
   const renderItem = ({ item }: { item: Listing }) => {
@@ -193,6 +232,8 @@ export default function MyListingsScreen() {
             data={items}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
             contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />

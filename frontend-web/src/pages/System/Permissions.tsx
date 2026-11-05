@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Card, Tabs, Checkbox, Button, Space, message, Tag } from 'antd'
+import { Card, Tabs, Checkbox, Button, Space, message, Tag, Modal } from 'antd'
 import { SaveOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
@@ -14,6 +14,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'systemPermissions.roleAdmin',
   agent: 'systemPermissions.roleAgent',
   employee: 'systemPermissions.roleEmployee',
+  partner_admin: 'systemPermissions.rolePartnerAdmin',
   owner: 'systemPermissions.roleOwner',
   tenant: 'systemPermissions.roleTenant',
 }
@@ -21,6 +22,7 @@ const ROLE_COLOR: Record<string, string> = {
   admin: 'magenta',
   agent: 'geekblue',
   employee: 'cyan',
+  partner_admin: 'purple',
   owner: 'gold',
   tenant: 'green',
 }
@@ -38,9 +40,15 @@ const Permissions = () => {
   const { t } = useTranslation()
   const [data, setData] = useState<PermData | null>(null)
   const [role, setRole] = useState('admin')
-  const [checked, setChecked] = useState<string[]>([])
+  // 每个角色一份独立草稿：切 Tab 只切视图，不再让异步请求覆盖当前勾选，
+  // 否则加载期间点保存会把上一角色的权限码写到新角色上。
+  const [drafts, setDrafts] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  const checked = drafts[role] ?? []
+  const setChecked = (codes: string[]) =>
+    setDrafts((prev) => ({ ...prev, [role]: codes }))
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -48,34 +56,49 @@ const Permissions = () => {
       const res = await api.get('/admin/permissions')
       const d = res.data?.data ?? res.data
       setData(d)
-      setChecked(d?.roles?.[role] ?? [])
+      setDrafts(
+        Object.fromEntries(
+          Object.keys(ROLE_LABEL).map((r) => [r, d?.roles?.[r] ?? []]),
+        ),
+      )
     } catch (err: any) {
       message.error(errorText(err, t('systemPermissions.loadFailed')))
     } finally {
       setLoading(false)
     }
-  }, [role])
+  }, [t])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
   const toggleAll = (codes: string[], on: boolean) => {
-    setChecked((prev) => (on ? Array.from(new Set([...prev, ...codes])) : prev.filter((c) => !codes.includes(c))))
+    setChecked(on ? Array.from(new Set([...checked, ...codes])) : checked.filter((c) => !codes.includes(c)))
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const res = await api.put(`/admin/permissions/roles/${role}`, { codes: checked })
-      const d = res.data?.data ?? res.data
-      setChecked(d.permissions ?? [])
-      message.success(t('systemPermissions.saved', { role: t(ROLE_LABEL[role]) }))
-    } catch (err: any) {
-      message.error(errorText(err, t('systemPermissions.saveFailed')))
-    } finally {
-      setSaving(false)
-    }
+  const handleSave = () => {
+    // 权限数据未加载完成或正在保存时不提交
+    if (!data || loading || saving) return
+    Modal.confirm({
+      title: t('systemPermissions.confirmSaveTitle', { role: t(ROLE_LABEL[role]) }),
+      content: t('systemPermissions.confirmSaveBody', { count: checked.length }),
+      okText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      onOk: async () => {
+        setSaving(true)
+        try {
+          const res = await api.put(`/admin/permissions/roles/${role}`, { codes: checked })
+          const d = res.data?.data ?? res.data
+          const saved = d.permissions ?? checked
+          setDrafts((prev) => ({ ...prev, [role]: saved }))
+          message.success(t('systemPermissions.saved', { role: t(ROLE_LABEL[role]) }))
+        } catch (err: any) {
+          message.error(errorText(err, t('systemPermissions.saveFailed')))
+        } finally {
+          setSaving(false)
+        }
+      },
+    })
   }
 
   return (
@@ -88,7 +111,13 @@ const Permissions = () => {
           </p>
         </div>
         <div className="rent-page-header__actions">
-          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSave}>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={saving}
+            disabled={loading || !data}
+            onClick={handleSave}
+          >
             {t('systemPermissions.saveBtn')}
           </Button>
         </div>

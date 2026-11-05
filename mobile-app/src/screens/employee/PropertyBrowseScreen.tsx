@@ -27,6 +27,7 @@ import { useI18n } from '@/i18n';
 import ListingsMapModal from '@/components/ListingsMapModal';
 import ListingsFeed, {
   priceRanges,
+  salePriceRanges,
   areaPresets,
   translateSource,
   type Listing,
@@ -85,7 +86,17 @@ export default function PropertyBrowseScreen() {
   const { t } = useI18n();
   const navigation = useNavigation<any>();
   const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
+  const SALE_PRICE_RANGES = useMemo(() => salePriceRanges(t), [t]);
   const AREA_PRESETS = useMemo(() => areaPresets(t), [t]);
+  // 三条业务线：租房 / 二手房 / 新房（后端对应 listing_type + is_new_development）
+  const BIZ_OPTIONS = useMemo(
+    () => [
+      { key: 'rent' as BizKey, label: t('category.rentTitle') },
+      { key: 'resale' as BizKey, label: t('category.resaleTitle') },
+      { key: 'new' as BizKey, label: t('category.newTitle') },
+    ],
+    [t],
+  );
 
   // 全局定位：区域面板 = 当前定位城市的区/街道；地铁 = 当前城市的线路（与 C 端一致）
   const locSel = useLocationStore((s) => s.selection);
@@ -100,6 +111,7 @@ export default function PropertyBrowseScreen() {
   );
 
   const [items, setItems] = useState<PropertyItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -126,7 +138,14 @@ export default function PropertyBrowseScreen() {
   const [areaCustomMax, setAreaCustomMax] = useState('');
   const [sortKey, setSortKey] = useState('default');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
-  const [biz, setBiz] = useState<BizKey>('rent');
+  const [biz, setBiz] = useState<BizKey>('all');
+  // 业务层专属维度（后端均已支持，且只在对应业务线下下发）
+  const [depositMonths, setDepositMonths] = useState('');
+  const [availableWithin, setAvailableWithin] = useState('');
+  const [completionYearMin, setCompletionYearMin] = useState('');
+  const [completionYearMax, setCompletionYearMax] = useState('');
+  const [unitPriceMin, setUnitPriceMin] = useState('');
+  const [unitPriceMax, setUnitPriceMax] = useState('');
   // 学校筛选（收进「更多」）：后端按学校坐标 + 半径反查覆盖的小区
   const [schoolId, setSchoolId] = useState('');
   const [schoolKm, setSchoolKm] = useState(3);
@@ -135,8 +154,7 @@ export default function PropertyBrowseScreen() {
   const [schoolKw, setSchoolKw] = useState('');
   const [favSet, setFavSet] = useState<Record<string, boolean>>({});
 
-  // ---------- C 端同款能力：附近排序 / 翻译 / 地图弹层 ----------
-  const [nearby, setNearby] = useState(false);
+  // ---------- C 端同款能力：翻译 / 地图弹层 ----------
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
@@ -157,7 +175,7 @@ export default function PropertyBrowseScreen() {
     return [];
   }, [districtSel, metroSel, districts]);
 
-  // 组装查询参数：除「房源类型」为本地产过滤外，其余均走服务端 /properties
+  // 组装查询参数：所有筛选维度都下发到 /properties（无客户端过滤，避免总数与集合不一致）
   const buildParams = useCallback(
     (targetPage: number) => {
       const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE };
@@ -170,18 +188,59 @@ export default function PropertyBrowseScreen() {
         params.school_id = schoolId;
         params.school_radius_km = schoolKm;
       }
+      // 业务线：租房 / 二手房 / 新房；二手房与新房共用 listing_type=sell，
+      // 再用 is_new_development 区分；「全部」两者都不传（不新增后端参数）
+      if (biz === 'rent') {
+        params.listing_type = 'rent';
+      } else if (biz === 'resale') {
+        params.listing_type = 'sell';
+        params.is_new_development = false;
+      } else if (biz === 'new') {
+        params.listing_type = 'sell';
+        params.is_new_development = true;
+      }
+      // 共用层：房产类型多值（公寓=apartment+condo、商铺办公=office+shop）
+      if (filterTypes.length) params.property_type = filterTypes;
+      // 价格：租=月租、售=挂牌总价（后端按 listing_type 切换口径）
       let pMin = 0;
       let pMax = Infinity;
-      const preset = PRICE_RANGES.find((p) => p.key === priceRange);
+      const presets = biz === 'rent' || biz === 'all' ? PRICE_RANGES : SALE_PRICE_RANGES;
+      const preset = presets.find((p) => p.key === priceRange);
       if (preset && preset.key) {
         pMin = preset.min;
         pMax = preset.max;
       } else if (customMin || customMax) {
-        pMin = (Number(customMin) || 0) * 10000;
-        pMax = (Number(customMax) || 0) * 10000;
+        // 租侧自定义以「万」为单位；售侧直接按 THB
+        const scale = biz === 'rent' || biz === 'all' ? 10000 : 1;
+        pMin = (Number(customMin) || 0) * scale;
+        pMax = (Number(customMax) || 0) * scale;
       }
       if (isFinite(pMin) && pMin > 0) params.price_min = pMin;
       if (isFinite(pMax) && pMax !== Infinity) params.price_max = pMax;
+      if (biz === 'resale') {
+        if (unitPriceMin) params.unit_price_min = Number(unitPriceMin);
+        if (unitPriceMax) params.unit_price_max = Number(unitPriceMax);
+      }
+      // 租房专属：押付方式 + 可入住时间
+      if (biz === 'rent') {
+        if (depositMonths) {
+          params.deposit_months_min = Number(depositMonths);
+          if (depositMonths !== '3') params.deposit_months_max = Number(depositMonths);
+        }
+        if (availableWithin) {
+          const d = new Date();
+          d.setMonth(d.getMonth() + Number(availableWithin));
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          params.available_before = `${y}-${m}-${day}`;
+        }
+      }
+      // 房龄（二手）/ 交房年份（新房）
+      if (biz === 'resale' || biz === 'new') {
+        if (completionYearMin) params.completion_year_min = Number(completionYearMin);
+        if (completionYearMax) params.completion_year_max = Number(completionYearMax);
+      }
       if (bedFilter === '5') params.bedrooms_min = 5;
       else if (bedFilter) {
         params.bedrooms_min = Number(bedFilter);
@@ -191,7 +250,8 @@ export default function PropertyBrowseScreen() {
       if (floorSel) params.floor_level = floorSel;
       if (decorSel) params.decoration = decorSel;
       if (amenitySel.length) params.amenity = amenitySel;
-      if (statusFilter) params.status = statusFilter;
+      // 房源状态是租赁运营口径，买卖业务不下发
+      if (biz === 'rent' && statusFilter) params.status = statusFilter;
       let aMin = 0;
       let aMax = Infinity;
       const areaPreset = AREA_PRESETS.find((a) => a.key === areaRange);
@@ -206,7 +266,14 @@ export default function PropertyBrowseScreen() {
       if (isFinite(aMax) && aMax !== Infinity) params.area_max = aMax;
       return params;
     },
-    [keyword, activeLocationKw, schoolId, schoolKm, priceRange, customMin, customMax, bedFilter, orientationSel, floorSel, decorSel, amenitySel, statusFilter, areaRange, areaCustomMin, areaCustomMax, sortKey, PRICE_RANGES, AREA_PRESETS],
+    [
+      keyword, activeLocationKw, schoolId, schoolKm, biz, filterTypes,
+      priceRange, customMin, customMax, PRICE_RANGES, SALE_PRICE_RANGES,
+      unitPriceMin, unitPriceMax, depositMonths, availableWithin,
+      completionYearMin, completionYearMax, bedFilter, orientationSel, floorSel,
+      decorSel, amenitySel, statusFilter, areaRange, areaCustomMin, areaCustomMax,
+      sortKey, AREA_PRESETS,
+    ],
   );
 
   const load = useCallback(
@@ -221,6 +288,7 @@ export default function PropertyBrowseScreen() {
         const data = res.data as { items?: PropertyItem[]; total?: number; total_pages?: number };
         const list = Array.isArray(data) ? (data as unknown as PropertyItem[]) : (data?.items ?? []);
         setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
+        setTotal(data?.total ?? list.length);
         setTotalPages(data?.total_pages ?? 1);
         setPage(targetPage);
       } catch {
@@ -244,7 +312,7 @@ export default function PropertyBrowseScreen() {
     const timer = setTimeout(() => load({ nextPage: 1 }), 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, districtSel, metroSel, schoolId, schoolKm, priceRange, customMin, customMax, bedFilter, orientationSel, floorSel, decorSel, amenitySel, statusFilter, areaRange, areaCustomMin, areaCustomMax, sortKey]);
+  }, [keyword, districtSel, metroSel, schoolId, schoolKm, biz, filterTypes, priceRange, customMin, customMax, unitPriceMin, unitPriceMax, depositMonths, availableWithin, completionYearMin, completionYearMax, bedFilter, orientationSel, floorSel, decorSel, amenitySel, statusFilter, areaRange, areaCustomMin, areaCustomMax, sortKey]);
 
   // 学校候选：首次展开「更多」面板时懒加载一次
   const loadSchools = useCallback(() => {
@@ -313,18 +381,8 @@ export default function PropertyBrowseScreen() {
     [favSet, t],
   );
 
-  // 业务 Tab（整租/买房）+ 房源类型：均在本页做客户端过滤（/properties 无对应参数）
-  const visibleItems = useMemo(() => {
-    let arr = items;
-    arr =
-      biz === 'sale'
-        ? arr.filter((it) => Number(it.sale_price ?? 0) > 0)
-        : arr.filter((it) => Number(it.monthly_rent ?? 0) > 0);
-    if (filterTypes.length) {
-      arr = arr.filter((it) => filterTypes.includes(String(it.property_type ?? '')));
-    }
-    return arr.map(normalize);
-  }, [items, biz, filterTypes]);
+  // 列表数据：服务端已按业务线/类型/价格等筛选，页面不再做客户端过滤（保证 total 与集合一致）
+  const visibleItems = useMemo(() => items.map(normalize), [items]);
 
   const filters: ListingsFilters = useMemo(
     () => ({
@@ -348,11 +406,19 @@ export default function PropertyBrowseScreen() {
       schoolKm,
       schoolKw,
       filterTypes,
+      unitPriceMin,
+      unitPriceMax,
+      depositMonths,
+      availableWithin,
+      completionYearMin,
+      completionYearMax,
     }),
     [
       keyword, districtSel, metroSel, priceRange, customMin, customMax, bedFilter,
       statusFilter, orientationSel, floorSel, decorSel, amenitySel, areaRange,
       areaCustomMin, areaCustomMax, sortKey, schoolId, schoolKm, schoolKw, filterTypes,
+      unitPriceMin, unitPriceMax, depositMonths, availableWithin,
+      completionYearMin, completionYearMax,
     ],
   );
 
@@ -377,43 +443,35 @@ export default function PropertyBrowseScreen() {
     if (patch.schoolKm !== undefined) setSchoolKm(patch.schoolKm);
     if (patch.schoolKw !== undefined) setSchoolKw(patch.schoolKw);
     if (patch.filterTypes !== undefined) setFilterTypes(patch.filterTypes);
+    if (patch.unitPriceMin !== undefined) setUnitPriceMin(patch.unitPriceMin);
+    if (patch.unitPriceMax !== undefined) setUnitPriceMax(patch.unitPriceMax);
+    if (patch.depositMonths !== undefined) setDepositMonths(patch.depositMonths);
+    if (patch.availableWithin !== undefined) setAvailableWithin(patch.availableWithin);
+    if (patch.completionYearMin !== undefined) setCompletionYearMin(patch.completionYearMin);
+    if (patch.completionYearMax !== undefined) setCompletionYearMax(patch.completionYearMax);
+  }, []);
+
+  // 切业务线：清掉只属于上一条业务线的条件，避免残留导致空结果
+  const handleBizChange = useCallback((next: BizKey) => {
+    setBiz(next);
+    setPriceRange('');
+    setCustomMin('');
+    setCustomMax('');
+    setUnitPriceMin('');
+    setUnitPriceMax('');
+    setDepositMonths('');
+    setAvailableWithin('');
+    setCompletionYearMin('');
+    setCompletionYearMax('');
+    setStatusFilter('');
   }, []);
 
   const handlePanelOpen = useCallback(
-    (key: 'region' | 'price' | 'more' | 'sort') => {
+    (key: 'region' | 'type' | 'price' | 'more' | 'sort') => {
       if (key === 'more') loadSchools();
     },
     [loadSchools],
   );
-
-  // 「附近」：切换离我最近排序（与 C 端同款；/properties 无坐标时降级提示）
-  const handleToggleNearby = useCallback(async () => {
-    if (nearby) {
-      setNearby(false);
-      return;
-    }
-    let pos = userPos;
-    if (!pos) {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          notify(t('common.hint'), t('list.nearbyDenied'));
-          return;
-        }
-        const cur = await Location.getCurrentPositionAsync({});
-        pos = { lat: cur.coords.latitude, lng: cur.coords.longitude };
-        setUserPos(pos);
-      } catch {
-        notify(t('common.hint'), t('list.nearbyDenied'));
-        return;
-      }
-    }
-    if (!visibleItems.some((it) => it.lat != null && it.lng != null)) {
-      notify(t('common.hint'), t('list.nearbyNoData'));
-      return;
-    }
-    setNearby(true);
-  }, [nearby, userPos, visibleItems, t]);
 
   // 翻译（与 C 端同款：源文取描述/地址，结果以提示展示）
   const handleTranslate = useCallback(
@@ -444,7 +502,7 @@ export default function PropertyBrowseScreen() {
     try {
       const params: any = {
         limit: DETAIL_PAGE_SIZE,
-        listing_type: biz === 'sale' ? 'sell' : 'rent',
+        ...(biz === 'all' ? {} : { listing_type: biz === 'rent' ? 'rent' : 'sell' }),
         ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
         ...(keyword.trim() ? { q: keyword.trim() } : {}),
       };
@@ -499,16 +557,20 @@ export default function PropertyBrowseScreen() {
         favPending={{}}
         onToggleFav={toggleFav}
         biz={biz}
-        onBizChange={setBiz}
+        onBizChange={handleBizChange}
+        variant="employee"
+        total={total}
+        bizOptions={BIZ_OPTIONS}
+        onEditItem={(item) => navigation.navigate('PropertyEdit', { id: item.property_id ?? item.id })}
+        searchPlaceholder={
+          biz === 'new' ? t('category.newSearchPlaceholder') : t('list.searchPlaceholder')
+        }
         onOpenDetail={handleOpenDetail}
         districts={districts}
         metroLines={metroLines}
         cityLabel={locCity?.cityLabel ?? ''}
         schools={schools}
         schoolsLoaded={schoolsLoaded}
-        enableNearby
-        nearby={nearby}
-        onToggleNearby={handleToggleNearby}
         translatingId={translatingId}
         onTranslate={handleTranslate}
         showMapButton

@@ -11,7 +11,8 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import or_
+from sqlalchemy import exists, or_
+from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -371,11 +372,29 @@ def list_listings(
     listing_type: Optional[ListingType] = None,
     publisher: Optional[PublisherType] = None,
     q: Optional[str] = Query(None, max_length=100, description="关键词：地址/房号/描述"),
+    keywords: Optional[List[str]] = Query(
+        None,
+        description=(
+            "多关键词（任一命中即算）：房源地址/房号/楼栋/描述，以及所属楼盘的名称/地址/城市/城区；"
+            "最多 20 个。用于区域（国家/城市/城区）这类「一组同义词」筛选。"
+        ),
+    ),
     pagination: PaginationParams = Depends(),
+    mine: bool = Query(
+        False,
+        description=(
+            "仅返回「我的」上架单：发布人本人、所属经纪人（合作方）或本人名下业主的房源。"
+            "「我的上架单」页面必须带此参数，否则 staff 会看到全平台数据。"
+        ),
+    ),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """上架单列表。staff 看全量；普通用户看已上架 + 自己发布的全部。"""
+    """上架单列表。staff 看全量；普通用户看已上架 + 自己发布的全部。
+
+    `mine=true` 时所有角色（含 staff）都收窄为「本人/本合作方/本人业主」的上架单，
+    供「我的上架单」页面使用。
+    """
     is_staff = user.role in STAFF_ROLES
     query = select(Listing).where(Listing.deleted_at.is_(None))
     if not is_staff:
@@ -386,6 +405,19 @@ def list_listings(
                 Listing.publisher_user_id == user.id,
             )
         )
+    if mine:
+        # 归属收窄：列表本身不再依赖前端本地过滤。
+        # - 发布人本人：publisher_user_id
+        # - 经纪人/合作方名下：publisher_broker_id（同一 broker 档案发布的单）
+        # - 业主：本人 Owner 名下的上架单（可能由经纪人代发）
+        scope_conditions = [Listing.publisher_user_id == user.id]
+        broker = _get_broker_for_user(session, user)
+        if broker:
+            scope_conditions.append(Listing.publisher_broker_id == broker.id)
+        owner_id_scope = _get_owner_id_for_user(session, user)
+        if owner_id_scope:
+            scope_conditions.append(Listing.owner_id == owner_id_scope)
+        query = query.where(or_(*scope_conditions))
     if status:
         query = query.where(Listing.status == status)
     if listing_type:
@@ -401,6 +433,35 @@ def list_listings(
                 Listing.broker_real_name.ilike(pattern),
             )
         )
+    # 区域筛选关键词：与 /properties 一致，对房源档案与所属楼盘字段做 ilike 模糊匹配。
+    # 用 EXISTS 子查询而不是 JOIN，避免同一房源多份上架单时出现行膨胀。
+    terms = [k.strip() for k in (keywords or []) if k and k.strip()][:20]
+    if terms:
+        prop_search = aliased(Property)
+        proj_search = aliased(Project)
+        keyword_conditions = []
+        for term in terms:
+            pattern = f"%{term}%"
+            keyword_conditions.append(
+                exists(
+                    select(prop_search.id)
+                    .outerjoin(proj_search, proj_search.id == prop_search.project_id)
+                    .where(
+                        prop_search.id == Listing.property_id,
+                        or_(
+                            prop_search.address.ilike(pattern),
+                            prop_search.room_number.ilike(pattern),
+                            prop_search.building.ilike(pattern),
+                            prop_search.description.ilike(pattern),
+                            proj_search.name.ilike(pattern),
+                            proj_search.address.ilike(pattern),
+                            proj_search.city.ilike(pattern),
+                            proj_search.district.ilike(pattern),
+                        ),
+                    )
+                )
+            )
+        query = query.where(or_(*keyword_conditions))
     stmt = query.order_by(Listing.created_at.desc())
     page = paginate_query(session, stmt, pagination)
     # 业主的 Owner.id 只查一次，避免逐条回查 owners（N+1）
@@ -610,6 +671,7 @@ def create_listing(
                 session,
                 deal_type="sale_transaction",
                 fallback_percent=1.0,  # 未配置规则时默认 1% 卖房佣金
+                partner_id=getattr(user, "partner_id", None),
             )
         if req.listing_type == ListingType.rent and payload.get("rental_commission_months") is None:
             payload["rental_commission_months"] = 1.0
@@ -699,9 +761,19 @@ def update_listing(
         raise HTTPException(status_code=403, detail="只有员工可修改上架单状态")
     # 佣金/分成规则统一再校验
     if "mandate_type" in update or "buyer_side_rate" in update or "split_option" in update:
+        target_mandate = req.mandate_type or li.mandate_type
+        if target_mandate == MandateType.exclusive:
+            incoming_buyer = (
+                req.buyer_side_rate if req.buyer_side_rate is not None else li.buyer_side_rate
+            )
+        else:
+            # 非独家只认 split_option：旧单若曾是独家，li.buyer_side_rate 仍有值，
+            # 直接沿用会被 _apply_split_sides 判为「非独家不该传 buyer_side_rate」而 400，
+            # 导致委托方式永远改不回非独家。这里显式置空，由档位重新推导两侧比例。
+            incoming_buyer = None
         _apply_split_sides(
-            req.mandate_type or li.mandate_type,
-            req.buyer_side_rate if req.buyer_side_rate is not None else li.buyer_side_rate,
+            target_mandate,
+            incoming_buyer,
             req.split_option or li.split_option or NonExclusiveSplit.sp_65_35,
             update,
         )

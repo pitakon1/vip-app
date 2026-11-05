@@ -279,7 +279,7 @@ const MarketsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
             <span className="rent-pagination__info">{t('markets.pagerInfo', { total })}</span>
             <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('markets.prevPage')}</button>
             <span className="rent-pagination__info">{page}</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('markets.nextPage')}</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('markets.nextPage')}</button>
           </div>
         </div>
       </div>

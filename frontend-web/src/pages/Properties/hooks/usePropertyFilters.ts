@@ -14,13 +14,32 @@ import { SORT_MAP, parseRange } from '../filterWidgets'
 
 const PAGE_SIZE = LIST_PAGE_SIZE
 
+/**
+ * 销售端房产类型大类 → 后端 property_type 取值。
+ * 与 C 端分类页完全同口径：
+ * - 公寓 = apartment + condo（C 端「公寓」Tab 用的就是这两值）
+ * - 商铺办公 = office + shop（C 端 Commercial 的写字楼/商铺）
+ */
+export const TYPE_CLASS_MAP: Record<string, string[]> = {
+  apartment: ['apartment', 'condo'],
+  villa: ['villa', 'house'],
+  commercial: ['office', 'shop'],
+  factory: ['factory'],
+  hotel: ['hotel'],
+  land: ['land'],
+}
+
 export function usePropertyFilters() {
   const { t } = useTranslation()
 
   // 筛选参数
   const [keyword, setKeyword] = useState('')
   const [status, setStatus] = useState('')
-  const [propertyType, setPropertyType] = useState('')
+  // 房产类型大类：与 C 端口径一致（公寓=apartment+condo、商铺办公=office+shop），
+  // 不再用单个 property_type 值，避免「公寓」漏掉 condo、「商铺办公」被拆成两个选项
+  const [typeClass, setTypeClass] = useState('')
+  // 业务线：''=全部 / rent=租房 / resale=二手房 / new=新房（后两者靠 is_new_development 区分）
+  const [bizType, setBizType] = useState('')
   // 房间数：''=不限, '0'=单间, '1'/'2'=精确居室, '3'=3室及以上
   const [bedrooms, setBedrooms] = useState('')
   // 价格区间：''=不限, 预设区间 key（如 '5000-10000'/'50000+'）, 'custom'=自定义
@@ -62,7 +81,7 @@ export function usePropertyFilters() {
   }, [districtSel, metroSel])
 
   // 是否存在生效中的筛选条件（用于空态区分「筛选无结果」与「真没数据」）
-  const isFiltering = !!keyword.trim() || !!status || !!propertyType || bedrooms !== '' || priceRange !== '' || areaRange !== '' || activeLocationKw.length > 0 || onlyVideo
+  const isFiltering = !!keyword.trim() || !!status || !!typeClass || !!bizType || bedrooms !== '' || priceRange !== '' || areaRange !== '' || activeLocationKw.length > 0 || onlyVideo
 
   // 定位面板：区域点击即生效且与地铁互斥；地铁为草稿多选，确定后提交
   const applyDistrict = (key: string | null) => {
@@ -130,7 +149,18 @@ export function usePropertyFilters() {
     if (kw) params.q = kw
     if (activeLocationKw.length) params.keywords = activeLocationKw
     if (status) params.status = status
-    if (propertyType) params.property_type = propertyType
+    // 大类 → 后端 property_type 多值（同一个筛选条件内是 OR，跨条件仍是 AND）
+    if (typeClass) params.property_type = TYPE_CLASS_MAP[typeClass] ?? [typeClass]
+    // 业务线：租房只看有租金；二手房=在售且非新房；新房=在售且标记一手
+    if (bizType === 'rent') {
+      params.listing_type = 'rent'
+    } else if (bizType === 'resale') {
+      params.listing_type = 'sell'
+      params.is_new_development = false
+    } else if (bizType === 'new') {
+      params.listing_type = 'sell'
+      params.is_new_development = true
+    }
     if (onlyVideo) params.has_video = true
     // 房间数：'0'=单间, '1'/'2'/'3' 精确, '4'=≥4
     if (bedrooms !== '') {
@@ -145,15 +175,16 @@ export function usePropertyFilters() {
     if (area.min !== undefined) params.area_min = area.min
     if (area.max !== undefined) params.area_max = area.max
     return params
-  }, [page, keyword, activeLocationKw, status, propertyType, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
+  }, [page, keyword, activeLocationKw, status, typeClass, bizType, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
 
   // 筛选/排序变化时回到第 1 页（服务端分页）
-  useEffect(() => { setPage(1) }, [keyword, status, propertyType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
+  useEffect(() => { setPage(1) }, [keyword, status, typeClass, bizType, activeLocationKw, onlyVideo, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort])
 
   return {
     keyword, setKeyword,
     status, setStatus,
-    propertyType, setPropertyType,
+    typeClass, setTypeClass,
+    bizType, setBizType,
     bedrooms, setBedrooms,
     priceRange, setPriceRange,
     priceCustomMin, setPriceCustomMin,

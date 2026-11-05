@@ -42,6 +42,9 @@ class CommissionRule(TimestampMixin, table=True):
     broker_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="broker_partners.id", index=True
     )  # scope=by_broker 时生效：该分销商专属佣金率
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )  # scope=by_partner 时生效：该合作公司专属佣金率（必填）
     cap_amount: Optional[float] = None  # 单笔封顶金额
     minimum_amount: Optional[float] = None  # 佣金起算门槛
     description: Optional[str] = None

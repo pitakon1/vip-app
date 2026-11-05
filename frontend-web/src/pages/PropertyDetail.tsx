@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import dayjs from 'dayjs'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
+import { errorKind, errorText, type ErrorKind } from '@/lib/errorText'
 import { translateApi, documentsApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 import { formatMoney } from '@/lib/money'
@@ -109,6 +111,8 @@ const PropertyDetail = () => {
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
   const [translating, setTranslating] = useState(false)
   const [transTarget, setTransTarget] = useState('zh')
+  // 详情失败要单独记录：此前 catch 返回 null，403/500/断网都被渲染成「房源不存在」
+  const [detailError, setDetailError] = useState<{ text: string; kind: ErrorKind } | null>(null)
 
   // 房源详情（公开数据，缓存优先渲染 + 后台刷新）
   const detailQ = useCachedQuery<PropertyDetail | null>({
@@ -120,8 +124,13 @@ const PropertyDetail = () => {
         const res = await api.get(`/properties/${id}`)
         const payload = res.data?.data ?? res.data
         const data = payload?.data ?? payload
+        setDetailError(null)
         return (data as PropertyDetail) ?? null
-      } catch {
+      } catch (err) {
+        setDetailError({
+          text: errorText(err, t('propertyDetail.notFound')),
+          kind: errorKind(err),
+        })
         return null
       }
     },
@@ -211,6 +220,22 @@ const PropertyDetail = () => {
     return <div className="rent-main"><div className="rent-empty">{t('common.loading')}</div></div>
   }
 
+  if (detailError) {
+    return (
+      <div className="rent-main">
+        <button className="rent-back-link" onClick={() => navigate(-1)}>
+          {t('propertyDetail.backToList')}
+        </button>
+        <DataState
+          error={detailError.text}
+          errorKind={detailError.kind}
+          retryText={t('common.retry')}
+          onRetry={() => { setDetailError(null); void detailQ.refetch() }}
+        />
+      </div>
+    )
+  }
+
   if (!detail) {
     return (
       <div className="rent-main">
@@ -218,7 +243,7 @@ const PropertyDetail = () => {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
           {t('propertyDetail.backToList')}
         </button>
-        <div className="rent-empty">{t('propertyDetail.notFound')}</div>
+        <DataState empty emptyTitle={t('propertyDetail.notFound')} />
       </div>
     )
   }

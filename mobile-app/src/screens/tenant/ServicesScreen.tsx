@@ -1,5 +1,5 @@
 ﻿import { LIST_PAGE_SIZE } from '@/lib/pagination';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
-import { leasesApi, serviceOrdersApi } from '@/services/api';
+import { billingApi, leasesApi, serviceOrdersApi } from '@/services/api';
 import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
@@ -68,12 +68,7 @@ const MODEL_OPTIONS: { key: BuyModel; label: string }[] = [
   { key: 'daily', label: '按日' },
   { key: 'monthly', label: '按月' },
 ];
-// 各规格相对「单次基准价 base_price」的单价系数（可按运营随时调整）
-const MODEL_FACTOR: Record<BuyModel, number> = {
-  per_use: 1, // 按次：基准价原价
-  daily: 0.5, // 按日：单日价 ≈ 基准价 × 0.5
-  monthly: 3, // 按月：包月价 ≈ 基准价 × 3
-};
+// 规格单价必须由服务端 /billing/pricing/quotes 报价，客户端不再维护系数
 // 各规格可选购数量（次数 / 天数 / 月数）
 const MODEL_QTY_OPTIONS: Record<BuyModel, number[]> = {
   per_use: [1, 2, 3, 5],
@@ -149,14 +144,68 @@ export default function ServicesScreen() {
     setBuyQty(1);
   };
 
-  // 当前选中商品的规格单价与本次总额
-  const basePrice = Number(selected?.base_price || 0);
-  // 水电代缴为专属公共事业接口：不按次/按日/按月计费，统一单笔缴付
+  // 当前选中商品的规格单价与本次总额：全部来自服务端报价
   const selectedIsUtility = selected?.code === 'utility_payment';
-  const unitPrice = selectedIsUtility
-    ? basePrice
-    : Math.round(basePrice * MODEL_FACTOR[buyModel]);
-  const total = selectedIsUtility ? basePrice : unitPrice * buyQty;
+  const [quote, setQuote] = useState<{ unit_price?: number; base_amount?: number; tax_amount?: number } | null>(null);
+  const [modelQuotes, setModelQuotes] = useState<Partial<Record<BuyModel, number>>>({});
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  // 选中商品时预取三种规格的单价，仅用于展示
+  useEffect(() => {
+    if (!selected || selectedIsUtility) {
+      setModelQuotes({});
+      return;
+    }
+    let alive = true;
+    Promise.all(
+      MODEL_OPTIONS.map(async (m) => {
+        const res: any = await billingApi.quote({ code: selected.code, qty: 1, billing_model: m.key });
+        const body = res?.data?.data ?? res?.data;
+        return [m.key, Number(body?.unit_price || 0)] as const;
+      }),
+    )
+      .then((pairs) => {
+        if (alive) setModelQuotes(Object.fromEntries(pairs) as Partial<Record<BuyModel, number>>);
+      })
+      .catch(() => {
+        if (alive) setModelQuotes({});
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selected?.code, selectedIsUtility]);
+
+  // 当前规格 × 数量的服务端报价
+  useEffect(() => {
+    if (!selected) {
+      setQuote(null);
+      return;
+    }
+    let alive = true;
+    setQuoteLoading(true);
+    billingApi
+      .quote({
+        code: selected.code,
+        qty: selectedIsUtility ? 1 : buyQty,
+        billing_model: selectedIsUtility ? 'per_use' : buyModel,
+      })
+      .then((res: any) => {
+        const body = res?.data?.data ?? res?.data;
+        if (alive) setQuote(body ? { ...body } : null);
+      })
+      .catch(() => {
+        if (alive) setQuote(null);
+      })
+      .finally(() => {
+        if (alive) setQuoteLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selected?.code, selectedIsUtility, buyModel, buyQty]);
+
+  const unitPrice = Number(quote?.unit_price || 0);
+  const total = Number(quote?.base_amount || 0);
 
   const switchModel = (m: BuyModel) => {
     setBuyModel(m);
@@ -183,7 +232,8 @@ export default function ServicesScreen() {
         orderer_type: (user.role === 'owner' ? 'owner' : 'tenant') as 'owner' | 'tenant',
         property_id: activeLease.property_id,
         service_type: selected.code,
-        amount: isUtility ? basePrice : total,
+        // 金额来自服务端报价；后端会再次按价目表校验，篡改客户端金额无效
+        amount: total,
         currency: 'THB',
         notes: isUtility
           ? '公共事业代缴（单笔）'
@@ -377,7 +427,7 @@ export default function ServicesScreen() {
                         {m.label}
                       </Text>
                       <Text style={[styles.modelSub, active && styles.modelSubActive]}>
-                        {formatMoney(Math.round(basePrice * MODEL_FACTOR[m.key]), 'THB')}/{MODEL_UNIT_LABEL[m.key]}
+                        {formatMoney(Number(modelQuotes[m.key] || 0), 'THB')}/{MODEL_UNIT_LABEL[m.key]}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -438,13 +488,13 @@ export default function ServicesScreen() {
             {/* 底部结算条 */}
             <View style={styles.buyBar}>
               <View>
-                <Text style={styles.buyBarLabel}>应付合计</Text>
-                <Text style={styles.buyBarTotal}>{formatMoney(total, 'THB')}</Text>
+                <Text style={styles.buyBarLabel}>{quoteLoading ? '报价中…' : '应付合计'}</Text>
+                <Text style={styles.buyBarTotal}>{quoteLoading ? '—' : formatMoney(total, 'THB')}</Text>
               </View>
               <TouchableOpacity
-                style={[styles.buyBtn, submitting && styles.btnDisabled]}
+                style={[styles.buyBtn, (submitting || quoteLoading || !quote) && styles.btnDisabled]}
                 onPress={handleBuy}
-                disabled={submitting}
+                disabled={submitting || quoteLoading || !quote}
                 activeOpacity={0.8}
               >
                 {submitting ? (
@@ -488,7 +538,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,
   },
-  filterTagText: { fontSize: 11, color: colors.ink2, fontWeight: '600' },
+  filterTagText: { fontSize: colors.fontSize.xs, color: colors.ink2, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   // 区块标题
   sectionHead: {
     flexDirection: 'row',
@@ -521,7 +571,8 @@ const styles = StyleSheet.create({
   },
   productName: { fontSize: 15, fontWeight: '600', color: colors.ink },
   productTag: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.primary,
     fontWeight: '600',
     marginTop: 4,
@@ -610,7 +661,7 @@ const styles = StyleSheet.create({
   modelBtnActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
   modelBtnText: { fontSize: 15, fontWeight: '600', color: colors.ink2 },
   modelBtnTextActive: { color: colors.primary, fontWeight: '700' },
-  modelSub: { fontSize: 11, color: colors.ink3 },
+  modelSub: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   modelSubActive: { color: colors.primary },
   qtyWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   qtyChip: {

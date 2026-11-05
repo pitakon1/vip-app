@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { message } from 'antd'
 import { apiErrorBody } from '@/lib/api'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 import { employeesApi } from '@/services/api'
 import type { Employee, EmployeeStatus } from '@/types'
 import type { DemoEmployee, EmployeeStats, QueryParams } from '../types'
@@ -13,6 +13,16 @@ export const useEmployeesList = () => {
   const [data, setData] = useState<Employee[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  // 列表失败必须可辨：此前只弹 toast，随后渲染成空表（看起来像「没有员工」）
+  const [listError, setListError] = useState<string | null>(null)
+  const [listErrorKind, setListErrorKind] = useState<ErrorKind>('unknown')
+  const [summary, setSummary] = useState<{
+    total?: number
+    total_performance?: number
+    avg_performance?: number
+    top_name?: string | null
+    top_performance?: number
+  } | null>(null)
   const [leaderboard, setLeaderboard] = useState<Employee[]>([])
   const [, setLeaderLoading] = useState(false)
   const [queryParams, setQueryParams] = useState<QueryParams>({
@@ -22,6 +32,7 @@ export const useEmployeesList = () => {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setListError(null)
     try {
       const res = await employeesApi.list({
         page: queryParams.page,
@@ -34,11 +45,14 @@ export const useEmployeesList = () => {
       setData(payload?.items ?? [])
       setTotal(payload?.total ?? 0)
     } catch (err) {
-      message.error(apiErrorBody(err)?.message || t('employees.errFetch'))
+      setData([])
+      setTotal(0)
+      setListError(apiErrorBody(err)?.message || errorText(err, t('employees.errFetch')))
+      setListErrorKind(errorKind(err))
     } finally {
       setLoading(false)
     }
-  }, [queryParams])
+  }, [queryParams, t])
 
   const fetchLeaderboard = useCallback(async () => {
     setLeaderLoading(true)
@@ -61,6 +75,22 @@ export const useEmployeesList = () => {
   useEffect(() => {
     fetchLeaderboard()
   }, [fetchLeaderboard])
+
+  // 全局汇总：统计卡不再对当前页 reduce（翻页会导致人数/人均/冠军跳变）
+  useEffect(() => {
+    let cancelled = false
+    employeesApi
+      .summary()
+      .then((res) => {
+        if (!cancelled) setSummary(res.data?.data ?? res.data ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleStatusChange = (value: EmployeeStatus | undefined) => {
     setQueryParams((p) => ({ ...p, status: value, page: 1 }))
@@ -151,33 +181,17 @@ export const useEmployeesList = () => {
 
   const totalDisplay = total
 
-  // 统计指标
-  const stats = useMemo<EmployeeStats>(() => {
-    const source = listData
-    const totalEmp = totalDisplay
-    const top = [...source].sort(
-      (a, b) => Number(b.performance || 0) - Number(a.performance || 0),
-    )[0]
-    const avg =
-      source.reduce((sum, e) => sum + Number(e.performance || 0), 0) /
-      (source.length || 1)
-    const totalTarget = source.reduce(
-      (sum, e) => sum + Number(e.target || 100000),
-      0,
-    )
-    const totalPerf = source.reduce(
-      (sum, e) => sum + Number(e.performance || 0),
-      0,
-    )
-    const completion = totalTarget > 0 ? Math.round((totalPerf / totalTarget) * 100) : 0
-    return {
-      totalEmp,
-      topName: top?.full_name || '-',
-      topPerf: Number(top?.performance || 0),
-      avg: Math.round(avg),
-      completion: Math.min(completion, 100),
-    }
-  }, [listData, totalDisplay])
+  // 统计指标（全部取自后端全局汇总，不再对当前页 reduce / 伪造 target）
+  const stats = useMemo<EmployeeStats>(
+    () => ({
+      totalEmp: Number(summary?.total ?? totalDisplay),
+      topName: summary?.top_name || '-',
+      topPerf: Number(summary?.top_performance ?? 0),
+      avg: Math.round(Number(summary?.avg_performance ?? 0)),
+      totalPerf: Number(summary?.total_performance ?? 0),
+    }),
+    [summary, totalDisplay],
+  )
 
   const totalPages = Math.max(1, Math.ceil(totalDisplay / queryParams.pageSize))
 
@@ -211,6 +225,8 @@ export const useEmployeesList = () => {
     departments,
     data,
     loading,
+    listError,
+    listErrorKind,
     fetchData,
     fetchDepartments,
     handleStatusChange,

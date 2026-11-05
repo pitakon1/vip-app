@@ -96,6 +96,8 @@ const MyListings = () => {
       const res = await listingsApi.list({
         page,
         page_size: pageSize,
+        // 仅取「我的」上架单：staff 不带此参数会拿到全平台数据
+        mine: true,
         status: status || undefined,
         region: region?.region || undefined,
         city: region?.city || undefined,

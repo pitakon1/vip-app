@@ -985,8 +985,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alpha('37, 99, 235', 0.35),
   },
   trendBarActive: { backgroundColor: colors.primary },
-  trendMonth: { fontSize: 10, color: colors.ink3, marginTop: 6 },
-  trendDeals: { fontSize: 10, color: colors.primary, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'] },
+  trendMonth: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
+  trendDeals: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700', marginTop: 2, fontVariant: ['tabular-nums'], lineHeight: colors.lineHeight.tight},
 
   /* 本月业绩总览 */
   heroCard: {

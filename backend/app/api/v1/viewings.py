@@ -12,11 +12,13 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_employee
 from app.core.pagination import Page, PaginationParams, paginate_query
+from app.services.data_scope import staff_employee_ids_in_scope
 from app.models import (
     Employee,
     Property,
@@ -97,10 +99,30 @@ class ViewingListOut(BaseModel):
     total: Optional[int] = None
 
 
-def _can_manage(user: User, v: ViewingAppointment) -> bool:
+def _scoped_employee_ids(session: Session, user: User):
+    """当前员工可管理的 `employees.id` 集合；None 表示不限（admin / scope=all）。"""
+    if user.role == UserRole.admin:
+        return None
+    return staff_employee_ids_in_scope(session, user)
+
+
+def _can_manage(session: Session, user: User, v: ViewingAppointment) -> bool:
+    """能否查看/操作该预约：admin 全部；其余限未分配、本人/同组、或本人发起。
+
+    此前任意员工都能 GET 任意预约详情（含访客手机号），并可通过 PATCH 改派给任何人。
+    """
     if user.id == v.requester_user_id:
         return True
-    return user.role in (UserRole.admin, UserRole.agent, UserRole.employee)
+    if user.role == UserRole.admin:
+        return True
+    if user.role not in (UserRole.agent, UserRole.employee, UserRole.partner_admin):
+        return False
+    emp_ids = _scoped_employee_ids(session, user)
+    if emp_ids is None:
+        return True
+    if v.assigned_to is None:
+        return True  # 未分配的新预约：同组员工都可见，避免队列无人处理
+    return v.assigned_to in emp_ids
 
 
 def _with_property(session: Session, v: ViewingAppointment) -> dict:
@@ -173,15 +195,43 @@ def list_viewings(
     pagination: PaginationParams = Depends(),
     status: Optional[ViewingStatus] = None,
     property_id: Optional[uuid.UUID] = None,
+    assigned_to: Optional[uuid.UUID] = None,
+    scheduled_from: Optional[datetime] = None,
+    scheduled_to: Optional[datetime] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """预约列表（员工/管理员）。"""
+    """预约列表（员工/管理员；非 admin 按本人/同组收窄）。
+
+    `assigned_to` / `scheduled_from` / `scheduled_to` 供员工首页「今日带看」与
+    日历按「本人 + 日期区间」取数：此前只能拉默认 20 条再本地按日期筛，
+    跨月/跨组时既漏数据又多拉无关记录。
+    """
     conditions = [ViewingAppointment.deleted_at.is_(None)]
     if status:
         conditions.append(ViewingAppointment.status == status)
     if property_id:
         conditions.append(ViewingAppointment.property_id == property_id)
+    if scheduled_from:
+        conditions.append(ViewingAppointment.scheduled_at >= scheduled_from)
+    if scheduled_to:
+        conditions.append(ViewingAppointment.scheduled_at <= scheduled_to)
+    # 归属过滤：此前不带条件，任何员工都能翻到全平台预约（含访客手机号）
+    emp_ids = _scoped_employee_ids(session, user)
+    if assigned_to is not None:
+        # 非 admin 只能指定自己/同组员工，避免借参数翻他人预约
+        if emp_ids is not None and assigned_to not in emp_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Can only filter viewings assigned to yourself or your group",
+            )
+        conditions.append(ViewingAppointment.assigned_to == assigned_to)
+    if emp_ids is not None:
+        scope_conds = [ViewingAppointment.assigned_to.is_(None)]
+        if emp_ids:
+            scope_conds.append(ViewingAppointment.assigned_to.in_(emp_ids))
+        scope_conds.append(ViewingAppointment.requester_user_id == user.id)
+        conditions.append(or_(*scope_conds))
 
     stmt = (
         select(ViewingAppointment)
@@ -220,7 +270,7 @@ def get_viewing(
     v = session.get(ViewingAppointment, viewing_id)
     if not v or v.deleted_at:
         raise HTTPException(status_code=404, detail="Viewing not found")
-    if not _can_manage(user, v):
+    if not _can_manage(session, user, v):
         raise HTTPException(status_code=403, detail="Access denied")
     return _with_property(session, v)
 
@@ -236,8 +286,19 @@ def update_viewing(
     v = session.get(ViewingAppointment, viewing_id)
     if not v or v.deleted_at:
         raise HTTPException(status_code=404, detail="Viewing not found")
+    # 归属校验：此前任何员工都能改任意预约（含改派给其他人）
+    if not _can_manage(session, user, v):
+        raise HTTPException(status_code=403, detail="Access denied")
 
     data = req.model_dump(exclude_unset=True)
+    # 非 admin 只能把预约派给自己/同组员工，不能跨组改派
+    if data.get("assigned_to") is not None and user.role != UserRole.admin:
+        emp_ids = _scoped_employee_ids(session, user)
+        if emp_ids is not None and data["assigned_to"] not in emp_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="Can only assign viewings to yourself or your group",
+            )
     # 状态机校验：仅允许白名单内流转（pending→confirmed→completed/cancelled），非法 409
     new_status = data.get("status")
     if new_status is not None and new_status != v.status:

@@ -22,9 +22,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi, priceAlertsApi } from '@/services/api';
+import { propertiesApi, translateApi, favoritesApi, viewingsApi, saleListingApi, priceAlertsApi, chatApi } from '@/services/api';
 import { fmtMoney as formatMoney } from '@/utils/format';
-import { notify } from '@/utils/feedback';
+import { notify, notifyError } from '@/utils/feedback';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
@@ -252,6 +252,26 @@ export default function PropertyDetailScreen() {
   const [bookingTime, setBookingTime] = useState('');
   const [bookingNote, setBookingNote] = useState('');
   const [bookingBusy, setBookingBusy] = useState(false);
+
+  // 联系经纪人：按房源建会话后打开 ChatDetail。旧实现固定跳 ChatList，
+  // 而全仓只有 CRM 会 createConversation，用户进去只会看到空列表。
+  const contactBroker = useCallback(async () => {
+    if (!propertyId) return;
+    try {
+      const res: any = await chatApi.createConversation({
+        property_id: propertyId,
+        title: property?.room_number || property?.project_name || '',
+      });
+      const conv = res?.data?.data ?? res?.data;
+      if (conv?.id) {
+        navigation.navigate('ChatDetail', { conversationId: String(conv.id) });
+        return;
+      }
+      throw new Error('conversation not created');
+    } catch (err) {
+      notifyError(t('prop.contactBroker'), err);
+    }
+  }, [propertyId, property?.room_number, property?.project_name, navigation, t]);
 
   const handleToggleFav = async () => {
     if (!propertyId) return;
@@ -535,7 +555,7 @@ export default function PropertyDetailScreen() {
               </Text>
               {!!property.video_url && (
                 <View style={styles.galleryVideo}>
-                  <Ionicons name="videocam" size={14} color={colors.primaryForeground} />
+                  <Ionicons name="videocam" size={14} color={colors.onDark} />
                   <Text style={styles.galleryVideoText}>{t('list.videoTour')}</Text>
                 </View>
               )}
@@ -846,7 +866,7 @@ export default function PropertyDetailScreen() {
           <TouchableOpacity
             style={styles.contactBtn}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('ChatList')}
+            onPress={contactBroker}
             onPressIn={() => pressIn(contactScale)}
             onPressOut={() => pressOut(contactScale)}
           >
@@ -1068,7 +1088,7 @@ const styles = StyleSheet.create({
     right: colors.spacing.md,
     bottom: colors.spacing.md,
     backgroundColor: colors.alpha('28,39,51', 0.65),
-    color: colors.primaryForeground,
+    color: colors.onDark,
     fontSize: 12,
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 2,
@@ -1087,7 +1107,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
   },
-  galleryVideoText: { fontSize: 12, color: colors.primaryForeground, fontWeight: '600' },
+  galleryVideoText: { fontSize: 12, color: colors.onDark, fontWeight: '600' },
   /* 缩略图条 */
   thumbRow: { gap: colors.spacing.sm, padding: colors.spacing.sm },
   thumb: {

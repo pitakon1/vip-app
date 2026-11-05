@@ -1,46 +1,25 @@
 import { useMemo } from 'react'
-import { buildPageNumbers, toDisplayStatus } from '../utils'
-import type { Payment } from '@/types'
+import { buildPageNumbers } from '../utils'
 import type { PaymentSummary } from '../types'
 
-/** 顶部统计卡片 + 分页页码 */
+const EMPTY_SUMMARY: PaymentSummary = {
+  totalAmount: 0,
+  pendingAmount: 0,
+  overdueAmount: 0,
+  expenseAmount: 0,
+  count: 0,
+  pendingCount: 0,
+  overdueCount: 0,
+}
+
+/** 顶部统计卡片 + 分页页码（金额来自后端全局汇总，而非当前页 reduce） */
 export function usePaymentsSummary(
-  data: Payment[],
+  serverSummary: PaymentSummary | null,
   total: number,
   page: number,
   pageSize: number,
 ) {
-  const summary = useMemo<PaymentSummary>(() => {
-    const succeeded = data.filter((p) => toDisplayStatus(p) === 'completed')
-    const pending = data.filter((p) => toDisplayStatus(p) === 'pending')
-    const overdue = data.filter((p) => toDisplayStatus(p) === 'overdue')
-    const refunds = data.filter((p) => p.payment_type === 'refund')
-    const totalAmount = succeeded.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0,
-    )
-    const pendingAmount = pending.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0,
-    )
-    const overdueAmount = overdue.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0,
-    )
-    const expenseAmount = refunds.reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0,
-    )
-    return {
-      totalAmount,
-      pendingAmount,
-      overdueAmount,
-      expenseAmount,
-      count: succeeded.length,
-      pendingCount: pending.length,
-      overdueCount: overdue.length,
-    }
-  }, [data])
+  const summary = serverSummary ?? EMPTY_SUMMARY
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const pageNumbers = useMemo(

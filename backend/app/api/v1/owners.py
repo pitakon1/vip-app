@@ -15,6 +15,8 @@ from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import is_past_due
 from app.models import (
     Document,
+    Listing,
+    ListingStatus,
     Owner,
     Project,
     Property,
@@ -48,6 +50,7 @@ class MarketingItemOut(BaseModel):
     bathrooms: Optional[int] = None
     photo: Optional[Any] = None
     status: Optional[str] = None
+    listing_id: Optional[str] = None
     share_url: Optional[str] = None
 
 
@@ -269,6 +272,9 @@ def get_my_income(
             income_by_property[str(p.property_id)] = (
                 income_by_property.get(str(p.property_id), 0.0) + amount
             )
+        elif p.status in (PaymentStatus.failed, PaymentStatus.refunded):
+            # 失败/已退款不是应收：计入待收会把业主可收金额虚高，且永远收不到。
+            continue
         else:
             receivable_total += amount
             is_overdue = is_past_due(p, now)
@@ -282,9 +288,12 @@ def get_my_income(
         records.append(
             {
                 "id": str(p.id),
+                "property_id": str(p.property_id) if p.property_id else None,
                 "property": title,
                 "month": month,
                 "amount": amount,
+                "currency": p.currency or "THB",
+                "payment_type": p.payment_type.value if hasattr(p.payment_type, "value") else str(p.payment_type or ""),
                 "status": status,
             }
         )
@@ -341,10 +350,25 @@ def get_marketing(
     vacant = [
         p for p in properties if p.status in (PropertyStatus.vacant, PropertyStatus.maintenance)
     ]
+    # 分享链接必须指向 C 端真实可访问的 /listing/:id（listing id，不是 property id）。
+    # 房源没上架/已下架时没有可分享的公开详情，返回 None 而不是一个必然 404 的链接。
+    property_ids = [p.id for p in vacant]
+    listings = session.exec(
+        select(Listing).where(
+            Listing.property_id.in_(property_ids),
+            Listing.status == ListingStatus.active,
+            Listing.deleted_at.is_(None),
+        )
+    ).all()
+    listing_by_property = {}
+    for lst in sorted(listings, key=lambda x: x.created_at, reverse=True):
+        listing_by_property.setdefault(lst.property_id, lst)
+
     return {
         "items": [
             {
                 "id": str(p.id),
+                "listing_id": str(listing_by_property[p.id].id) if p.id in listing_by_property else None,
                 "title": p.display_name,
                 "address": p.address,
                 "monthly_rent": p.monthly_rent,
@@ -355,7 +379,11 @@ def get_marketing(
                 "bathrooms": p.bathrooms,
                 "photo": p.photos[0] if p.photos else None,
                 "status": p.status.value,
-                "share_url": f"/properties/{p.id}",
+                "share_url": (
+                    f"/listing/{listing_by_property[p.id].id}"
+                    if p.id in listing_by_property
+                    else None
+                ),
             }
             for p in vacant
         ],

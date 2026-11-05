@@ -318,6 +318,18 @@ def _keyword_conditions(terms: List[str]) -> list:
                 ),
             )
         )
+        # 业主姓名也参与关键词匹配：销售找房常用「业主名」定位名下房源。
+        # Owner 只有 user_id，姓名在 users.full_name，用独立 EXISTS 关联，避免行膨胀。
+        owner_hit = exists(
+            select(Owner.id)
+            .select_from(Owner)
+            .join(User, User.id == Owner.user_id)
+            .where(
+                Owner.id == Property.owner_id,
+                Owner.deleted_at.is_(None),
+                User.full_name.ilike(pattern),
+            )
+        )
         conditions.extend(
             [
                 Property.room_number.ilike(pattern),
@@ -325,6 +337,7 @@ def _keyword_conditions(terms: List[str]) -> list:
                 Property.building.ilike(pattern),
                 Property.description.ilike(pattern),
                 project_hit,
+                owner_hit,
             ]
         )
     return conditions
@@ -373,8 +386,25 @@ def list_properties(
         None,
         description="多关键词（任一命中即算，用于「区域 / 地铁」等一组同义词搜索），最多 20 个",
     ),
+    # 价格口径随 listing_type 变化：租=月租（properties.monthly_rent），
+    # 售=在售上架单的挂牌总价（listings.asking_price）。这样同一个参数名
+    # 在「租房/二手房/新房」三条业务线下都表示「当前业务的价格」，
+    # 不需要客户端为买卖另造一套参数。
     price_min: Optional[float] = Query(None, ge=0),
     price_max: Optional[float] = Query(None, ge=0),
+    # 二手房「单价」：总价 / 面积（THB/㎡），仅对在售上架单生效
+    unit_price_min: Optional[float] = Query(None, ge=0),
+    unit_price_max: Optional[float] = Query(None, ge=0),
+    # 租房专属：押金月数区间（押一付一/押二付一…）
+    deposit_months_min: Optional[int] = Query(None, ge=0, le=24),
+    deposit_months_max: Optional[int] = Query(None, ge=0, le=24),
+    # 租房专属：可入住时间上限（available_from <= 该日期）
+    available_before: Optional[datetime] = Query(
+        None, description="可入住时间：房源 available_from 不晚于该日期"
+    ),
+    # 房龄 / 新房交房年份：楼盘竣工年份区间（projects.completion_year）
+    completion_year_min: Optional[int] = Query(None, ge=1900, le=2100),
+    completion_year_max: Optional[int] = Query(None, ge=1900, le=2100),
     area_min: Optional[float] = Query(None, ge=0),
     area_max: Optional[float] = Query(None, ge=0),
     bedrooms_min: Optional[int] = Query(None, ge=0, le=20),
@@ -416,7 +446,10 @@ def list_properties(
         f"{project_id or ''}:{listing_type.value if listing_type else ''}:{lat}:{lng}:{owner_id or ''}:"
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
-        f"{'|'.join(terms)}:{price_min}:{price_max}:{area_min}:{area_max}:"
+        f"{'|'.join(terms)}:{price_min}:{price_max}:{unit_price_min}:{unit_price_max}:"
+        f"{deposit_months_min}:{deposit_months_max}:{available_before}:"
+        f"{completion_year_min}:{completion_year_max}:"
+        f"{area_min}:{area_max}:"
         f"{bedrooms_min}:{bedrooms_max}:{orientation or ''}:{decoration or ''}:{floor_level or ''}:"
         f"{'|'.join(amenity or [])}:{has_video}:{sort}"
     )
@@ -434,6 +467,20 @@ def list_properties(
         # 录入的、业主仅名下、租客维持 C 端公开浏览口径。
         *property_visibility_conditions(session, user),
     ]
+    # 售侧价格只存在于上架单（同一房源可有多份在售单，取最高挂牌价用于筛选/排序），
+    # 用相关子查询避免 JOIN 造成行膨胀。
+    sell_price = (
+        select(func.max(Listing.asking_price))
+        .where(
+            Listing.property_id == Property.id,
+            Listing.deleted_at.is_(None),
+            Listing.listing_type == ListingType.sell,
+            Listing.status == ListingStatus.active,
+            Listing.asking_price.is_not(None),
+        )
+        .correlate(Property)
+        .scalar_subquery()
+    )
     term_conditions = _keyword_conditions(terms)
     if term_conditions:
         conditions.append(or_(*term_conditions))
@@ -510,10 +557,51 @@ def list_properties(
         conditions.append(Property.project_id.in_(near_ids) if near_ids else false())
     if owner_id:
         conditions.append(Property.owner_id == owner_id)
+    # 价格：租看房源月租、售看「在售上架单」的挂牌总价；不传 listing_type 时保持
+    # 旧口径（月租），避免老客户端与企业内部调用行为变化。
+    price_on_sale = listing_type == ListingType.sell
     if price_min is not None:
-        conditions.append(Property.monthly_rent >= price_min)
+        conditions.append(
+            sell_price >= price_min if price_on_sale else Property.monthly_rent >= price_min
+        )
     if price_max is not None:
-        conditions.append(Property.monthly_rent <= price_max)
+        conditions.append(
+            sell_price <= price_max if price_on_sale else Property.monthly_rent <= price_max
+        )
+    # 单价（售）：总价 / 面积；面积缺失的房源无法计算单价，不纳入命中集
+    if unit_price_min is not None:
+        conditions.append(
+            Property.size_sqm.is_not(None) & (sell_price >= unit_price_min * Property.size_sqm)
+        )
+    if unit_price_max is not None:
+        conditions.append(
+            Property.size_sqm.is_not(None) & (sell_price <= unit_price_max * Property.size_sqm)
+        )
+    # 租房：押金月数区间
+    if deposit_months_min is not None:
+        conditions.append(Property.deposit_months >= deposit_months_min)
+    if deposit_months_max is not None:
+        conditions.append(Property.deposit_months <= deposit_months_max)
+    # 租房：可入住时间（未录入可入住日期的房源不命中）
+    if available_before is not None:
+        conditions.append(Property.available_from.is_not(None))
+        conditions.append(Property.available_from <= available_before)
+    # 房龄 / 新房交房年份：取所属楼盘的竣工年份（EXISTS 避免与地区 JOIN 互相干扰）
+    if completion_year_min is not None or completion_year_max is not None:
+        year_filters = [Project.name.is_not(None)]
+        if completion_year_min is not None:
+            year_filters.append(Project.completion_year >= completion_year_min)
+        if completion_year_max is not None:
+            year_filters.append(Project.completion_year <= completion_year_max)
+        conditions.append(
+            exists(
+                select(Project.id).where(
+                    Project.id == Property.project_id,
+                    Project.deleted_at.is_(None),
+                    *year_filters,
+                )
+            )
+        )
     if area_min is not None:
         conditions.append(Property.size_sqm >= area_min)
     if area_max is not None:
@@ -580,9 +668,16 @@ def list_properties(
             # 没有坐标就算不出距离，退回最新排序（不把一次浏览变成 400）
             order_by = [Property.created_at.desc()]
     elif sort == "price_asc":
-        order_by = [Property.monthly_rent.asc()]
+        # 售侧按挂牌总价排序；租侧仍按月租
+        order_by = [
+            sell_price.is_(None) if price_on_sale else Property.monthly_rent.is_(None),
+            sell_price.asc() if price_on_sale else Property.monthly_rent.asc(),
+        ]
     elif sort == "price_desc":
-        order_by = [Property.monthly_rent.desc()]
+        order_by = [
+            sell_price.is_(None) if price_on_sale else Property.monthly_rent.is_(None),
+            sell_price.desc() if price_on_sale else Property.monthly_rent.desc(),
+        ]
     elif sort == "area_desc":
         order_by = [Property.size_sqm.desc()]
     elif score is not None:

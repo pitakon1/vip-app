@@ -9,8 +9,8 @@ import { errorText } from '@/lib/errorText'
 import { tenantPaymentsKey } from '../utils'
 import type { PaymentVoucher } from '../types'
 
-/** 上传付款凭证：金额/日期/方式/文件 + POST /payments/upload 并写入缓存 */
-export const useVoucherUpload = () => {
+/** 上传付款凭证：绑定待缴账单/类型/币种/付款日/方式/文件 + POST /payments/upload */
+export const useVoucherUpload = (pendingBills: PaymentVoucher[]) => {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
@@ -18,11 +18,27 @@ export const useVoucherUpload = () => {
   const [submitting, setSubmitting] = useState(false)
 
   // form state (replaces antd Form)
+  const [billId, setBillId] = useState('')
+  const [billType, setBillType] = useState('rent')
+  const [currency, setCurrency] = useState('THB')
   const [amount, setAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [fileName, setFileName] = useState('')
   const [fileObj, setFileObj] = useState<File | null>(null)
+
+  // 选中待缴账单时金额/币种/类型以账单为准，避免凭证冲抵别的账单
+  const handleBillChange = (id: string) => {
+    setBillId(id)
+    const bill = pendingBills.find((b) => String(b.id) === id)
+    if (bill) {
+      setAmount(String(Number(bill.amount || 0)))
+      setCurrency((bill.currency || 'THB').toUpperCase())
+      setBillType(bill.bill_type || bill.payment_type || 'rent')
+    } else {
+      setAmount('')
+    }
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -54,6 +70,9 @@ export const useVoucherUpload = () => {
     formData.append('amount', String(amt))
     formData.append('payment_date', paymentDate)
     formData.append('payment_method', paymentMethod)
+    formData.append('payment_type', billType)
+    formData.append('currency', currency)
+    if (billId) formData.append('payment_id', billId)
     if (fileObj) {
       formData.append('receipt', fileObj)
     }
@@ -70,18 +89,15 @@ export const useVoucherUpload = () => {
       }
 
       message.success(t('tenantPayments.uploadSuccess'))
-      const newItem: PaymentVoucher = {
-        ...payload,
-        payment_method: payload.payment_method ?? payload.channel,
-        bill_type: payload.bill_type ?? payload.payment_type,
-      }
-      queryClient.setQueryData(
-        tenantPaymentsKey(uid),
-        (prev: PaymentVoucher[] | undefined) => [newItem, ...(prev ?? [])],
-      )
+      // 重新拉取而不是本地插一条：绑定账单后该单状态 pending → processing，
+      // 待缴汇总必须跟着后端真实状态下降。
+      await queryClient.invalidateQueries({ queryKey: tenantPaymentsKey(uid) })
+      setBillId('')
       setAmount('')
       setPaymentDate(dayjs().format('YYYY-MM-DD'))
       setPaymentMethod('bank_transfer')
+      setBillType('rent')
+      setCurrency('THB')
       setFileObj(null)
       setFileName('')
     } catch (err) {
@@ -92,6 +108,13 @@ export const useVoucherUpload = () => {
   }
 
   return {
+    pendingBills,
+    billId,
+    handleBillChange,
+    billType,
+    setBillType,
+    currency,
+    setCurrency,
     amount,
     setAmount,
     paymentDate,

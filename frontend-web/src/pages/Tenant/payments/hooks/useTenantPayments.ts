@@ -44,15 +44,21 @@ export const useTenantPayments = () => {
     return data.filter((d) => normalizeStatus(d.status) === filter)
   }, [data, filter])
 
+  // 待缴只算尚未提交凭证的 pending；processing（已上传待核销）不能再算作待缴。
+  // 否则上传凭证后待缴金额不会下降，用户会重复付款。
+  const rawPending = useMemo(
+    () => data.filter((d) => String(d.status || '').toLowerCase() === 'pending'),
+    [data],
+  )
   const summary = useMemo(() => {
-    const pending = data.filter((d) => normalizeStatus(d.status) === 'pending')
+    const pending = rawPending
     const approved = data.filter((d) => normalizeStatus(d.status) === 'approved')
     const sum = (arr: PaymentVoucher[]) => arr.reduce((acc, x) => acc + Number(x.amount || 0), 0)
     return {
       pendingTotal: sum(pending),
       approvedTotal: sum(approved),
     }
-  }, [data])
+  }, [data, rawPending])
 
   // 搜索：凭证编号 / 月份 / 类型
   const searchFiltered = useMemo(() => {
@@ -78,10 +84,8 @@ export const useTenantPayments = () => {
     [searchFiltered, t],
   )
 
-  const firstPending = useMemo(
-    () => data.find((d) => normalizeStatus(d.status) === 'pending'),
-    [data],
-  )
+  const firstPending = rawPending[0]
+  const heroCurrency = firstPending?.currency || 'THB'
   const heroProperty = firstPending?.property_name || firstPending?.description || ''
   const heroDue = firstPending?.due_date
     ? dayjs(firstPending.due_date).format(t('tenantPayments.dateDisplayFormat'))
@@ -100,6 +104,7 @@ export const useTenantPayments = () => {
     setDetailBill,
     summary,
     monthGroups,
+    heroCurrency,
     heroProperty,
     heroDue,
   }

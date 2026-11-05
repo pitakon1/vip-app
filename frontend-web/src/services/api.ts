@@ -91,6 +91,8 @@ export const leadsApi = {
 // Payments
 export const paymentsApi = {
   list: (params?: QueryParams) => api.get('/payments', { params }),
+  // 全局汇总（已收/待收/逾期/退款金额），不受分页影响
+  summary: (params?: QueryParams) => api.get('/payments/summary', { params }),
   get: (id: string) => api.get(`/payments/${id}`),
   refund: (id: string, reason: string) =>
     api.post(`/payments/${id}/refund`, { reason }),
@@ -147,6 +149,8 @@ export const employeesApi = {
   // 同事通讯录（全体员工可见，仅协作联系方式）
   directory: (params?: QueryParams) => api.get('/employees/directory', { params }),
   me: () => api.get('/employees/me'),
+  // 全局汇总（员工总数/累计业绩/人均/冠军），不受当前页影响
+  summary: () => api.get('/employees/summary'),
   leaderboard: () => api.get('/employees/leaderboard'),
   workbench: () => api.get('/employees/workbench'),
 }
@@ -536,6 +540,7 @@ export const propertyDealApi = {
 // 3. 分销体系
 export const brokerApi = {
   list: (params?: QueryParams) => api.get('/brokers', { params }),
+  summary: () => api.get('/brokers/summary'),
   me: () => api.get('/brokers/me'),
   create: (data: RequestBody) => api.post('/brokers', data),
   approve: (id: string, data: RequestBody) => api.post(`/brokers/${id}/approve`, data),

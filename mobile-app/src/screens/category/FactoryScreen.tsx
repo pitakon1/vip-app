@@ -69,7 +69,7 @@ export default function FactoryScreen() {
       mk('rent', t('category.factTabRent'), 'cube-outline', colors.info, colors.infoRgb, () => setTab('rent-factory')),
       mk('sell', t('category.factTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-factory')),
       mk('project', t('category.factGridProject'), 'business-outline', colors.success, colors.successRgb, () => navigation.navigate('PublicCommunities')),
-      mk('land', t('category.factGridLand'), 'map-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.factGridLand'))),
+      mk('land', t('category.factGridLand'), 'map-outline', colors.error, colors.errorRgb, () => navigation.navigate('Land')),
       mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('subway', t('category.factGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.factGridSubway'))),
       mk('env', t('category.factGridEnv'), 'leaf-outline', colors.success, colors.successRgb, () => notAvailable(navigation, t('category.factGridEnv'))),

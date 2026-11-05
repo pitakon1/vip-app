@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   amountLabel: { fontSize: colors.fontSize.sm, color: colors.ink3 },
   amount: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     marginTop: 4,
     fontVariant: ['tabular-nums'],

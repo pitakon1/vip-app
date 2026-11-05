@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   barValue: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     fontWeight: '600',
     color: colors.ink2,
     marginBottom: 4,
@@ -117,7 +118,8 @@ const styles = StyleSheet.create({
     minHeight: 3,
   },
   barLabel: {
-    fontSize: 10,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink3,
     marginTop: 6,
   },

@@ -1,161 +1,106 @@
 /* =========================================================
-   Consumer Overlay — 用户端贝壳消费级风格（owner/employee）
-   来源: 产品原型 Beike-style UI Overlay（作用域化处理）
-   仅作用于 .rent-app[data-ui="consumer"] 内的元素
+   C 端场景层（data-ui="consumer"）
+   ---------------------------------------------------------
+   只允许写“场景增量”：胶囊搜索、磨砂顶栏、房源卡价格强调等。
+   卡片 / 按钮 / 徽标 / 空态的基础规格统一由 primitives.css 提供，
+   本文件不再定义 .rent-card / .rent-btn 的第二、第三套规格。
+   所有颜色 / 圆角 / 字号引用 tokens.css。
    ========================================================= */
 
-.rent-app[data-ui="consumer"] /* =========================================================
-   HaoFang.World × 贝壳找房风格覆盖层 (Beike-style UI Overlay)
-   保留靛蓝主色 #14b8a6 · 消费级 App 形态 · 大圆角卡片流
-   仅注入用户端页面 (租客/业主/员工)，后台管理不注入
-   注入位置: </head> 之前，通过 apply-beike-overlay.js 批量写入
-   ========================================================= */
-
-/* ---- 全局背景 ---- */
-body {
-  background: var(--rent-background);
-  -webkit-tap-highlight-color: transparent;
-}
-
+/* ---- 顶栏：磨砂玻璃 ---- */
 .rent-app[data-ui="consumer"] .rent-topbar {
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 10px 30px -18px rgba(15, 23, 42, 0.18);
 }
-
 .rent-app[data-ui="consumer"] .rent-sidebar__logo {
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(20,184,166, 0.35);
+  border-radius: var(--rent-radius-md);
+  box-shadow: 0 4px 14px rgba(var(--rent-primary-bright-rgb), 0.35);
 }
 
-.rent-app[data-ui="consumer"] /* ===== 搜索体验：胶囊搜索 ===== */
-.rent-search {
-  border-radius: 999px; background: var(--rent-surface-2);
+/* ---- 搜索体验：胶囊 ---- */
+.rent-app[data-ui="consumer"] .rent-search {
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-surface-2);
 }
-
-.rent-app[data-ui="consumer"] .rent-search input {
-  background: transparent;
-}
-
+.rent-app[data-ui="consumer"] .rent-search input { background: transparent; }
 .rent-app[data-ui="consumer"] .rent-search-hero__bar {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-card);
-  box-shadow: 0 10px 32px -10px rgba(20,184,166, 0.40);
+  box-shadow: 0 10px 32px -10px rgba(var(--rent-primary-bright-rgb), 0.4);
 }
-
 .rent-app[data-ui="consumer"] .rent-search-hero__search-btn {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
-  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.50);
+  box-shadow: var(--rent-shadow-primary);
 }
+.rent-app[data-ui="consumer"] .rent-search-hero__tag { border-radius: var(--rent-radius-full); }
 
-.rent-app[data-ui="consumer"] .rent-search-hero__tag {
-  border-radius: 999px;
-}
-
-.rent-app[data-ui="consumer"] /* ===== 筛选 chips：胶囊 ===== */
-.rent-filter-chip,
+/* ---- 筛选 chips：胶囊 ---- */
+.rent-app[data-ui="consumer"] .rent-filter-chip,
 .rent-app[data-ui="consumer"] .lj-filter-bar__chip,
 .rent-app[data-ui="consumer"] .rent-filter-chip[data-active="true"] {
-  border-radius: 999px;
+  border-radius: var(--rent-radius-full);
 }
-
 .rent-app[data-ui="consumer"] .rent-filter-bar {
   border-radius: var(--rent-radius-lg);
   background: var(--rent-card);
-  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
+  box-shadow: var(--rent-shadow-2);
 }
 
-.rent-app[data-ui="consumer"] /* ===== 卡片：大圆角 + 柔和浮起 ===== */
-.rent-card,
-.rent-app[data-ui="consumer"] .rent-stat-card,
-.rent-app[data-ui="consumer"] .rent-quick-action,
-.rent-app[data-ui="consumer"] .rent-prop-search-card,
-.rent-app[data-ui="consumer"] .rent-table-wrap {
-  border-radius: var(--rent-radius-lg);
-  box-shadow: 0 6px 24px -12px rgba(15, 23, 42, 0.10);
-}
-
-.rent-app[data-ui="consumer"] /* ===== 房源卡片：图片圆角 + 价格强调 ===== */
-.rent-prop-search-card {
-  overflow: hidden;
-}
-
-.rent-app[data-ui="consumer"] .rent-prop-search-card__banner {
-  border-radius: 0;
-}
-
+/* ---- 房源卡片：价格强调（标题字重封顶 700）---- */
+.rent-app[data-ui="consumer"] .rent-prop-search-card { overflow: hidden; }
+.rent-app[data-ui="consumer"] .rent-prop-search-card__banner { border-radius: 0; }
 .rent-app[data-ui="consumer"] .rent-prop-search-card__price-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--rent-primary);
+  font-size: var(--rent-fs-xl);
+  font-weight: var(--rent-fw-bold);
+  /* 价格是 20px 加粗大文本：用 --rent-price（白底 3.85:1，满足大文本 3:1） */
+  color: var(--rent-price);
   letter-spacing: -0.02em;
 }
-
 .rent-app[data-ui="consumer"] .rent-prop-search-card__price-unit {
-  font-size: var(--rent-fs-xs); color: var(--rent-ink-2);
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
 }
-
-.rent-app[data-ui="consumer"] .rent-prop-search-card__tags .rent-badge,
-.rent-app[data-ui="consumer"] .rent-badge {
-  border-radius: 999px; padding: 3px 10px;
+.rent-app[data-ui="consumer"] .rent-prop-search-card__tags .rent-badge {
+  border-radius: var(--rent-radius-full);
+  padding: 3px 10px;
 }
-
 .rent-app[data-ui="consumer"] .rent-prop-search-card__cta {
-  border-radius: 999px;
-  background: rgba(20,184,166, 0.08);
-  color: var(--rent-primary);
-  font-weight: 600;
+  border-radius: var(--rent-radius-full);
+  background: rgba(var(--rent-primary-rgb), 0.08);
+  /* CTA 是正文级文字，浅青底上品牌绿只有 2.49:1，改墨色 */
+  color: var(--rent-ink);
+  font-weight: var(--rent-fw-semibold);
 }
-
 .rent-app[data-ui="consumer"] .rent-prop-search-card__name {
-  font-size: var(--rent-fs-lg); font-weight: 700; letter-spacing: -0.01em;
+  font-size: var(--rent-fs-lg);
+  font-weight: var(--rent-fw-bold);
+  letter-spacing: -0.01em;
 }
 
-.rent-app[data-ui="consumer"] /* ===== 金刚区 / 快捷入口：圆角宫格 ===== */
-.rent-quick-action {
+/* ---- 金刚区 / 快捷入口：圆角宫格 ---- */
+.rent-app[data-ui="consumer"] .rent-quick-action {
   border-radius: var(--rent-radius-lg);
   border: none;
-  box-shadow: 0 6px 20px -12px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--rent-shadow-2);
 }
+.rent-app[data-ui="consumer"] .rent-quick-action__icon { border-radius: var(--rent-radius-lg); }
 
-.rent-app[data-ui="consumer"] .rent-quick-action__icon {
-  border-radius: 16px;
-}
-
-.rent-app[data-ui="consumer"] /* ===== 按钮：渐变 + 柔和投影 ===== */
-.rent-btn {
-  border-radius: var(--rent-radius-md);
-}
-
-.rent-app[data-ui="consumer"] .rent-btn--primary {
-  border-radius: 12px;
-  background: var(--rent-primary);
-  box-shadow: 0 6px 16px -6px rgba(20,184,166, 0.45);
-}
-
-.rent-app[data-ui="consumer"] /* ===== 侧边栏导航 (web/pad) ===== */
-.rent-nav-item {
-  border-radius: 12px;
-}
-
+/* ---- 侧边栏导航（web/pad）---- */
+.rent-app[data-ui="consumer"] .rent-nav-item { border-radius: var(--rent-radius-md); }
 .rent-app[data-ui="consumer"] .rent-nav-item[data-active="true"] {
-  background: rgba(20,184,166, 0.10);
-  font-weight: 600;
+  background: rgba(var(--rent-primary-rgb), 0.1);
+  font-weight: var(--rent-fw-semibold);
 }
 
-.rent-app[data-ui="consumer"] /* ===== Hero 渐变强化 ===== */
-.rent-hero,
+/* ---- Hero：实色主色（禁止渐变）---- */
+.rent-app[data-ui="consumer"] .rent-hero,
 .rent-app[data-ui="consumer"] .rent-portal-hero {
   background: var(--rent-primary);
 }
 
-.rent-app[data-ui="consumer"] /* ===== 头像 ===== */
-.rent-avatar {
-  border-radius: 14px;
-}
-
-.rent-app[data-ui="consumer"] .rent-avatar--sm {
-  border-radius: var(--rent-radius-md);
-}
+/* ---- 头像 ---- */
+.rent-app[data-ui="consumer"] .rent-avatar { border-radius: var(--rent-radius-lg); }
+.rent-app[data-ui="consumer"] .rent-avatar--sm { border-radius: var(--rent-radius-md); }

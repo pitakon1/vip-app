@@ -18,7 +18,8 @@ import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { useResponsive, useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
+import DataState, { type DataStateErrorKind } from '@/components/DataState';
+import { errorKind, errorText } from '@/lib/errorText';
 import BarChart from '@/components/charts/BarChart';
 import { dashboardApi } from '@/services/api';
 import api from '@/lib/api';
@@ -59,6 +60,8 @@ export default function AdminHomeScreen() {
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorKind, setLoadErrorKind] = useState<DataStateErrorKind>('unknown');
 
   const [summary, setSummary] = useState<any>({});
   const [expiring, setExpiring] = useState<any[]>([]);
@@ -70,29 +73,44 @@ export default function AdminHomeScreen() {
 
   const loadTab = useCallback(async (target: Tab) => {
     setLoading(true);
+    setLoadError(null);
     try {
       if (target === 'overview') {
-        const [sumRes, expRes, trendRes, reconRes, recentRes]: any[] = await Promise.all([
-          dashboardApi.summary().catch(() => ({ data: {} })),
-          dashboardApi.expiringLeases().catch(() => ({ data: { items: [] } })),
-          dashboardApi.trend({ months: 12 }).catch(() => ({ data: { series: [] } })),
-          dashboardApi.financialReconciliation().catch(() => ({ data: { totals: {}, by_property: [] } })),
-          api.get('/dashboard/recent-payments').catch(() => null),
+        // 五路请求全部如实上报：此前每路都 `.catch(() => 空)`，接口失败会被演成 0 / 暂无。
+        const results = await Promise.allSettled([
+          dashboardApi.summary(),
+          dashboardApi.expiringLeases(),
+          dashboardApi.trend({ months: 12 }),
+          dashboardApi.financialReconciliation(),
+          api.get('/dashboard/recent-payments'),
         ]);
-        setSummary(sumRes?.data ?? {});
-        setExpiring((expRes?.data ?? {}).items ?? []);
-        const trendD = trendRes?.data ?? {};
+        const [sumRes, expRes, trendRes, reconRes, recentRes] = results;
+        const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+        if (failed.length > 0) {
+          const reason = failed[0].reason;
+          setLoadError(errorText(reason, '工作台加载失败'));
+          setLoadErrorKind(errorKind(reason));
+          return;
+        }
+        const sumVal = (sumRes as PromiseFulfilledResult<any>).value;
+        const expVal = (expRes as PromiseFulfilledResult<any>).value;
+        const trendVal = (trendRes as PromiseFulfilledResult<any>).value;
+        const reconVal = (reconRes as PromiseFulfilledResult<any>).value;
+        const recentVal = (recentRes as PromiseFulfilledResult<any>).value;
+        setSummary(sumVal?.data ?? {});
+        setExpiring((expVal?.data ?? {}).items ?? []);
+        const trendD = trendVal?.data ?? {};
         const trendRows = Array.isArray(trendD.series) ? trendD.series : [];
         setTrend(trendRows);
-        const reconD = reconRes?.data ?? {};
+        const reconD = reconVal?.data ?? {};
         setTotals((reconD.totals ?? {}) as { received?: number; receivable?: number; overdue?: number });
         setByProperty(reconD.by_property ?? []);
-        const recentItems = recentRes?.data?.items;
+        const recentItems = recentVal?.data?.items;
         setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
       }
     } catch (e) {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadError(errorText(e, '工作台加载失败'));
+      setLoadErrorKind(errorKind(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -252,14 +270,19 @@ export default function AdminHomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {loading && (
+        {(loading || loadError) && (
           <View style={styles.loadingWrap}>
-            <LoadingState />
+            <DataState
+              loading={loading}
+              error={loadError}
+              errorKind={loadErrorKind}
+              onRetry={() => loadTab('overview')}
+            />
           </View>
         )}
 
         {/* ===== 运营概览 ===== */}
-        {tab === 'overview' && (
+        {!loadError && tab === 'overview' && (
           <View>
             {/* 风险预警（置顶 · 数字 + 占比可视化条并存；无风险数据不渲染） */}
             {hasRisk && (
@@ -418,7 +441,8 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   heroBadgeText: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     fontWeight: '800',
     color: colors.primaryForeground,
     letterSpacing: 0.5,
@@ -487,7 +511,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     fontVariant: ['tabular-nums'],
   },
-  primaryLabel: { fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
+  primaryLabel: { fontSize: colors.fontSize.xs, color: 'rgba(255,255,255,0.85)', fontWeight: '500', lineHeight: colors.lineHeight.tight},
 
   /* ===== 次级数据（4列） ===== */
   miniRow: {
@@ -506,7 +530,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.sm,
   },
   miniNum: { fontSize: 18, fontWeight: '800', marginBottom: 3, fontVariant: ['tabular-nums'] },
-  miniLabel: { fontSize: 10, color: colors.ink3, fontWeight: '500' },
+  miniLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
 
   /* ===== 经营指标（手机 2×2 / 平板 4 列一行） ===== */
   statRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
@@ -535,7 +559,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: colors.radius.full,
   },
-  statBadgeText: { fontSize: 11, fontWeight: '700' },
+  statBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
 
   /* ===== 最近动态 ===== */
   activityItem: {
@@ -611,7 +635,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontVariant: ['tabular-nums'],
   },
-  reconLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  reconLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
 
   /* ===== 区块标题 ===== */
   sectionHead: {
@@ -649,7 +673,7 @@ const styles = StyleSheet.create({
   riskTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   riskTitle: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
   riskValue: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  riskUnit: { fontSize: 11, fontWeight: '600' },
+  riskUnit: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   riskDesc: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   riskTrack: {
     flexDirection: 'row',
@@ -746,7 +770,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   legendText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
-  legendTextSm: { fontSize: 11, color: colors.ink3 },
+  legendTextSm: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   legendBarPair: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendBar: { width: 8, height: 8, borderRadius: 2 },
 
@@ -765,8 +789,8 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 4,
   },
-  dualBarVal: { fontSize: 9, fontWeight: '600', color: colors.success },
-  dualBarVal2: { fontSize: 9, fontWeight: '600', color: colors.warning },
+  dualBarVal: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.success, lineHeight: colors.lineHeight.tight},
+  dualBarVal2: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.warning, lineHeight: colors.lineHeight.tight},
   dualBars: {
     flex: 1,
     flexDirection: 'row',
@@ -783,7 +807,7 @@ const styles = StyleSheet.create({
   },
   dualBarLeft: {},
   dualBarRight: {},
-  dualBarLabel: { fontSize: 10, color: colors.ink3, marginTop: 6 },
+  dualBarLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
 
   /* 趋势统计卡 */
   trendStatsGrid: {
@@ -800,7 +824,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  trendStatLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  trendStatLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   trendStatVal: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 4 },
   trendStatBar: {
     height: 3,

@@ -5,6 +5,7 @@ import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { errorKind } from '@/lib/errorText'
 
 /**
  * 交易订单详情（/tenant/deals/:id）
@@ -34,13 +35,10 @@ const TenantDealDetail = () => {
   const q = useCachedQuery<any>({
     queryKey: ['tenant-deal', uid, id],
     cacheKey: `tenant-deal:${uid}:${id}`,
+    // 失败必须抛出：把 500/网络错误 catch 成 null 会演成「订单不存在」
     queryFn: async () => {
-      try {
-        const res: any = await api.get(`/property-deals/${id}`)
-        return res.data?.data ?? res.data ?? null
-      } catch {
-        return null
-      }
+      const res: any = await api.get(`/property-deals/${id}`)
+      return res.data?.data ?? res.data ?? null
     },
   })
   const deal = q.data ?? null
@@ -50,6 +48,16 @@ const TenantDealDetail = () => {
     return <div className="rent-card"><div className="rent-empty">{t('common.loading')}</div></div>
   }
   if (!deal) {
+    if (q.isError && errorKind(q.error) !== 'notFound') {
+      return (
+        <div className="rent-card">
+          <div className="rent-empty">{t('common.loadFailed')}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 24 }}>
+            <button className="rent-btn" type="button" onClick={() => void q.refetch()}>{t('common.retry')}</button>
+          </div>
+        </div>
+      )
+    }
     return <div className="rent-card"><div className="rent-empty">{t('tenantMy.dealNotFound')}</div></div>
   }
 
@@ -76,7 +84,7 @@ const TenantDealDetail = () => {
         <div className="rent-text-bold" style={{ fontSize: 28, marginTop: 14, fontVariantNumeric: 'tabular-nums' }}>
           {deal.sale_price ? formatMoney(Number(deal.sale_price), deal.currency) : '—'}
         </div>
-        {deal.notes && <div className="rent-text-sm rent-text-muted" style={{ marginTop: 10, lineHeight: 1.6 }}>{deal.notes}</div>}
+
       </div>
 
       {/* 关键节点卡 */}

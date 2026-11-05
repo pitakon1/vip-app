@@ -151,13 +151,22 @@ export const documentsApi = {
     type: string;
     property_id?: string;
     title?: string;
+    lease_id?: string;
+    onProgress?: (pct: number) => void;
   }) => {
     const fd = new FormData();
     fd.append('file', data.file);
     fd.append('type', data.type);
     if (data.property_id) fd.append('property_id', data.property_id);
+    if (data.lease_id) fd.append('lease_id', data.lease_id);
     if (data.title) fd.append('title', data.title);
-    return api.post('/documents/upload', fd);
+    return api.post('/documents/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e: any) => {
+        const total = Number(e?.total || 0);
+        if (total > 0) data.onProgress?.(Math.min(100, Math.round((Number(e.loaded || 0) / total) * 100)));
+      },
+    });
   },
 };
 
@@ -178,6 +187,11 @@ export interface ServiceOrderCreatePayload {
   billing_amount?: number; // 本次结算金额（= 单价）
   service_package_id?: string; // 关联的按次套餐
 }
+
+export const billingApi = {
+  quote: (params: { code: string; qty?: number; billing_model?: string }) =>
+    api.get('/billing/pricing/quotes', { params }),
+};
 
 export const serviceOrdersApi = {
   list: (params?: any) => api.get('/service-orders', { params }),
@@ -318,7 +332,7 @@ export const contractsApi = {
   // 法大大风格签署：按「签署区 sign_field」签署，body 传 field_id + method（signature/seal/date），
   // 手写时附带 signature_svg。method 与后端 sign_method 枚举一致。
   // 签署意愿二次验证（开放签对齐）：须带 code（未带后端返回 400 SIGN_INTENT_CODE_REQUIRED）。
-  sign: (id: string, data: { field_id: string; method: string; signature_svg?: string; code?: string }) =>
+  sign: (id: string, data: { party_id: string; field_id?: string; method?: string; signature_svg?: string; code?: string }) =>
     api.post(`/contracts/${id}/sign`, data),
   // 签署方自由拖签：在 PDF 任意位置「落区并签」（无需预置签署框）。同样须带 code。
   signSelf: (id: string, data: { party_id: string; page: number; x: number; y: number; w: number; h: number; method: string; signature_svg?: string; code?: string }) =>

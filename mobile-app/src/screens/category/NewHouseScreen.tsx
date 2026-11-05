@@ -198,6 +198,9 @@ export default function NewHouseScreen() {
         { key: 'open_date_desc', label: t('category.newRankOpen') },
       ]}
       tabGroup="sort"
+      // 排序默认值必须是 /public/projects 接受的枚举：壳默认的 latest 会直接 422。
+      // 首屏 Tab 也据此回填到「近30天热销」。
+      defaultFilterValues={{ sort: 'hot' }}
       filterGroups={filterGroups}
       quickTags={quickTags}
       buildQuery={buildQuery}

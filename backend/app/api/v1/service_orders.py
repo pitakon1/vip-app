@@ -11,6 +11,7 @@ from app.db import get_session
 from app.core.auth import STAFF_ROLES, get_current_user
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
+from app.services.pricing import service_quote
 from app.models import (
     Lease,
     Owner,
@@ -151,9 +152,29 @@ def create_service_order(
             raise HTTPException(
                 status_code=403, detail="Property is not leased to orderer"
             )
-    # 计费金额默认取请求的单次金额（= unit_price）；未给 billing_amount 时沿用 amount
+    # 金额由服务端价目表重算，客户端传来的 amount / billing_amount 一律不作数。
+    # 这样即使客户端旧版本用本地系数算价，也不会以错误金额入账。
+    try:
+        quote = service_quote(
+            req.service_type.value,
+            int(req.billing_interval or 1),
+            req.billing_model or "per_use",
+        )
+        req = req.model_copy(
+            update={
+                "amount": quote["base_amount"],
+                "billing_amount": quote["unit_price"],
+                "billing_model": quote["billing_model"],
+                "billing_interval": quote["billing_interval"],
+                "currency": quote.get("currency", req.currency),
+            }
+        )
+    except (KeyError, ValueError):
+        quote = None
     billing_amount = (
-        req.billing_amount if req.billing_amount is not None else req.amount
+        quote["unit_price"]
+        if quote
+        else (req.billing_amount if req.billing_amount is not None else req.amount)
     )
     order = ServiceOrder(**req.model_dump(exclude_none=True))
     order.billing_amount = billing_amount

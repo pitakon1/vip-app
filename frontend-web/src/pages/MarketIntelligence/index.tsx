@@ -4,7 +4,8 @@ import { message } from 'antd'
 import { marketDataApi, leadsApi, marketApi, employeesApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 import { useTranslation } from 'react-i18next'
-import { errorText } from '@/lib/errorText'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
+import DataState from '@/components/DataState'
 
 const SIGNAL_LEVEL: Record<string, { label: string; badge: string }> = {
   info: { label: 'marketIntelligence.lvInfo', badge: 'rent-badge--info' },
@@ -266,6 +267,8 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
   const items = reportsQ.data?.items ?? []
   const total = reportsQ.data?.total ?? 0
   const loading = reportsQ.isPending && !reportsQ.data
+  const loadError = reportsQ.isError ? errorText(reportsQ.error, t('marketIntelligence.errReports')) : null
+  const loadErrorKind: ErrorKind = reportsQ.isError ? errorKind(reportsQ.error) : 'unknown'
   const refresh = () => { void reportsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
@@ -330,7 +333,9 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('marketIntelligence.tabReports')}</h3><span className="rent-badge rent-badge--neutral">{t('marketIntelligence.totalReports', { total })}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
+          {loadError ? (
+            <DataState error={loadError} errorKind={loadErrorKind} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
             <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
             <div className="rent-empty rent-text-muted">{t('marketIntelligence.emptyReports')}</div>
@@ -361,7 +366,7 @@ const ReportsTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
         <span className="rent-pagination__info">{t('common.total')} {total} {t('common.items')}</span>
         <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('marketIntelligence.ariaPrev')}</button>
         <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('marketIntelligence.ariaNext')}</button>
+        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('marketIntelligence.ariaNext')}</button>
       </div>
 
       {createOpen && (
@@ -576,6 +581,8 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
   const items = signalsQ.data?.items ?? []
   const total = signalsQ.data?.total ?? 0
   const loading = signalsQ.isPending && !signalsQ.data
+  const loadError = signalsQ.isError ? errorText(signalsQ.error, t('marketIntelligence.errSignals')) : null
+  const loadErrorKind: ErrorKind = signalsQ.isError ? errorKind(signalsQ.error) : 'unknown'
   const refresh = () => { void signalsQ.refetch({ cancelRefetch: false }) }
 
   useEffect(() => {
@@ -685,7 +692,9 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
       <div className="rent-card">
         <div className="rent-card__header"><h3 className="rent-card__title">{t('marketIntelligence.titleChurn')}</h3><span className="rent-badge rent-badge--neutral">{t('common.total')} {total} {t('common.items')}</span></div>
         <div className="rent-card__body" style={{ padding: 0 }}>
-          {loading ? (
+          {loadError ? (
+            <DataState error={loadError} errorKind={loadErrorKind} retryText={t('common.retry')} onRetry={refresh} />
+          ) : loading ? (
             <div className="rent-empty rent-text-muted">{t('common.loading')}</div>
           ) : items.length === 0 ? (
             <div className="rent-empty rent-text-muted">{t('marketIntelligence.emptyChurn')}</div>
@@ -734,7 +743,7 @@ const ChurnTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenCha
         <span className="rent-pagination__info">{t('common.total')} {total} {t('common.items')}</span>
         <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('marketIntelligence.ariaPrev')}</button>
         <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('marketIntelligence.ariaNext')}</button>
+        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('marketIntelligence.ariaNext')}</button>
       </div>
 
       {createOpen && (

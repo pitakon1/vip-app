@@ -17,7 +17,7 @@ from datetime import date as date_type, datetime
 from typing import Optional, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import exists, or_
 from sqlmodel import Session, select
 
 from app.core.auth import (
@@ -36,6 +36,9 @@ from app.models import (
     Employee,
     Lease,
     LeaseStatus,
+    Listing,
+    ListingStatus,
+    ListingType,
     Owner,
     Payment,
     PaymentStatus,
@@ -104,9 +107,13 @@ def _user_names(session: Session, ids: Sequence[uuid.UUID]) -> dict:
 @router.get("/properties")
 def export_properties(
     status: Optional[PropertyStatus] = None,
-    property_type: Optional[str] = Query(
-        None, max_length=50, description="房源类型：apartment/villa/shop/office…"
+    property_type: Optional[list[str]] = Query(
+        None,
+        description="房源类型（多值，任一命中）：apartment/condo/office/shop/…，与列表页同口径",
     ),
+    # 业务线：与列表页同一套口径（租房看租金；二手房=在售且非新房；新房=在售且标记一手）
+    listing_type: Optional[ListingType] = None,
+    is_new_development: Optional[bool] = None,
     q: Optional[str] = Query(None, max_length=100, description="房号 / 地址 / 楼栋"),
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -124,7 +131,30 @@ def export_properties(
     if status:
         conditions.append(Property.status == status)
     if property_type:
-        conditions.append(Property.property_type == property_type)
+        conditions.append(Property.property_type.in_(property_type))
+    if is_new_development is not None:
+        conditions.append(
+            exists(
+                select(Listing.id).where(
+                    Listing.property_id == Property.id,
+                    Listing.deleted_at.is_(None),
+                    Listing.is_new_development == is_new_development,
+                )
+            )
+        )
+    if listing_type == ListingType.rent:
+        conditions.append(Property.monthly_rent > 0)
+    elif listing_type == ListingType.sell:
+        conditions.append(
+            exists(
+                select(Listing.id).where(
+                    Listing.property_id == Property.id,
+                    Listing.deleted_at.is_(None),
+                    Listing.listing_type == ListingType.sell,
+                    Listing.status == ListingStatus.active,
+                )
+            )
+        )
     if q and q.strip():
         pattern = f"%{q.strip()}%"
         conditions.append(

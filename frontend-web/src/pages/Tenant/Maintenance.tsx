@@ -218,12 +218,28 @@ const TenantMaintenance = () => {
       ? `${t('tenantMaintenance.labelLocation')}: ${location}\n${description.trim()}`
       : description.trim()
     try {
+      // 先真实上传照片，拿到站内 URL 再随工单落库；上传失败则整单不提交
+      const photoUrls = photoFiles.length
+        ? await Promise.all(
+            photoFiles.map(async (file) => {
+              const fd = new FormData()
+              fd.append('file', file)
+              const res = await api.post('/maintenance-tickets/photos', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+              })
+              const payload = res.data?.data ?? res.data
+              if (!payload?.url) throw new Error('photo upload failed')
+              return payload.url as string
+            }),
+          )
+        : []
       // 工单必须真正落库：POST 失败就是失败，不再伪造本地记录骗用户「已提交」。
       await api.post('/maintenance-tickets', {
         property_id: leasePropertyId,
         title: title.trim(),
         description: descWithLocation,
         priority,
+        photos: photoUrls,
       })
       message.success(t('tenantMaintenance.submitSuccess'))
       resetForm()

@@ -24,7 +24,8 @@ from starlette.concurrency import run_in_threadpool
 from app.config import settings
 from app.db import engine, get_session
 from app.core.auth import get_current_user, user_from_token
-from app.models import ChatParticipant, Conversation, Message, MessageType, User
+from app.models import ChatParticipant, Conversation, Listing, Message, MessageType, User
+from app.models.listing import ListingStatus
 from app.models.user import UserRole
 from app.schemas.chat import ConversationOut, MessageOut
 from app.services.chat_participants import is_participant, participant_ids, sync_participants
@@ -329,19 +330,48 @@ def create_conversation(
     user: User = Depends(get_current_user),
 ):
     """创建会话。payload: {title?, participant_user_ids: [uuid...], participant_phones: [str],
-    participant_emails: [str], entity_type?, entity_id?}
+    participant_emails: [str], entity_type?, entity_id?, listing_id?}
 
     CRM「联系客户-发消息」解析客户账号：按 participant_user_ids 直接指定，或按
     participant_phones / participant_emails 命中已注册账号（多端客户可能仅用邮箱
     或手机号注册）。解析不到的客户不自动建号，若最终除发起者外没有任何参与人则 404。
+
+    C 端「联系经纪人」：传 listing_id，由服务端从公开上架单解析发布人账号，
+    前端不需要也不应该拿到经纪人内部 user id。已存在同房源会话时直接复用。
     """
     raw_ids = payload.get("participant_user_ids") or []
     raw_phones = payload.get("participant_phones") or []
     raw_emails = payload.get("participant_emails") or []
+    raw_listing_id = payload.get("listing_id")
+    raw_property_id = payload.get("property_id")
+    listing: Optional[Listing] = None
+    if raw_listing_id or raw_property_id:
+        try:
+            if raw_listing_id:
+                listing = session.get(Listing, uuid.UUID(str(raw_listing_id)))
+            else:
+                # 兼容旧入口：客户端手里只有 property_id（收藏页/降价提醒），
+                # 服务端取该房源最新一条在架 listing 作为会话实体。
+                listing = session.exec(
+                    select(Listing)
+                    .where(
+                        Listing.property_id == uuid.UUID(str(raw_property_id)),
+                        Listing.status == ListingStatus.active,
+                        Listing.deleted_at.is_(None),
+                    )
+                    .order_by(Listing.created_at.desc())
+                ).first()
+        except (ValueError, AttributeError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid listing_id / property_id")
+        if listing is None or listing.deleted_at or listing.status != ListingStatus.active:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        # 明确指定了参与者时以显式列表为准；只给 listing_id 时联系发布人
+        if not raw_ids and not raw_phones and not raw_emails:
+            raw_ids = [listing.publisher_user_id]
     if not raw_ids and not raw_phones and not raw_emails:
         raise HTTPException(
             status_code=400,
-            detail="participant_user_ids / participant_phones / participant_emails required",
+            detail="participant_user_ids / participant_phones / participant_emails / listing_id required",
         )
 
     normalized: list[str] = []
@@ -380,10 +410,27 @@ def create_conversation(
             detail="客户尚未注册账号，暂无法在 App 内发消息，请先通过电话联系",
         )
 
+    entity_type = payload.get("entity_type") or ("listing" if listing else None)
+    entity_id = payload.get("entity_id") or (listing.id if listing else None)
+
+    # 同一房源重复点击「联系经纪人」时复用已有会话，避免每点一次多一条空会话
+    if listing is not None:
+        wanted = set(normalized)
+        existing = session.exec(
+            select(Conversation).where(
+                Conversation.entity_type == "listing",
+                Conversation.entity_id == listing.id,
+                Conversation.deleted_at.is_(None),
+            )
+        ).all()
+        for c in existing:
+            if set(participant_ids(c)) == wanted:
+                return _conversation_payload(c)
+
     conv = Conversation(
         title=payload.get("title") or "咨询会话",
-        entity_type=payload.get("entity_type"),
-        entity_id=payload.get("entity_id"),
+        entity_type=entity_type,
+        entity_id=entity_id,
         participant_ids=normalized,
         created_by=user.id,
     )

@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  dealBadgeText: { fontSize: 11, fontWeight: '600' },
+  dealBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dealPrice: { fontSize: 24, fontWeight: '700', color: colors.ink, marginTop: 12 },
   dealNotes: { fontSize: 13, color: colors.ink2, marginTop: 8, lineHeight: 20 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 4 },

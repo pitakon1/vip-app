@@ -12,6 +12,7 @@ from app.schemas.dashboard import (
     DashboardSummaryOut,
     ExpiringLeasesOut,
     FinancialReconciliationOut,
+    OperationalDailyTrendOut,
     OperationalTrendOut,
     PropertyStatusDistributionOut,
     RecentPaymentsOut,
@@ -74,6 +75,36 @@ def _monthly_counts(session: Session, model, date_field, start: datetime) -> dic
         for year, month, count in rows
         if year is not None and month is not None
     }
+
+
+def _day_keys(days: int) -> list[str]:
+    """近 days 天的日期标签（`YYYY-MM-DD`，UTC 日界），从最早到最新。"""
+    today = datetime.utcnow().date()
+    return [(today - timedelta(days=back)).isoformat() for back in range(days - 1, -1, -1)]
+
+
+def _day_of(value) -> str:
+    """把 SQLite 的 'YYYY-MM-DD HH:MM:SS' 或 PG 的 date 统一成 'YYYY-MM-DD'。"""
+    return str(value)[:10]
+
+
+def _daily_counts(session: Session, model, date_field, start: datetime) -> dict[str, int]:
+    """按自然日统计行数（GROUP BY date），与 `_monthly_counts` 同口径（UTC）。"""
+    day_expr = func.date(date_field)
+    rows = session.exec(
+        select(day_expr, func.count(model.id))
+        .where(model.deleted_at.is_(None), date_field >= start)
+        .group_by(day_expr)
+    ).all()
+    return {_day_of(day): int(count or 0) for day, count in rows if day is not None}
+
+
+def _has_value(session: Session, model, *conditions) -> bool:
+    """该表在统计窗口外是否至少有一行可用样本（用于判断曲线是否该绘制）。"""
+    total = session.exec(
+        select(func.count(model.id)).where(model.deleted_at.is_(None), *conditions)
+    ).one()
+    return int(total or 0) > 0
 
 
 @router.get("/summary", response_model=DashboardSummaryOut)
@@ -528,3 +559,77 @@ def operational_trend(
         for k in keys
     ]
     return {"months": len(keys), "series": series}
+
+
+@router.get("/trend/daily", response_model=OperationalDailyTrendOut)
+def operational_daily_trend(
+    days: int = Query(7, ge=1, le=90),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """运营趋势（日粒度，Admin）：近 N 天营收 / 新线索 / 新带看 / 新增房源 / 新签租约。
+
+    与 `/trend`（月粒度）口径保持一致：
+    - 营收：`status=succeeded`，按 `paid_at` 归日，`paid_at` 为空时用 `created_at` 兜底；
+    - 租约/线索/带看：分别按各自 `created_at` 归日（`leases.start_date` 存在历史回填，
+      与新签时间不一致，故不用于「新增」趋势）；
+    - 时间一律为 UTC 自然日（库内时间为 `datetime.utcnow()` 写入的 naive UTC）。
+    空档日期补 0，保证折线不跳点。
+    """
+    keys = _day_keys(days)
+    start = datetime.combine(
+        datetime.strptime(keys[0], "%Y-%m-%d").date(), datetime.min.time()
+    )
+
+    # 营收：与月趋势同一条件（succeeded + paid_at 优先，created_at 兜底）
+    paid_field = func.coalesce(Payment.paid_at, Payment.created_at)
+    paid_day = func.date(paid_field)
+    revenue_rows = session.exec(
+        select(paid_day, func.sum(Payment.amount))
+        .where(
+            Payment.deleted_at.is_(None),
+            Payment.status == PaymentStatus.succeeded,
+            paid_field >= start,
+        )
+        .group_by(paid_day)
+    ).all()
+    daily_revenue = {
+        _day_of(day): float(total or 0) for day, total in revenue_rows if day is not None
+    }
+
+    lease_counts = _daily_counts(session, Lease, Lease.created_at, start)
+    lead_counts = _daily_counts(session, Lead, Lead.created_at, start)
+    viewing_counts = _daily_counts(
+        session, ViewingAppointment, ViewingAppointment.created_at, start
+    )
+    property_counts = _daily_counts(session, Property, Property.created_at, start)
+
+    # 数据源可用性：整表没有可用样本时返回 false，前端不画该曲线也不伪造零线
+    availability = {
+        "revenue": _has_value(
+            session, Payment, Payment.status == PaymentStatus.succeeded
+        ),
+        "leases_new": _has_value(session, Lease),
+        "leads_new": _has_value(session, Lead),
+        "viewings_new": _has_value(session, ViewingAppointment),
+        "properties_new": _has_value(session, Property),
+    }
+
+    series = [
+        {
+            "date": key,
+            "revenue": round(daily_revenue.get(key, 0), 2),
+            "leases_new": lease_counts.get(key, 0),
+            "leads_new": lead_counts.get(key, 0),
+            "viewings_new": viewing_counts.get(key, 0),
+            "properties_new": property_counts.get(key, 0),
+        }
+        for key in keys
+    ]
+    return {
+        "days": len(keys),
+        "granularity": "day",
+        "timezone": "UTC",
+        "availability": availability,
+        "series": series,
+    }

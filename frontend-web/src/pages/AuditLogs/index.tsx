@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import DataState from '@/components/DataState'
 import { auditLogsApi } from '@/services/api'
 import './audit-logs.css'
-import { errorText } from '@/lib/errorText'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 
 interface AuditLog {
   id: string
@@ -79,6 +79,7 @@ const AuditLogs = () => {
   const [items, setItems] = useState<AuditLog[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [loadErrorKind, setLoadErrorKind] = useState<ErrorKind>('unknown')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [summary, setSummary] = useState<Summary>({})
 
@@ -116,6 +117,7 @@ const AuditLogs = () => {
       setTotal(payload?.total ?? 0)
     } catch (err: any) {
       setLoadError(errorText(err, t('common.loadFailed')))
+      setLoadErrorKind(errorKind(err))
     } finally {
       setLoading(false)
     }
@@ -284,7 +286,7 @@ const AuditLogs = () => {
         </div>
         <div className="rent-card__body" style={{ padding: 0 }}>
           {loadError && items.length === 0 ? (
-            <DataState error={loadError} retryText={t('common.retry')} onRetry={fetchData} />
+            <DataState error={loadError} errorKind={loadErrorKind} retryText={t('common.retry')} onRetry={fetchData} />
           ) : loading && items.length === 0 ? (
             <DataState loading loadingText={t('auditLogs.loading')} skeletonRows={6} />
           ) : items.length === 0 ? (

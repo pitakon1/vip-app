@@ -117,121 +117,8 @@
 .rent-app__topbar { grid-area: topbar; }
 .rent-app__main { grid-area: main; overflow-y: auto; }
 
-/* ===== Sidebar ===== */
-.rent-sidebar {
-  background: var(--rent-sidebar);
-  border-right: 1px solid var(--rent-border);
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  position: sticky;
-  top: 0;
-}
-.rent-sidebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 20px;
-  height: 56px;
-  border-bottom: 1px solid var(--rent-border);
-  flex-shrink: 0;
-}
-.rent-sidebar__logo {
-  width: 32px; height: 32px;
-  border-radius: var(--rent-radius-md);
-  background: var(--rent-primary);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--rent-primary-foreground); font-weight: 700; font-size: var(--rent-fs-lg);
-  flex-shrink: 0;
-}
-.rent-sidebar__name {
-  font-family: var(--rent-font-sans);
-  font-size: 15px; font-weight: 600;
-  color: var(--rent-ink);
-  letter-spacing: -0.01em;
-}
-.rent-sidebar__nav {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--rent-s-2);
-  list-style: none;
-  margin: 0;
-}
-.rent-sidebar__section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--rent-ink-2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 16px 12px 6px;
-}
-.rent-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px; /* 菜单行高 ≥40，鼠标/触屏都可点 */
-  padding: 6px 12px;
-  border-radius: var(--rent-radius-md);
-  font-size: var(--rent-fs-base);
-  font-weight: 500;
-  color: var(--rent-ink-2);
-  text-decoration: none;
-  cursor: pointer;
-  transition: background var(--motion-fast), color var(--motion-fast);
-  margin-bottom: var(--rent-s-1); /* 相邻项间距对齐 4/8 网格（原 2 过挤） */
-}
-.rent-nav-item:hover { background: var(--rent-surface-2); color: var(--rent-ink); }
-.rent-nav-item[data-active="true"] {
-  background: var(--rent-sidebar-active);
-  color: var(--rent-primary);
-  font-weight: 600;
-}
-.rent-nav-item__icon {
-  width: 18px; height: 18px;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.rent-sidebar__footer {
-  padding: var(--rent-s-3);
-  border-top: 1px solid var(--rent-border);
-  flex-shrink: 0;
-}
-
-/* ===== Topbar ===== */
-.rent-topbar {
-  background: var(--rent-surface);
-  border-bottom: 1px solid var(--rent-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--rent-s-5);
-  height: 56px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.rent-topbar__left { display: flex; align-items: center; gap: var(--rent-s-4); }
-.rent-topbar__title {
-  font-size: 18px; font-weight: 600;
-  color: var(--rent-ink);
-  letter-spacing: -0.01em;
-}
-.rent-topbar__right { display: flex; align-items: center; gap: var(--rent-s-3); }
-.rent-search {
-  display: flex; align-items: center; gap: var(--rent-s-2);
-  background: var(--rent-surface-2);
-  border: 1px solid var(--rent-border);
-  border-radius: var(--rent-radius-md);
-  padding: 7px 12px;
-  width: 280px;
-}
-.rent-search input {
-  border: none; background: none; outline: none;
-  font-size: var(--rent-fs-sm); color: var(--rent-ink);
-  flex: 1;
-  font-family: var(--rent-font-sans);
-}
-.rent-search input::placeholder { color: var(--rent-ink-3); }
+/* Shell（sidebar / topbar / search / nav / filter-bar）
+   已合并到 primitives.css，本文件不再重复定义。 */
 .rent-icon-btn {
   width: 36px; height: 36px;
   border: 1px solid var(--rent-border);
@@ -249,7 +136,7 @@
   width: 16px; height: 16px;
   border-radius: var(--rent-radius-full);
   background: var(--state-error);
-  color: var(--rent-primary-foreground);
+  color: var(--rent-on-status);
   font-size: 10px; font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
@@ -270,101 +157,8 @@
   padding: var(--rent-s-5);
   max-width: 100%;
 }
-.rent-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: var(--rent-s-5);
-  gap: var(--rent-s-4);
-}
-.rent-page-header__title {
-  font-size: var(--rent-fs-2xl); font-weight: 600;
-  color: var(--rent-ink);
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--rent-s-1);
-}
-.rent-page-header__subtitle {
-  font-size: var(--rent-fs-base);
-  color: var(--rent-ink-2);
-}
-.rent-page-header__actions {
-  display: flex; align-items: center; gap: var(--rent-s-2);
-  flex-shrink: 0;
-}
 
-/* ===== Card ===== */
-.rent-card {
-  background: var(--rent-card);
-  border: 1px solid var(--rent-border);
-  border-radius: var(--rent-radius-lg);
-  overflow: hidden;
-}
-.rent-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--rent-border);
-}
-.rent-card__title {
-  font-size: var(--rent-fs-lg); font-weight: 600;
-  color: var(--rent-ink);
-  margin: 0;
-}
-.rent-card__body { padding: 20px; }
-.rent-card__footer {
-  padding: 12px 20px;
-  border-top: 1px solid var(--rent-border);
-  background: var(--rent-surface-2);
-}
-
-/* ===== Button ===== */
-.rent-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: var(--rent-s-2) var(--rent-s-4);
-  border-radius: var(--rent-radius-md);
-  font-size: var(--rent-fs-base);
-  font-weight: 500;
-  font-family: var(--rent-font-sans);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: background var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast);
-  text-decoration: none;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-.rent-btn--primary {
-  background: var(--rent-primary);
-  color: var(--rent-primary-foreground);
-}
-.rent-btn--primary:hover { background: var(--rent-primary-hover); }
-.rent-btn--secondary {
-  background: var(--rent-surface);
-  border-color: var(--rent-border);
-  color: var(--rent-ink);
-}
-.rent-btn--secondary:hover { background: var(--rent-surface-2); }
-.rent-btn--ghost {
-  background: transparent;
-  color: var(--rent-ink-2);
-}
-.rent-btn--ghost:hover { background: var(--rent-surface-2); }
-.rent-btn--danger {
-  background: var(--state-error);
-  color: var(--rent-primary-foreground);
-}
-.rent-btn--danger:hover { background: var(--state-error-hover); }
-.rent-btn--success {
-  background: var(--state-success);
-  color: var(--rent-primary-foreground);
-}
-.rent-btn--sm { padding: 5px 12px; font-size: var(--rent-fs-sm); }
-.rent-btn--lg { padding: var(--rent-s-3) var(--rent-s-5); font-size: 15px; }
-.rent-btn--block { width: 100%; }
-.rent-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* 卡片 / 按钮 / 徽标 / 空态 / 统计卡 / 页头：见 primitives.css（唯一定义来源） */
 
 /* ===== Table ===== */
 .rent-table-wrap {
@@ -396,25 +190,6 @@
 .rent-table tbody tr:last-child td { border-bottom: none; }
 .rent-table tbody tr:hover { background: var(--rent-surface-2); }
 .rent-table__mono { font-family: var(--rent-font-mono); font-size: var(--rent-fs-sm); }
-
-/* ===== Badge ===== */
-.rent-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--rent-s-1);
-  padding: 3px 10px;
-  border-radius: var(--rent-radius-full);
-  font-size: var(--rent-fs-xs);
-  font-weight: 500;
-  line-height: 1.4;
-}
-.rent-badge--success { background: rgba(22,163,74,0.1); color: var(--state-success); }
-.rent-badge--warning { background: rgba(217,119,6,0.1); color: var(--state-warning); }
-.rent-badge--error { background: rgba(220,38,38,0.1); color: var(--state-error); }
-.rent-badge--info { background: rgba(14,165,233,0.1); color: var(--state-info); }
-.rent-badge--neutral { background: var(--rent-surface-2); color: var(--rent-ink-2); }
-.rent-badge--primary { background: rgba(20,184,166,0.1); color: var(--rent-primary); }
-.rent-badge--dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ===== Form ===== */
 .rent-form-group { margin-bottom: 20px; }
@@ -465,42 +240,8 @@
 .rent-form-row { display: flex; gap: var(--rent-s-4); }
 .rent-form-row > * { flex: 1; }
 
-/* ===== KPI / Stat Card ===== */
-.rent-stat-card {
-  background: var(--rent-card);
-  border: 1px solid var(--rent-border);
-  border-radius: var(--rent-radius-lg);
-  padding: 20px;
-}
-.rent-stat-card__label {
-  font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-2);
-  margin-bottom: var(--rent-s-2);
-}
-.rent-stat-card__value {
-  font-size: var(--rent-fs-3xl);
-  font-weight: 700;
-  color: var(--rent-ink);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.rent-stat-card__delta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--rent-s-1);
-  font-size: var(--rent-fs-xs);
-  font-weight: 500;
-  margin-top: var(--rent-s-2);
-}
-.rent-stat-card__delta--up { color: var(--state-success); }
-.rent-stat-card__delta--down { color: var(--state-error); }
-.rent-stat-card__icon {
-  width: 40px; height: 40px;
-  border-radius: var(--rent-radius-md);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
+/* ===== KPI / Stat Card =====
+   见 primitives.css（唯一定义来源） */
 
 /* ===== Grid Utilities ===== */
 .rent-grid { display: grid; gap: var(--rent-s-4); }
@@ -509,19 +250,7 @@
 .rent-grid--4 { grid-template-columns: repeat(4, 1fr); }
 .rent-grid--auto { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
 
-/* ===== Filter Bar ===== */
-.rent-filter-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--rent-s-3);
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-.rent-filter-bar__search {
-  flex: 1;
-  min-width: 200px;
-  max-width: 320px;
-}
+/* ===== Filter Bar：已合并到 primitives.css ===== */
 
 /* ===== Pagination ===== */
 .rent-pagination {
@@ -592,45 +321,7 @@
 
 /* ===== Misc ===== */
 .rent-divider { height: 1px; background: var(--rent-border); margin: var(--rent-s-4) 0; border: none; }
-.rent-empty {
-  text-align: center;
-  padding: 48px 20px;
-  color: var(--rent-ink-2);
-}
-.rent-empty__icon { margin-bottom: var(--rent-s-3); opacity: 0.4; }
-.rent-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--rent-border);
-  margin-bottom: 20px;
-}
-.rent-tab {
-  padding: 10px 16px;
-  font-size: var(--rent-fs-base);
-  font-weight: 500;
-  color: var(--rent-ink-2);
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color var(--motion-fast), border-color var(--motion-fast);
-}
-.rent-tab:hover { color: var(--rent-ink); }
-.rent-tab[data-active="true"] {
-  color: var(--rent-primary);
-  border-bottom-color: var(--rent-primary);
-}
-.rent-progress {
-  width: 100%;
-  height: 6px;
-  background: var(--rent-surface-2);
-  border-radius: var(--rent-radius-full);
-  overflow: hidden;
-}
-.rent-progress__bar {
-  height: 100%;
-  background: var(--rent-primary);
-  border-radius: var(--rent-radius-full);
-  transition: width var(--motion-slow);
-}
+/* 空态 / Tabs / Progress：见 primitives.css 与 app.css，此处不再重复定义 */
 .rent-tooltip {
   position: relative;
 }

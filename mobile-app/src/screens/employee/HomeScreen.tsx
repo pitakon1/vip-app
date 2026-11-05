@@ -207,10 +207,25 @@ export default function HomeScreen() {
 
   const loadAll = useCallback(async () => {
     try {
+      // 带看必须按「本人 + 今天」在服务端筛：此前拉默认 20 条再本地按日期过滤，
+      // 当天预约一多就会漏，跨天数据又会白拉。
+      const meFirst = await employeesApi.mine().catch(() => null);
+      const myEmpId = (meFirst as any)?.data?.id as string | undefined;
+      const dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      dayEnd.setMilliseconds(-1);
       const [vwRes, pfRes, ldRes, lbRes, meRes, auRes, wbRes, ceRes] = await Promise.allSettled([
-        viewingsApi.list({ pageSize: OPTION_PAGE_SIZE }),
+        viewingsApi.list({
+          page_size: OPTION_PAGE_SIZE,
+          ...(myEmpId ? { assigned_to: myEmpId } : {}),
+          scheduled_from: dayStart.toISOString(),
+          scheduled_to: dayEnd.toISOString(),
+        }),
         performanceApi.mine(),
-        leadsApi.list({ page: 1, page_size: LIST_PAGE_SIZE }),
+        // 线索只取本人负责的：不带 mine 时后端对员工返回全平台线索
+        leadsApi.list({ page: 1, page_size: LIST_PAGE_SIZE, mine: true }),
         employeesApi.leaderboard(),
         employeesApi.mine(),
         authApi.me(),
@@ -859,7 +874,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   countBadgeWarn: { backgroundColor: colors.alpha(colors.warningRgb, 0.1) },
-  countBadgeText: { fontSize: 11, fontWeight: '600', color: colors.primary, fontVariant: ['tabular-nums'] },
+  countBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.primary, fontVariant: ['tabular-nums'], lineHeight: colors.lineHeight.tight},
   newBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -896,7 +911,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   timelineRangeActive: { color: colors.primary },
-  timelineHint: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  timelineHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   timelineBody: { flex: 1, minWidth: 0 },
   timelineName: { fontSize: 15, fontWeight: '600', color: colors.ink },
   timelineProp: { fontSize: 13, color: colors.ink3, marginTop: 2 },
@@ -931,7 +946,7 @@ const styles = StyleSheet.create({
   listTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   listName: { fontSize: 15, fontWeight: '600', color: colors.ink, flexShrink: 1 },
   stageBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
-  stageBadgeText: { fontSize: 10, fontWeight: '600' },
+  stageBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   listMeta: { fontSize: 12, color: colors.ink3, marginTop: 3 },
   followBtn: {
     marginLeft: 10,
@@ -964,7 +979,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   chartKeyUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
-  chartKeyLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  chartKeyLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   chartDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
@@ -981,7 +996,8 @@ const styles = StyleSheet.create({
   chartWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   chartCol: { flex: 1, alignItems: 'center', gap: 4 },
   chartBarValue: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink3,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
@@ -1000,7 +1016,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: colors.radius.sm,
     borderTopRightRadius: colors.radius.sm,
   },
-  chartBarLabel: { fontSize: 11, color: colors.ink3 },
+  chartBarLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   chartBarLabelActive: { color: colors.primary, fontWeight: '700' },
   chartDeltaRow: {
     flexDirection: 'row',
@@ -1044,12 +1060,13 @@ const styles = StyleSheet.create({
   },
   calMonthBtn: { alignItems: 'center' },
   calMonthText: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  calTodayText: { fontSize: 10, color: colors.primary, marginTop: 1 },
+  calTodayText: { fontSize: colors.fontSize.xs, color: colors.primary, marginTop: 1, lineHeight: colors.lineHeight.tight},
   calWeekRow: { flexDirection: 'row', paddingTop: 8, paddingHorizontal: 6 },
   calWeekDay: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     fontWeight: '600',
     color: colors.ink3,
     paddingVertical: 4,
@@ -1076,7 +1093,7 @@ const styles = StyleSheet.create({
   calDayNumToday: { color: colors.primary, fontWeight: '800' },
   calDots: { flexDirection: 'row', gap: 2, marginTop: 3 },
   calDot: { width: 4, height: 4, borderRadius: 2 },
-  calCountText: { fontSize: 9, color: colors.ink3, marginTop: 1 },
+  calCountText: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 1, lineHeight: colors.lineHeight.tight},
   calCountTextSelected: { color: colors.primaryForeground, opacity: 0.9 },
   calAgendaHead: {
     flexDirection: 'row',
@@ -1089,7 +1106,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   calAgendaTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
-  calAgendaCount: { fontSize: 11, color: colors.ink3 },
+  calAgendaCount: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   calAgendaEmpty: { fontSize: 12, color: colors.ink3, paddingHorizontal: 14, paddingVertical: 14 },
   calAgendaRow: {
     flexDirection: 'row',
@@ -1109,5 +1126,5 @@ const styles = StyleSheet.create({
   },
   calAgendaBody: { flex: 1, minWidth: 0 },
   calAgendaName: { fontSize: 13, fontWeight: '600', color: colors.ink },
-  calAgendaSub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  calAgendaSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
 });

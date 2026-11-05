@@ -3,7 +3,8 @@ import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination'
  * 租房分类页（贝壳式）· 小程序。
  *
  * 与 App 端 `mobile-app/src/screens/category/RentCategoryScreen.tsx` 同一信息结构：
- * 业务固定 `listing_type=rent`；Tab = 整租 / 公寓；卡片以「月租」为主口径，
+ * 业务固定 `listing_type=rent`；不再单列「公寓」Tab——公寓只是房源类型，
+ * 由房源列表的「类型」筛选（apartment + condo）承载；卡片以「月租」为主口径，
  * 附户型 / 面积 / 家具 / 装修 / 已核验等真实字段派生的标签。
  * 「新上房源」rail 走真实最新在租单，无数据时整块不渲染（绝不注入占位数据）。
  */
@@ -44,13 +45,11 @@ export default function CategoryRentPage() {
   const { t } = useI18n()
   const city = useLocationStore((s) => s.selection.cityLabel)
   const cityKey = useLocationStore((s) => s.selection.cityKey)
-  const [tab, setTab] = useState<'whole' | 'apartment'>('whole')
   const [rail, setRail] = useState<PublicListing[]>([])
   // 区域筛选走真实数据（后端 /public/districts，空则回退静态区域）
   const districtNodes = useDistrictNodes({
     city: cityKey,
-    listingType: 'rent',
-    propertyType: tab === 'apartment' ? ['apartment', 'condo'] : undefined
+    listingType: 'rent'
   })
 
   useEffect(() => {
@@ -120,7 +119,6 @@ export default function CategoryRentPage() {
       listing_type: 'rent',
       // 城市统一传定位 cityKey（后端做 slug 归一化），不再传中文 cityLabel
       city: cityKey,
-      property_type: state.tab === 'apartment' ? ['apartment', 'condo'] : undefined,
       q: state.keyword || undefined,
       district: state.values.district || undefined,
       price_min: price.min,
@@ -170,12 +168,6 @@ export default function CategoryRentPage() {
       onCityPress={() => Taro.navigateTo({ url: '/pages/location/index' })}
       searchPlaceholder={t('category.rentSearchPlaceholder')}
       top={top}
-      tabs={[
-        { key: 'whole', label: t('category.rentTabWhole') },
-        { key: 'apartment', label: t('category.rentTabApartment') }
-      ]}
-      tabValue={tab}
-      onTabChange={(k) => setTab(k as 'whole' | 'apartment')}
       filterGroups={filterGroups}
       quickTags={quickTags}
       buildQuery={buildQuery}

@@ -480,12 +480,12 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 17, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'] },
 
   listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 20, marginBottom: 10 },
-  attRange: { fontSize: 11, color: colors.ink3, marginHorizontal: 20, marginTop: 12 },
+  attRange: { fontSize: colors.fontSize.xs, color: colors.ink3, marginHorizontal: 20, marginTop: 12, lineHeight: colors.lineHeight.tight},
   listTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  listHint: { fontSize: 11, color: colors.ink3 },
+  listHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   tableCard: { marginHorizontal: 20, marginBottom: 10, backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 14, ...colors.shadow.sm },
   tableHead: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  tableTh: { fontSize: 11, color: colors.ink3, fontWeight: '600' },
+  tableTh: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   colName: { flex: 1.4 },
   colNum: { width: 82, textAlign: 'right' },
   colNumSm: { width: 56, textAlign: 'right' },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   itemHeadRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   itemName: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  itemSub: { fontSize: 11, color: colors.ink3, marginTop: 2, fontWeight: '500' },
+  itemSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   itemBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,
   },
-  itemStatLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  itemStatLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   itemStatValue: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   card: {
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   propHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   propAddress: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.ink },
   propTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.alpha(colors.infoRgb, 0.12) },
-  propTagText: { fontSize: 11, fontWeight: '600', color: colors.info },
+  propTagText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.info, lineHeight: colors.lineHeight.tight},
   propMeta: { fontSize: 12, color: colors.ink2, marginTop: 8 },
   propRent: { fontSize: 18, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'], marginTop: 8 },
   propRentUnit: { fontSize: 12, fontWeight: '500', color: colors.ink3 },

@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  leaseBadgeText: { fontSize: 11, fontWeight: '600' },
+  leaseBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: 8 },
   leaseTrack: {
     flexDirection: 'row',
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   leaseFootText: { fontSize: 12, color: colors.ink3 },
   leaseRemain: { fontSize: 12, fontWeight: '700', color: colors.primary },
-  leaseSub: { fontSize: 11, color: colors.ink3, marginTop: 6 },
+  leaseSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
   sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 4 },
   detailRow: {
     flexDirection: 'row',

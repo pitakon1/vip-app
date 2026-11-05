@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import DataState, { type DataStateErrorKind } from '@/components/DataState';
+import { errorKind, errorText } from '@/lib/errorText';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
 import { EARTH_RADIUS_KM } from '@/constants/location';
@@ -201,6 +203,11 @@ export default function AttendanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState<TodayInfo | null>(null);
   const [records, setRecords] = useState<AttRecord[]>([]);
+  // 五路请求此前只有 today 会提示失败，其余失败都落成空数组/默认规则。
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadErrorKind, setLoadErrorKind] = useState<DataStateErrorKind>('unknown');
+  const [leavesError, setLeavesError] = useState<string | null>(null);
+  const [appealsError, setAppealsError] = useState<string | null>(null);
   const [checking, setChecking] = useState<'checkin' | 'checkout' | null>(null);
   const [now, setNow] = useState(() => new Date());
 
@@ -253,9 +260,21 @@ export default function AttendanceScreen() {
       attendanceApi.leaveRequests(),
       attendanceApi.appeals(),
     ]);
-    if (todayRes.status === 'rejected') {
-      notifyError('加载今日考勤失败', todayRes.reason);
+    setLoadError(null);
+    // 核心三路（今日/记录/规则）任一失败即整页失败，不能把失败演成「未打卡 / 0 条 / 默认规则」
+    const coreFailed = [todayRes, recordsRes, ruleRes].find(
+      (r) => r.status === 'rejected',
+    ) as PromiseRejectedResult | undefined;
+    if (coreFailed) {
+      setLoadError(errorText(coreFailed.reason, '考勤数据加载失败'));
+      setLoadErrorKind(errorKind(coreFailed.reason));
     }
+    setLeavesError(
+      leaveRes.status === 'rejected' ? errorText(leaveRes.reason, '请假记录加载失败') : null,
+    );
+    setAppealsError(
+      appealRes.status === 'rejected' ? errorText(appealRes.reason, '申诉记录加载失败') : null,
+    );
     setToday(
       todayRes.status === 'fulfilled' ? ((todayRes.value.data as TodayInfo) ?? null) : null,
     );
@@ -653,6 +672,21 @@ export default function AttendanceScreen() {
     return (
       <View style={styles.container}>
         <LoadingState label="加载考勤数据…" />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={styles.container}>
+        <DataState
+          error={loadError}
+          errorKind={loadErrorKind}
+          onRetry={() => {
+            setLoading(true);
+            void load().finally(() => setLoading(false));
+          }}
+        />
       </View>
     );
   }
@@ -1226,7 +1260,14 @@ export default function AttendanceScreen() {
         {/* ⑨ 我的请假记录 */}
         <Text style={styles.sectionTitle}>我的请假记录</Text>
         <View style={styles.listCard}>
-          {leaves.length === 0 ? (
+          {leavesError ? (
+            <EmptyState
+              tone="error"
+              title={leavesError}
+              actionLabel="重试"
+              onAction={() => void load()}
+            />
+          ) : leaves.length === 0 ? (
             <EmptyState
               icon="document-text-outline"
               title="暂无请假申请"
@@ -1310,7 +1351,9 @@ export default function AttendanceScreen() {
         {/* 我的申诉列表 */}
         <Text style={styles.sectionTitle}>{t('att.appealList')}</Text>
         <View style={styles.listCard}>
-          {appeals.length === 0 ? (
+          {appealsError ? (
+            <EmptyState tone="error" title={appealsError} actionLabel="重试" onAction={() => void load()} />
+          ) : appeals.length === 0 ? (
             <EmptyState icon="clipboard-outline" title={t('att.noAppeal')} />
           ) : (
             appeals.map((a, idx) => {

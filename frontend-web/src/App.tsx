@@ -24,6 +24,7 @@ const Sign = lazy(() => import('@/pages/Sign'))
 
 // C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房 / 酒店 / 土地）
 const RentCategory = lazy(() => import('@/pages/category/RentCategory'))
+const ApartmentCategory = lazy(() => import('@/pages/category/Apartment'))
 const NewHouse = lazy(() => import('@/pages/category/NewHouse'))
 const Resale = lazy(() => import('@/pages/category/Resale'))
 const Commercial = lazy(() => import('@/pages/category/Commercial'))
@@ -155,7 +156,7 @@ const PageFallback = () => (
         height: 32,
         borderRadius: 999,
         border: '3px solid rgba(20,184,166,0.2)',
-        borderTopColor: '#14b8a6',
+        borderTopColor: 'var(--rent-primary)',
         animation: 'vipp-spin 0.8s linear infinite',
       }}
     />
@@ -178,8 +179,9 @@ const App = () => {
           <Route path="/school/:id" element={<SchoolDetail />} />
           <Route path="/communities" element={<Communities />} />
           <Route path="/community/:id" element={<CommunityDetail />} />
-          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页 */}
+          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页（公寓页保留供筛选/直达） */}
           <Route path="/category/rent" element={<RentCategory />} />
+          <Route path="/category/apartment" element={<ApartmentCategory />} />
           <Route path="/category/new" element={<NewHouse />} />
           <Route path="/category/resale" element={<Resale />} />
           <Route path="/category/commercial" element={<Commercial />} />
@@ -283,11 +285,11 @@ const App = () => {
             <Route path="/tenant/deals" element={<TenantDeals />} />
             <Route path="/tenant/deals/:id" element={<TenantDealDetail />} />
             <Route path="/tenant/contracts" element={<TenantContracts />} />
-            {/* 业主功能页（无租客对应）：仅换注册路径，仍走同一门户壳 */}
-            <Route path="/tenant/my-properties" element={<OwnerProperties />} />
-            <Route path="/tenant/income" element={<OwnerIncome />} />
-            <Route path="/tenant/marketing" element={<OwnerMarketing />} />
-            <Route path="/tenant/my-listings" element={<MyListings />} />
+            {/* 业主功能页（无租客对应）：仅业主，租客一律拦回 /portal */}
+            <Route path="/tenant/my-properties" element={<ProtectedRoute denyRoles={['tenant']}><OwnerProperties /></ProtectedRoute>} />
+            <Route path="/tenant/income" element={<ProtectedRoute denyRoles={['tenant']}><OwnerIncome /></ProtectedRoute>} />
+            <Route path="/tenant/marketing" element={<ProtectedRoute denyRoles={['tenant']}><OwnerMarketing /></ProtectedRoute>} />
+            <Route path="/tenant/my-listings" element={<ProtectedRoute denyRoles={['tenant']}><MyListings /></ProtectedRoute>} />
           </Route>
 
           {/* ===== 404 兜底（未匹配路径）===== */}

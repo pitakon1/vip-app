@@ -118,7 +118,7 @@ const screenOptions = {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
   },
-  tabBarLabelStyle: { fontSize: 11 },
+  tabBarLabelStyle: { fontSize: colors.fontSize.xs, lineHeight: colors.lineHeight.tight},
 };
 
 // 统一按 ROLE_TABS 渲染底部导航，消除各角色重复的 Tab.Screen 结构。

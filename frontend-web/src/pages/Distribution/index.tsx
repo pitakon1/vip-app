@@ -120,12 +120,23 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
   // 渠道商列表：按筛选/页码缓存（缓存优先渲染 + 后台刷新）
   const brokersQ = useCachedQuery<{ items: Broker[]; total: number }>({
-    queryKey: ['brokers', String(page), status, level],
-    cacheKey: `brokers:${page}:${status}:${level}`,
+    // keyword 下推到服务端：此前只在当前页 filter，搜到的结果永远只限这一页。
+    queryKey: ['brokers', String(page), status, level, keyword],
+    cacheKey: `brokers:${page}:${status}:${level}:${keyword}`,
     queryFn: async () => {
-      const res = await brokerApi.list({ page, pageSize: LIST_PAGE_SIZE, status: status || undefined, level: level || undefined })
+      const res = await brokerApi.list({ page, pageSize: LIST_PAGE_SIZE, status: status || undefined, level: level || undefined, keyword: keyword.trim() || undefined })
       const payload = res.data?.data ?? res.data
       return { items: payload?.items ?? [], total: payload?.total ?? 0 }
+    },
+  })
+
+  // 状态分布走服务端全局汇总：此前只对当前页 reduce，翻页数量会变。
+  const summaryQ = useCachedQuery<{ total?: number; pending?: number; active?: number; suspended?: number }>({
+    queryKey: ['brokers', 'summary'],
+    cacheKey: 'brokers:summary',
+    queryFn: async () => {
+      const res = await brokerApi.summary()
+      return res.data?.data ?? res.data ?? {}
     },
   })
   const items = brokersQ.data?.items ?? []
@@ -195,25 +206,17 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
     setApproveBroker(b)
   }
 
-  // 状态分布仅基于当前页数据统计，避免引入额外接口调用
-  const statusCounts = useMemo(() => ({
-    pending: items.filter((b) => b.status === 'pending').length,
-    active: items.filter((b) => b.status === 'active').length,
-    suspended: items.filter((b) => b.status === 'suspended').length,
-  }), [items])
-
-  const kw = keyword.trim().toLowerCase()
-  const visibleItems = kw
-    ? items.filter((b) =>
-        (b.partner_name || '').toLowerCase().includes(kw) ||
-        (b.contact_name || '').toLowerCase().includes(kw) ||
-        (b.invite_code || '').toLowerCase().includes(kw))
-    : items
+  const statusCounts = {
+    pending: Number(summaryQ.data?.pending ?? 0),
+    active: Number(summaryQ.data?.active ?? 0),
+    suspended: Number(summaryQ.data?.suspended ?? 0),
+  }
+  const globalTotal = Number(summaryQ.data?.total ?? total)
 
   const statCards = [
     {
       label: t('distribution.statTotal'),
-      value: String(total),
+      value: String(globalTotal),
       iconBg: 'rgba(20,184,166,0.1)',
       iconColor: 'var(--rent-primary)',
       icon: (
@@ -280,7 +283,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-2)" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input type="text" placeholder={t('distribution.searchPlaceholder')} value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+            <input type="text" placeholder={t('distribution.searchPlaceholder')} value={keyword} onChange={(e) => { setKeyword(e.target.value); setPage(1) }} />
           </div>
         </div>
         <select className="rent-form-select rent-filter-select" style={{ width: 'auto', minWidth: 120 }} aria-label={t('distribution.ariaLevel')} value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }}>
@@ -303,17 +306,15 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
           ) : items.length === 0 ? (
             <DataState
               empty
-              filtered={!!(status || level)}
+              filtered={!!(status || level || keyword)}
               emptyTitle={t('distribution.emptyBrokers')}
             />
-          ) : visibleItems.length === 0 ? (
-            <DataState empty filtered emptyTitle={t('distribution.emptyNoMatch')} />
           ) : (
             <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
               <table className="rent-table">
                 <thead><tr><th>{t('distribution.thName')}</th><th>{t('distribution.thType')}</th><th>{t('distribution.thLevel')}</th><th>{t('common.status')}</th><th>{t('distribution.thInviteCode')}</th><th>{t('distribution.thRegion')}</th><th style={{ textAlign: 'right' }}>{t('distribution.thRate')}</th><th>{t('common.action')}</th></tr></thead>
                 <tbody>
-                  {visibleItems.map((b) => {
+                  {items.map((b) => {
                     const st = BROKER_STATUS[b.status || 'pending'] || BROKER_STATUS.pending
                     return (
                       <tr key={b.id}>
@@ -344,11 +345,11 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
           )}
           <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
             <span className="rent-pagination__info">
-              {t('distribution.pageInfo', { total })}{kw ? t('distribution.pageMatched', { count: visibleItems.length }) : ''}
+              {t('distribution.pageInfo', { total })}
             </span>
             <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('distribution.ariaPrev')}</button>
             <span className="rent-pagination__info">{page}</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('distribution.ariaNext')}</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('distribution.ariaNext')}</button>
           </div>
         </div>
       </div>

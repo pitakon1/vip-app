@@ -1,10 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { message } from 'antd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useTranslation } from 'react-i18next'
-import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
@@ -17,13 +16,16 @@ import type { Benchmark, DetailPayload, FactItem, LoanResult, PoiItem, ProjectIt
 export const useTenantPropertyDetail = () => {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const token = useAuthStore((s) => s.token)
   const uid = user?.id ?? 'anon'
   const queryClient = useQueryClient()
 
   const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
   const [photoIndex, setPhotoIndex] = useState(0)
   const [favBusy, setFavBusy] = useState(false)
+  const [contactBusy, setContactBusy] = useState(false)
 
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingAt, setBookingAt] = useState<dayjs.Dayjs | null>(null)
@@ -39,39 +41,43 @@ export const useTenantPropertyDetail = () => {
   const [translatedDesc, setTranslatedDesc] = useState<string | null>(null)
   const [transTarget, setTransTarget] = useState('zh')
 
-  // 房源详情 + 同小区横评 + 在售挂牌：缓存优先（localStorage seed），后台刷新
+  // 房源详情：统一走 C 端公开详情接口。原来这里读 B 端 /properties/{property_id}，
+  // 再用 /sale-listings 反查售价、用 /properties?project_id 找同小区，导致同一房源
+  // 在门户里出现 listing id / property id 两套口径，链接与收藏都会错位。
   const dataQ = useCachedQuery<DetailPayload>({
     queryKey: ['tenant-property-detail', id ?? 'none'],
     cacheKey: `tenant-property-detail:${id ?? 'none'}`,
     queryFn: async (): Promise<DetailPayload> => {
       if (!id) return { detail: null, project: null, saleListing: null, peers: [] }
-      const res = await api.get(`/properties/${id}`)
-      const data = toBody(res) as PropertyItem | null
-      const projectId = data?.project_id
-
-      const [projRes, saleRes, peerRes] = await Promise.allSettled([
-        projectId ? api.get(`/projects/${projectId}`) : Promise.resolve(null),
-        api.get('/sale-listings', { params: { page: 1, page_size: OPTION_PAGE_SIZE } }),
-        projectId
-          ? api.get('/properties', { params: { project_id: projectId, page: 1, page_size: OPTION_PAGE_SIZE } })
-          : Promise.resolve(null),
-      ])
-
-      let project: ProjectItem | null = null
-      if (projRes.status === 'fulfilled' && projRes.value) {
-        project = toBody(projRes.value) as ProjectItem
+      const res = await api.get(`/public/listings/${id}`)
+      const raw = toBody(res) as (PropertyItem & { project?: ProjectItem | null }) | null
+      if (!raw) return { detail: null, project: null, saleListing: null, peers: [] }
+      const data: PropertyItem = {
+        ...raw,
+        monthly_rent: Number(raw.monthly_rent ?? (raw.listing_type === 'rent' ? raw.price : 0) ?? 0),
+        sale_price: Number(raw.sale_price ?? raw.asking_price ?? (raw.listing_type === 'sell' ? raw.price : 0) ?? 0),
       }
+      const project: ProjectItem | null = raw.project ?? null
 
-      let saleListing: SaleListingItem | null = null
-      if (saleRes.status === 'fulfilled') {
-        const listings = toItems(saleRes.value) as SaleListingItem[]
-        saleListing = listings.find((l) => String(l.property_id) === String(id)) || null
-      }
+      // 出售挂牌只认详情自身的挂牌价，不再跨接口反查另一套 id
+      const asking = Number(raw.asking_price ?? raw.sale_price ?? 0)
+      const saleListing: SaleListingItem | null = asking > 0
+        ? ({
+            id: raw.id,
+            property_id: raw.property_id,
+            asking_price: asking,
+            currency: raw.currency || 'THB',
+            title: raw.project_name || raw.room_number || '',
+            address: raw.address || raw.city || '',
+          } as SaleListingItem)
+        : null
 
       let peers: PropertyItem[] = []
-      if (peerRes.status === 'fulfilled' && peerRes.value) {
-        const items = toItems(peerRes.value) as PropertyItem[]
-        peers = items.filter((p) => String(p.id) !== String(id))
+      try {
+        const peerRes = await api.get(`/public/listings/${id}/similar`)
+        peers = (toItems(peerRes) as PropertyItem[]).filter((p) => String(p.id) !== String(id))
+      } catch {
+        peers = []
       }
 
       return { detail: data, project, saleListing, peers }
@@ -83,18 +89,19 @@ export const useTenantPropertyDetail = () => {
   const peers = dataQ.data?.peers ?? []
   const loading = dataQ.isPending && !dataQ.data
 
-  // 收藏状态：实时查询不落盘缓存，避免收藏态跨会话陈旧
+  // 收藏以 property_id 为键（公开详情里的 listing id 不是收藏主键）
+  const propertyId = detail?.property_id ? String(detail.property_id) : ''
   const favQ = useQuery({
-    queryKey: ['tenant-property-fav', id ?? 'none', uid],
+    queryKey: ['tenant-property-fav', propertyId || 'none', uid],
     queryFn: async () => {
       try {
-        const res = await api.get(`/favorites/status/${id}`)
+        const res = await api.get(`/favorites/status/${propertyId}`)
         return Boolean(toBody(res)?.favorited)
       } catch {
         return false
       }
     },
-    enabled: !!id,
+    enabled: !!propertyId,
     staleTime: 60 * 1000,
   })
   const favorited = favQ.data ?? false
@@ -213,35 +220,59 @@ export const useTenantPropertyDetail = () => {
   }, [buyLoanAmount, loanYears, loanRate])
 
   const handleToggleFavorite = async () => {
-    if (!id || favBusy) return
+    if (!propertyId || favBusy) return
     setFavBusy(true)
     const next = !favorited
-    queryClient.setQueryData(['tenant-property-fav', id, uid], next)
+    queryClient.setQueryData(['tenant-property-fav', propertyId, uid], next)
     try {
       if (favorited) {
-        await api.delete(`/favorites/${id}`)
+        await api.delete(`/favorites/${propertyId}`)
         message.success(t('tenantPropertyDetail.unFavored'))
       } else {
-        await api.post('/favorites', { property_id: id })
+        await api.post('/favorites', { property_id: propertyId })
         message.success(t('tenantPropertyDetail.favored'))
       }
     } catch (err) {
-      queryClient.setQueryData(['tenant-property-fav', id, uid], !next)
+      queryClient.setQueryData(['tenant-property-fav', propertyId, uid], !next)
       message.error(errorText(err, t('tenantPropertyDetail.opFailed')))
     } finally {
       setFavBusy(false)
     }
   }
 
+  // 联系经纪人：按房源建会话（后端从 listing_id 解析发布人），不再只展示打码电话
+  const handleContactBroker = async () => {
+    if (!id || contactBusy) return
+    if (!token) {
+      message.info(t('browse.loginRequired'))
+      navigate(`/login?redirect=${encodeURIComponent(`/tenant/properties/${id}`)}`)
+      return
+    }
+    setContactBusy(true)
+    try {
+      const res = await api.post('/chat/conversations', {
+        listing_id: id,
+        title: t('tenantPropertyDetail.contactChatTitle', { name: detail?.room_number || detail?.project_name || '' }),
+      })
+      const conv = toBody(res) as { id?: string } | null
+      if (!conv?.id) throw new Error('conversation not created')
+      navigate(`/chat?id=${conv.id}`)
+    } catch (err) {
+      message.error(errorText(err, t('tenantPropertyDetail.contactFailed')))
+    } finally {
+      setContactBusy(false)
+    }
+  }
+
   const handleBooking = async () => {
-    if (!id || !bookingAt) {
+    if (!propertyId || !bookingAt) {
       message.warning(t('tenantPropertyDetail.warnViewingTime'))
       return
     }
     setBookingBusy(true)
     try {
       await api.post('/viewings', {
-        property_id: id,
+        property_id: propertyId,
         scheduled_at: bookingAt.toISOString(),
         notes: bookingNote || null,
       })
@@ -293,6 +324,8 @@ export const useTenantPropertyDetail = () => {
     favorited,
     favBusy,
     handleToggleFavorite,
+    contactBusy,
+    handleContactBroker,
     bookingOpen,
     setBookingOpen,
     bookingAt,

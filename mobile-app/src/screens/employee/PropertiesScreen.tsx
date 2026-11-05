@@ -34,6 +34,7 @@ import { leasesApi, propertiesApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker';
+import { AREA_GROUPS } from '@/data/locationArea';
 import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
 import { buildListingPayload } from '@/lib/listingPayload';
@@ -94,9 +95,36 @@ const STATUS_FILTERS: { key: string; label: string }[] = [
 
 const SORTS: { key: string; label: string }[] = [
   { key: 'latest', label: '最新' },
-  { key: 'price_asc', label: '租金从低到高' },
-  { key: 'price_desc', label: '租金从高到低' },
+  { key: 'price_asc', label: '价格从低到高' },
+  { key: 'price_desc', label: '价格从高到低' },
   { key: 'area_desc', label: '面积从大到小' },
+];
+
+// ---- 房产类型 / 业务类型（与 C 端找房页同一口径，服务端 property_type / listing_type / is_new_development）----
+const TYPE_CLASS_OPTIONS: { key: string; labelKey: string }[] = [
+  { key: '', labelKey: 'pub.filterAny' },
+  { key: 'apartment', labelKey: 'prop.type.apartment' },
+  { key: 'villa', labelKey: 'prop.type.house' },
+  { key: 'commercial', labelKey: 'category.commTitle' },
+  { key: 'factory', labelKey: 'prop.type.factory' },
+  { key: 'hotel', labelKey: 'prop.type.hotel' },
+  { key: 'land', labelKey: 'prop.type.land' },
+];
+
+const TYPE_CLASS_TYPES: Record<string, string[]> = {
+  apartment: ['apartment', 'condo'],
+  villa: ['villa', 'house'],
+  commercial: ['office', 'shop'],
+  factory: ['factory'],
+  hotel: ['hotel'],
+  land: ['land'],
+};
+
+const BIZ_TYPE_OPTIONS: { key: string; labelKey: string }[] = [
+  { key: '', labelKey: 'pub.filterAny' },
+  { key: 'rent', labelKey: 'category.rentTitle' },
+  { key: 'resale', labelKey: 'category.resaleTitle' },
+  { key: 'new', labelKey: 'category.newTitle' },
 ];
 
 export default function PropertiesScreen() {
@@ -126,6 +154,9 @@ export default function PropertiesScreen() {
   const [areaMin, setAreaMin] = useState('');
   const [areaMax, setAreaMax] = useState('');
   const [bedsMin, setBedsMin] = useState('');
+  // 房产类型 / 业务类型（与 C 端找房页一致的下发口径）
+  const [typeClass, setTypeClass] = useState('');
+  const [bizType, setBizType] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -133,12 +164,31 @@ export default function PropertiesScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const firstLoad = useRef(true);
 
+  // 区域选择 → 服务端 keywords 同义词（区=该区 kws；城市=辖区全部；国家=该国全部）
+  const regionKeywords = useMemo(() => {
+    if (!region?.region) return [] as string[];
+    const groups = AREA_GROUPS.filter((g) => g.country === region.region);
+    if (region.district) {
+      for (const g of groups) {
+        const child = g.children.find((c) => c.label === region.district);
+        if (child) return child.kws;
+      }
+      return [] as string[];
+    }
+    const city = groups.find((g) => g.cityLabel === region.city);
+    const kws = city
+      ? city.children.flatMap((c) => c.kws)
+      : groups.flatMap((g) => g.children.flatMap((c) => c.kws));
+    return Array.from(new Set(kws));
+  }, [region]);
+
   const fetchProperties = useCallback(
     async (targetPage: number, base: {
       kw: string;
       st: string;
       so: string;
       rg: RegionSelection | null;
+      rgKws: string[];
       schoolId: string;
       schoolKm: number;
       priceMin: string;
@@ -146,13 +196,15 @@ export default function PropertiesScreen() {
       areaMin: string;
       areaMax: string;
       bedsMin: string;
+      typeClass: string;
+      bizType: string;
     }) => {
       const params: Record<string, unknown> = { page: targetPage, page_size: PAGE_SIZE, sort: base.so };
       if (base.kw.trim()) params.q = base.kw.trim();
       if (base.st) params.status = base.st;
-      if (base.rg?.region) params.region = base.rg.region;
-      if (base.rg?.city) params.city = base.rg.city;
-      if (base.rg?.district) params.district = base.rg.district;
+      // RegionPicker 的 country/city/district 是本地化展示名，与库里的英文行政区名不一致；
+      // 改发区域同义词 keywords（与找房页同一口径），避免「选了区域却 0 结果」的假筛选
+      if (base.rgKws.length) params.keywords = base.rgKws;
       // C 端维度：学校（空间筛选）/ 价格 / 面积 / 卧室
       if (base.schoolId) {
         params.school_id = base.schoolId;
@@ -163,6 +215,21 @@ export default function PropertiesScreen() {
       if (base.areaMin) params.area_min = Number(base.areaMin);
       if (base.areaMax) params.area_max = Number(base.areaMax);
       if (base.bedsMin) params.bedrooms_min = Number(base.bedsMin);
+      // 房产类型：分类映射为 property_type 多值（任一命中），与其余参数 AND 组合
+      if (base.typeClass) {
+        const types = TYPE_CLASS_TYPES[base.typeClass];
+        if (types) params.property_type = types;
+      }
+      // 业务类型：租房 / 二手房 / 新房
+      if (base.bizType === 'rent') {
+        params.listing_type = 'rent';
+      } else if (base.bizType === 'resale') {
+        params.listing_type = 'sell';
+        params.is_new_development = false;
+      } else if (base.bizType === 'new') {
+        params.listing_type = 'sell';
+        params.is_new_development = true;
+      }
       const res = await propertiesApi.list(params);
       const data = res.data as {
         items?: PropertyItem[];
@@ -192,6 +259,7 @@ export default function PropertiesScreen() {
             st: status,
             so: sort,
             rg: region,
+            rgKws: regionKeywords,
             schoolId,
             schoolKm,
             priceMin,
@@ -199,6 +267,8 @@ export default function PropertiesScreen() {
             areaMin,
             areaMax,
             bedsMin,
+            typeClass,
+            bizType,
           }),
           propertiesApi.list({ status: 'vacant', page: 1, page_size: COUNT_ONLY_PAGE_SIZE }),
         ]);
@@ -262,7 +332,7 @@ export default function PropertiesScreen() {
         setRefreshing(false);
       }
     },
-    [fetchProperties, keyword, status, sort, region, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin],
+    [fetchProperties, keyword, status, sort, region, regionKeywords, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin, typeClass, bizType],
   );
 
   // 学校清单只为筛选器备选（公开接口，匿名可读）
@@ -283,7 +353,7 @@ export default function PropertiesScreen() {
     const timer = setTimeout(() => load({ nextPage: 1 }), 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status, sort, region, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin]);
+  }, [keyword, status, sort, region, regionKeywords, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin, typeClass, bizType]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -309,9 +379,19 @@ export default function PropertiesScreen() {
   const tabPriceActive = !!(priceMin || priceMax);
   const tabSortActive = sort !== 'latest';
   const tabMoreActive = !!(status !== '' || bedsMin || schoolId);
+  const tabTypeActive = !!(typeClass || bizType);
+  // 入口 chip 回显当前生效条件，例如「公寓·租房」
+  const typeTabLabel = useMemo(() => {
+    const parts = [
+      typeClass ? t(TYPE_CLASS_OPTIONS.find((o) => o.key === typeClass)?.labelKey ?? 'prop.typeLabel') : '',
+      bizType ? t(BIZ_TYPE_OPTIONS.find((o) => o.key === bizType)?.labelKey ?? 'comm.dealType') : '',
+    ].filter(Boolean);
+    return parts.length ? parts.join('·') : t('pub.filterType');
+  }, [typeClass, bizType, t]);
   const filterTabs = useMemo(
     () => [
       { key: 'region', label: '区域', active: tabRegionActive, badge: 0 },
+      { key: 'type', label: typeTabLabel, active: tabTypeActive, badge: 0 },
       { key: 'price', label: '价格', active: tabPriceActive, badge: 0 },
       {
         key: 'more',
@@ -321,7 +401,7 @@ export default function PropertiesScreen() {
       },
       { key: 'sort', label: '排序', active: tabSortActive, badge: 0 },
     ],
-    [tabRegionActive, tabPriceActive, tabSortActive, tabMoreActive, status, bedsMin, schoolId, region],
+    [tabRegionActive, tabPriceActive, tabSortActive, tabMoreActive, status, bedsMin, schoolId, region, typeTabLabel, tabTypeActive],
   );
   const toggleTab = (key: string) => setOpenTab((cur) => (cur === key ? null : key));
   const resetPrice = () => {
@@ -461,6 +541,27 @@ export default function PropertiesScreen() {
     ]);
   };
 
+  // 空态区分「没有任何房源」与「当前筛选无结果」
+  const hasActiveFilter = !!(
+    keyword || status || region || schoolId || priceMin || priceMax ||
+    areaMin || areaMax || bedsMin || typeClass || bizType
+  );
+  const clearAllFilters = () => {
+    setKeyword('');
+    setStatus('');
+    setRegion(null);
+    setSchoolId('');
+    setSchoolKm(3);
+    setSchoolKw('');
+    setPriceMin('');
+    setPriceMax('');
+    setAreaMin('');
+    setAreaMax('');
+    setBedsMin('');
+    setTypeClass('');
+    setBizType('');
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -584,9 +685,60 @@ export default function PropertiesScreen() {
                 </View>
               </>
             )}
+            {openTab === 'type' && (
+              <>
+                <Text style={styles.dropGroupTitle}>{t('pub.filterType')}</Text>
+                <View style={styles.filterGroup}>
+                  {TYPE_CLASS_OPTIONS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key || 'type-any'}
+                      style={[styles.optChip, typeClass === o.key && styles.optChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setTypeClass(o.key)}
+                    >
+                      <Text style={[styles.optChipText, typeClass === o.key && styles.optChipTextActive]}>
+                        {t(o.labelKey)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.dropGroupTitle}>{t('comm.dealType')}</Text>
+                <View style={styles.filterGroup}>
+                  {BIZ_TYPE_OPTIONS.map((o) => (
+                    <TouchableOpacity
+                      key={o.key || 'biz-any'}
+                      style={[styles.optChip, bizType === o.key && styles.optChipActive]}
+                      activeOpacity={0.7}
+                      onPress={() => setBizType(o.key)}
+                    >
+                      <Text style={[styles.optChipText, bizType === o.key && styles.optChipTextActive]}>
+                        {t(o.labelKey)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity
+                    style={styles.resetBtn}
+                    onPress={() => {
+                      setTypeClass('');
+                      setBizType('');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.resetText}>重置</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
+                    <Text style={styles.confirmText}>确定</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
             {openTab === 'price' && (
               <>
-                <Text style={styles.dropGroupTitle}>租金（THB/月）</Text>
+                <Text style={styles.dropGroupTitle}>
+                  {bizType === 'resale' || bizType === 'new' ? '总价（THB）' : '租金（THB/月）'}
+                </Text>
                 <View style={styles.ceRangeRow}>
                   <TextInput
                     style={styles.ceInput}
@@ -764,8 +916,10 @@ export default function PropertiesScreen() {
         ) : (
           <EmptyState
             icon="business-outline"
-            title="暂无房源"
-            sub={keyword || status ? '换个关键词或筛选条件试试' : '可管理的房源会展示在这里'}
+            title={hasActiveFilter ? t('prop.emptyFiltered') : t('prop.emptyNone')}
+            sub={hasActiveFilter ? t('prop.emptyFilteredSub') : t('prop.emptyNoneSub')}
+            actionLabel={hasActiveFilter ? t('adm.psClear') : undefined}
+            onAction={hasActiveFilter ? clearAllFilters : undefined}
           />
         )
       }
@@ -887,7 +1041,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
+  filterTabBadgeText: { color: colors.primaryForeground, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dropPanel: {
     marginHorizontal: 0,
     marginTop: 6,

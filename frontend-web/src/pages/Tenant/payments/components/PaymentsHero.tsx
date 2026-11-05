@@ -1,14 +1,16 @@
 import { useTranslation } from 'react-i18next'
+import { formatMoney } from '@/lib/money'
 import { scrollToUpload } from '../utils'
 
 interface Props {
   pendingTotal: number
+  heroCurrency: string
   heroProperty: string
   heroDue: string
 }
 
-/** 本月租金 Hero 大卡片 */
-const PaymentsHero = ({ pendingTotal, heroProperty, heroDue }: Props) => {
+/** 待缴合计 Hero 大卡片（不再把所有 pending 都当成本月租金，也不写死泰铢符号） */
+const PaymentsHero = ({ pendingTotal, heroCurrency, heroProperty, heroDue }: Props) => {
   const { t } = useTranslation()
 
   return (
@@ -17,9 +19,9 @@ const PaymentsHero = ({ pendingTotal, heroProperty, heroDue }: Props) => {
       <div className="rent-pay-hero__deco rent-pay-hero__deco--2"></div>
       <div className="rent-pay-hero__deco rent-pay-hero__deco--3"></div>
       <div className="rent-pay-hero__content">
-        <p className="rent-pay-hero__label">{t('tenantPayments.monthRent')}</p>
+        <p className="rent-pay-hero__label">{t('tenantPayments.totalDue')}</p>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-          <h2 className="rent-pay-hero__amount">฿{pendingTotal.toLocaleString()}</h2>
+          <h2 className="rent-pay-hero__amount">{formatMoney(pendingTotal, heroCurrency)}</h2>
           <span className="rent-pay-hero__status"><span className="rent-pay-hero__status-dot"></span>{t('tenantPayments.toPay')}</span>
         </div>
         {(heroProperty || heroDue) && (

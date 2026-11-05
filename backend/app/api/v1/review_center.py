@@ -7,8 +7,10 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import false, or_
 from sqlmodel import Session, select, desc
 
+from app.core.auth import property_visibility_conditions
 from app.db import get_session
 from app.core.rbac import require_permission
 from app.models import (
@@ -18,6 +20,7 @@ from app.models import (
     ExternalTripApplication,
     LeaveRequest,
     LeaveStatus,
+    Lease,
     MaintenanceTicket,
     Property,
     ServiceOrder,
@@ -25,6 +28,11 @@ from app.models import (
     TicketStatus,
     TripStatus,
     User,
+    UserRole,
+)
+from app.services.data_scope import (
+    staff_employee_ids_in_scope,
+    staff_user_ids_in_scope,
 )
 
 router = APIRouter(prefix="/review-center", tags=["review-center"])
@@ -73,6 +81,23 @@ _CONTRACT_PENDING = [
 _LEAVE_PENDING = [LeaveStatus.pending]
 
 
+def _scoped_user_ids(session: Session, user: User) -> Optional[set]:
+    """当前审核人可见的 `users.id` 集合；None 表示全平台（admin / scope=all）。
+
+    合作方管理员按 `partner_id` 收窄到本司成员，其余角色走 data-scope。
+    此前审核中心五类查询完全不带归属条件，agent 可看到全平台合同/工单/外勤/请假。
+    """
+    if user.role == UserRole.partner_admin and user.partner_id:
+        return set(
+            session.exec(
+                select(User.id).where(
+                    User.partner_id == user.partner_id, User.deleted_at.is_(None)
+                )
+            ).all()
+        )
+    return staff_user_ids_in_scope(session, user)
+
+
 @router.get("/todos", response_model=ReviewTodoListOut)
 def review_todos(
     session: Session = Depends(get_session),
@@ -86,51 +111,80 @@ def review_todos(
         )
     ),
 ):
-    """聚合待办审核列表。"""
-    trips = session.exec(
-        select(ExternalTripApplication)
-        .where(
-            ExternalTripApplication.deleted_at.is_(None),
-            ExternalTripApplication.status.in_(_TRIP_PENDING),
+    """聚合待办审核列表（按当前审核人的数据范围收窄）。"""
+    user_ids = _scoped_user_ids(session, user)
+    emp_ids = staff_employee_ids_in_scope(session, user)
+    prop_conds = property_visibility_conditions(session, user)
+
+    trip_query = select(ExternalTripApplication).where(
+        ExternalTripApplication.deleted_at.is_(None),
+        ExternalTripApplication.status.in_(_TRIP_PENDING),
+    )
+    ticket_query = select(MaintenanceTicket).where(
+        MaintenanceTicket.deleted_at.is_(None),
+        MaintenanceTicket.status.in_(_TICKET_PENDING),
+    )
+    order_query = select(ServiceOrder).where(
+        ServiceOrder.deleted_at.is_(None),
+        ServiceOrder.status.in_(_ORDER_PENDING),
+    )
+    contract_query = select(Contract).where(
+        Contract.deleted_at.is_(None),
+        Contract.status.in_(_CONTRACT_PENDING),
+    )
+    leave_query = select(LeaveRequest).where(
+        LeaveRequest.deleted_at.is_(None),
+        LeaveRequest.status.in_(_LEAVE_PENDING),
+    )
+
+    # 外勤 / 请假：按员工档案归属（本人 / 同部门 / 全量）
+    if emp_ids is not None:
+        emp_cond = (
+            ExternalTripApplication.employee_id.in_(emp_ids)
+            if emp_ids
+            else false()
         )
-        .order_by(desc(ExternalTripApplication.created_at))
-        .limit(30)
+        trip_query = trip_query.where(emp_cond)
+        leave_cond = LeaveRequest.employee_id.in_(emp_ids) if emp_ids else false()
+        leave_query = leave_query.where(leave_cond)
+
+    # 报修 / 服务订单：按房源可见性（录入人 / 本人业主 / 合作方成员）
+    if prop_conds:
+        visible_props = select(Property.id).where(*prop_conds)
+        ticket_query = ticket_query.where(
+            MaintenanceTicket.property_id.in_(visible_props)
+        )
+        order_query = order_query.where(ServiceOrder.property_id.in_(visible_props))
+
+    # 合同：按创建人，或所属租约的经纪人（admin / scope=all 不加条件）
+    if user_ids is not None:
+        conds = [
+            Contract.created_by.in_(user_ids) if user_ids else false(),
+        ]
+        if emp_ids is not None:
+            conds.append(
+                Contract.lease_id.in_(
+                    select(Lease.id).where(Lease.agent_id.in_(emp_ids))
+                )
+                if emp_ids
+                else false()
+            )
+        contract_query = contract_query.where(or_(*conds))
+
+    trips = session.exec(
+        trip_query.order_by(desc(ExternalTripApplication.created_at)).limit(30)
     ).all()
     tickets = session.exec(
-        select(MaintenanceTicket)
-        .where(
-            MaintenanceTicket.deleted_at.is_(None),
-            MaintenanceTicket.status.in_(_TICKET_PENDING),
-        )
-        .order_by(desc(MaintenanceTicket.created_at))
-        .limit(30)
+        ticket_query.order_by(desc(MaintenanceTicket.created_at)).limit(30)
     ).all()
     orders = session.exec(
-        select(ServiceOrder)
-        .where(
-            ServiceOrder.deleted_at.is_(None),
-            ServiceOrder.status.in_(_ORDER_PENDING),
-        )
-        .order_by(desc(ServiceOrder.created_at))
-        .limit(30)
+        order_query.order_by(desc(ServiceOrder.created_at)).limit(30)
     ).all()
     contracts = session.exec(
-        select(Contract)
-        .where(
-            Contract.deleted_at.is_(None),
-            Contract.status.in_(_CONTRACT_PENDING),
-        )
-        .order_by(desc(Contract.created_at))
-        .limit(30)
+        contract_query.order_by(desc(Contract.created_at)).limit(30)
     ).all()
     leaves = session.exec(
-        select(LeaveRequest)
-        .where(
-            LeaveRequest.deleted_at.is_(None),
-            LeaveRequest.status.in_(_LEAVE_PENDING),
-        )
-        .order_by(desc(LeaveRequest.created_at))
-        .limit(30)
+        leave_query.order_by(desc(LeaveRequest.created_at)).limit(30)
     ).all()
 
     # 申请人/房源显示名缓存

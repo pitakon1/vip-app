@@ -15,6 +15,9 @@ interface ListStateProps {
   emptySub?: string;
   retryLabel?: string;
   onRetry?: () => void;
+  /** 空态下「清空该筛选条件」的按钮文案与动作（给了就替代重试入口） */
+  emptyActionLabel?: string;
+  onEmptyAction?: () => void;
 }
 
 /**
@@ -31,6 +34,8 @@ export default function ListState({
   emptySub,
   retryLabel,
   onRetry,
+  emptyActionLabel,
+  onEmptyAction,
 }: ListStateProps) {
   if (loading) return <LoadingState label={loadingLabel} />;
   if (error) {
@@ -43,8 +48,8 @@ export default function ListState({
         icon={filtered ? 'search-outline' : 'file-tray-outline'}
         title={emptyTitle ?? ''}
         sub={emptySub}
-        actionLabel={retryLabel && onRetry ? retryLabel : undefined}
-        onAction={onRetry}
+        actionLabel={emptyActionLabel ?? (retryLabel && onRetry ? retryLabel : undefined)}
+        onAction={onEmptyAction ?? onRetry}
       />
     );
   }

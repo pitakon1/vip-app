@@ -33,7 +33,7 @@ import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_PRESETS as AREA_PRESET_TIERS, PRICE_PRESETS } from '@/constants/filters';
-import { fmtMoney as formatRent } from '@/utils/format';
+import { fmtMoney as formatRent, currencySymbol } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import RemoteImage from '@/components/RemoteImage';
@@ -47,13 +47,13 @@ const MAX_RECENT_SEARCHES = 10;
 
 export type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-/** 业务归属 Tab（对齐原型 rv17-bizbar：整租 / 买房） */
-export type BizKey = 'rent' | 'sale';
+/** 业务归属 Tab：租房 / 二手房 / 新房（C 端沿用整租·买房两个入口） */
+export type BizKey = 'all' | 'rent' | 'sale' | 'resale' | 'new';
 
 /** 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+ */
 export type HeroBedKey = '' | '1' | '2' | '3p';
 
-type OpenTab = null | 'region' | 'price' | 'more' | 'sort';
+type OpenTab = null | 'region' | 'type' | 'price' | 'more' | 'sort';
 
 /** 列表卡片数据模型（C 端公开层与员工端归一化后共用） */
 export interface Listing {
@@ -119,6 +119,16 @@ export interface ListingsFilters {
   filterTypes: string[];
   /** 新房/二手房（仅买房业务；undefined = 不限） */
   isNew?: boolean;
+  /** 二手房单价（THB/㎡，服务端 unit_price_min/max） */
+  unitPriceMin?: string;
+  unitPriceMax?: string;
+  /** 租房押金月数（'' / '1' / '2' / '3'），服务端 deposit_months_min/max */
+  depositMonths?: string;
+  /** 租房可入住时间（'' / '1' / '3'：N 个月内可入住） */
+  availableWithin?: string;
+  /** 房龄（二手房）/ 交房年份（新房）：服务端 completion_year_min/max */
+  completionYearMin?: string;
+  completionYearMax?: string;
 }
 
 export interface ListingsFeedProps {
@@ -143,6 +153,8 @@ export interface ListingsFeedProps {
   onToggleFav: (item: Listing) => void;
   biz: BizKey;
   onBizChange: (b: BizKey) => void;
+  /** 自定义价格筛选的展示币种（跟随当前市场，默认 THB） */
+  currency?: string;
   onOpenDetail: (item: Listing) => void;
   /** 区域面板数据源（区/街道） */
   districts: RegionDistrict[];
@@ -167,6 +179,16 @@ export interface ListingsFeedProps {
   onPanelOpen?: (key: 'region' | 'price' | 'more' | 'sort') => void;
   /** 地铁面板默认选中线路（不传则取 metroLines[0]） */
   defaultMetroLineKey?: string;
+  /** 展示形态：default=C 端找房；employee=销售端（三条业务线 + 类型 Tab + 条件回显） */
+  variant?: 'default' | 'employee';
+  /** 结果总数（服务端 total；用于「查看 N 套房源」，与分页同口径） */
+  total?: number;
+  /** 业务线入口（employee 传租房/二手房/新房三项；默认 C 端整租/买房） */
+  bizOptions?: { key: BizKey; label: string }[];
+  /** 员工端卡片「编辑」入口（不传则不展示） */
+  onEditItem?: (item: Listing) => void;
+  /** 搜索框占位文案（业务线不同文案不同；不传用默认） */
+  searchPlaceholder?: string;
 }
 
 // ==================== 选项数据（纯 UI 用，父级可复用价格/面积预设做筛选） ====================
@@ -188,6 +210,9 @@ const PRICE_LABELS: Record<string, string> = {
 export const priceRanges = (t: TFunc): PricePreset[] =>
   PRICE_PRESETS.map((p) => ({ ...p, label: p.key ? t(PRICE_LABELS[p.key]) : t('common.any') }));
 
+/** 当前年份：房龄 / 新房交房年份的快筛基准 */
+const NOW_YEAR = new Date().getFullYear();
+
 export interface AreaPreset {
   key: string;
   label: string;
@@ -205,6 +230,26 @@ const AREA_LABELS: Record<string, string> = {
 };
 export const areaPresets = (t: TFunc): AreaPreset[] =>
   AREA_PRESET_TIERS.map((p) => ({ ...p, label: p.key ? t(AREA_LABELS[p.key]) : t('common.any') }));
+
+/** 售侧总价区间（THB）：租房的月租档位不能复用，单独一套买卖口径 */
+export const salePriceRanges = (t: TFunc): PricePreset[] => [
+  { key: '', min: 0, max: Infinity, label: t('common.any') },
+  { key: 's2m', min: 0, max: 2000000, label: `≤${formatRent(2000000, 'THB')}` },
+  { key: 's2-5m', min: 2000000, max: 5000000, label: `${formatRent(2000000, 'THB')} - ${formatRent(5000000, 'THB')}` },
+  { key: 's5-10m', min: 5000000, max: 10000000, label: `${formatRent(5000000, 'THB')} - ${formatRent(10000000, 'THB')}` },
+  { key: 's10m', min: 10000000, max: Infinity, label: `≥${formatRent(10000000, 'THB')}` },
+];
+
+/** 房源类型分组（销售端共用层：公寓=apartment+condo、商铺办公=office+shop） */
+const TYPE_CLASS_GROUPS: { key: string; labelKey: string; types: string[] }[] = [
+  { key: '', labelKey: 'pub.filterAny', types: [] },
+  { key: 'apartment', labelKey: 'prop.type.apartment', types: ['apartment', 'condo'] },
+  { key: 'villa', labelKey: 'prop.type.house', types: ['villa', 'house'] },
+  { key: 'commercial', labelKey: 'category.commTitle', types: ['office', 'shop'] },
+  { key: 'factory', labelKey: 'prop.type.factory', types: ['factory'] },
+  { key: 'hotel', labelKey: 'prop.type.hotel', types: ['hotel'] },
+  { key: 'land', labelKey: 'prop.type.land', types: ['land'] },
+];
 
 // 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
 const heroBedOptions = (t: TFunc): { key: HeroBedKey; label: string }[] => [
@@ -344,21 +389,6 @@ export const isSameLang = (text: string, uiLang: string): boolean => {
 export const translateSource = (item: Listing): string =>
   (item.description || item.address || '').trim();
 
-// 房源状态徽标底色
-const statusColors = (s?: string) => {
-  switch (s) {
-    case 'vacant':
-      return colors.success;
-    case 'rented':
-    case 'renewing':
-      return colors.primary;
-    case 'maintenance':
-      return colors.warning;
-    default:
-      return colors.ink3;
-  }
-};
-
 // 房源卡片（React.memo：滚动/筛选面板开合时避免无关卡片重渲染）
 interface ListingCardProps {
   item: Listing;
@@ -369,6 +399,8 @@ interface ListingCardProps {
   onPress: (item: Listing) => void;
   onToggleFav: (item: Listing) => void;
   onTranslate: (item: Listing) => void;
+  /** 员工端「编辑卡片」入口（不传则不展示） */
+  onEdit?: (item: Listing) => void;
 }
 
 const ListingCard = React.memo(function ListingCard({
@@ -380,8 +412,10 @@ const ListingCard = React.memo(function ListingCard({
   onPress,
   onToggleFav,
   onTranslate,
+  onEdit,
 }: ListingCardProps) {
   const { t } = useI18n();
+  const typeBadge = colors.badge;
   const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
   // 收藏红心点赞式弹簧动效：点击即弹（乐观反馈，不等后端）
   const favPop = useRef(new Animated.Value(1)).current;
@@ -412,8 +446,10 @@ const ListingCard = React.memo(function ListingCard({
             <Ionicons name="home-outline" size={28} color={colors.ink3} />
           </View>
         )}
-        <View style={[styles.statusBadge, { backgroundColor: statusColors(item.status) }]}>
-          <Text style={styles.statusText}>{statusLabels(t)[item.status ?? 'vacant'] ?? '—'}</Text>
+        <View style={styles.typeBadge}>
+          <Text style={[styles.typeBadgeText, { color: typeBadge.fg }]}>
+            {typeLabels(t)[item.property_type ?? ''] ?? t('listingFallback')}
+          </Text>
         </View>
         <TouchableOpacity
           style={styles.favBtn}
@@ -432,7 +468,7 @@ const ListingCard = React.memo(function ListingCard({
             <Ionicons
               name={favorited ? 'heart' : 'heart-outline'}
               size={18}
-              color={favorited ? colors.error : colors.primaryForeground}
+              color={favorited ? colors.error : colors.onDark}
             />
           </Animated.View>
         </TouchableOpacity>
@@ -445,16 +481,27 @@ const ListingCard = React.memo(function ListingCard({
           {item.address || t('prop.noAddress')}
         </Text>
         <View style={styles.tagRow}>
-          <Text style={styles.tag}>{typeLabels(t)[item.property_type ?? ''] ?? t('listingFallback')}</Text>
           <Text style={styles.tag}>
             {t('list.bedArea', { bed: item.bedrooms ?? 0, area: item.size_sqm ?? 0 })}
           </Text>
+          <Text style={styles.tag}>{statusLabels(t)[item.status ?? 'vacant'] ?? '—'}</Text>
         </View>
         <View style={styles.bottomRow}>
           <Text style={styles.rent}>
             {formatRent(item.monthly_rent, item.currency)}
             <Text style={styles.rentUnit}>{t('rent.perMonth')}</Text>
           </Text>
+          {onEdit ? (
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => onEdit(item)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('adm.psManage')}
+            >
+              <Text style={styles.editText}>{t('adm.psManage')}</Text>
+            </TouchableOpacity>
+          ) : null}
           {/* 仅当房源文本语言与界面语言不一致时才展示翻译入口 */}
           {showTranslate ? (
             <TouchableOpacity
@@ -495,6 +542,7 @@ export default function ListingsFeed({
   onToggleFav,
   biz,
   onBizChange,
+  currency = 'THB',
   onOpenDetail,
   districts,
   metroLines,
@@ -511,18 +559,27 @@ export default function ListingsFeed({
   onOpenMap,
   onPanelOpen,
   defaultMetroLineKey,
+  variant = 'default',
+  total,
+  bizOptions,
+  onEditItem,
+  searchPlaceholder,
 }: ListingsFeedProps) {
   const respContainer = useResponsiveContainerStyle();
   const { t, lang } = useI18n();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const isEmployee = variant === 'employee';
+  // 买卖业务（C 端 sale / 销售端 resale、new）共用售侧口径
+  const isSaleBiz = biz === 'sale' || biz === 'resale' || biz === 'new';
   // 顶部安全区：本组件同时服务底部 Tab（无 header）与堆栈页（有原生 header）。
   // 仅 Tab 场景补 insets.top；堆栈场景已由原生 header 让出安全区。
   const topInset = navigation.getState()?.type === 'tab' ? insets.top : 0;
 
-  const BIZ_TABS = useMemo(() => bizTabs(t), [t]);
+  const BIZ_TABS = useMemo(() => bizOptions ?? bizTabs(t), [bizOptions, t]);
   const PROPERTY_TYPE_FILTERS = useMemo(() => propertyTypeFilters(t), [t]);
   const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
+  const SALE_PRICE_RANGES = useMemo(() => salePriceRanges(t), [t]);
   const BEDROOM_OPTIONS = useMemo(() => bedroomOptions(t), [t]);
   const STATUS_FILTERS = useMemo(() => statusFilters(t), [t]);
   const ORIENTATION_OPTIONS = useMemo(() => orientationOptions(t), [t]);
@@ -588,8 +645,13 @@ export default function ListingsFeed({
   // ---------- 贝壳式 Tab 下拉面板：开合 / 重置 / 确定 ----------
   const hasPriceFilter = !!(filters.priceRange || filters.customMin || filters.customMax);
   const hasAreaFilter = !!(filters.areaRange || filters.areaCustomMin || filters.areaCustomMax);
+  const activeTypeGroup = TYPE_CLASS_GROUPS.find(
+    (g) => g.types.length > 0 && g.types.length === filters.filterTypes.length &&
+      g.types.every((x) => filters.filterTypes.includes(x)),
+  );
   const priceLabel = filters.priceRange
-    ? PRICE_RANGES.find((r) => r.key === filters.priceRange)?.label ?? t('list.filterPrice')
+    ? [...PRICE_RANGES, ...SALE_PRICE_RANGES].find((r) => r.key === filters.priceRange)?.label ??
+      t('list.filterPrice')
     : filters.customMin || filters.customMax
     ? t('prop.custom')
     : t('list.filterPrice');
@@ -598,13 +660,17 @@ export default function ListingsFeed({
   const moreBadge =
     (filters.schoolId ? 1 : 0) +
     (filters.bedFilter ? 1 : 0) +
-    (filters.filterTypes.length ? 1 : 0) +
+    (isEmployee ? 0 : filters.filterTypes.length ? 1 : 0) +
     (hasAreaFilter ? 1 : 0) +
     (filters.statusFilter ? 1 : 0) +
     (filters.orientationSel ? 1 : 0) +
     (filters.floorSel ? 1 : 0) +
     (filters.decorSel ? 1 : 0) +
-    (filters.amenitySel.length ? 1 : 0);
+    (filters.amenitySel.length ? 1 : 0) +
+    (isEmployee && filters.depositMonths ? 1 : 0) +
+    (isEmployee && filters.availableWithin ? 1 : 0) +
+    (isEmployee && (filters.completionYearMin || filters.completionYearMax) ? 1 : 0) +
+    (isEmployee && (filters.unitPriceMin || filters.unitPriceMax) ? 1 : 0);
 
   // 区域=实时单选；城区与地铁互斥
   const applyDistrict = useCallback(
@@ -642,7 +708,8 @@ export default function ListingsFeed({
         return;
       }
       setOpenTab(key);
-      onPanelOpen?.(key);
+      // 「类型」是销售端新增的轻量面板，无懒加载副作用，不需要回调父级
+      if (key !== 'type') onPanelOpen?.(key);
       if (key === 'region') {
         setMetroDraft(filters.metroSel);
         if (!filters.districtSel && filters.metroSel.length) setLocTab('metro');
@@ -658,12 +725,16 @@ export default function ListingsFeed({
         else resetLocation();
       } else if (key === 'price') {
         onFiltersChange({ priceRange: '', customMin: '', customMax: '' });
+      } else if (key === 'type') {
+        onFiltersChange({ filterTypes: [] });
+        // 业务线也属于「类型」，重置时一并回到「全部」
+        if (isEmployee) onBizChange('all');
       } else if (key === 'more') {
         onFiltersChange({
           schoolId: '',
           schoolKm: 3,
           bedFilter: '',
-          filterTypes: [],
+          ...(isEmployee ? {} : { filterTypes: [] }),
           isNew: undefined,
           areaRange: '',
           areaCustomMin: '',
@@ -673,12 +744,22 @@ export default function ListingsFeed({
           floorSel: '',
           decorSel: '',
           amenitySel: [],
+          ...(isEmployee
+            ? {
+                depositMonths: '',
+                availableWithin: '',
+                completionYearMin: '',
+                completionYearMax: '',
+                unitPriceMin: '',
+                unitPriceMax: '',
+              }
+            : {}),
         });
       } else if (key === 'sort') {
         onFiltersChange({ sortKey: 'default' });
       }
     },
-    [locTab, clearMetroDraft, resetLocation, onFiltersChange],
+    [locTab, clearMetroDraft, resetLocation, onFiltersChange, isEmployee, onBizChange],
   );
 
   const confirmCurrent = useCallback(
@@ -694,7 +775,19 @@ export default function ListingsFeed({
   );
 
   // 贝壳式 Tab 栏展示数据
+  // 「类型」排第一位：业务线（租房/二手房/新房）+ 房产类型合成一个入口，不再有顶部独立分段
+  const bizTabLabel = biz !== 'all' ? BIZ_TABS.find((b) => b.key === biz)?.label ?? '' : '';
+  const typeTabLabel =
+    [bizTabLabel, activeTypeGroup ? t(activeTypeGroup.labelKey) : ''].filter(Boolean).join('·') ||
+    t('pub.filterType');
+  const typeTabActive = biz !== 'all' || !!activeTypeGroup;
   const filterTabs = [
+    {
+      key: 'type' as OpenTab,
+      label: typeTabLabel,
+      active: typeTabActive,
+      badge: 0,
+    },
     {
       key: 'region' as OpenTab,
       label:
@@ -704,7 +797,12 @@ export default function ListingsFeed({
     },
     {
       key: 'price' as OpenTab,
-      label: hasPriceFilter ? priceLabel : t('list.filterPrice'),
+      // 售侧说的是总价，租侧才是月租
+      label: hasPriceFilter
+        ? priceLabel
+        : isSaleBiz
+        ? t('list.totalPrice').trim()
+        : t('list.filterPrice'),
       active: hasPriceFilter,
       badge: 0,
     },
@@ -721,6 +819,147 @@ export default function ListingsFeed({
       badge: 0,
     },
   ];
+
+  // ---------- 员工端：当前生效条件回显（可单条清除 / 一键重置） ----------
+  const clearAllPatch = useMemo<Partial<ListingsFilters>>(
+    () => ({
+      keyword: '',
+      districtSel: null,
+      metroSel: [],
+      priceRange: '',
+      customMin: '',
+      customMax: '',
+      bedFilter: '',
+      statusFilter: '',
+      orientationSel: '',
+      floorSel: '',
+      decorSel: '',
+      amenitySel: [],
+      areaRange: '',
+      areaCustomMin: '',
+      areaCustomMax: '',
+      sortKey: 'default',
+      schoolId: '',
+      schoolKm: 3,
+      schoolKw: '',
+      filterTypes: [],
+      isNew: undefined,
+      unitPriceMin: '',
+      unitPriceMax: '',
+      depositMonths: '',
+      availableWithin: '',
+      completionYearMin: '',
+      completionYearMax: '',
+    }),
+    [],
+  );
+  const activeChips = useMemo(() => {
+    if (!isEmployee) return [] as { key: string; label: string; patch: Partial<ListingsFilters> }[];
+    const arr: { key: string; label: string; patch: Partial<ListingsFilters> }[] = [];
+    const kw = filters.keyword.trim();
+    if (kw) arr.push({ key: 'kw', label: kw, patch: { keyword: '' } });
+    if (filters.districtSel || filters.metroSel.length) {
+      arr.push({ key: 'region', label: regionLabel, patch: { districtSel: null, metroSel: [] } });
+    }
+    if (isEmployee && biz !== 'all') {
+      arr.push({ key: 'biz', label: bizTabLabel, patch: {} });
+    }
+    if (activeTypeGroup) {
+      arr.push({
+        key: 'type',
+        label: t(activeTypeGroup.labelKey),
+        patch: { filterTypes: [] },
+      });
+    }
+    if (hasPriceFilter) {
+      arr.push({
+        key: 'price',
+        label: priceLabel,
+        patch: { priceRange: '', customMin: '', customMax: '' },
+      });
+    }
+    if (filters.bedFilter) {
+      const bed = BEDROOM_OPTIONS.find((b) => b.key === filters.bedFilter);
+      arr.push({ key: 'bed', label: bed?.label ?? filters.bedFilter, patch: { bedFilter: '' } });
+    }
+    if (hasAreaFilter) {
+      const area = AREA_PRESETS.find((a) => a.key === filters.areaRange);
+      arr.push({
+        key: 'area',
+        label: area?.label ?? t('pub.filterArea'),
+        patch: { areaRange: '', areaCustomMin: '', areaCustomMax: '' },
+      });
+    }
+    if (filters.depositMonths) {
+      arr.push({
+        key: 'deposit',
+        label: `${t('prop.fieldDepositMonths')} ${filters.depositMonths}`,
+        patch: { depositMonths: '' },
+      });
+    }
+    if (filters.availableWithin) {
+      arr.push({
+        key: 'available',
+        label: t('prop.monthsN', { n: filters.availableWithin }),
+        patch: { availableWithin: '' },
+      });
+    }
+    if (filters.completionYearMin) {
+      arr.push({
+        key: 'yearMin',
+        label: `≥ ${filters.completionYearMin}`,
+        patch: { completionYearMin: '' },
+      });
+    }
+    if (filters.completionYearMax) {
+      arr.push({
+        key: 'yearMax',
+        label: `≤ ${filters.completionYearMax}`,
+        patch: { completionYearMax: '' },
+      });
+    }
+    if (filters.unitPriceMin || filters.unitPriceMax) {
+      arr.push({
+        key: 'unitPrice',
+        label: t('pub.unitPrice'),
+        patch: { unitPriceMin: '', unitPriceMax: '' },
+      });
+    }
+    if (filters.statusFilter) {
+      const s = STATUS_FILTERS.find((x) => x.key === filters.statusFilter);
+      arr.push({ key: 'status', label: s?.label ?? '', patch: { statusFilter: '' } });
+    }
+    if (filters.orientationSel) {
+      const o = ORIENTATION_OPTIONS.find((x) => x.key === filters.orientationSel);
+      arr.push({ key: 'orientation', label: o?.label ?? '', patch: { orientationSel: '' } });
+    }
+    if (filters.floorSel) {
+      const f = FLOOR_LEVEL_OPTIONS.find((x) => x.key === filters.floorSel);
+      arr.push({ key: 'floor', label: f?.label ?? '', patch: { floorSel: '' } });
+    }
+    if (filters.decorSel) {
+      const d = DECORATION_OPTIONS.find((x) => x.key === filters.decorSel);
+      arr.push({ key: 'decor', label: d?.label ?? '', patch: { decorSel: '' } });
+    }
+    if (filters.amenitySel.length) {
+      arr.push({
+        key: 'amenity',
+        label: t('list.amenities'),
+        patch: { amenitySel: [] },
+      });
+    }
+    if (filters.schoolId) {
+      arr.push({ key: 'school', label: t('list.schoolDistance'), patch: { schoolId: '' } });
+    }
+    if (filters.sortKey !== 'default') {
+      arr.push({ key: 'sort', label: sortLabel, patch: { sortKey: 'default' } });
+    }
+    return arr;
+  }, [
+    isEmployee, filters, regionLabel, activeTypeGroup, hasPriceFilter, priceLabel,
+    hasAreaFilter, BEDROOM_OPTIONS, AREA_PRESETS, STATUS_FILTERS, ORIENTATION_OPTIONS,
+    FLOOR_LEVEL_OPTIONS, DECORATION_OPTIONS, sortLabel, t, biz, bizTabLabel,
+  ]);
 
   // ---------- 最近搜索（本地历史：去重置顶 / 上限 10 条 / 越界丢最旧） ----------
   const recentRef = useRef<string[]>([]);
@@ -805,9 +1044,10 @@ export default function ListingsFeed({
         onPress={onOpenDetail}
         onToggleFav={onToggleFav}
         onTranslate={onTranslate ?? (() => {})}
+        onEdit={onEditItem}
       />
     ),
-    [favSet, favPending, translatingId, lang, enableTranslate, onOpenDetail, onToggleFav, onTranslate],
+    [favSet, favPending, translatingId, lang, enableTranslate, onOpenDetail, onToggleFav, onTranslate, onEditItem],
   );
 
   // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
@@ -828,8 +1068,8 @@ export default function ListingsFeed({
           <View style={[styles.thumb, styles.thumbPlaceholder]}>
             <Ionicons name="pricetag-outline" size={28} color={colors.ink3} />
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: colors.warning }]}>
-            <Text style={styles.statusText}>{t('prop.status.forSale')}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: colors.badge.bg }]}>
+            <Text style={[styles.typeBadgeText, { color: colors.badge.fg }]}>{t('prop.status.forSale')}</Text>
           </View>
         </View>
         <View style={styles.info}>
@@ -849,11 +1089,22 @@ export default function ListingsFeed({
               {formatRent(item.asking_price, item.currency)}
               <Text style={styles.rentUnit}>{t('list.totalPrice')}</Text>
             </Text>
+            {onEditItem ? (
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => onEditItem(item)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('adm.psManage')}
+              >
+                <Text style={styles.editText}>{t('adm.psManage')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
     ),
-    [onOpenDetail, t],
+    [onOpenDetail, t, onEditItem],
   );
 
   // 列表卡片的外部渲染态：稳定引用 + 只在变化时换 identity
@@ -862,7 +1113,7 @@ export default function ListingsFeed({
     [favSet, favPending, translatingId, biz],
   );
 
-  const visibleCount = items.length;
+  const visibleCount = total ?? items.length;
 
   // 加载态（统一 LoadingState，含文案说明）
   // 与正常态一样要避开顶部安全区：否则首屏 loading 会贴在刘海/状态栏下面
@@ -899,29 +1150,12 @@ export default function ListingsFeed({
       </View>
       {/* 顶部找房卡：业务 Tab 嵌入卡顶 / 搜索行 / 分隔线 / 居室快选 / 查看N套 + 去地图看 */}
       <View style={styles.heroCard}>
-        <View style={styles.heroTabs}>
-          {BIZ_TABS.map((b) => (
-            <TouchableOpacity
-              key={b.key}
-              style={[styles.heroTab, biz === b.key && styles.heroTabActive]}
-              onPress={() => {
-                onBizChange(b.key);
-                setOpenTab(null);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.heroTabText, biz === b.key && styles.heroTabTextActive]}>
-                {b.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
         <View style={styles.heroBody}>
           <View style={styles.heroSearchRow}>
             <Ionicons name="search-outline" size={18} color={colors.ink3} />
             <TextInput
               style={styles.heroSearchInput}
-              placeholder={t('list.searchPlaceholder')}
+              placeholder={searchPlaceholder ?? t('list.searchPlaceholder')}
               placeholderTextColor={colors.ink3}
               value={filters.keyword}
               onChangeText={(v) => onFiltersChange({ keyword: v })}
@@ -1015,8 +1249,9 @@ export default function ListingsFeed({
           </View>
         </View>
       </View>
-      {/* 链家式单行筛选栏（点击后从顶部下拉面板）—— 买卖挂牌不适用租赁筛选维度 */}
-      {biz !== 'sale' && (
+      {/* 链家式单行筛选栏（点击后从顶部下拉面板）—— C 端买卖挂牌不适用租赁筛选维度；
+          销售端三条业务线都要能筛（售侧是总价/房龄等另一套面板） */}
+      {(isEmployee || !isSaleBiz) && (
         <View style={styles.filterZone}>
           <ScrollView
             horizontal
@@ -1193,11 +1428,70 @@ export default function ListingsFeed({
                 </>
               )}
 
+              {openTab === 'type' && (
+                <>
+                  {isEmployee && (
+                    <>
+                      <Text style={styles.dropGroupTitle}>{t('pub.bizLine')}</Text>
+                      <View style={styles.filterGroup}>
+                        {[{ key: 'all' as BizKey, label: t('pub.bizAll') }, ...BIZ_TABS].map((b) => (
+                          <TouchableOpacity
+                            key={b.key}
+                            style={[styles.filterChip, biz === b.key && styles.filterChipActive]}
+                            onPress={() => onBizChange(b.key)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.filterText, biz === b.key && styles.filterTextActive]}>
+                              {b.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </>
+                  )}
+                  <Text style={styles.dropGroupTitle}>{t('pub.propertyTypeGroup')}</Text>
+                  <View style={styles.filterGroup}>
+                    {TYPE_CLASS_GROUPS.map((g) => {
+                      const on = g.key
+                        ? !!activeTypeGroup && activeTypeGroup.key === g.key
+                        : !filters.filterTypes.length;
+                      return (
+                        <TouchableOpacity
+                          key={g.key || 'type-any'}
+                          style={[styles.filterChip, on && styles.filterChipActive]}
+                          onPress={() => onFiltersChange({ filterTypes: [...g.types] })}
+                        >
+                          <Text style={[styles.filterText, on && styles.filterTextActive]}>
+                            {t(g.labelKey)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.panelActions}>
+                    <TouchableOpacity
+                      style={styles.resetBtn}
+                      onPress={() => resetCurrent('type')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.resetText}>{t('pub.reset')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.confirmBtn}
+                      onPress={() => confirmCurrent('type')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.confirmText}>{t('common.confirm')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
               {openTab === 'price' && (
                 <>
                   <Text style={styles.dropGroupTitle}>{t('list.quickSelect')}</Text>
                   <View style={styles.filterGroup}>
-                    {PRICE_RANGES.map((r) => (
+                    {(isSaleBiz ? SALE_PRICE_RANGES : PRICE_RANGES).map((r) => (
                       <TouchableOpacity
                         key={r.key}
                         style={[styles.filterChip, filters.priceRange === r.key && styles.filterChipActive]}
@@ -1217,7 +1511,7 @@ export default function ListingsFeed({
                   <Text style={styles.dropGroupTitle}>{t('list.customPrice')}</Text>
                   <View style={styles.priceCustomRow}>
                     <View style={styles.priceCustomInput}>
-                      <Text style={styles.priceCustomPrefix}>฿</Text>
+                      <Text style={styles.priceCustomPrefix}>{currencySymbol(currency)}</Text>
                       <TextInput
                         style={styles.priceCustomField}
                         value={filters.customMin}
@@ -1231,11 +1525,13 @@ export default function ListingsFeed({
                         placeholderTextColor={colors.ink3}
                         keyboardType="number-pad"
                       />
-                      <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
+                      {!isSaleBiz ? (
+                        <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
+                      ) : null}
                     </View>
                     <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
                     <View style={styles.priceCustomInput}>
-                      <Text style={styles.priceCustomPrefix}>฿</Text>
+                      <Text style={styles.priceCustomPrefix}>{currencySymbol(currency)}</Text>
                       <TextInput
                         style={styles.priceCustomField}
                         value={filters.customMax}
@@ -1249,9 +1545,46 @@ export default function ListingsFeed({
                         placeholderTextColor={colors.ink3}
                         keyboardType="number-pad"
                       />
-                      <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
+                      {!isSaleBiz ? (
+                        <Text style={styles.priceCustomUnit}>{t('prop.tenThousandPerMonth')}</Text>
+                      ) : null}
                     </View>
                   </View>
+                  {/* 二手房单价：总价/面积，和总价区间可组合 */}
+                  {isEmployee && biz === 'resale' ? (
+                    <>
+                      <Text style={styles.dropGroupTitle}>{t('pub.unitPrice')}</Text>
+                      <View style={styles.priceCustomRow}>
+                        <View style={styles.priceCustomInput}>
+                          <TextInput
+                            style={styles.priceCustomField}
+                            value={filters.unitPriceMin}
+                            onChangeText={(v) =>
+                              onFiltersChange({ unitPriceMin: v.replace(/[^\d]/g, '') })
+                            }
+                            placeholder={t('list.minPrice')}
+                            placeholderTextColor={colors.ink3}
+                            keyboardType="number-pad"
+                          />
+                          <Text style={styles.priceCustomUnit}>/㎡</Text>
+                        </View>
+                        <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
+                        <View style={styles.priceCustomInput}>
+                          <TextInput
+                            style={styles.priceCustomField}
+                            value={filters.unitPriceMax}
+                            onChangeText={(v) =>
+                              onFiltersChange({ unitPriceMax: v.replace(/[^\d]/g, '') })
+                            }
+                            placeholder={t('list.maxPrice')}
+                            placeholderTextColor={colors.ink3}
+                            keyboardType="number-pad"
+                          />
+                          <Text style={styles.priceCustomUnit}>/㎡</Text>
+                        </View>
+                      </View>
+                    </>
+                  ) : null}
                   <View style={styles.panelActions}>
                     <TouchableOpacity
                       style={styles.resetBtn}
@@ -1290,6 +1623,128 @@ export default function ListingsFeed({
                         </TouchableOpacity>
                       ))}
                     </View>
+                    {/* 业务层：随当前业务线切换，只显示该业务真实可筛的维度 */}
+                    {isEmployee && biz === 'rent' ? (
+                      <>
+                        <Text style={styles.dropGroupTitle}>{t('prop.fieldDepositMonths')}</Text>
+                        <View style={styles.filterGroup}>
+                          {[
+                            { key: '', label: t('common.any') },
+                            { key: '1', label: '1' },
+                            { key: '2', label: '2' },
+                            { key: '3', label: '3+' },
+                          ].map((d) => (
+                            <TouchableOpacity
+                              key={d.key || 'deposit-any'}
+                              style={[styles.filterChip, filters.depositMonths === d.key && styles.filterChipActive]}
+                              onPress={() => onFiltersChange({ depositMonths: d.key })}
+                            >
+                              <Text
+                                style={[styles.filterText, filters.depositMonths === d.key && styles.filterTextActive]}
+                              >
+                                {d.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <Text style={styles.dropGroupTitle}>{t('listing.fAvailableFrom')}</Text>
+                        <View style={styles.filterGroup}>
+                          {[
+                            { key: '', label: t('common.any') },
+                            { key: '1', label: t('prop.monthsN', { n: 1 }) },
+                            { key: '3', label: t('prop.monthsN', { n: 3 }) },
+                          ].map((d) => (
+                            <TouchableOpacity
+                              key={d.key || 'available-any'}
+                              style={[styles.filterChip, filters.availableWithin === d.key && styles.filterChipActive]}
+                              onPress={() => onFiltersChange({ availableWithin: d.key })}
+                            >
+                              <Text
+                                style={[styles.filterText, filters.availableWithin === d.key && styles.filterTextActive]}
+                              >
+                                {d.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    ) : null}
+                    {isEmployee && biz === 'resale' ? (
+                      <>
+                        <Text style={styles.dropGroupTitle}>{t('pub.completionYear')}</Text>
+                        <View style={styles.filterGroup}>
+                          {[
+                            { key: '', label: t('common.any') },
+                            { key: '5', label: `≥ ${NOW_YEAR - 5}` },
+                            { key: '10', label: `≥ ${NOW_YEAR - 10}` },
+                            { key: '20', label: `≥ ${NOW_YEAR - 20}` },
+                          ].map((d) => (
+                            <TouchableOpacity
+                              key={d.key || 'age-any'}
+                              style={[
+                                styles.filterChip,
+                                (d.key ? filters.completionYearMin === String(NOW_YEAR - Number(d.key)) : !filters.completionYearMin) &&
+                                  styles.filterChipActive,
+                              ]}
+                              onPress={() =>
+                                onFiltersChange({
+                                  completionYearMin: d.key ? String(NOW_YEAR - Number(d.key)) : '',
+                                  completionYearMax: '',
+                                })
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  (d.key ? filters.completionYearMin === String(NOW_YEAR - Number(d.key)) : !filters.completionYearMin) &&
+                                    styles.filterTextActive,
+                                ]}
+                              >
+                                {d.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    ) : null}
+                    {isEmployee && biz === 'new' ? (
+                      <>
+                        <Text style={styles.dropGroupTitle}>{t('pub.completionYear')}</Text>
+                        <View style={styles.filterGroup}>
+                          {[
+                            { key: '', label: t('common.any') },
+                            { key: '1', label: `≤ ${NOW_YEAR + 1}` },
+                            { key: '2', label: `≤ ${NOW_YEAR + 2}` },
+                            { key: '3', label: `≤ ${NOW_YEAR + 3}` },
+                          ].map((d) => (
+                            <TouchableOpacity
+                              key={d.key || 'handover-any'}
+                              style={[
+                                styles.filterChip,
+                                (d.key ? filters.completionYearMax === String(NOW_YEAR + Number(d.key)) : !filters.completionYearMax) &&
+                                  styles.filterChipActive,
+                              ]}
+                              onPress={() =>
+                                onFiltersChange({
+                                  completionYearMax: d.key ? String(NOW_YEAR + Number(d.key)) : '',
+                                  completionYearMin: '',
+                                })
+                              }
+                            >
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  (d.key ? filters.completionYearMax === String(NOW_YEAR + Number(d.key)) : !filters.completionYearMax) &&
+                                    styles.filterTextActive,
+                                ]}
+                              >
+                                {d.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    ) : null}
                     <Text style={styles.dropGroupTitle}>{t('list.schoolDistance')}</Text>
                     <View style={styles.filterGroup}>
                       {SCHOOL_RADIUS_OPTIONS.map((km) => (
@@ -1338,30 +1793,35 @@ export default function ListingsFeed({
                     {schoolsLoaded && !filteredSchools.length && (
                       <Text style={styles.dropEmpty}>{t('list.noSchoolMatch')}</Text>
                     )}
-                    <Text style={styles.dropGroupTitle}>{t('prop.type')}</Text>
-                    <View style={styles.filterGroup}>
-                      {PROPERTY_TYPE_FILTERS.map((f) => (
-                        <TouchableOpacity
-                          key={f.key || 'all'}
-                          style={[
-                            styles.filterChip,
-                            (f.key ? filters.filterTypes.includes(f.key) : !filters.filterTypes.length) &&
-                              styles.filterChipActive,
-                          ]}
-                          onPress={() => onFiltersChange({ filterTypes: f.key ? [f.key] : [] })}
-                        >
-                          <Text
-                            style={[
-                              styles.filterText,
-                              (f.key ? filters.filterTypes.includes(f.key) : !filters.filterTypes.length) &&
-                                styles.filterTextActive,
-                            ]}
-                          >
-                            {f.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                    {/* 员工端类型已独立为顶部「类型」Tab，不在「更多」里重复出现 */}
+                    {!isEmployee ? (
+                      <>
+                        <Text style={styles.dropGroupTitle}>{t('prop.type')}</Text>
+                        <View style={styles.filterGroup}>
+                          {PROPERTY_TYPE_FILTERS.map((f) => (
+                            <TouchableOpacity
+                              key={f.key || 'all'}
+                              style={[
+                                styles.filterChip,
+                                (f.key ? filters.filterTypes.includes(f.key) : !filters.filterTypes.length) &&
+                                  styles.filterChipActive,
+                              ]}
+                              onPress={() => onFiltersChange({ filterTypes: f.key ? [f.key] : [] })}
+                            >
+                              <Text
+                                style={[
+                                  styles.filterText,
+                                  (f.key ? filters.filterTypes.includes(f.key) : !filters.filterTypes.length) &&
+                                    styles.filterTextActive,
+                                ]}
+                              >
+                                {f.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    ) : null}
                     <Text style={styles.dropGroupTitle}>{t('prop.orientation')}</Text>
                     <View style={styles.filterGroup}>
                       {ORIENTATION_OPTIONS.map((o) => (
@@ -1486,22 +1946,27 @@ export default function ListingsFeed({
                         );
                       })}
                     </View>
-                    <Text style={styles.dropGroupTitle}>{t('list.propertyStatus')}</Text>
-                    <View style={styles.filterGroup}>
-                      {STATUS_FILTERS.map((s) => (
-                        <TouchableOpacity
-                          key={s.key || 'all'}
-                          style={[styles.filterChip, filters.statusFilter === s.key && styles.filterChipActive]}
-                          onPress={() => onFiltersChange({ statusFilter: s.key })}
-                        >
-                          <Text
-                            style={[styles.filterText, filters.statusFilter === s.key && styles.filterTextActive]}
-                          >
-                            {s.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                    {/* 房源状态（在租/空置/维修）是租赁运营口径，买卖业务不展示，避免假筛选 */}
+                    {!isSaleBiz ? (
+                      <>
+                        <Text style={styles.dropGroupTitle}>{t('list.propertyStatus')}</Text>
+                        <View style={styles.filterGroup}>
+                          {STATUS_FILTERS.map((s) => (
+                            <TouchableOpacity
+                              key={s.key || 'all'}
+                              style={[styles.filterChip, filters.statusFilter === s.key && styles.filterChipActive]}
+                              onPress={() => onFiltersChange({ statusFilter: s.key })}
+                            >
+                              <Text
+                                style={[styles.filterText, filters.statusFilter === s.key && styles.filterTextActive]}
+                              >
+                                {s.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </>
+                    ) : null}
                   </ScrollView>
                   <View style={styles.panelActions}>
                     <TouchableOpacity
@@ -1550,12 +2015,46 @@ export default function ListingsFeed({
           )}
         </View>
       )}
-      {/* 列表：整租=真实租赁房源 / 买房=真实在售挂牌 */}
+      {/* 当前生效条件回显：单条可清除 + 一键重置（销售端） */}
+      {isEmployee && activeChips.length > 0 && (
+        <View style={styles.chipsRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsContent}
+          >
+            {activeChips.map((c) => (
+              <TouchableOpacity
+                key={c.key}
+                style={styles.activeChip}
+                onPress={() => (c.key === 'biz' ? onBizChange('all') : onFiltersChange(c.patch))}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.activeChipText} numberOfLines={1}>
+                  {c.label}
+                </Text>
+                <Ionicons name="close" size={13} color={colors.primary} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            style={styles.chipsReset}
+            onPress={() => {
+              onFiltersChange(clearAllPatch);
+              onBizChange('all');
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.chipsResetText}>{t('pub.reset')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {/* 列表：整租=真实租赁房源 / 买卖=真实在售挂牌 */}
       <FlatList
         ref={listRef}
         data={items as any[]}
         keyExtractor={(item) => item.id}
-        renderItem={(biz === 'sale' ? renderSaleItem : renderItem) as any}
+        renderItem={(isSaleBiz ? renderSaleItem : renderItem) as any}
         contentContainerStyle={[styles.list, respContainer]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         /* 长列表性能：控制首屏/批次渲染数量与视窗外回收 */
@@ -1613,12 +2112,20 @@ export default function ListingsFeed({
                   actionLabel={t('retry')}
                   onAction={onRetry}
                 />
+              ) : isEmployee && activeChips.some((c) => c.key !== 'sort') ? (
+                <EmptyState
+                  icon="funnel-outline"
+                  title={t('prop.emptyFiltered')}
+                  sub={t('prop.emptyFilteredSub')}
+                  actionLabel={t('pub.reset')}
+                  onAction={() => onFiltersChange(clearAllPatch)}
+                />
               ) : (
                 <>
                   <Ionicons name="home-outline" size={44} color={colors.ink3} />
                   <Text style={styles.empty}>{t('empty.listings')}</Text>
                   <Text style={styles.emptySub}>
-                    {biz === 'sale' ? t('list.emptySale') : t('empty.listingsSub')}
+                    {isSaleBiz ? t('list.emptySale') : t('empty.listingsSub')}
                   </Text>
                 </>
               )}
@@ -1818,7 +2325,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  filterTabBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '600' },
+  filterTabBadgeText: { color: colors.onDark, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dropPanel: {
     marginHorizontal: 0,
     marginTop: 6,
@@ -2012,15 +2519,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusBadge: {
+  typeBadge: {
     position: 'absolute',
     top: 8,
     left: 8,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 6,
+    backgroundColor: colors.badge.bg,
+    borderWidth: 1,
+    borderColor: colors.badge.border,
   },
-  statusText: { color: colors.primaryForeground, fontSize: 12, fontWeight: '600' },
+  typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   favBtn: {
     position: 'absolute',
     top: 8,
@@ -2037,9 +2547,11 @@ const styles = StyleSheet.create({
   address: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   tagRow: { flexDirection: 'row', gap: 6, marginTop: 5 },
   tag: {
-    fontSize: 12,
-    color: colors.ink2,
+    fontSize: colors.fontSize.xs,
+    color: colors.ink3,
     backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -2061,6 +2573,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   translateText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
+  // 员工端卡片「管理/编辑」入口（与上架入口同源的小胶囊）
+  editBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
+  },
+  editText: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  // 生效条件回显条（横向滚动 + 右侧一键重置）
+  chipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  chipsContent: { gap: 6, paddingRight: 4 },
+  activeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 180,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
+  },
+  activeChipText: { fontSize: 12, color: colors.primary, fontWeight: '500' },
+  chipsReset: { paddingHorizontal: 6, paddingVertical: 5 },
+  chipsResetText: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
   emptyBox: { alignItems: 'center', paddingTop: 48 },
   empty: { fontSize: 15, color: colors.ink2 },
   emptySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },

@@ -23,7 +23,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
 import { notify, notifyError } from '@/utils/feedback';
-import { commissionRulesApi, brokerApi, employeesApi } from '@/services/api';
+import { commissionRulesApi, brokerApi, employeesApi, partnersAdminApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 
@@ -53,12 +53,22 @@ interface Employee {
   broker_id?: string;
 }
 
-const DEAL_TYPE_KEYS = ['new_rental', 'renewal', 'purchase', 'sale'];
+interface Partner {
+  id: string;
+  name?: string;
+  partner_name?: string;
+}
+
+// 成交类型必须与后端 DealType 对齐（new_rental / renewal / management）。
+// 此前用 purchase / sale，创建规则直接 422。
+const DEAL_TYPE_KEYS = ['new_rental', 'renewal', 'management'];
 const DEAL_TYPE_LABEL_KEY: Record<string, string> = {
   new_rental: 'comm.deal.newRental',
   renewal: 'comm.deal.renewal',
-  purchase: 'comm.deal.purchase',
-  sale: 'comm.deal.sale',
+};
+// management 文案未进 i18n 词表（该文件由产品维护，避免冲突），本地兜底三语
+const DEAL_TYPE_FALLBACK: Record<string, Record<string, string>> = {
+  management: { zh: '托管', en: 'Management', th: 'จัดการ' },
 };
 const SCOPE_LABEL_KEY: Record<string, string> = {
   all_employees: 'comm.allEmployees',
@@ -67,6 +77,10 @@ const SCOPE_LABEL_KEY: Record<string, string> = {
   by_employee: 'comm.employee',
   individual: 'comm.employee',
   by_broker: 'comm.broker',
+};
+// 后端 scope 枚举含 by_partner（按合作公司），App 此前既不显示也认不出
+const SCOPE_FALLBACK: Record<string, Record<string, string>> = {
+  by_partner: { zh: '合作公司', en: 'Partner company', th: 'บริษัทพาร์ทเนอร์' },
 };
 
 interface ScopeOption {
@@ -141,19 +155,30 @@ function SelectDropdown({
 }
 
 export default function CommissionRulesScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const dealTypeLabel = (key: string) =>
+    DEAL_TYPE_LABEL_KEY[key] ? t(DEAL_TYPE_LABEL_KEY[key]) : DEAL_TYPE_FALLBACK[key]?.[lang] ?? key;
+  const scopeLabel = (key: string) =>
+    SCOPE_LABEL_KEY[key] ? t(SCOPE_LABEL_KEY[key]) : SCOPE_FALLBACK[key]?.[lang] ?? key;
 
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rules, setRules] = useState<CommissionRule[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [brokers, setBrokers] = useState<Broker[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
 
   const [scopeOpen, setScopeOpen] = useState(false);
   const [brokerOpen, setBrokerOpen] = useState(false);
+  const [partnerOpen, setPartnerOpen] = useState(false);
   const [employeeOpen, setEmployeeOpen] = useState(false);
 
   const [name, setName] = useState('');
@@ -161,38 +186,60 @@ export default function CommissionRulesScreen() {
   const [dealType, setDealType] = useState('new_rental');
   const [scope, setScope] = useState('all_employees');
   const [brokerId, setBrokerId] = useState('');
+  const [partnerId, setPartnerId] = useState('');
   const [department, setDepartment] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [brokerEmployeeId, setBrokerEmployeeId] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    setLoadError(null);
-    const results = await Promise.allSettled([
-      commissionRulesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
-      brokerApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-      employeesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-    ]);
-    const unwrap = (res: PromiseSettledResult<any>) => {
-      if (res.status !== 'fulfilled') return [];
-      const d = res.value?.data;
-      return Array.isArray(d) ? d : (d?.items ?? []);
-    };
-    if (results[0].status === 'fulfilled') {
-      setRules(unwrap(results[0]) as CommissionRule[]);
-    } else {
-      setLoadError(t('comm.loadFailed'));
-    }
-    setBrokers(unwrap(results[1]));
-    const empD = results[2].status === 'fulfilled' ? results[2].value?.data : {};
-    setEmployees(Array.isArray(empD) ? empD : (empD?.items ?? []));
-  }, [t]);
+  // 分页读取：此前只拉第一页（100 条）并把当前页长度当总数，规则超过一页就看不全。
+  const load = useCallback(
+    async (targetPage = 1, append = false) => {
+      setLoadError(null);
+      const results = await Promise.allSettled([
+        commissionRulesApi.list({ page: targetPage, page_size: OPTION_PAGE_SIZE }),
+        brokerApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+        employeesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+        partnersAdminApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
+      ]);
+      const unwrap = (res: PromiseSettledResult<any>) => {
+        if (res.status !== 'fulfilled') return [];
+        const d = res.value?.data;
+        return Array.isArray(d) ? d : (d?.items ?? []);
+      };
+      if (results[0].status === 'fulfilled') {
+        const d = results[0].value?.data;
+        const items = unwrap(results[0]) as CommissionRule[];
+        const serverTotal = Array.isArray(d) ? items.length : Number(d?.total ?? items.length);
+        setRules((prev) => {
+          if (!append) return items;
+          const seen = new Set(prev.map((r) => r.id));
+          return [...prev, ...items.filter((r) => !seen.has(r.id))];
+        });
+        setTotal(serverTotal);
+        setPage(targetPage);
+      } else {
+        setLoadError(t('comm.loadFailed'));
+      }
+      setBrokers(unwrap(results[1]));
+      const empD = results[2].status === 'fulfilled' ? results[2].value?.data : {};
+      setEmployees(Array.isArray(empD) ? empD : (empD?.items ?? []));
+      setPartners(unwrap(results[3]));
+    },
+    [t],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      load().finally(() => setLoading(false));
+      load(1, false).finally(() => setLoading(false));
     }, [load]),
   );
+
+  const loadMore = () => {
+    if (loadingMore || rules.length >= total) return;
+    setLoadingMore(true);
+    load(page + 1, true).finally(() => setLoadingMore(false));
+  };
 
   // 分销商管理员无全局规则权限，默认回退到本渠道
   useEffect(() => {
@@ -201,7 +248,52 @@ export default function CommissionRulesScreen() {
     }
   }, [isAdmin]);
 
-  const addRule = async () => {
+  const resetForm = () => {
+    setName('');
+    setRate('');
+    setDealType('new_rental');
+    setScope(isAdmin ? 'all_employees' : 'by_broker');
+    setBrokerId('');
+    setPartnerId('');
+    setDepartment('');
+    setEmployeeId('');
+    setBrokerEmployeeId('');
+    setEditingId(null);
+    setFormErrors({});
+  };
+
+  const beginEdit = (r: CommissionRule) => {
+    setEditingId(r.id);
+    setName(r.name ?? '');
+    setRate(String(r.rate ?? ''));
+    setDealType(r.deal_type ?? 'new_rental');
+    setScope(r.scope ?? (isAdmin ? 'all_employees' : 'by_broker'));
+    setBrokerId(r.broker_id ?? '');
+    setPartnerId(r.partner_id ?? '');
+    setDepartment(r.department ?? '');
+    setEmployeeId(r.employee_id ?? '');
+    setBrokerEmployeeId('');
+    setFormErrors({});
+  };
+
+  const toggleActive = async (r: CommissionRule) => {
+    if (togglingId) return;
+    setTogglingId(r.id);
+    try {
+      await commissionRulesApi.update(r.id, { is_active: r.is_active === false });
+      await load(1, false);
+      notify(
+        r.is_active === false ? t('comm.enable') : t('comm.disable'),
+        r.name,
+      );
+    } catch (e: any) {
+      notifyError(t('comm.addFail'), e);
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  const submitRule = async () => {
     const errs: Record<string, string> = {};
     if (!name || !rate) {
       const msg = t('comm.ruleNameRateRequired');
@@ -209,6 +301,9 @@ export default function CommissionRulesScreen() {
       if (!rate) errs.rate = msg;
     }
     if (scope === 'by_broker' && isAdmin && !brokerId) errs.brokerId = t('comm.selBroker');
+    if (scope === 'by_partner' && isAdmin && !partnerId) {
+      errs.partnerId = `${t('comm.pleaseSelect')}${scopeLabel('by_partner')}`;
+    }
     if (scope === 'by_employee' && isAdmin && !employeeId) errs.employeeId = t('comm.selEmployee');
     if (scope === 'broker_employee') {
       if (!brokerId) errs.brokerId = t('comm.selBrokerFirst');
@@ -232,25 +327,30 @@ export default function CommissionRulesScreen() {
           : {}),
         ...(scope === 'broker_employee' ? { broker_id: brokerId } : {}),
         ...(scope === 'by_broker' && isAdmin ? { broker_id: brokerId } : {}),
+        ...(scope === 'by_partner' && isAdmin ? { partner_id: partnerId } : {}),
         ...(scope === 'by_department' ? { department } : {}),
       };
-      await commissionRulesApi.create(payload);
-      setName('');
-      setRate('');
-      setDealType('new_rental');
-      setScope('all_employees');
-      setBrokerId('');
-      setDepartment('');
-      setEmployeeId('');
-      setBrokerEmployeeId('');
-      await load();
-      notify(t('comm.addSuccess'), t('comm.addSuccessMsg').replace('{name}', ruleName));
+      if (editingId) {
+        await commissionRulesApi.update(editingId, payload);
+        notify(t('contract.save'), ruleName);
+      } else {
+        await commissionRulesApi.create(payload);
+        notify(t('comm.addSuccess'), t('comm.addSuccessMsg').replace('{name}', ruleName));
+      }
+      resetForm();
+      await load(1, false);
     } catch (e: any) {
-      notifyError(t('comm.addFail'), e);
+      notifyError(editingId ? t('comm.addFail') : t('comm.addFail'), e);
     }
   };
 
   const scopeNameOf = (r: CommissionRule) => {
+    if (r.scope === 'by_partner') {
+      // 合作公司名称由后端 partner_name 返回；缺失时回退到本地下拉匹配 / id
+      if (r.partner_name) return r.partner_name;
+      const p = partners.find((x) => x.id === r.partner_id);
+      return (p?.name || p?.partner_name) || r.partner_id || scopeLabel('by_partner');
+    }
     if (r.scope === 'by_broker') {
       const b = brokers.find((x) => x.id === r.broker_id);
       return (b?.partner_name || b?.name) || r.broker_id || t('comm.broker');
@@ -260,7 +360,7 @@ export default function CommissionRulesScreen() {
       return (e?.full_name || e?.name) || r.employee_id || t('comm.employee');
     }
     if (r.scope === 'by_department' || r.scope === 'department') return r.department || t('comm.department');
-    return t(SCOPE_LABEL_KEY[r.scope || ''] || 'comm.allEmployees');
+    return scopeLabel(r.scope || 'all_employees');
   };
 
   const retry = () => {
@@ -342,6 +442,7 @@ export default function CommissionRulesScreen() {
                   { key: 'by_department', label: t('comm.department') },
                   { key: 'by_employee', label: t('comm.employee') },
                   { key: 'by_broker', label: t('comm.broker') },
+                  { key: 'by_partner', label: scopeLabel('by_partner') },
                   { key: 'broker_employee', label: t('comm.brokerEmployee') },
                 ]}
                 open={scopeOpen}
@@ -349,6 +450,7 @@ export default function CommissionRulesScreen() {
                 onSelect={(k) => {
                   setScope(k);
                   setBrokerId('');
+                  setPartnerId('');
                   setDepartment('');
                   setEmployeeId('');
                 }}
@@ -389,6 +491,27 @@ export default function CommissionRulesScreen() {
                 }}
                 searchable
               />
+            )}
+            {scope === 'by_partner' && isAdmin && (
+              <>
+                {partners.length > 0 ? (
+                  <SelectDropdown
+                    label={scopeLabel('by_partner')}
+                    value={partnerId}
+                    options={partners.map((p) => ({ key: p.id, label: p.name || p.partner_name || p.id }))}
+                    open={partnerOpen}
+                    onToggle={() => setPartnerOpen(!partnerOpen)}
+                    onSelect={(k) => {
+                      setPartnerId(k);
+                      if (formErrors.partnerId) setFormErrors((e) => ({ ...e, partnerId: '' }));
+                    }}
+                    searchable
+                  />
+                ) : (
+                  <Text style={styles.formHint}>{t('comm.noMatch')}</Text>
+                )}
+                {!!formErrors.partnerId && <Text style={styles.errorText}>{formErrors.partnerId}</Text>}
+              </>
             )}
             {(scope === 'by_employee' || scope === 'broker_employee') && employees.length > 0 && (
               <SelectDropdown
@@ -449,7 +572,7 @@ export default function CommissionRulesScreen() {
           {/* 已有设置 */}
           <View style={styles.sectionHead}>
             <Text style={styles.sectionTitle}>{t('comm.existing')}</Text>
-            <Text style={styles.sectionHint}>{t('comm.totalCount').replace('{n}', String(rules.length))}</Text>
+            <Text style={styles.sectionHint}>{t('comm.totalCount').replace('{n}', String(total))}</Text>
           </View>
           {rules.length === 0 && !loadError ? (
             <EmptyState icon="settings-outline" title={t('comm.noRules')} sub={t('comm.noRulesSub')} />
@@ -467,7 +590,7 @@ export default function CommissionRulesScreen() {
                 <View style={styles.ruleMeta}>
                   <View style={styles.ruleMetaItem}>
                     <Text style={styles.ruleMetaLabel}>{t('comm.type')}</Text>
-                    <Text style={styles.ruleMetaValue}>{t(DEAL_TYPE_LABEL_KEY[r.deal_type] || '') || r.deal_type}</Text>
+                    <Text style={styles.ruleMetaValue}>{dealTypeLabel(r.deal_type)}</Text>
                   </View>
                   <View style={styles.ruleMetaItem}>
                     <Text style={styles.ruleMetaLabel}>{t('comm.rateShort')}</Text>
@@ -480,15 +603,53 @@ export default function CommissionRulesScreen() {
                     </Text>
                   </View>
                 </View>
+                <View style={styles.ruleActions}>
+                  <TouchableOpacity
+                    style={styles.ruleActionBtn}
+                    activeOpacity={0.7}
+                    onPress={() => beginEdit(r)}
+                  >
+                    <Text style={styles.ruleActionText}>{t('crm.actionEdit')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.ruleActionBtn}
+                    activeOpacity={0.7}
+                    disabled={!!togglingId}
+                    onPress={() => toggleActive(r)}
+                  >
+                    <Text style={styles.ruleActionText}>
+                      {r.is_active === false ? t('comm.enable') : t('comm.disable')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
+          )}
+          {rules.length < total && (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              activeOpacity={0.7}
+              disabled={loadingMore}
+              onPress={loadMore}
+            >
+              <Text style={styles.loadMoreText}>
+                {loadingMore ? t('comm.loading') : t('comm.totalCount').replace('{n}', String(total - rules.length))}
+              </Text>
+            </TouchableOpacity>
           )}
         </>
       )}
     </ScrollView>
     <View style={[styles.submitBtnWrap, { paddingBottom: insets.bottom + 68 }]}>
-      <TouchableOpacity style={styles.submitBtn} onPress={addRule} activeOpacity={0.7}>
-        <Text style={styles.submitBtnText}>{t('comm.addNew')}</Text>
+      {editingId && (
+        <TouchableOpacity style={styles.cancelEditBtn} onPress={resetForm} activeOpacity={0.7}>
+          <Text style={styles.cancelEditText}>{t('common.cancel')}</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity style={styles.submitBtn} onPress={submitRule} activeOpacity={0.7}>
+        <Text style={styles.submitBtnText}>
+          {editingId ? t('contract.save') : t('comm.addNew')}
+        </Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -517,9 +678,9 @@ const styles = StyleSheet.create({
   },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
   formGroup: { marginBottom: 4 },
-  formHint: { fontSize: 11, color: colors.ink3, marginTop: 2, marginBottom: 4 },
+  formHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, marginBottom: 4, lineHeight: colors.lineHeight.tight},
   inputError: { borderColor: colors.error },
-  errorText: { fontSize: 11, color: colors.error, marginTop: 2 },
+  errorText: { fontSize: colors.fontSize.xs, color: colors.error, marginTop: 2, lineHeight: colors.lineHeight.tight},
   selectBox: {
     height: 44,
     flexDirection: 'row',
@@ -627,12 +788,50 @@ const styles = StyleSheet.create({
   ruleName: { fontSize: 15, fontWeight: '700', color: colors.ink, flex: 1, marginRight: 8 },
   ruleMeta: { flexDirection: 'row', gap: 12 },
   ruleMetaItem: { flex: 1 },
-  ruleMetaLabel: { fontSize: 11, color: colors.ink3, marginBottom: 4 },
+  ruleMetaLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 4, lineHeight: colors.lineHeight.tight},
   ruleMetaValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
   ruleMetaPrimary: { fontSize: 15, fontWeight: '800', color: colors.primary },
+  ruleActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  ruleActionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  ruleActionText: { fontSize: 12, fontWeight: '600', color: colors.ink2 },
+  loadMoreBtn: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: colors.radius.lg,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadMoreText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  cancelEditBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    borderRadius: colors.radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cancelEditText: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
 
   tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.full },
-  tagText: { fontSize: 11, fontWeight: '600' },
+  tagText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   tagWarning: { backgroundColor: `rgba(${colors.warningRgb}, 0.12)` },
   tagSuccess: { backgroundColor: `rgba(${colors.successRgb}, 0.12)` },
   tagWarning_text: { color: colors.warning },

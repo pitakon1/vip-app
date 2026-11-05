@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react'
 import { Skeleton } from 'antd'
+import type { ErrorKind } from '@/lib/errorText'
 
 interface DataStateProps {
   /** 加载中：显示骨架屏 + 文案 */
   loading?: boolean
   /** 加载失败：红色提示 + 可选重试按钮，避免把失败误读成「没有数据」 */
   error?: string | null
+  /** 失败类型：403/404/5xx/网络；决定图标与是否给重试入口 */
+  errorKind?: ErrorKind
   /** 空数据：真的没有数据时为 true */
   empty?: boolean
   /** 空态是否由筛选条件导致，用于区分「真的没有」与「筛选无结果」 */
@@ -31,6 +34,7 @@ interface DataStateProps {
 export default function DataState({
   loading,
   error,
+  errorKind = 'unknown',
   empty,
   filtered = false,
   loadingText,
@@ -50,15 +54,22 @@ export default function DataState({
     )
   }
   if (error) {
+    const icon = errorKind === 'forbidden' ? '⨯' : errorKind === 'notFound' ? '?' : '!'
+    // 403/404 重试无意义，避免用「重试」把权限/地址问题伪装成临时故障
+    const showRetry = onRetry && errorKind !== 'forbidden' && errorKind !== 'notFound'
     return (
-      <div className="rent-empty rent-state rent-state--error" role="alert">
+      <div
+        className="rent-empty rent-state rent-state--error"
+        role="alert"
+        data-kind={errorKind}
+      >
         <div className="rent-state__icon" aria-hidden="true">
-          !
+          {icon}
         </div>
         <div className="rent-state__title" style={{ color: 'var(--rent-danger)' }}>
           {error}
         </div>
-        {onRetry ? (
+        {showRetry ? (
           <button type="button" className="rent-btn rent-btn--secondary rent-state__action" onClick={onRetry}>
             {retryText}
           </button>

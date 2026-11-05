@@ -1,7 +1,16 @@
 import { useTranslation } from 'react-i18next'
+import { formatMoney } from '@/lib/money'
 import { makeMethodLabelMap } from '../constants'
+import type { PaymentVoucher } from '../types'
 
 interface Props {
+  pendingBills: PaymentVoucher[]
+  billId: string
+  onBillChange: (id: string) => void
+  billType: string
+  onBillTypeChange: (value: string) => void
+  currency: string
+  onCurrencyChange: (value: string) => void
   amount: string
   onAmountChange: (value: string) => void
   paymentDate: string
@@ -16,6 +25,13 @@ interface Props {
 
 /** 上传付款凭证表单（antd Form 之前的手写表单，保持原有交互） */
 const VoucherUploadCard = ({
+  pendingBills,
+  billId,
+  onBillChange,
+  billType,
+  onBillTypeChange,
+  currency,
+  onCurrencyChange,
   amount,
   onAmountChange,
   paymentDate,
@@ -29,6 +45,7 @@ const VoucherUploadCard = ({
 }: Props) => {
   const { t } = useTranslation()
   const methodLabelMap = makeMethodLabelMap(t)
+  const selectedBill = pendingBills.find((b) => String(b.id) === billId)
 
   return (
     <div className="rent-card" id="pay-upload" style={{ marginBottom: 32 }}>
@@ -36,6 +53,22 @@ const VoucherUploadCard = ({
         <h3 className="rent-card__title">{t('tenantPayments.uploadTitle')}</h3>
       </div>
       <div className="rent-card__body">
+        <div className="rent-pay-form-group">
+          <label className="rent-pay-form-label">{t('tenantPayments.labelBill')}</label>
+          <select
+            className="rent-pay-form-select"
+            value={billId}
+            onChange={(e) => onBillChange(e.target.value)}
+          >
+            <option value="">{t('tenantPayments.billNone')}</option>
+            {pendingBills.map((b) => (
+              <option key={b.id} value={String(b.id)}>
+                {formatMoney(b.amount, b.currency)} · {b.bill_type || b.payment_type || t('tenantPayments.typeRent')}
+                {b.due_date ? ` · ${b.due_date}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="rent-pay-form-row">
           <div className="rent-pay-form-group">
             <label className="rent-pay-form-label">{t('tenantPayments.labelAmount')}</label>
@@ -45,6 +78,7 @@ const VoucherUploadCard = ({
               min={0}
               placeholder={t('tenantPayments.amountPlaceholder')}
               value={amount}
+              disabled={!!selectedBill}
               onChange={(e) => onAmountChange(e.target.value)}
             />
           </div>
@@ -56,6 +90,37 @@ const VoucherUploadCard = ({
               value={paymentDate}
               onChange={(e) => onPaymentDateChange(e.target.value)}
             />
+          </div>
+        </div>
+        <div className="rent-pay-form-row">
+          <div className="rent-pay-form-group">
+            <label className="rent-pay-form-label">{t('tenantPayments.labelType')}</label>
+            <select
+              className="rent-pay-form-select"
+              value={billType}
+              disabled={!!selectedBill}
+              onChange={(e) => onBillTypeChange(e.target.value)}
+            >
+              <option value="rent">{t('tenantPayments.typeRent')}</option>
+              <option value="deposit">{t('tenantPayments.typeDeposit')}</option>
+              <option value="utility">{t('tenantPayments.typeUtility')}</option>
+              <option value="service_fee">{t('tenantPayments.typeServiceFee')}</option>
+              <option value="tax">{t('tenantPayments.typeTax')}</option>
+            </select>
+          </div>
+          <div className="rent-pay-form-group">
+            <label className="rent-pay-form-label">{t('tenantPayments.labelCurrency')}</label>
+            <select
+              className="rent-pay-form-select"
+              value={currency}
+              disabled={!!selectedBill}
+              onChange={(e) => onCurrencyChange(e.target.value)}
+            >
+              <option value="THB">THB</option>
+              <option value="CNY">CNY</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
           </div>
         </div>
         <div className="rent-pay-form-group">

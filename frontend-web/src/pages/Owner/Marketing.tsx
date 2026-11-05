@@ -14,6 +14,7 @@ interface VacantItem {
   monthly_rent?: number
   currency?: string
   property_type?: string
+  listing_id?: string
   share_url?: string
   status?: string
 }
@@ -31,14 +32,6 @@ interface PricingItem {
     diff_pct: number
     suggested: number
   }
-}
-
-interface AnnualMonth {
-  month: string
-  received: number
-  pending: number
-  overdue: number
-  count: number
 }
 
 const CUR_SYMBOL: Record<string, string> = {
@@ -71,7 +64,6 @@ const Marketing = () => {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const uid = user?.id ?? 'anon'
-  const [year, setYear] = useState<number>(new Date().getFullYear())
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   interface MarketingPayload {
@@ -79,31 +71,24 @@ const Marketing = () => {
     totalVacant: number
     totalProperties: number
     pricing: PricingItem[]
-    annual: AnnualMonth[]
-    annualTotals: { received: number; pending: number; overdue: number; count: number }
   }
 
-  // 缓存优先（localStorage 秒开）+ 后台刷新；年份切换自动换 key 重新拉取
   const q = useCachedQuery<MarketingPayload>({
-    queryKey: ['owner-marketing', uid, String(year)],
-    cacheKey: `owner-marketing:${uid}:${year}`,
+    queryKey: ['owner-marketing', uid],
+    cacheKey: `owner-marketing:${uid}`,
     queryFn: async (): Promise<MarketingPayload> => {
-      const [mkRes, prRes, annRes] = await Promise.all([
+      const [mkRes, prRes] = await Promise.all([
         ownersApi.marketing(),
         ownersApi.pricingSuggestion(),
-        ownersApi.annualFinancialSummary(year),
       ])
 
       const mkPayload = mkRes.data?.data ?? mkRes.data
       const prPayload = prRes.data?.data ?? prRes.data
-      const annPayload = annRes.data?.data ?? annRes.data
       return {
         vacants: mkPayload?.items ?? [],
         totalVacant: Number(mkPayload?.total_vacant ?? 0),
         totalProperties: Number(mkPayload?.total_properties ?? 0),
         pricing: prPayload?.items ?? [],
-        annual: annPayload?.by_month ?? [],
-        annualTotals: annPayload?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 },
       }
     },
   })
@@ -111,8 +96,6 @@ const Marketing = () => {
   const totalVacant = q.data?.totalVacant ?? 0
   const totalProperties = q.data?.totalProperties ?? 0
   const pricing = q.data?.pricing ?? []
-  const annual = q.data?.annual ?? []
-  const annualTotals = q.data?.annualTotals ?? { received: 0, pending: 0, overdue: 0, count: 0 }
   const loading = q.isPending && !q.data
 
   // 定价建议按 property_id 关联，id 口径不一致时回退按房源标题匹配
@@ -146,35 +129,25 @@ const Marketing = () => {
   )
   const selectedPricing = pricingOf(selected)
 
-  const shareUrl = (item: VacantItem) =>
-    `${window.location.origin}${item.share_url || `/properties/${item.id}`}`
+  // 分享链接只使用后端给出的公开地址（/listing/{listing_id}）；没有上架房源时
+  // 不再拼一个必然 404 的 /properties/{property_id}。
+  const shareUrl = (item: VacantItem) => {
+    const path = item.share_url || (item.listing_id ? `/listing/${item.listing_id}` : '')
+    return path ? `${window.location.origin}${path}` : ''
+  }
 
   const copyLink = async (item: VacantItem) => {
     const url = shareUrl(item)
+    if (!url) {
+      message.warning(t('ownerMarketing.noPublicLink'))
+      return
+    }
     try {
       await navigator.clipboard.writeText(url)
       message.success(t('ownerMarketing.msgLinkCopied'))
     } catch {
       window.prompt(t('ownerMarketing.promptCopyLink'), url)
     }
-  }
-
-  // 年度财务导出（CSV）
-  const exportAnnual = () => {
-    const header = [t('ownerMarketing.csvMonth'), t('ownerMarketing.csvReceived'), t('ownerMarketing.csvPending'), t('ownerMarketing.csvOverdue'), t('ownerMarketing.csvCount'), t('ownerMarketing.csvCurrency')]
-    const rows = annual.map((m) => [m.month, m.received, m.pending, m.overdue, m.count, ''])
-    const totalRow = [t('ownerMarketing.csvTotal'), annualTotals.received, annualTotals.pending, annualTotals.overdue, annualTotals.count, '']
-    const csv = [header, ...rows, totalRow]
-      .map((r) => r.map((c) => `"${c}"`).join(','))
-      .join('\n')
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = t('ownerMarketing.csvFilename', { year })
-    a.click()
-    URL.revokeObjectURL(url)
-    message.success(t('ownerMarketing.msgExported'))
   }
 
   const occupancy = totalProperties > 0
@@ -266,10 +239,6 @@ const Marketing = () => {
         <div className={stepCls(3)}>
           <div className="rent-v17-step__dot">3</div>
           <div className="rent-v17-step__label">{t('ownerMarketing.stepListing')}</div>
-        </div>
-        <div className={stepCls(4)}>
-          <div className="rent-v17-step__dot">4</div>
-          <div className="rent-v17-step__label">{t('ownerMarketing.stepDone')}</div>
         </div>
       </div>
 
@@ -399,11 +368,12 @@ const Marketing = () => {
                   className="rent-v17-field__value rent-mono"
                   style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
-                  {shareUrl(selected)}
+                  {shareUrl(selected) || t('ownerMarketing.noPublicLink')}
                 </div>
               </div>
               <button
                 className="rent-btn rent-btn--primary rent-btn--block rent-mt-4"
+                disabled={!shareUrl(selected)}
                 onClick={() => copyLink(selected)}
               >
                 {t('ownerMarketing.copyLink')}
@@ -413,66 +383,6 @@ const Marketing = () => {
         </div>
       </div>
 
-      {/* 第 4 步：托管对账（年度财务汇总） */}
-      <div className="rent-card">
-        <div className="rent-card__header">
-          <h3 className="rent-card__title">{t('ownerMarketing.step4Title')}</h3>
-          <div className="rent-flex rent-gap-2">
-            <select className="rent-form-select" style={{ width: 'auto', minWidth: 120 }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-              {[new Date().getFullYear(), new Date().getFullYear() - 1].map((y) => (
-                <option key={y} value={y}>{t('ownerMarketing.yearSuffix', { y })}</option>
-              ))}
-            </select>
-            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={exportAnnual}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              {t('ownerMarketing.exportCsv')}
-            </button>
-          </div>
-        </div>
-        <div className="rent-card__body" style={{ padding: 0 }}>
-          {annual.length === 0 ? (
-            emptyBlock(t('ownerMarketing.noAnnual'))
-          ) : (
-            <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-              <table className="rent-table">
-                <thead>
-                  <tr>
-                    <th>{t('ownerMarketing.thMonth')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('ownerMarketing.thReceived')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('ownerMarketing.thPending')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('ownerMarketing.thOverdue')}</th>
-                    <th style={{ textAlign: 'right' }}>{t('ownerMarketing.thCount')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {annual.map((m) => (
-                    <tr key={m.month}>
-                      <td className="rent-table__mono">{m.month}</td>
-                      <td className="rent-table__mono" style={{ textAlign: 'right', color: 'var(--state-success)' }}>{fmtMoney(m.received)}</td>
-                      <td className="rent-table__mono" style={{ textAlign: 'right' }}>{fmtMoney(m.pending)}</td>
-                      <td className="rent-table__mono" style={{ textAlign: 'right', color: 'var(--state-error)' }}>{fmtMoney(m.overdue)}</td>
-                      <td className="rent-table__mono" style={{ textAlign: 'right' }}>{m.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td className="rent-text-bold">{t('ownerMarketing.totalRow')}</td>
-                    <td className="rent-table__mono" style={{ textAlign: 'right', color: 'var(--state-success)' }}>{fmtMoney(annualTotals.received)}</td>
-                    <td className="rent-table__mono" style={{ textAlign: 'right' }}>{fmtMoney(annualTotals.pending)}</td>
-                    <td className="rent-table__mono" style={{ textAlign: 'right', color: 'var(--state-error)' }}>{fmtMoney(annualTotals.overdue)}</td>
-                    <td className="rent-table__mono" style={{ textAlign: 'right' }}>{annualTotals.count}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

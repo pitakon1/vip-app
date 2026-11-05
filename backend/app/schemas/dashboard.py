@@ -6,7 +6,7 @@
 注意：`response_model` 会**过滤**未声明的字段，因此这里必须把各接口返回 dict 的
 全部键都声明出来，否则前端依赖的字段会被静默截断。
 """
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -140,3 +140,28 @@ class TrendPointOut(BaseModel):
 class OperationalTrendOut(BaseModel):
     months: int
     series: List[TrendPointOut] = Field(default_factory=list)
+
+
+class DailyTrendPointOut(BaseModel):
+    """`GET /dashboard/trend/daily` 的单个自然日数据点（UTC 日界）。"""
+
+    date: str
+    revenue: float
+    leases_new: int
+    leads_new: int
+    viewings_new: int
+    properties_new: int
+
+
+class OperationalDailyTrendOut(BaseModel):
+    """日粒度趋势。
+
+    `availability` 标明每条曲线的数据源是否有可用样本：为 false 时不应对应
+    绘制曲线（避免用零值伪造走势），前端应展示「未绘制」提示。
+    """
+
+    days: int
+    granularity: str = "day"
+    timezone: str = "UTC"
+    availability: Dict[str, bool] = Field(default_factory=dict)
+    series: List[DailyTrendPointOut] = Field(default_factory=list)

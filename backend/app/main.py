@@ -312,6 +312,15 @@ COMPANY_MEDIA_DIR = UPLOAD_DIR / "company"
 COMPANY_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads/company", StaticFiles(directory=COMPANY_MEDIA_DIR), name="company-media")
 
+# 报修现场照片静态托管（backend/uploads/maintenance）：仅现场照片，非证件/合同
+MAINTENANCE_MEDIA_DIR = UPLOAD_DIR / "maintenance"
+MAINTENANCE_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/uploads/maintenance",
+    StaticFiles(directory=MAINTENANCE_MEDIA_DIR),
+    name="maintenance-media",
+)
+
 
 @app.get("/", response_model=RootInfoOut, tags=["root"])
 async def root():

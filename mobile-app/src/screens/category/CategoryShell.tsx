@@ -130,6 +130,7 @@ export function CategoryTopBar({
           <TouchableOpacity
             style={styles.cityPill}
             activeOpacity={0.7}
+            hitSlop={colors.touch.hitSlop}
             onPress={onCityPress}
             accessibilityRole="button"
             accessibilityLabel={t('home.selectCity')}
@@ -163,6 +164,7 @@ export function TopIconAction({ icon, onPress, label }: { icon: IoniconName; onP
     <TouchableOpacity
       style={styles.circleBtn}
       activeOpacity={0.7}
+      hitSlop={colors.touch.hitSlop}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -650,6 +652,7 @@ export function FilterBar({
                 key={tag.key}
                 style={[styles.quickTag, active && styles.quickTagActive]}
                 activeOpacity={0.8}
+                hitSlop={{ top: 7, bottom: 7, left: 0, right: 0 }}
                 onPress={() => {
                   if (tag.reset) {
                     onReset?.();
@@ -769,6 +772,12 @@ export function CategoryListScreen<T>({
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const reqSeq = useRef(0);
+  // 筛选默认值（含排序）：不同分类的数据面接受不同的 sort 枚举，
+  // 必须由页面显式下发，不能一律用 latest（/public/projects 会 422）。
+  const baseValues = useMemo(
+    () => ({ ...DEFAULT_VALUES, ...defaultFilterValues }),
+    [defaultFilterValues],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(keyword.trim()), 350);
@@ -776,8 +785,8 @@ export function CategoryListScreen<T>({
   }, [keyword]);
 
   const query = useMemo(
-    () => buildQuery({ values, keyword: debounced, tab: tabValue, sort: values.sort ?? 'latest' }),
-    [buildQuery, values, debounced, tabValue],
+    () => buildQuery({ values, keyword: debounced, tab: tabValue, sort: values.sort ?? baseValues.sort ?? 'latest' }),
+    [buildQuery, values, debounced, tabValue, baseValues],
   );
 
   const load = useCallback(
@@ -814,7 +823,7 @@ export function CategoryListScreen<T>({
 
   const hasMore = items.length < total;
   const filtered =
-    !!debounced || Object.entries(values).some(([k, v]) => !!v && v !== DEFAULT_VALUES[k]);
+    !!debounced || Object.entries(values).some(([k, v]) => !!v && v !== baseValues[k]);
 
   return (
     <View style={styles.container}>
@@ -860,7 +869,7 @@ export function CategoryListScreen<T>({
                 onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
                 onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
                 quickTags={quickTags}
-                onReset={() => setValues((prev) => ({ sort: prev.sort ?? 'latest' }))}
+                onReset={() => setValues(baseValues)}
                 openKey={openGroup?.group.key ?? null}
                 onOpenGroup={(g, top) => setOpenGroup({ group: g, top })}
               />
@@ -927,7 +936,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  topTitle: { flex: 1, fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
+  topTitle: { flex: 1, fontSize: colors.fontSize.lg, fontWeight: colors.fontWeight.bold, color: colors.ink },
   topRight: { flexDirection: 'row', gap: 8, minWidth: 34, justifyContent: 'flex-end' },
   topBarRow2: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 },
   cityPill: {
@@ -939,10 +948,10 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,
   },
-  cityText: { maxWidth: 84, fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: '500' },
+  cityText: { maxWidth: 84, fontSize: colors.fontSize.sm, color: colors.ink2, fontWeight: colors.fontWeight.medium },
   topSearch: {
     flex: 1,
-    height: 34,
+    minHeight: colors.touch.min,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -975,7 +984,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.card,
   },
   capsule: { flex: 1, alignItems: 'center' },
-  capsuleValue: { fontSize: colors.fontSize.lg, fontWeight: '800', color: colors.ink },
+  capsuleValue: { fontSize: colors.fontSize.lg, fontWeight: colors.fontWeight.bold, color: colors.ink },
   capsuleLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 3 },
 
   // 纯文字 Tab
@@ -988,8 +997,8 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.sm,
   },
   plainTab: { paddingVertical: colors.spacing.xs },
-  plainTabText: { fontSize: 15, color: colors.ink3, fontWeight: '500' },
-  plainTabTextActive: { color: colors.ink, fontWeight: '700' },
+  plainTabText: { fontSize: colors.fontSize.base, color: colors.ink3, fontWeight: colors.fontWeight.medium },
+  plainTabTextActive: { color: colors.ink, fontWeight: colors.fontWeight.bold },
 
   // 行情对比卡
   compareCard: {
@@ -1063,6 +1072,7 @@ const styles = StyleSheet.create({
   },
   filterTrigger: {
     flex: 1,
+    minHeight: colors.touch.min,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1070,7 +1080,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterTriggerText: { flexShrink: 1, fontSize: colors.fontSize.base, color: colors.ink2, maxWidth: 120 },
-  filterTriggerTextActive: { color: colors.primary, fontWeight: '600' },
+  filterTriggerTextActive: { color: colors.primary, fontWeight: colors.fontWeight.semibold },
 
   // 快捷标签（方块样式，与筛选选项一致，不用胶囊）
   quickRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
@@ -1084,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   quickTagActive: { backgroundColor: colors.sidebarActive },
   quickTagText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
-  quickTagTextActive: { color: colors.accent, fontWeight: '600' },
+  quickTagTextActive: { color: colors.accent, fontWeight: colors.fontWeight.semibold },
 
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 4, marginBottom: 8 },
 

@@ -124,7 +124,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   legendSub: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink2,
     marginTop: 1,
   },

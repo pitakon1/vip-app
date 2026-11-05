@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import api from '@/lib/api'
 import { useCachedQuery } from '@/lib/queryCache'
-import { BACKEND_STATUS, PAGE_SIZE } from '../constants'
+import { BACKEND_STATUS, PAGE_SIZE, PROPERTY_TYPE_GROUPS } from '../constants'
 import type { ListingFilters } from './useListingFilters'
 
 /**
@@ -16,7 +16,7 @@ export function useListingQuery(f: ListingFilters) {
     roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
     statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
     schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel,
-    listingType, citySel,
+    citySel, propertyTypeSel,
   } = f
 
   // 分页状态与「筛选签名」成对存放：筛选一变，page 立刻按签名归 1。
@@ -28,12 +28,12 @@ export function useListingQuery(f: ListingFilters) {
         keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
         roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
         statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
-        schoolId, schoolKm,
+        schoolId, schoolKm, propertyTypeSel,
       ]),
     [keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
       roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
       statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
-      schoolId, schoolKm],
+      schoolId, schoolKm, propertyTypeSel],
   )
   const [pageState, setPageState] = useState<{ sig: string; page: number }>({ sig: filterSig, page: 1 })
   const page = pageState.sig === filterSig ? pageState.page : 1
@@ -52,13 +52,26 @@ export function useListingQuery(f: ListingFilters) {
     const params: Record<string, unknown> = {
       page,
       page_size: PAGE_SIZE,
-      // 买房看真实在售挂牌、租房看在租房源
-      listing_type: listingType,
       // 城市作用域：统一传定位 Store 的 cityKey（后端做 slug 归一化），不再传中文 cityLabel
       city: citySel.cityKey,
     }
+    // 业务线：租房 / 二手房 / 新房；二手房与新房共用 listing_type=sell，
+    // 再用 is_new_development 区分（不新增后端参数）
+    if (biz === 'rent') {
+      params.listing_type = 'rent'
+    } else if (biz === 'resale') {
+      params.listing_type = 'sell'
+      params.is_new_development = false
+    } else if (biz === 'new') {
+      params.listing_type = 'sell'
+      params.is_new_development = true
+    }
+    // 关键词：小区名/地址/商圈（后端 q 做 OR 匹配）
     const kw = debouncedKw.trim()
     if (kw) params.q = kw
+    // 类型筛选：公寓 = apartment + condo，商铺办公 = office + shop（多值任一命中）
+    const typeGroup = propertyTypeSel ? PROPERTY_TYPE_GROUPS[propertyTypeSel] : undefined
+    if (typeGroup?.length) params.property_type = typeGroup
     // 区域筛选：
     // - 命中后端真实区域时用精确 district 参数（避免与城市同义词 AND 互斥）
     // - 未命中（后端无数据回退静态清单）时沿用区域/地铁多关键词同义词
@@ -113,7 +126,7 @@ export function useListingQuery(f: ListingFilters) {
     if (floorLevelSel) params.floor_level = floorLevelSel
     if (amenitySel.length) params.amenity = amenitySel
     return params
-  }, [page, listingType, citySel.cityKey, backendDistrict, debouncedKw, activeLocationKw, globalCityKw, statusSel, sort, videoOnly, vrSel, featuredSel, ownerDirectSel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel])
+  }, [page, biz, citySel.cityKey, backendDistrict, debouncedKw, activeLocationKw, globalCityKw, statusSel, sort, videoOnly, vrSel, featuredSel, ownerDirectSel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel, propertyTypeSel])
 
   // 数据获取（公开接口，不需要 auth）：queryKey 含当前页与筛选参数，
   // 缓存优先渲染 + 后台刷新；总数以服务端返回的 total 为准。
@@ -143,7 +156,8 @@ export function useListingQuery(f: ListingFilters) {
     roomType || priceRange || customMin || customMax ||
     areaRange || areaCustomMin || areaCustomMax || statusSel || videoOnly ||
     vrSel === '1' || featuredSel === '1' || ownerDirectSel === '1' ||
-    orientationSel || floorLevelSel || decorSel || amenitySel.length || schoolId,
+    orientationSel || floorLevelSel || decorSel || amenitySel.length || schoolId || propertyTypeSel ||
+    biz !== 'all',
   )
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))

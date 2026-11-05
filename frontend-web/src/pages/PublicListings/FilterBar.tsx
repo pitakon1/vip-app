@@ -6,16 +6,21 @@ import PricePanel from './panels/PricePanel'
 import MorePanel from './panels/MorePanel'
 import SchoolPanel from './panels/SchoolPanel'
 import SinglePanel from './panels/SinglePanel'
+import TypePanel from './panels/TypePanel'
 
 /**
- * 筛选栏（对齐原型 rent-filter-bar + rv17-bizbar + chips）。
+ * 筛选栏（对齐原型 rent-filter-bar + chips）。
  * 只做展示与弹层挂载，筛选状态与请求参数均由 useListingFilters / useListingQuery 承担。
+ * 「类型」排第一位：业务线（租房/二手房/新房）与房产类型收进同一个面板，
+ * 不再有顶部独立分段条。
  */
 export default function FilterBar({ f, total }: { f: ListingFilters; total: number }) {
   const { t } = useTranslation()
   const {
-    biz, setBiz, bizTabs,
     locOpen, onLocOpenChange, activeLocationKw, backendDistrict, regionLabel,
+    propertyTypeSel, setPropertyTypeSel, propertyTypeOpen, setPropertyTypeOpen,
+    propertyTypeActive, propertyTypeLabel, propertyTypeOptions,
+    bizLabel, isBizSelected, typeLabel, typeActive, setBiz,
     schools, schoolOpen, setSchoolOpen, schoolActive, selectedSchool,
     priceOpen, setPriceOpen, priceActive, priceLabel,
     roomOpen, setRoomOpen, roomType, setRoomType, roomTypeOptions,
@@ -26,22 +31,52 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
     view, setView,
   } = f
 
+  const chevron = (
+    <span className="rent-filter-chip__chevron">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+    </span>
+  )
+
   return (
     <div className="rent-filter-bar">
-      <div className="rv17-bizbar">
-        {bizTabs.map((b) => (
-          <button
-            key={b.value}
-            className="rv17-bizbar__item"
-            type="button"
-            data-active={biz === b.value}
-            onClick={() => setBiz(b.value)}
-          >
-            {b.label}
-          </button>
-        ))}
-      </div>
       <div className="rent-filter-bar__chips">
+        {/* 类型：业务线 + 房产类型，一个入口两组独立条件 */}
+        <Popover
+          trigger="click"
+          open={propertyTypeOpen}
+          onOpenChange={setPropertyTypeOpen}
+          placement="bottomLeft"
+          overlayClassName="rent-loc-popover"
+          content={<TypePanel f={f} onClose={() => setPropertyTypeOpen(false)} />}
+        >
+          <button className={`rent-filter-chip ${typeActive ? 'rent-filter-chip--active' : ''}`} type="button">
+            {typeLabel}
+            {chevron}
+          </button>
+        </Popover>
+        {/* 已选条件回显：业务线与房产类型各自独立一个 chip，点 × 只清这一条 */}
+        {isBizSelected && (
+          <button
+            type="button"
+            className="rent-filter-active-chip"
+            onClick={() => setBiz('all')}
+            aria-label={bizLabel}
+          >
+            {bizLabel}
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
+        {propertyTypeActive && (
+          <button
+            type="button"
+            className="rent-filter-active-chip"
+            onClick={() => setPropertyTypeSel('')}
+            aria-label={propertyTypeLabel}
+          >
+            {propertyTypeLabel}
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
         <Popover
           trigger="click"
           open={locOpen}
@@ -55,12 +90,23 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
             type="button"
           >
             {regionLabel}
-            <span className="rent-filter-chip__chevron">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
+            {chevron}
           </button>
         </Popover>
         {/* 小区筛选已移除：小区名走顶部搜索框（后端 q 参数已 OR 匹配小区名） */}
+        <Popover
+          trigger="click"
+          open={priceOpen}
+          onOpenChange={setPriceOpen}
+          placement="bottomLeft"
+          overlayClassName="rent-loc-popover"
+          content={<PricePanel f={f} />}
+        >
+          <button className={`rent-filter-chip ${priceActive ? 'rent-filter-chip--active' : ''}`} type="button">
+            {priceLabel}
+            {chevron}
+          </button>
+        </Popover>
         {/* 按学校找房：学校库有数据才出现这个筛选项 */}
         {schools.length > 0 && (
           <Popover
@@ -73,27 +119,10 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
           >
             <button className={`rent-filter-chip ${schoolActive ? 'rent-filter-chip--active' : ''}`} type="button">
               {selectedSchool ? selectedSchool.name : t('publicSite.filterSchool')}
-              <span className="rent-filter-chip__chevron">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-              </span>
+              {chevron}
             </button>
           </Popover>
         )}
-        <Popover
-          trigger="click"
-          open={priceOpen}
-          onOpenChange={setPriceOpen}
-          placement="bottomLeft"
-          overlayClassName="rent-loc-popover"
-          content={<PricePanel f={f} />}
-        >
-          <button className={`rent-filter-chip ${priceActive ? 'rent-filter-chip--active' : ''}`} type="button">
-            {priceLabel}
-            <span className="rent-filter-chip__chevron">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
-          </button>
-        </Popover>
         <Popover
           trigger="click"
           open={roomOpen}
@@ -112,9 +141,7 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
         >
           <button className={`rent-filter-chip ${roomType ? 'rent-filter-chip--active' : ''}`} type="button">
             {roomType ? roomTypeOptions.find((o) => o.value === roomType)?.label : t('browse.filterRoom')}
-            <span className="rent-filter-chip__chevron">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
+            {chevron}
           </button>
         </Popover>
         <Popover
@@ -127,9 +154,7 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
         >
           <button className={`rent-filter-chip ${moreActive ? 'rent-filter-chip--active' : ''}`} type="button">
             {moreLabel}
-            <span className="rent-filter-chip__chevron">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
+            {chevron}
           </button>
         </Popover>
         <Dropdown trigger={['click']} placement="bottomLeft" menu={{
@@ -140,9 +165,7 @@ export default function FilterBar({ f, total }: { f: ListingFilters; total: numb
         }}>
           <button className={`rent-filter-chip ${sort !== 'default' ? 'rent-filter-chip--active' : ''}`} type="button">
             {sort !== 'default' ? sortItems.find((o) => o.value === sort)?.label : t('browse.filterSort')}
-            <span className="rent-filter-chip__chevron">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
+            {chevron}
           </button>
         </Dropdown>
       </div>

@@ -16,6 +16,7 @@ import { Bar } from 'react-chartjs-2'
 import api from '@/lib/api'
 import DataState from '@/components/DataState'
 import { downloadReport, saveTextFile } from '@/lib/download'
+import { formatMoney } from '@/lib/money'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import { chartTheme } from '@/lib/chartTheme'
@@ -30,80 +31,64 @@ ChartJS.register(
   Legend,
 )
 
-interface IncomePayment {
+// 业主收入的唯一账单模型：GET /owners/me/income 的 records。
+// 汇总、趋势、明细表全部从这一份数据派生，不再同时读 /payments/me。
+interface IncomeRecord {
   id: string
+  property_id?: string
+  property?: string
+  month: string
   amount: number
   currency?: string
-  status: string
   payment_type?: string
-  due_date?: string
-  paid_at?: string
-  property_id?: string
-  property_name?: string
-  tenant_name?: string
-  tenant_id?: string
-  [key: string]: any
+  status: string
 }
 
-interface IncomeSummary {
+interface IncomePayload {
   total_income?: number
-  monthly_income?: number
-  pending_amount?: number
-  [key: string]: any
+  receivable_total?: number
+  overdue_total?: number
+  currency?: string
+  property_count?: number
+  rented_count?: number
+  vacant_count?: number
+  records?: IncomeRecord[]
+  by_property?: { property_id: string; income: number; receivable: number; monthly_rent: number }[]
 }
 
-// ===== 收入明细行 =====
+// ===== 收入明细行（只保留账单本身的 4 个字段，不再有 5 个同义金额列） =====
 interface IncomeRow {
   month: string
   property: string
-  tenant: string
-  receivable: number
-  received: number
-  status: 'paid' | 'partial' | 'unpaid' | 'refunded'
+  amount: number
+  currency: string
+  status: 'paid' | 'partial' | 'unpaid'
 }
 
-// 表格每页条数（/payments/me 一次取回明细，分页在前端做）
+// 表格每页条数（接口一次返回全部逐笔记录，分页在前端做）
 const PAGE_SIZE = LIST_PAGE_SIZE
 
-const fmtMoney = (v: number) => `฿ ${Math.round(Number(v || 0)).toLocaleString()}`
-
-const monthKey = (d: string | undefined) => {
-  if (!d) return ''
-  return dayjs(d).format('YYYY-MM')
-}
-
-// 后端 PaymentStatus：pending/processing/succeeded/failed/refunded/disputed/expired
-// 状态 -> 徽章样式（文案在组件内按语言解析为 ownerIncome.*）
+// 后端 record.status：received / pending / overdue
 const STATUS_BADGE_META: Record<string, { key: string; cls: string }> = {
   paid: { key: 'ownerIncome.stPaid', cls: 'rent-badge--success' },
-  succeeded: { key: 'ownerIncome.stPaid', cls: 'rent-badge--success' },
-  partial: { key: 'ownerIncome.stPartial', cls: 'rent-badge--warning' },
-  pending: { key: 'ownerIncome.stPending', cls: 'rent-badge--warning' },
-  processing: { key: 'ownerIncome.stProcessing', cls: 'rent-badge--info' },
-  unpaid: { key: 'ownerIncome.stUnpaid', cls: 'rent-badge--error' },
-  failed: { key: 'ownerIncome.stUnpaid', cls: 'rent-badge--error' },
-  expired: { key: 'ownerIncome.stExpired', cls: 'rent-badge--error' },
-  overdue: { key: 'ownerIncome.stExpired', cls: 'rent-badge--error' },
-  refunded: { key: 'ownerIncome.stRefunded', cls: 'rent-badge--neutral' },
-  disputed: { key: 'ownerIncome.stDisputed', cls: 'rent-badge--warning' },
+  partial: { key: 'ownerIncome.stPending', cls: 'rent-badge--warning' },
+  unpaid: { key: 'ownerIncome.stExpired', cls: 'rent-badge--error' },
 }
 
 // 筛选面板的状态选项（与明细行状态一致，文案在组件内解析）
 const STATUS_FILTER_META: { value: IncomeRow['status'] | 'all'; key: string }[] = [
   { value: 'all', key: 'ownerIncome.optAllStatus' },
   { value: 'paid', key: 'ownerIncome.stPaid' },
-  { value: 'partial', key: 'ownerIncome.stPartial' },
-  { value: 'unpaid', key: 'ownerIncome.stUnpaid' },
-  { value: 'refunded', key: 'ownerIncome.stRefunded' },
+  { value: 'partial', key: 'ownerIncome.stPending' },
+  { value: 'unpaid', key: 'ownerIncome.stExpired' },
 ]
 
-// 付款状态 -> 明细行状态
+// 后端账单状态 -> 明细行状态
 const rowStatusOf = (status: string): IncomeRow['status'] => {
   const s = String(status || '').toLowerCase()
-  if (s === 'paid' || s === 'succeeded') return 'paid'
-  if (s === 'pending' || s === 'processing' || s === 'partial') return 'partial'
-  if (s === 'refunded') return 'refunded'
-  return 'unpaid'
+  if (s === 'received') return 'paid'
+  if (s === 'overdue') return 'unpaid'
+  return 'partial'
 }
 
 const Income = () => {
@@ -135,132 +120,97 @@ const Income = () => {
   const uid = user?.id ?? 'anon'
   const monthStr = selectedMonth.format('YYYY-MM')
 
-  const qIncome = useCachedQuery<{ summary: IncomeSummary; propertyCount: number }>({
+  const qIncome = useCachedQuery<IncomePayload>({
     queryKey: ['owner-income', 'summary', uid, monthStr],
     cacheKey: `owner-income:summary:${uid}:${monthStr}`,
     queryFn: async () => {
       const res = await api.get('/owners/me/income', { params: { month: monthStr } })
-      const iPayload = res.data?.data ?? res.data
-      // 后端真实口径：total_income / receivable_total / overdue_total / records（逐笔含 month+status）。
-      // 「本月收入」按本月已到账（received）归集，「本月待收」按本月未到账归集。
-      const records: any[] = Array.isArray(iPayload?.records) ? iPayload.records : []
-      const monthRecords = records.filter((it: any) => it?.month === monthStr)
-      const monthlyReceived = monthRecords
-        .filter((it: any) => it?.status === 'received')
-        .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
-      const monthlyPending = monthRecords
-        .filter((it: any) => it?.status !== 'received')
-        .reduce((s: number, it: any) => s + Number(it?.amount || 0), 0)
-      return {
-        summary: {
-          total_income: Number(iPayload?.total_income ?? 0),
-          monthly_income: monthlyReceived,
-          pending_amount: monthlyPending,
-        },
-        propertyCount: Number(iPayload?.property_count ?? 0),
-      }
+      return (res.data?.data ?? res.data) as IncomePayload
     },
   })
-  const income = qIncome.data ?? {
-    summary: { total_income: 0, monthly_income: 0, pending_amount: 0 },
-    propertyCount: 0,
-  }
-  const incomeSummary = income.summary
-  const propertyCount = income.propertyCount
+  const income = qIncome.data ?? {}
+  const records = income.records ?? []
+  const propertyCount = Number(income.property_count ?? 0)
+  const baseCurrency = income.currency || 'THB'
 
-  const qPayments = useCachedQuery<IncomePayment[]>({
-    queryKey: ['owner-income', 'payments', uid],
-    cacheKey: `owner-income:payments:${uid}`,
-    queryFn: async () => {
-      const res = await api.get('/payments/me', { params: { payment_type: 'rent' } })
-      const pPayload = res.data?.data ?? res.data
-      return pPayload?.items ?? []
-    },
-  })
-  const payments = qPayments.data ?? []
-
-  const loading = (qIncome.isPending && !qIncome.data) || (qPayments.isPending && !qPayments.data)
-  const error = qIncome.isError || qPayments.isError ? t('common.loadFailed') : null
+  const loading = qIncome.isPending && !qIncome.data
+  const error = qIncome.isError ? t('common.loadFailed') : null
   const retryAll = () => {
     void qIncome.refetch({ cancelRefetch: false })
-    void qPayments.refetch({ cancelRefetch: false })
   }
 
-  // 平均月租（基于已收租金记录）
+  // 平均月租：直接来自后端按房源的 monthly_rent，不用付款流水反推
   const avgRent = useMemo(() => {
-    const uniqueProps = new Map<string, number>()
-    payments.forEach((p) => {
-      const key = p.property_id || p.property_name || 'unknown'
-      if (!uniqueProps.has(key) && p.amount) {
-        uniqueProps.set(key, Number(p.amount))
-      }
-    })
-    const values = Array.from(uniqueProps.values())
-    if (values.length === 0) return 0
+    const values = (income.by_property ?? []).map((p) => Number(p.monthly_rent || 0)).filter((v) => v > 0)
+    if (!values.length) return 0
     return Math.round(values.reduce((s, v) => s + v, 0) / values.length)
-  }, [payments])
+  }, [income.by_property])
 
-  // 年度收入（基于本年已收租金）
-  const yearlyIncome = useMemo(() => {
-    const yearStr = selectedMonth.format('YYYY')
-    return payments
-      .filter((p) => monthKey(p.paid_at || p.due_date).startsWith(yearStr))
-      .reduce((s, p) => s + Number(p.amount || 0), 0)
-  }, [payments, selectedMonth])
-
-  // 月度趋势：近 12 个月每月已收租金汇总
+  // 趋势只算已到账（received）；pending/overdue 不能画进「已收」
   const monthlyTrend = useMemo(() => {
     const start = selectedMonth.subtract(11, 'month')
-    const buckets: { month: string; label: string; total: number }[] = []
+    const buckets: { month: string; total: number }[] = []
     for (let i = 0; i < 12; i += 1) {
-      const m = start.add(i, 'month')
-      const key = m.format('YYYY-MM')
-      buckets.push({
-        month: key,
-        label: m.format('YYYY-MM'),
-        total: 0,
-      })
+      buckets.push({ month: start.add(i, 'month').format('YYYY-MM'), total: 0 })
     }
     const map = new Map(buckets.map((b) => [b.month, b]))
-    payments.forEach((p) => {
-      const key = monthKey(p.paid_at || p.due_date)
-      const bucket = map.get(key)
-      if (bucket) {
-        bucket.total += Number(p.amount || 0)
-      }
+    records.forEach((r) => {
+      if (String(r.status).toLowerCase() !== 'received') return
+      const bucket = map.get(r.month)
+      if (bucket) bucket.total += Number(r.amount || 0)
     })
     return buckets
-  }, [payments, selectedMonth])
+  }, [records, selectedMonth])
 
-  // 表格展示数据：按所选月份 + 状态/房产筛选（月份选择器此前只影响汇总卡片，表格不受控）
+  const monthlyIncome = monthlyTrend[11]?.total ?? 0
+  const lastMonthIncome = monthlyTrend[10]?.total ?? 0
+  const monthlyDelta = lastMonthIncome > 0
+    ? ((monthlyIncome - lastMonthIncome) / lastMonthIncome) * 100
+    : null
+
+  // 年度已收：本年 vs 上年，用于真实涨跌箭头
+  const yearStr = selectedMonth.format('YYYY')
+  const prevYearStr = String(Number(yearStr) - 1)
+  const yearIncome = useMemo(
+    () => records
+      .filter((r) => String(r.status).toLowerCase() === 'received' && r.month.startsWith(yearStr))
+      .reduce((s, r) => s + Number(r.amount || 0), 0),
+    [records, yearStr],
+  )
+  const prevYearIncome = useMemo(
+    () => records
+      .filter((r) => String(r.status).toLowerCase() === 'received' && r.month.startsWith(prevYearStr))
+      .reduce((s, r) => s + Number(r.amount || 0), 0),
+    [records, prevYearStr],
+  )
+  const yearlyDelta = prevYearIncome > 0
+    ? ((yearIncome - prevYearIncome) / prevYearIncome) * 100
+    : null
+
+  // 表格展示数据：按所选月份 + 状态/房产筛选（与汇总同一份 records）
   const tableRows: IncomeRow[] = useMemo(() => {
-    return payments
-      .filter((p) => monthKey(p.paid_at || p.due_date) === monthStr)
-      .map((p) => {
-        const status = rowStatusOf(p.status)
-        const received = status === 'paid' ? Number(p.amount || 0) : 0
-        return {
-          month: monthKey(p.paid_at || p.due_date) || monthStr,
-          property: p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) + '...' : '-'),
-          tenant: p.tenant_name || p.tenant_id || '-',
-          receivable: Number(p.amount || 0),
-          received,
-          status,
-        }
-      })
+    return records
+      .filter((r) => r.month === monthStr)
+      .map((r) => ({
+        month: r.month,
+        property: r.property || (r.property_id ? `${String(r.property_id).slice(0, 8)}...` : '-'),
+        amount: Number(r.amount || 0),
+        currency: r.currency || baseCurrency,
+        status: rowStatusOf(r.status),
+      }))
       .filter((r) => statusFilter === 'all' || r.status === statusFilter)
       .filter((r) => propertyFilter === 'all' || r.property === propertyFilter)
-  }, [payments, monthStr, statusFilter, propertyFilter])
+  }, [records, monthStr, statusFilter, propertyFilter, baseCurrency])
 
-  // 筛选面板用的房产下拉（来自真实明细）
+  // 筛选面板用的房产下拉（来自同一份 records）
   const propertyOptions = useMemo(() => {
     const set = new Set<string>()
-    payments.forEach((p) => {
-      const name = p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) + '...' : '-')
+    records.forEach((r) => {
+      const name = r.property || (r.property_id ? `${String(r.property_id).slice(0, 8)}...` : '-')
       if (name) set.add(name)
     })
     return Array.from(set)
-  }, [payments])
+  }, [records])
 
   // 分页（筛选/月份变化时回到第 1 页，见各控件的 onChange）
   const pageCount = Math.max(1, Math.ceil(tableRows.length / PAGE_SIZE))
@@ -301,10 +251,7 @@ const Income = () => {
       [
         t('ownerIncome.thMonth'),
         t('ownerIncome.thProperty'),
-        t('ownerIncome.thTenant'),
-        t('ownerIncome.csvReceivable'),
-        t('ownerIncome.csvReceived'),
-        t('ownerIncome.csvDiff'),
+        t('ownerIncome.thAmount'),
         t('common.status'),
       ]
         .map(escape)
@@ -313,10 +260,7 @@ const Income = () => {
         [
           r.month,
           r.property,
-          r.tenant,
-          r.receivable,
-          r.received,
-          r.receivable - r.received,
+          `${r.amount} ${r.currency}`,
           statusBadgeMap[r.status]?.label || r.status,
         ]
           .map(escape)
@@ -377,7 +321,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `฿ ${Math.round(Number(c.parsed.y || 0)).toLocaleString()}`,
+            label: (c: any) => formatMoney(Number(c.parsed.y || 0), baseCurrency),
           },
         },
       },
@@ -389,20 +333,21 @@ const Income = () => {
           ticks: {
             color: chartTheme.ink3,
             font: { size: 12 },
-            callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
+            callback: (v: any) => formatMoney(Number(v || 0), baseCurrency),
           },
         },
       },
     }),
-    [],
+    [baseCurrency],
   )
 
-  // 各房产收入分布（按真实已收租金聚合）
+  // 各房产收入分布（只算已到账，仍来自同一份 records）
   const propertyIncomeData = useMemo(() => {
     const map = new Map<string, number>()
-    payments.forEach((p) => {
-      const key = p.property_name || (p.property_id ? String(p.property_id).slice(0, 8) : t('ownerIncome.unknownProperty'))
-      map.set(key, (map.get(key) || 0) + Number(p.amount || 0))
+    records.forEach((r) => {
+      if (String(r.status).toLowerCase() !== 'received') return
+      const key = r.property || (r.property_id ? String(r.property_id).slice(0, 8) : t('ownerIncome.unknownProperty'))
+      map.set(key, (map.get(key) || 0) + Number(r.amount || 0))
     })
     const entries = Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
@@ -420,7 +365,7 @@ const Income = () => {
         },
       ],
     }
-  }, [payments, t])
+  }, [records, t])
 
   const propertyIncomeOptions = useMemo(
     () => ({
@@ -434,7 +379,7 @@ const Income = () => {
           padding: 12,
           cornerRadius: 8,
           callbacks: {
-            label: (c: any) => `฿ ${Math.round(Number(c.parsed.x || 0)).toLocaleString()}`,
+            label: (c: any) => formatMoney(Number(c.parsed.x || 0), baseCurrency),
           },
         },
       },
@@ -445,26 +390,43 @@ const Income = () => {
           ticks: {
             color: chartTheme.ink3,
             font: { size: 12 },
-            callback: (v: any) => `฿ ${Math.round(Number(v || 0) / 1000)}k`,
+            callback: (v: any) => formatMoney(Number(v || 0), baseCurrency),
           },
         },
         y: { grid: { display: false }, ticks: { color: chartTheme.ink2, font: { size: 12 } } },
       },
     }),
-    [],
+    [baseCurrency],
   )
 
-  // 汇总卡片数值（无数据时为 0，不采用演示兜底）
-  const monthlyIncomeVal = incomeSummary.monthly_income || 0
-  const yearlyIncomeVal = yearlyIncome || incomeSummary.total_income || 0
-  const avgRentVal = avgRent || 0
-  const collectionRate = payments.length
-    ? Math.round(
-        (payments.filter((p) => p.status === 'paid' || p.status === 'succeeded').length /
-          payments.length) *
-          1000,
-      ) / 10
+  // 汇总卡片数值：全部来自后端同一份账单模型
+  const monthlyIncomeVal = monthlyIncome
+  const yearlyIncomeVal = yearIncome
+  const avgRentVal = avgRent
+  const totalBillAmount = records.reduce((s, r) => s + Number(r.amount || 0), 0)
+  const receivedBillAmount = records
+    .filter((r) => String(r.status).toLowerCase() === 'received')
+    .reduce((s, r) => s + Number(r.amount || 0), 0)
+  const collectionRate = totalBillAmount > 0
+    ? Math.round((receivedBillAmount / totalBillAmount) * 1000) / 10
     : 0
+
+  // 涨跌由数据计算：没有可比的去年同期就明确显示「暂无对比」，不再恒向上
+  const renderDelta = (delta: number | null, compareKey: string) => {
+    if (delta === null) {
+      return (
+        <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-2)' }}>
+          <span>{t('ownerIncome.noCompare')}</span>
+        </div>
+      )
+    }
+    const up = delta >= 0
+    return (
+      <div className={`rent-stat-card__delta ${up ? 'rent-stat-card__delta--up' : 'rent-stat-card__delta--down'}`}>
+        <span>{up ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}% · {t(compareKey)}</span>
+      </div>
+    )
+  }
 
   return (
     <div className="rent-main">
@@ -518,29 +480,17 @@ const Income = () => {
       <div className="rent-grid rent-grid--4 rent-mb-5">
         <div className="rent-stat-card">
           <div className="rent-stat-card__label">{t('ownerIncome.statMonthly')}</div>
-          <div className="rent-stat-card__value">{fmtMoney(monthlyIncomeVal)}</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            <span>{t('ownerIncome.deltaVsLastMonth')}</span>
-          </div>
+          <div className="rent-stat-card__value">{formatMoney(monthlyIncomeVal, baseCurrency)}</div>
+          {renderDelta(monthlyDelta, 'ownerIncome.deltaVsLastMonth')}
         </div>
         <div className="rent-stat-card">
           <div className="rent-stat-card__label">{t('ownerIncome.statYearly')}</div>
-          <div className="rent-stat-card__value">{fmtMoney(yearlyIncomeVal)}</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-            <span>{t('ownerIncome.deltaVsLastYear')}</span>
-          </div>
+          <div className="rent-stat-card__value">{formatMoney(yearlyIncomeVal, baseCurrency)}</div>
+          {renderDelta(yearlyDelta, 'ownerIncome.deltaVsLastYear')}
         </div>
         <div className="rent-stat-card">
           <div className="rent-stat-card__label">{t('ownerIncome.statAvgRent')}</div>
-          <div className="rent-stat-card__value">{fmtMoney(avgRentVal)}</div>
+          <div className="rent-stat-card__value">{formatMoney(avgRentVal, baseCurrency)}</div>
           <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-2)' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -552,11 +502,8 @@ const Income = () => {
         <div className="rent-stat-card">
           <div className="rent-stat-card__label">{t('ownerIncome.statCollectionRate')}</div>
           <div className="rent-stat-card__value">{collectionRate}%</div>
-          <div className="rent-stat-card__delta rent-stat-card__delta--up">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span>{t('ownerIncome.targetRate')}</span>
+          <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-2)' }}>
+            <span>{t('ownerIncome.collectionFormula')}</span>
           </div>
         </div>
       </div>
@@ -612,41 +559,25 @@ const Income = () => {
               <tr>
                 <th>{t('ownerIncome.thMonth')}</th>
                 <th>{t('ownerIncome.thProperty')}</th>
-                <th>{t('ownerIncome.thTenant')}</th>
-                <th>{t('ownerIncome.thReceivable')}</th>
-                <th>{t('ownerIncome.thReceived')}</th>
-                <th>{t('ownerIncome.thDiff')}</th>
-                <th>{t('ownerIncome.statCollectionRate')}</th>
+                <th>{t('ownerIncome.thAmount')}</th>
                 <th>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
               {tableRows.length === 0 && !loading && !error ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={4}>
                     <DataState empty emptyTitle={t('ownerIncome.emptyIncome')} />
                   </td>
                 </tr>
               ) : tableRows.length === 0 ? null : (
                 pagedRows.map((r, i) => {
-                const diff = r.receivable - r.received
-                const rate = r.receivable > 0 ? ((r.received / r.receivable) * 100).toFixed(1) : '0.0'
                 const badge = statusBadgeMap[r.status] || statusBadgeMap.unpaid
-                const diffColor =
-                  diff === 0
-                    ? 'var(--rent-ink-2)'
-                    : r.status === 'unpaid'
-                      ? 'var(--state-error)'
-                      : 'var(--state-warning)'
                 return (
                   <tr key={`${r.month}-${r.property}-${i}`}>
                     <td className="rent-mono">{r.month}</td>
                     <td>{r.property}</td>
-                    <td>{r.tenant}</td>
-                    <td className="rent-mono">{r.receivable.toLocaleString()}</td>
-                    <td className="rent-mono">{r.received.toLocaleString()}</td>
-                    <td className="rent-mono" style={{ color: diffColor }}>{diff.toLocaleString()}</td>
-                    <td className="rent-mono">{rate}%</td>
+                    <td className="rent-mono">{formatMoney(r.amount, r.currency)}</td>
                     <td>
                       <span className={`rent-badge ${badge.cls}`}>{badge.label}</span>
                     </td>

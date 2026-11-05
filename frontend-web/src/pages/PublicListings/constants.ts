@@ -25,6 +25,30 @@ export const AREA_LABEL_KEYS: Record<string, string> = {
 // 直接下发非法枚举会让接口 422，整个列表变空，故先做白名单校验。
 export const BACKEND_STATUS = new Set(['vacant', 'rented', 'renewing', 'maintenance'])
 
+/**
+ * C 端「类型」筛选口径：与首页分类页/销售端同一条规则。
+ * 公寓 = apartment + condo（后端没有 category 枚举，只能用 property_type 组合表达），
+ * 商铺办公 = office + shop。值下发 `/public/listings?property_type=...`（多值任一命中）。
+ */
+export const PROPERTY_TYPE_GROUPS: Record<string, string[]> = {
+  apartment: ['apartment', 'condo'],
+  villa: ['villa', 'house'],
+  commercial: ['office', 'shop'],
+  factory: ['factory'],
+  hotel: ['hotel'],
+  land: ['land'],
+}
+
+/** 「类型」筛选的文案 key（商铺办公用大类名，其余沿用房源类型枚举文案） */
+export const PROPERTY_TYPE_LABEL_KEYS: Record<string, string> = {
+  apartment: 'propertyType.apartment',
+  villa: 'propertyType.villa',
+  commercial: 'category.commTitle',
+  factory: 'propertyType.factory',
+  hotel: 'propertyType.hotel',
+  land: 'propertyType.land',
+}
+
 // 卡片 banner 主题色（使用设计令牌 CSS 变量）
 export const BANNER_COLORS = [
   'var(--rent-primary)',

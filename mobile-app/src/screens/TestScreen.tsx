@@ -505,7 +505,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   accountBtnSub: {
-    fontSize: 10,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink3,
     marginTop: 2,
   },
@@ -533,10 +534,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   tokenText: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
     color: colors.ink3,
     fontFamily: 'monospace',
-    lineHeight: 16,
+    lineHeight: colors.lineHeight.tight,
   },
   runAllBtn: {
     backgroundColor: colors.primary,
@@ -580,7 +581,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   durationText: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink3,
   },
   linkBtn: {
@@ -593,7 +595,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tagText: {
-    fontSize: 10,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     fontWeight: 'bold',
   },
   errorBox: {
@@ -615,10 +618,10 @@ const styles = StyleSheet.create({
     maxHeight: 400,
   },
   jsonText: {
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
     color: colors.codeText,
     fontFamily: 'monospace',
-    lineHeight: 16,
+    lineHeight: colors.lineHeight.tight,
   },
   subLabel: {
     fontSize: 13,
@@ -641,7 +644,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   colorName: {
-    fontSize: 10,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink3,
   },
   btnRow: {

@@ -19,7 +19,8 @@ const TenantPayments = () => {
   const isOwner = user?.role === 'owner'
 
   const payments = useTenantPayments()
-  const upload = useVoucherUpload()
+  const pendingBills = payments.data.filter((b) => String(b.status).toLowerCase() === 'pending')
+  const upload = useVoucherUpload(pendingBills)
 
   return (
     <>
@@ -30,6 +31,7 @@ const TenantPayments = () => {
       {/* Hero: 本月租金大卡片 */}
       <PaymentsHero
         pendingTotal={payments.summary.pendingTotal}
+        heroCurrency={payments.heroCurrency}
         heroProperty={payments.heroProperty}
         heroDue={payments.heroDue}
       />
@@ -50,6 +52,13 @@ const TenantPayments = () => {
 
       {/* 上传凭证表单 */}
       <VoucherUploadCard
+        pendingBills={upload.pendingBills}
+        billId={upload.billId}
+        onBillChange={upload.handleBillChange}
+        billType={upload.billType}
+        onBillTypeChange={upload.setBillType}
+        currency={upload.currency}
+        onCurrencyChange={upload.setCurrency}
         amount={upload.amount}
         onAmountChange={upload.setAmount}
         paymentDate={upload.paymentDate}

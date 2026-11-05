@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.sidebarActive,
   },
-  roleTagText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  roleTagText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primary, lineHeight: colors.lineHeight.tight},
   userMeta: {
     fontSize: 13,
     color: colors.ink3,

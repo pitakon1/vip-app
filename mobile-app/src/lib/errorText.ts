@@ -33,6 +33,19 @@ function t(key: string): string {
   }
 }
 
+export type ErrorKind = 'forbidden' | 'notFound' | 'server' | 'network' | 'unknown'
+
+/** 把错误归类到统一失败态类型（403/404 不应显示重试） */
+export function errorKind(err: unknown): ErrorKind {
+  const e = (err ?? {}) as ErrorLike
+  const status = e.response?.status ?? e.status ?? e.statusCode
+  if (status === 401 || status === 403) return 'forbidden'
+  if (status === 404) return 'notFound'
+  if (status && status >= 500) return 'server'
+  if (status) return 'unknown'
+  return 'network'
+}
+
 export function errorText(err: unknown, fallback?: string): string {
   const e = (err ?? {}) as ErrorLike
   const status = e.response?.status ?? e.status ?? e.statusCode

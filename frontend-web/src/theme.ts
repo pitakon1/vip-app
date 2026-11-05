@@ -1,17 +1,20 @@
 import type { ThemeConfig } from 'antd'
 
 /**
- * Ant Design 主题配置，与 HaoFang.World 高端版设计令牌对齐。
- * 温暖米白基底 · 品牌青绿 · 柔和阴影 · 圆角层级，antd 组件自动贴合。
+ * Ant Design 主题配置 —— Web 端令牌的 JS 镜像。
+ * 数值必须与 styles/tokens.css 保持一致；改令牌时两处同步，
+ * 避免 antd 组件（按钮/表格/Menu）与自有组件出现两套主色和圆角。
  */
 export const rentTheme: ThemeConfig = {
   token: {
     colorPrimary: '#14b8a6',
     colorInfo: '#14b8a6',
-    colorSuccess: '#16a34a',
-    colorWarning: '#d97706',
+    colorSuccess: '#15803d',
+    colorWarning: '#a64c07',
     colorError: '#dc2626',
     colorLink: '#14b8a6',
+    /* 实色主色按钮上的文字：深墨字 5.80:1（白字仅 2.49:1） */
+    colorTextLightSolid: '#0b2f2b',
     colorBgBase: '#ffffff',
     colorTextBase: '#1c2733',
     colorBgLayout: '#fbf9f6',
@@ -20,8 +23,8 @@ export const rentTheme: ThemeConfig = {
     colorBgSpotlight: '#ffffff',
     colorText: '#1c2733',
     colorTextSecondary: '#55606c',
-    colorTextTertiary: '#98a1ab',
-    colorTextQuaternary: '#98a1ab',
+    colorTextTertiary: '#5f6b78',
+    colorTextQuaternary: '#5f6b78',
     colorBorder: '#ece7df',
     colorBorderSecondary: '#ece7df',
     colorFill: '#f3f1ec',
@@ -29,7 +32,7 @@ export const rentTheme: ThemeConfig = {
     colorFillTertiary: '#f3f1ec',
     colorFillQuaternary: '#fbf9f6',
     borderRadius: 10,
-    borderRadiusLG: 18,
+    borderRadiusLG: 14,
     borderRadiusSM: 6,
     fontFamily:
       '"Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif',
@@ -55,7 +58,8 @@ export const rentTheme: ThemeConfig = {
       itemHoverBg: '#f3f1ec',
       itemHoverColor: '#1c2733',
       itemSelectedBg: '#d9f2ee',
-      itemSelectedColor: '#14b8a6',
+      /* 品牌绿在浅青底上只有 2.13:1，选中项文字用墨色 */
+      itemSelectedColor: '#1c2733',
       itemHeight: 40,
       iconSize: 18,
       activeBarHeight: 0,
@@ -63,7 +67,7 @@ export const rentTheme: ThemeConfig = {
     },
     Card: {
       headerHeight: 56,
-      paddingLG: 22,
+      paddingLG: 20,
     },
     Button: {
       borderRadius: 10,

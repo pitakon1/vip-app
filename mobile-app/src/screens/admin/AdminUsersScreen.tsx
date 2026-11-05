@@ -1,4 +1,5 @@
 ﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { fetchAllPages } from '@/lib/fetchAll';
 /**
  * 员工管理
  * 原型：admin-mobile-employees.html
@@ -167,7 +168,11 @@ export default function AdminUsersScreen() {
 
   const fetchData = useCallback(async () => {
     const [empRes, leadRes, meRes] = await Promise.allSettled([
-      employeesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE, user_type: userType === 'all' ? undefined : userType }),
+      // 显式全量加载：本页搜索与统计在本地做，只取 100 人会把结果限制在前 100 人内
+      fetchAllPages<EmployeeRow>(
+        (page) => employeesApi.list({ page, page_size: OPTION_PAGE_SIZE, user_type: userType === 'all' ? undefined : userType }),
+        OPTION_PAGE_SIZE,
+      ),
       employeesApi.leaderboard(),
       authApi.me(),
     ]);
@@ -183,10 +188,9 @@ export default function AdminUsersScreen() {
     }
     try {
       if (empRes.status === 'fulfilled') {
-        const d = (empRes.value as any)?.data ?? {};
-        const items = (d.items ?? d ?? []) as EmployeeRow[];
+        const { items, total: rowTotal } = empRes.value as { items: EmployeeRow[]; total: number };
         setEmployees(items);
-        setTotal(typeof d.total === 'number' ? d.total : items.length);
+        setTotal(rowTotal);
       }
       if (leadRes.status === 'fulfilled') {
         const rows = ((leadRes.value as any)?.data ?? []) as LeaderRow[];
@@ -920,7 +924,7 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12, color: colors.ink3, marginBottom: 6 },
   statValue: { fontSize: 22, fontWeight: '800', color: colors.ink, fontVariant: ['tabular-nums'], marginBottom: 6 },
   statBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
-  statBadgeText: { fontSize: 11, fontWeight: '600' },
+  statBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
 
   /* ===== 搜索与筛选 ===== */
   searchBar: {
@@ -962,7 +966,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   listTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  listHint: { fontSize: 11, color: colors.ink3, flexShrink: 1, textAlign: 'right' },
+  listHint: { fontSize: colors.fontSize.xs, color: colors.ink3, flexShrink: 1, textAlign: 'right', lineHeight: colors.lineHeight.tight},
   listHeadRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   createBtn: {
     flexDirection: 'row',
@@ -989,10 +993,10 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 15, fontWeight: '700', color: colors.ink, flexShrink: 1 },
-  empCode: { fontSize: 11, color: colors.ink3, fontVariant: ['tabular-nums'], marginTop: 2 },
+  empCode: { fontSize: colors.fontSize.xs, color: colors.ink3, fontVariant: ['tabular-nums'], marginTop: 2, lineHeight: colors.lineHeight.tight},
   deptLine: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   roleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  roleText: { fontSize: 11, fontWeight: '600' },
+  roleText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   contactText: { fontSize: 12, color: colors.ink2, fontVariant: ['tabular-nums'] },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
@@ -1000,9 +1004,9 @@ const styles = StyleSheet.create({
 
   /* ===== 业绩 ===== */
   perfRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 12 },
-  perfLabel: { fontSize: 11, color: colors.ink3 },
+  perfLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   perfValue: { fontSize: 15, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'] },
-  perfDeals: { fontSize: 11, color: colors.ink3, marginLeft: 'auto' },
+  perfDeals: { fontSize: colors.fontSize.xs, color: colors.ink3, marginLeft: 'auto', lineHeight: colors.lineHeight.tight},
   perfTrack: {
     flexDirection: 'row',
     height: 5,
@@ -1012,7 +1016,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   perfBar: { height: 5, borderRadius: colors.radius.full, backgroundColor: colors.primary },
-  perfHint: { fontSize: 11, color: colors.ink3, marginTop: 6 },
+  perfHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
 
   actionRow: {
     flexDirection: 'row',

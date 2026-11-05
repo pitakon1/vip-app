@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -352,6 +352,47 @@ def get_my_employee_info(
     if not employee:
         raise HTTPException(status_code=404, detail="Employee profile not found")
     return employee
+
+
+@router.get("/summary")
+def get_employees_summary(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    """员工汇总指标（全局，不受分页影响）。
+
+    员工页顶部卡片此前用「当前页 10 条」reduce 出人均/冠军，翻页数字就变；
+    `target || 100000` 更是前端伪造的目标值。这里只返回可核算的真实指标：
+    员工总数、累计佣金、人均佣金、业绩冠军。后端没有「业绩目标」字段，
+    因此不再提供「目标完成率」。
+    """
+    total = int(
+        session.exec(
+            select(func.count()).select_from(Employee).where(Employee.deleted_at.is_(None))
+        ).one()
+    )
+    settlements = session.exec(
+        select(CommissionSettlement).where(CommissionSettlement.deleted_at.is_(None))
+    ).all()
+    per_emp: Dict[uuid.UUID, float] = {}
+    for s in settlements:
+        if s.employee_id:
+            per_emp[s.employee_id] = per_emp.get(s.employee_id, 0.0) + (s.commission_amount or 0)
+    total_performance = sum(per_emp.values())
+    top_emp_id = max(per_emp, key=per_emp.get) if per_emp else None
+    top_name = None
+    if top_emp_id:
+        emp = session.get(Employee, top_emp_id)
+        if emp and emp.user_id:
+            usr = session.get(User, emp.user_id)
+            top_name = usr.full_name if usr else None
+    return {
+        "total": total,
+        "total_performance": total_performance,
+        "avg_performance": round(total_performance / total, 2) if total else 0.0,
+        "top_name": top_name,
+        "top_performance": per_emp.get(top_emp_id, 0.0) if top_emp_id else 0.0,
+    }
 
 
 @router.get("/leaderboard", response_model=List[EmployeeLeaderboardRow])

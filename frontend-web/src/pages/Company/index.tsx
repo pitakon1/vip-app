@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Empty } from 'antd'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 
 interface CompanyInfo {
   name: string
@@ -21,27 +23,67 @@ interface CompanyInfo {
   }
 }
 
-const FALLBACK: CompanyInfo = {
-  name: 'VIP 租赁管理系统',
-  version: '1.0.0',
-  address: '请配置公司地址',
-  phone: '请配置公司电话',
-  email: '请配置公司邮箱',
-  social_media: { wechat: '', line: '', whatsapp: '' },
-}
-
 const Company = () => {
   const { t } = useTranslation()
-  const [info, setInfo] = useState<CompanyInfo>(FALLBACK)
+  const [info, setInfo] = useState<CompanyInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  // 读取失败不能塞一份 FALLBACK 假装成功：资料页会显示伪造的公司信息
+  const [loadError, setLoadError] = useState<{ text: string; kind: ErrorKind } | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
     api
       .get('/company/info')
-      .then((res) => setInfo(res.data || FALLBACK))
-      .catch(() => setInfo(FALLBACK))
-  }, [])
+      .then((res) => {
+        if (!cancelled) setInfo(res.data?.data ?? res.data ?? null)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setInfo(null)
+          setLoadError({
+            text: errorText(err, t('common.loadFailed')),
+            kind: errorKind(err),
+          })
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [t, retryKey])
 
   // 企业资料字段（全部来自接口，无数据不渲染）
+  if (loading) {
+    return (
+      <div className="rent-main">
+        <DataState loading />
+      </div>
+    )
+  }
+  if (loadError) {
+    return (
+      <div className="rent-main">
+        <DataState
+          error={loadError.text}
+          errorKind={loadError.kind}
+          retryText={t('common.retry')}
+          onRetry={() => setRetryKey((k) => k + 1)}
+        />
+      </div>
+    )
+  }
+  if (!info) {
+    return (
+      <div className="rent-main">
+        <DataState empty emptyTitle={t('common.noData')} />
+      </div>
+    )
+  }
   const profileFields = [
     { label: t('company.name'), value: info.name },
     { label: t('company.regNo'), value: info.reg_no },

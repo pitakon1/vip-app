@@ -169,6 +169,7 @@ export function CommercialRow({
   if (item.company_registrable) tags.push(t('category.tagRegistrable'));
   tags.push(...commonTags(item, t));
   const typeLabel = propertyTypeLabel(item.property_type, t);
+  const typeBadge = colors.badge;
 
   return (
     <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
@@ -176,7 +177,7 @@ export function CommercialRow({
         <Cover uri={cover} size={{ w: 108, h: 96 }} />
         {typeLabel ? (
           <View style={styles.coverBadge}>
-            <Text style={styles.coverBadgeText}>{typeLabel}</Text>
+            <Text style={[styles.coverBadgeText, { color: typeBadge.fg }]}>{typeLabel}</Text>
           </View>
         ) : null}
       </View>
@@ -482,12 +483,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 6,
-    backgroundColor: colors.alpha(colors.inkRgb, 0.65),
     borderRadius: colors.radius.sm,
     paddingHorizontal: 7,
     paddingVertical: 2,
+    backgroundColor: colors.badge.bg,
+    borderWidth: 1,
+    borderColor: colors.badge.border,
   },
-  coverBadgeText: { fontSize: colors.fontSize.xs, color: colors.primaryForeground, fontWeight: '600' },
+  coverBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   title: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink, flexShrink: 1 },
   sub: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3 },
   factRow: { flexDirection: 'row', gap: colors.spacing.md, marginTop: 5 },
@@ -495,13 +498,15 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 7 },
   tag: {
     backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.line,
     borderRadius: colors.radius.sm,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  tagText: { fontSize: colors.fontSize.xs, color: colors.ink2 },
+  tagText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 7, flexWrap: 'wrap' },
-  price: { fontSize: colors.fontSize.xl, fontWeight: '800', color: colors.primary, letterSpacing: -0.2 },
+  price: { fontSize: colors.fontSize.xl, fontWeight: colors.fontWeight.bold, color: colors.primary, letterSpacing: -0.2 },
   priceUnit: { fontSize: colors.fontSize.sm, color: colors.ink3 },
   priceSub: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 4 },
 
@@ -535,5 +540,5 @@ const styles = StyleSheet.create({
   railBody: { padding: colors.spacing.md },
   railName: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.ink },
   railSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 3 },
-  railPrice: { fontSize: colors.fontSize.base, fontWeight: '800', color: colors.primary, marginTop: 6 },
+  railPrice: { fontSize: colors.fontSize.base, fontWeight: colors.fontWeight.bold, color: colors.primary, marginTop: 6 },
 });

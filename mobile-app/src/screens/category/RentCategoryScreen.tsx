@@ -2,7 +2,8 @@ import { CAROUSEL_PAGE_SIZE, LIST_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 租房分类页（贝壳式）。
  *
- * 业务固定 `listing_type=rent`；Tab = 整租 / 公寓（仅保留这两类业务口径）。
+ * 业务固定 `listing_type=rent`；不再单列「公寓」Tab——公寓只是房源类型，
+ * 由找房页的「类型」筛选（apartment + condo）承载，租房页保持纯租房列表。
  * 卡片以「月租」为主口径，附户型/面积/家具/装修/已核验等真实字段。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -48,10 +49,9 @@ export default function RentCategoryScreen() {
   const navigation = useNavigation<any>();
   const city = useLocationStore((s) => s.selection.cityLabel);
   const cityKey = useLocationStore((s) => s.selection.cityKey);
-  const [tab, setTab] = useState<'whole' | 'apartment'>('whole');
   const [rail, setRail] = useState<PublicListing[]>([]);
-  // 区域下拉：走后端真实区域（带当前城市 + 租/公寓口径），无数据回退静态区域
-  const districts = usePublicDistricts(cityKey, 'rent', tab === 'apartment' ? ['apartment', 'condo'] : undefined);
+  // 区域下拉：走后端真实区域（带当前城市 + 租房口径），无数据回退静态区域
+  const districts = usePublicDistricts(cityKey, 'rent');
 
   // 「新上房源」rail：真实最新在租单，空则整块不渲染
   useEffect(() => {
@@ -125,7 +125,6 @@ export default function RentCategoryScreen() {
     const area = parseRange(state.values.area);
     return {
       listing_type: 'rent',
-      property_type: state.tab === 'apartment' ? ['apartment', 'condo'] : undefined,
       q: state.keyword || undefined,
       city: cityKey || undefined,
       district: state.values.district || undefined,
@@ -182,12 +181,6 @@ export default function RentCategoryScreen() {
       searchPlaceholder={t('category.rentSearchPlaceholder')}
       rightActions={<CategoryRightActions navigation={navigation} />}
       top={top}
-      tabs={[
-        { key: 'whole', label: t('category.rentTabWhole') },
-        { key: 'apartment', label: t('category.rentTabApartment') },
-      ]}
-      tabValue={tab}
-      onTabChange={(k) => setTab(k as 'whole' | 'apartment')}
       filterGroups={filterGroups}
       quickTags={quickTags}
       buildQuery={buildQuery}

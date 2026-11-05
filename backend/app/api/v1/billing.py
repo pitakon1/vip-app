@@ -97,16 +97,23 @@ def get_pricing_rules(user: User = Depends(get_current_user)):
 
 
 @router.get("/pricing/quotes", response_model=ServiceQuoteOut)
-def get_service_quote(code: str, qty: int = 1, user: User = Depends(get_current_user)):
-    """按服务编码返回价税分离的报价。
+def get_service_quote(
+    code: str,
+    qty: int = 1,
+    billing_model: str = "per_use",
+    user: User = Depends(get_current_user),
+):
+    """按服务编码 + 购买规格返回价税分离的报价（服务端定价）。
 
-    三端暂无调用方（见 tests/tools_contract_check.py --orphans）：移动端收银台直接取
-    /billing/pricing 价目表，本接口留给「单项试算」场景。
+    移动端服务商城的价格与下单金额必须来自这里：按次/按日/按月系数
+    只在服务端维护，客户端只展示 unit_price / base_amount。
     """
     try:
-        return service_quote(code, qty)
+        return service_quote(code, qty, billing_model)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Unknown service code: {code}")
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unknown billing model: {billing_model}")
 
 
 @router.get("/pricing/convert", response_model=CurrencyConvertOut)

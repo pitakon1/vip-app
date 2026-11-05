@@ -68,7 +68,7 @@ export default function Factory() {
       { key: 'rent', label: t('category.factTabRent'), icon: <ContainerOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => setTab('rent-factory') },
       { key: 'sell', label: t('category.factTabSell'), icon: <BuildOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => setTab('sell-factory') },
       { key: 'project', label: t('category.factGridProject'), icon: <BuildOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/communities') },
-      { key: 'land', label: t('category.factGridLand'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.factGridLand')) },
+      { key: 'land', label: t('category.factGridLand'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/category/land') },
       { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
       { key: 'subway', label: t('category.factGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.factGridSubway')) },
       { key: 'env', label: t('category.factGridEnv'), icon: <ExperimentOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.factGridEnv')) },

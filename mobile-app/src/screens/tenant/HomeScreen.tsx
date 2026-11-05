@@ -88,7 +88,7 @@ interface HomePublic {
   listings: Listing[];
   /** 二手房：listing_type=sell 且 is_new_development=false，与「二手房」分类页同口径 */
   saleItems: SaleListing[];
-  /** 商铺办公：rent × office/shop */
+  /** 商铺办公：rent × office/shop，与 Commercial 分类页同口径 */
   commercialItems: Listing[];
   /** 厂房：rent × factory */
   factoryItems: Listing[];
@@ -110,8 +110,9 @@ interface HomeUser {
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
-/** 首页业务分类的唯一来源：上方黄金导航磁贴与下方业务 Tab 都渲染这份定义，
-    两处的分类、顺序、文案因此永远一致（改这里两处同时生效）。 */
+/** 首页业务分类的唯一来源：上方的分类磁贴既是唯一入口，也切换下方房源 rail。
+    7 个入口与 Web 首页黄金导航一致（公寓不占首页入口，改由「找房」的类型筛选承载，
+    独立页 Apartment 保留供直达）；商铺办公走 Commercial，两者数据口径由 property_type 区分，不会串。 */
 type BizKey = 'rent' | 'new' | 'resale' | 'commercial' | 'factory' | 'hotel' | 'land';
 
 interface BizItem {
@@ -336,6 +337,7 @@ const PropertyCard = React.memo(function PropertyCard({
 }) {
   // 按压缩放动画值
   const { t } = useI18n();
+  const badge = colors.badge;
   const scale = useRef(new Animated.Value(1)).current;
   const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
   return (
@@ -373,7 +375,7 @@ const PropertyCard = React.memo(function PropertyCard({
             </View>
           )}
           <View style={styles.propBadge}>
-            <Text style={styles.propBadgeText}>
+            <Text style={[styles.propBadgeText, { color: badge.fg }]}>
               {typeText(t, String(item.property_type ?? '')) || t('tab.properties')}
             </Text>
           </View>
@@ -530,7 +532,7 @@ const SchoolCard = React.memo(function SchoolCard({
             </View>
           )}
           <View style={styles.propBadge}>
-            <Text style={styles.propBadgeText}>{stage}</Text>
+            <Text style={[styles.propBadgeText, { color: colors.badge.fg }]}>{stage}</Text>
           </View>
         </View>
         <View style={styles.propBody}>
@@ -980,15 +982,19 @@ export default function HomeScreen() {
         </View>
       </TouchableOpacity>
 
-      {/* 黄金导航栏：5 个浅色淡底图标入口，各跳各自独立分类页
-          - 浅色淡底圆角磁贴 + 同色系线条图标 + 深色文字标签，无卡片外壳、无渐变 */}
+      {/* 分类磁贴：首页唯一的业务分类入口。
+          - 点一次进对应分类页，同时把下方 rail 切到该分类（返回首页时看到的是同一类）。
+          - 公寓不单列，作为租房/新房/二手房页内的房源类型口径。 */}
       <View style={styles.goldNav}>
         {BIZ_ITEMS.map((it) => (
           <TouchableOpacity
             key={it.key}
             style={styles.goldNavItem}
             activeOpacity={0.7}
-            onPress={() => navigation.navigate(it.target)}
+            onPress={() => {
+              setBizKey(it.key);
+              navigation.navigate(it.target);
+            }}
             accessibilityRole="button"
             accessibilityLabel={t(it.labelKey)}
           >
@@ -1001,27 +1007,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         ))}
       </View>
-
-      {/* 3. 业务 Tab：与上方磁贴同源（同一份 BIZ_ITEMS），选中哪一类就切换下方房源区 */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.bizTabsScroll}
-        contentContainerStyle={styles.bizTabs}
-      >
-        {BIZ_ITEMS.map((it) => (
-          <TouchableOpacity
-            key={it.key}
-            style={styles.bizTab}
-            onPress={() => setBizKey(it.key)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.bizTabText, bizKey === it.key && styles.bizTabTextActive]}>
-              {t(it.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
 
       {/* 4. 学校 / 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染）。
           学校不再是通栏按钮入口，而是与「推荐房源」同构的区块，收在下方。 */}
@@ -1085,19 +1070,6 @@ const styles = StyleSheet.create({
   skelLineWide: { height: 14, borderRadius: 7, backgroundColor: colors.muted },
   skelLine: { height: 14, borderRadius: 7, backgroundColor: colors.surface2 },
 
-  /* 业务 Tab（与黄金导航同源的 5 类）：对齐参考图的「纯文字 Tab」范式 —— 无胶囊底色、无描边，
-     选中为深墨色加粗、未选中为浅灰；5 个标签较宽，间距收到 16 以免窄屏挤爆换行 */
-  bizTabsScroll: { flexGrow: 0 },
-  bizTabs: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: colors.spacing.lg,
-    marginBottom: colors.spacing.md,
-  },
-  bizTab: { paddingVertical: colors.spacing.xs },
-  bizTabText: { fontSize: 15, color: colors.ink3, fontWeight: '500' },
-  bizTabTextActive: { color: colors.ink, fontWeight: '700' },
-
   /* 城市标签（固定高度占位，避免数据到达时整行跳变） */
   locationRow: {
     height: 22,
@@ -1142,20 +1114,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: colors.spacing.sm,
     top: colors.spacing.sm,
-    backgroundColor: colors.alpha('28,39,51', 0.65),
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 2,
     borderRadius: colors.radius.sm,
+    backgroundColor: colors.badge.bg,
+    borderWidth: 1,
+    borderColor: colors.badge.border,
   },
-  propBadgeText: { fontSize: 12, color: colors.primaryForeground, fontWeight: '600' },
+  propBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   propBody: { padding: colors.spacing.md },
   propName: { fontSize: 15, fontWeight: '700', color: colors.ink },
   propAddr: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   propTags: { flexDirection: 'row', gap: colors.spacing.xs, marginTop: colors.spacing.sm },
   propTag: {
-    fontSize: 12,
-    color: colors.ink2,
+    fontSize: colors.fontSize.xs,
+    color: colors.ink3,
     backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: colors.radius.sm,
@@ -1192,8 +1168,9 @@ const styles = StyleSheet.create({
 
   /* 黄金导航栏：7 列「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口
      （无卡片外壳 / 无渐变）。7 项等分整行宽度，图标与字号相应收窄以适配 */
-  goldNav: { flexDirection: 'row', paddingVertical: 12 },
-  goldNavItem: { flex: 1, alignItems: 'center' },
+  // 8 个一级分类分两行排（每行 4 个）：单行 8 个会把 4 字标签（商铺办公）挤到省略号
+  goldNav: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 12, rowGap: 14 },
+  goldNavItem: { width: '25%', alignItems: 'center' },
   goldNavIcon: {
     width: 40,
     height: 40,
@@ -1202,8 +1179,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   goldNavLabel: {
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     color: colors.ink,
     marginTop: 5,
     textAlign: 'center',

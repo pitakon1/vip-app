@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
 import DataState from '@/components/DataState'
+import { formatMoney } from '@/lib/money'
 import {
   defaultMethodIcon,
   makeMethodLabelMap,
@@ -44,7 +45,10 @@ const PaymentRecords = ({ monthGroups, filter, keyword, isError, onRetry, onView
             </div>
             {bills.map((bill, idx) => {
               const statusKey = normalizeStatus(bill.status)
-              const st = recordStatusMap[statusKey]
+              const processing = String(bill.status || '').toLowerCase() === 'processing'
+              const st = processing
+                ? { label: t('tenantPayments.statusProcessing'), cls: 'rent-pay-record__status--warning' }
+                : recordStatusMap[statusKey]
               const method = methodLabelMap[bill.payment_method] || bill.payment_method || t('tenantPayments.otherMethod')
               const uploadDate = dayjs(bill.created_at || bill.payment_date).format('YYYY-MM-DD')
               const recordNo = `PAY-${dayjs(bill.payment_date || bill.created_at).format('YYYY-MM')}${String(idx + 1).padStart(2, '0')}`
@@ -61,7 +65,7 @@ const PaymentRecords = ({ monthGroups, filter, keyword, isError, onRetry, onView
                       <span>{t('tenantPayments.uploadedAt', { date: uploadDate })}</span>
                     </div>
                   </div>
-                  <div className="rent-pay-record__amount">฿{Number(bill.amount || 0).toLocaleString()}</div>
+                  <div className="rent-pay-record__amount">{formatMoney(bill.amount, bill.currency)}</div>
                   <div className={`rent-pay-record__status ${st.cls}`}>
                     <span className="rent-pay-record__status-dot"></span>{st.label}
                   </div>

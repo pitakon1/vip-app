@@ -193,5 +193,5 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  dealBadgeText: { fontSize: 11, fontWeight: '600' },
+  dealBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
 });

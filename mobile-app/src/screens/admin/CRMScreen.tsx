@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, marginBottom: 6 },
   fieldLabel: { fontSize: 12, color: colors.ink3, fontWeight: '600', marginTop: 12, marginBottom: 6 },
   fieldInputError: { borderColor: colors.error, borderWidth: 1 },
-  fieldErrorText: { fontSize: 11, color: colors.error, marginTop: 5 },
+  fieldErrorText: { fontSize: colors.fontSize.xs, color: colors.error, marginTop: 5, lineHeight: colors.lineHeight.tight},
   fieldInput: {
     borderWidth: 1,
     borderColor: colors.border,

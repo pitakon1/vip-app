@@ -15,6 +15,10 @@ export function buildListingsParams(
     cityKw: string[]
     /** 业务类型：出租 / 买房 */
     biz?: 'rent' | 'sale'
+    /** 房产类型分类（员工找房页）：apartment / villa / commercial / factory / hotel / land */
+    typeSel?: string
+    /** 业务类型筛选（员工找房页）：rent / resale / new */
+    bizSel?: string
     /** 「附近」开启时的用户坐标（未开启传 null/undefined） */
     nearbyPos?: { lat: number; lng: number } | null
   }
@@ -23,6 +27,31 @@ export function buildListingsParams(
 
   // 业务类型：rent=按租金判断，sell=存在在售上架单
   if (opts.biz) p.listing_type = opts.biz === 'sale' ? 'sell' : 'rent'
+
+  // 房产类型分类 → property_type 多值（任一命中），与后端 /properties 口径一致
+  const TYPE_CLASS_TYPES: Record<string, string[]> = {
+    apartment: ['apartment', 'condo'],
+    villa: ['villa', 'house'],
+    commercial: ['office', 'shop'],
+    factory: ['factory'],
+    hotel: ['hotel'],
+    land: ['land']
+  }
+  if (opts.typeSel) {
+    const types = TYPE_CLASS_TYPES[opts.typeSel]
+    if (types) p.property_type = types
+  }
+
+  // 业务类型筛选：租房 / 二手房（sell + 非新房）/ 新房（sell + 新房），覆盖上方 biz 推导
+  if (opts.bizSel === 'rent') {
+    p.listing_type = 'rent'
+  } else if (opts.bizSel === 'resale') {
+    p.listing_type = 'sell'
+    p.is_new_development = false
+  } else if (opts.bizSel === 'new') {
+    p.listing_type = 'sell'
+    p.is_new_development = true
+  }
 
   // 价格：预设区间优先，自定义区间按「万」输入换算成实际金额
   if (filters.pricePreset) {

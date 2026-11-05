@@ -166,6 +166,33 @@ def _resolve_readable_document(
     return doc, _stored_file_path(doc)
 
 
+def _tenant_lease_for_upload(
+    session: Session, user: User, lease_id: Optional[uuid.UUID]
+) -> Lease:
+    """租客上传必须绑定到本人租约：文档归属与可见性都由租约推导。
+
+    Document.owner_id 非空，而租客上传（合同/收据/验房照片）天然属于其租约，
+    因此用租约的业主/房源补齐归属，避免要求客户端传内部 owner_id。
+    """
+    tenant = session.exec(
+        select(Tenant).where(Tenant.user_id == user.id, Tenant.deleted_at.is_(None))
+    ).first()
+    if not tenant:
+        raise HTTPException(status_code=403, detail="Tenant profile not found")
+    stmt = select(Lease).where(
+        Lease.tenant_id == tenant.id, Lease.deleted_at.is_(None)
+    )
+    if lease_id:
+        stmt = stmt.where(Lease.id == lease_id)
+    lease = session.exec(stmt.order_by(Lease.created_at.desc())).first()
+    if not lease:
+        raise HTTPException(
+            status_code=403,
+            detail="No lease available for tenant upload",
+        )
+    return lease
+
+
 def _owner_id_for_upload(
     session: Session, user: User, owner_id: Optional[uuid.UUID]
 ) -> uuid.UUID:
@@ -300,7 +327,14 @@ def upload_document(
         )
     canonical_mime, _ = allowed
 
-    target_owner_id = _owner_id_for_upload(session, user, owner_id)
+    # 租客上传：归属由本人租约推导（不允许客户端指定 owner_id/property_id）
+    if user.role == UserRole.tenant:
+        lease = _tenant_lease_for_upload(session, user, lease_id)
+        target_owner_id = lease.owner_id
+        property_id = lease.property_id
+        lease_id = lease.id
+    else:
+        target_owner_id = _owner_id_for_upload(session, user, owner_id)
 
     # 与 create_document 同口径：房源若指定，必须属于该业主（防止给他人房源挂证件）
     if property_id:

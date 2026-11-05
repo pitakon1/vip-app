@@ -1,4 +1,8 @@
+/* 加载顺序只负责“分层”：tokens → 共享原语 → 布局 → 场景增量。
+   卡片/按钮等基础件的规格只在 primitives.css 定义一次，
+   后续文件不得再写同名基础规格，避免靠 import 顺序取胜。 */
 @import './styles/tokens.css';
+@import './styles/primitives.css';
 @import './styles/app.css';
 @import './styles/prototype-system.css';
 @import './styles/consumer-overlay.css';
@@ -69,10 +73,10 @@ body {
   max-width: 520px;
   background: var(--rent-surface, #fff);
   border: 1px solid var(--rent-border, #e6e0d8);
-  border-radius: var(--rent-radius-lg, 16px);
-  padding: 32px 28px;
+  border-radius: var(--rent-radius-lg, 14px);
+  padding: var(--rent-s-6) var(--rent-s-5);
   text-align: center;
-  box-shadow: 0 8px 28px rgba(28, 39, 51, 0.08);
+  box-shadow: var(--rent-shadow-2);
 }
 
 .app-error__icon {
@@ -85,7 +89,8 @@ body {
   justify-content: center;
   font-size: var(--rent-fs-2xl);
   font-weight: 700;
-  color: #fff;
+  /* 琥珀底上白字仅 2.14:1，改墨色（14.4:1） */
+  color: var(--rent-ink, #1c2733);
   background: var(--rent-warning, #f59e0b);
 }
 
@@ -99,13 +104,13 @@ body {
 .app-error__desc {
   margin: 0 0 var(--rent-s-4);
   font-size: var(--rent-fs-base);
-  line-height: 1.6;
+  line-height: var(--rent-lh-body);
   color: var(--rent-ink-2, #5b6672);
 }
 
 .app-error__detail {
-  margin-bottom: 20px;
-  padding: 10px 12px;
+  margin-bottom: var(--rent-s-5);
+  padding: var(--rent-s-2) var(--rent-s-3);
   text-align: left;
   background: var(--rent-surface-2, #f4f1ec);
   border-radius: var(--rent-radius-sm, 8px);

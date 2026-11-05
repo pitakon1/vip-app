@@ -8,7 +8,7 @@ import { METRO_LINES } from '@/data/locationMetro'
 import { useLocationStore, findCityByKey } from '@/stores/location'
 import { useDistricts } from '@/lib/publicDistricts'
 import { usePropertyStatusMap, useOrientationMap, useDecorationMap, useAmenityMap } from '@/lib/enumLabels'
-import { AREA_LABEL_KEYS, PRICE_LABEL_KEYS } from '../constants'
+import { AREA_LABEL_KEYS, PRICE_LABEL_KEYS, PROPERTY_TYPE_GROUPS, PROPERTY_TYPE_LABEL_KEYS } from '../constants'
 
 /**
  * 公开列表页的全部筛选状态（含「区域 | 地铁」「按学校找房」面板）。
@@ -48,7 +48,12 @@ export function useListingFilters() {
   const [decorSel, setDecorSel] = useState('')
   const [amenitySel, setAmenitySel] = useState<string[]>([])
   const [sort, setSort] = useState('default')
-  const [biz, setBiz] = useState('rent')
+  // 业务线：all（不限）/ rent（租房）/ resale（二手房）/ new（新房）
+  // 二手房与新房都走 listing_type=sell，再用 is_new_development 区分
+  const [biz, setBiz] = useState<'all' | 'rent' | 'resale' | 'new'>('all')
+  // 「类型」筛选：公寓=apartment+condo 等组合口径，值见 constants/PROPERTY_TYPE_GROUPS
+  const [propertyTypeSel, setPropertyTypeSel] = useState('')
+  const [propertyTypeOpen, setPropertyTypeOpen] = useState(false)
   // VR / 优选 / 房东直租（服务端布尔筛选，'1' 为仅收敛）
   const [vrSel, setVrSel] = useState('')
   const [featuredSel, setFeaturedSel] = useState('')
@@ -68,7 +73,7 @@ export function useListingFilters() {
 
   // 区域候选优先走真实数据 `/public/districts`（带当前城市 cityKey + 业务口径）；
   // 后端返回为空时回退到静态区域清单，避免筛选器变成只有一个「不限」的死面板。
-  const listingType = biz === 'sale' ? 'sell' : 'rent'
+  const listingType = biz === 'rent' || biz === 'all' ? 'rent' : 'sell'
   const backendDistricts = useDistricts({ city: citySel.cityKey, listingType })
   const usingBackendDistricts = backendDistricts.length > 0
   const [backendDistrict, setBackendDistrict] = useState<string | null>(null)
@@ -198,10 +203,42 @@ export function useListingFilters() {
     { value: 'area_desc', label: t('property.areaDesc') },
   ], [t])
 
-  const bizTabs = useMemo(() => [
-    { value: 'rent', label: t('browse.bizRent') },
-    { value: 'sale', label: t('browse.buy') },
+  const bizTabs = useMemo(
+    () => [
+      { value: 'all', label: t('browse.bizAll') },
+      { value: 'rent', label: t('browse.rent') },
+      { value: 'resale', label: t('browse.resale') },
+      { value: 'new', label: t('browse.newHome') },
+    ],
+    [t],
+  )
+
+  // 「类型」筛选选项：只列有组合口径的大类，避免出现点了没结果的裸枚举值
+  const propertyTypeOptions = useMemo(() => [
+    { value: '', label: t('priceRange.all') },
+    ...Object.keys(PROPERTY_TYPE_GROUPS).map((value) => ({
+      value,
+      label: t(PROPERTY_TYPE_LABEL_KEYS[value]),
+    })),
   ], [t])
+  const propertyTypeActive = !!propertyTypeSel
+  const propertyTypeLabel = propertyTypeSel
+    ? propertyTypeOptions.find((o) => o.value === propertyTypeSel)?.label || t('browse.filterType')
+    : t('browse.filterType')
+  // 业务线文案（未选 = 空），与房产类型组合成「类型」入口的回显：二手房·公寓
+  const bizLabel = bizTabs.find((o) => o.value === biz)?.label ?? ''
+  const isBizSelected = biz !== 'all'
+  const isSaleBiz = biz === 'resale' || biz === 'new'
+  const typeLabel = [
+    isBizSelected ? bizLabel : '',
+    propertyTypeActive ? propertyTypeLabel : '',
+  ].filter(Boolean).join('·') || t('browse.filterType')
+  const typeActive = isBizSelected || propertyTypeActive
+  // 类型入口有独立的清除动作：清空业务线与房产类型，不影响其他筛选
+  const clearType = useCallback(() => {
+    setBiz('all')
+    setPropertyTypeSel('')
+  }, [])
 
   // 关键词输入防抖：避免每敲一个字就打一次后端
   const [debouncedKw, setDebouncedKw] = useState('')
@@ -277,7 +314,7 @@ export function useListingFilters() {
   const priceLabel = (() => {
     if (priceRange) return priceOptions.find((o) => o.value === priceRange)?.label || t('browse.filterPrice')
     if (customMin || customMax) return t('priceRange.custom')
-    return t('browse.filterPrice')
+    return t('browse.totalPrice')
   })()
   const applyPricePreset = (key: string) => {
     if (key === 'all') { setPriceRange(''); setCustomMin(''); setCustomMax(''); return }
@@ -315,6 +352,17 @@ export function useListingFilters() {
 
   const schoolActive = !!schoolId
 
+  // 空态里「清空全部筛选」：一次性回到默认视图，避免用户逐个 × 才能看到数据
+  const resetAll = () => {
+    setKeyword('')
+    resetLoc()
+    setRoomType('')
+    resetPrice()
+    resetMore()
+    setSort('default')
+    clearType()
+  }
+
   return {
     // 业务 / 视图
     biz, setBiz,
@@ -339,6 +387,10 @@ export function useListingFilters() {
     activeLocationKw, globalCityKw, regionLabel, activeLine,
     // 价格 / 户型 / 面积 / 状态
     roomType, setRoomType,
+    propertyTypeSel, setPropertyTypeSel,
+    propertyTypeOpen, setPropertyTypeOpen,
+    propertyTypeActive, propertyTypeLabel, propertyTypeOptions,
+    bizLabel, isBizSelected, isSaleBiz, typeLabel, typeActive, clearType,
     priceRange, setPriceRange,
     customMin, setCustomMin,
     customMax, setCustomMax,
@@ -370,7 +422,7 @@ export function useListingFilters() {
     statusOptions, orientationOptions, floorLevelOptions, decorationOptions, amenityOptions,
     priceActive, priceLabel, moreActive, moreLabel, schoolActive,
     // 行为
-    applyPricePreset, resetPrice, applyAreaPreset, resetMore,
+    applyPricePreset, resetPrice, applyAreaPreset, resetMore, resetAll,
     toMenuItems,
   }
 }

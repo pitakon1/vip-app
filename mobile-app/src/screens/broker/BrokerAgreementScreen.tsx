@@ -12,10 +12,13 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
+import SignaturePad from '@/components/SignaturePad';
 import { brokerApi, contractsApi } from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 import { notify, notifyError } from '@/utils/feedback';
 
 interface AgreementState {
@@ -35,6 +38,7 @@ interface BrokerMe {
 
 export default function BrokerAgreementScreen() {
   const insets = useSafeAreaInsets();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [broker, setBroker] = useState<BrokerMe | null>(null);
   const [agreements, setAgreements] = useState<{
     distributor: AgreementState;
@@ -42,6 +46,11 @@ export default function BrokerAgreementScreen() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyRole, setBusyRole] = useState<string | null>(null);
+  // 手写签名：后端只接受 <svg>（signature_svg），签名资产库存的是 PNG，
+  // 直接提交会 400。这里改由 SignaturePad 现场产出 SVG 描边路径并随签署提交，
+  // 不再依赖「按 party.name 服务端渲染签名」的绕过路径。
+  const [signRole, setSignRole] = useState<'listing_agent' | 'distributor' | null>(null);
+  const [signSvg, setSignSvg] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -64,7 +73,7 @@ export default function BrokerAgreementScreen() {
     void load();
   }, []);
 
-  const generateAndSign = async (role: 'listing_agent' | 'distributor') => {
+  const generateAndSign = async (role: 'listing_agent' | 'distributor', signatureSvg: string) => {
     if (!broker?.id) return;
     setBusyRole(role);
     try {
@@ -79,26 +88,31 @@ export default function BrokerAgreementScreen() {
       const d = detail?.data;
       const parties = Array.isArray(d?.parties) ? (d.parties as any[]) : [];
       const signFields = Array.isArray(d?.sign_fields) ? (d.sign_fields as any[]) : [];
-      // 经纪人自己作为签署方（role=agent / witness 为平台甲方），取当前用户对应方
-      const self = parties.find((p) => p?.role === 'agent');
-      const partyId = self?.id ?? parties[parties.length - 1]?.id;
-      if (!partyId) {
+      // 只签「本人」那一方：此前按 role=agent 猜、甚至回退到最后一方的 id，
+      // 加上后端 /sign 要求 {party_id, method}，而这里只发了 {field_id, method}，
+      // 所以签署必然失败。现在严格按 party.user_id === 当前用户 取本人。
+      const self = currentUserId
+        ? parties.find((p) => p?.user_id && String(p.user_id) === String(currentUserId))
+        : undefined;
+      if (!self?.id) {
         notify('请重试', '未找到您的签署位');
         return;
       }
-      // 法大大风格：按「签署区」签署，取该签署方第一个待签字段
+      // 若本人名下已有待签签署区，一并带上（按区签署）；否则整方签署
       const target =
-        signFields.find((f) => String(f?.party_id) === String(partyId) && !f?.signed) ??
-        signFields.find((f) => String(f?.party_id) === String(partyId));
-      if (!target?.id) {
-        notify('请重试', '未找到您的签署位');
-        return;
-      }
+        signFields.find((f) => String(f?.party_id) === String(self.id) && !f?.signed) ??
+        signFields.find((f) => String(f?.party_id) === String(self.id));
       await contractsApi.sign(cid, {
-        field_id: String(target.id),
-        method: target?.field_type || 'signature',
+        party_id: String(self.id),
+        ...(target?.id ? { field_id: String(target.id) } : {}),
+        // 后端 SignMethod 枚举值；旧代码传 field_type（signature/seal/date）必然 400
+        method: 'personal_handwrite',
+        // 现场手写 SVG（<path>/<circle> 描边），与 Web 端签署走同一条通路
+        ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
       });
       notify('签署成功', '协议已在线签署，相关权限已激活');
+      setSignRole(null);
+      setSignSvg('');
       await load();
     } catch (e: any) {
       notifyError('签署失败', e);
@@ -138,7 +152,10 @@ export default function BrokerAgreementScreen() {
             style={styles.signBtn}
             activeOpacity={0.8}
             disabled={busyRole === role}
-            onPress={() => generateAndSign(role)}
+            onPress={() => {
+              setSignRole(role);
+              setSignSvg('');
+            }}
             accessibilityRole="button"
             accessibilityLabel={`签署${title}`}
           >
@@ -168,48 +185,130 @@ export default function BrokerAgreementScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={styles.head}>经纪人合作协议</Text>
-      <Text style={styles.headSub}>在线生成并签署平台协议，签署完成后自动激活对应权限</Text>
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.head}>经纪人合作协议</Text>
+        <Text style={styles.headSub}>在线生成并签署平台协议，签署完成后自动激活对应权限</Text>
 
-      {card(
-        'listing_agent',
-        '《房源经纪人上架房源协议》',
-        '签署后解锁「发布房源」的上架资格',
-        agreements?.listing_agent,
-        broker.listing_active,
-      )}
-      {card(
-        'distributor',
-        '《平台经纪人分销协议》',
-        '签署后解锁分销与转介绍资格',
-        agreements?.distributor,
-        broker.distributor_active,
-      )}
+        {card(
+          'listing_agent',
+          '《房源经纪人上架房源协议》',
+          '签署后解锁「发布房源」的上架资格',
+          agreements?.listing_agent,
+          broker.listing_active,
+        )}
+        {card(
+          'distributor',
+          '《平台经纪人分销协议》',
+          '签署后解锁分销与转介绍资格',
+          agreements?.distributor,
+          broker.distributor_active,
+        )}
 
-      {(broker.listing_active || broker.distributor_active) ? (
-        <View style={styles.notice}>
-          <Text style={styles.noticeText}>
-            您现在可以上架房源{broker.listing_active ? '' : ''}
-            {broker.distributor_active ? ' / 参与分销' : ''}
-          </Text>
+        {(broker.listing_active || broker.distributor_active) ? (
+          <View style={styles.notice}>
+            <Text style={styles.noticeText}>
+              您现在可以上架房源{broker.listing_active ? '' : ''}
+              {broker.distributor_active ? ' / 参与分销' : ''}
+            </Text>
+          </View>
+        ) : null}
+
+        <Text style={styles.footNote}>
+          协议由平台提供电子文档，全程数字签名加密，维护您的权益。如需纸质版，可联系平台客服。
+        </Text>
+      </ScrollView>
+
+      <Modal
+        visible={!!signRole}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          if (!busyRole) {
+            setSignRole(null);
+            setSignSvg('');
+          }
+        }}
+      >
+        <View style={styles.modalMask}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>请在下方手写签名</Text>
+            <Text style={styles.modalSub}>
+              签名将作为 SVG 随协议提交（与 Web 端签署一致）
+            </Text>
+            <SignaturePad title="签名区" onResult={setSignSvg} height={180} />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                activeOpacity={0.8}
+                disabled={!!busyRole}
+                onPress={() => {
+                  setSignRole(null);
+                  setSignSvg('');
+                }}
+              >
+                <Text style={styles.modalBtnGhostText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, (!signSvg || !!busyRole) && styles.modalBtnDisabled]}
+                activeOpacity={0.8}
+                disabled={!signSvg || !!busyRole}
+                onPress={() => signRole && generateAndSign(signRole, signSvg)}
+              >
+                {busyRole ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  <Text style={styles.modalBtnText}>确认签署</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            {!signSvg ? <Text style={styles.modalHint}>请先完成手写签名</Text> : null}
+          </View>
         </View>
-      ) : null}
-
-      <Text style={styles.footNote}>
-        协议由平台提供电子文档，全程数字签名加密，维护您的权益。如需纸质版，可联系平台客服。
-      </Text>
-    </ScrollView>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalMask: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    padding: 18,
+    paddingBottom: 28,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
+  modalSub: { fontSize: 12, color: colors.ink3, marginTop: 4, marginBottom: 12 },
+  modalBtnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: colors.radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  modalBtnDisabled: { opacity: 0.5 },
+  modalBtnText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' },
+  modalBtnGhost: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalBtnGhostText: { color: colors.ink2, fontSize: 15, fontWeight: '600' },
+  modalHint: { fontSize: 12, color: colors.warning, marginTop: 10, textAlign: 'center' },
   noneText: { fontSize: 14, color: colors.ink3 },
   head: { fontSize: 22, fontWeight: '800', color: colors.ink, letterSpacing: -0.4 },
   headSub: { fontSize: 13, color: colors.ink3, marginTop: 6, marginBottom: 6 },

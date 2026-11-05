@@ -1,4 +1,6 @@
 import './employees.css'
+import { useTranslation } from 'react-i18next'
+import DataState from '@/components/DataState'
 import { EmployeesHeader } from './employees/components/EmployeesHeader'
 import { EmployeeStatsCards } from './employees/components/EmployeeStatsCards'
 import { EmployeeFilterBar } from './employees/components/EmployeeFilterBar'
@@ -11,6 +13,7 @@ import { useEmployeesList } from './employees/hooks/useEmployeesList'
 import { useEmployeeActions } from './employees/hooks/useEmployeeActions'
 
 const Employees = () => {
+  const { t } = useTranslation()
   const list = useEmployeesList()
   const actions = useEmployeeActions({
     queryParams: list.queryParams,
@@ -28,6 +31,15 @@ const Employees = () => {
 
       <EmployeeStatsCards stats={list.stats} />
 
+      {list.listError ? (
+        <DataState
+          error={list.listError}
+          errorKind={list.listErrorKind}
+          retryText={t('common.retry')}
+          onRetry={list.fetchData}
+        />
+      ) : (
+        <>
       <EmployeeFilterBar
         keywordInput={list.keywordInput}
         onKeywordChange={list.setKeywordInput}
@@ -52,6 +64,8 @@ const Employees = () => {
         onEdit={actions.openEdit}
         onPerf={actions.openPerf}
       />
+        </>
+      )}
 
       <CreateEmployeeModal
         open={actions.createOpen}

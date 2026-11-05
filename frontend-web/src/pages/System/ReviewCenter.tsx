@@ -47,6 +47,12 @@ const TYPE_META: Record<string, { label: string; badge: string; icon: string[]; 
     icon: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6'],
     style: { background: 'rgba(20,184,166,0.1)', color: 'var(--rent-primary)' },
   },
+  leave: {
+    label: 'reviewCenter.typeLeave',
+    badge: 'rent-badge--warning',
+    icon: ['M8 2v4', 'M16 2v4', 'M3 10h18', 'M21 14V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9'],
+    style: { background: 'rgba(124,58,237,0.1)', color: '#7c3aed' },
+  },
 }
 const STATUS_LABEL: Record<string, string> = {
   pending: 'reviewCenter.stPending',
@@ -121,6 +127,17 @@ const ReviewCenter = () => {
     try {
       await api.patch(`/service-orders/${id}/status`, { status })
       message.success(t('reviewCenter.msgOrderUpdated'))
+      fetchData()
+    } catch (err: any) {
+      message.error(errorText(err, t('reviewCenter.errOp')))
+    }
+  }
+
+  // 请假审批（此前后端已聚合 leave 但前端 TYPE_META 缺失，整行无法识别/操作）
+  const handleLeave = async (id: string, action: 'approved' | 'rejected') => {
+    try {
+      await api.post(`/attendance/leave-requests/${id}/approve`, { action })
+      message.success(action === 'approved' ? t('reviewCenter.msgApproved') : t('reviewCenter.msgRejected'))
       fetchData()
     } catch (err: any) {
       message.error(errorText(err, t('reviewCenter.errOp')))
@@ -262,6 +279,18 @@ const ReviewCenter = () => {
                               </button>
                             )}
                             {r.type === 'contract' && <span className="rent-text-muted rent-text-sm">{t('reviewCenter.contractHint')}</span>}
+                            {r.type === 'leave' && (
+                              <>
+                                <button className="rent-btn rent-btn--primary rent-btn--sm" type="button" onClick={() => handleLeave(r.id, 'approved')}>
+                                  {t('reviewCenter.approve')}
+                                </button>
+                                <Popconfirm title={t('reviewCenter.confirmRejectTrip')} onConfirm={() => handleLeave(r.id, 'rejected')}>
+                                  <button className="rent-btn rent-btn--ghost rent-btn--sm" type="button">
+                                    {t('reviewCenter.reject')}
+                                  </button>
+                                </Popconfirm>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

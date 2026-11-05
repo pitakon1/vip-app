@@ -44,7 +44,36 @@ interface DashboardMetrics {
   upcoming_payments?: number
   employee_count?: number
   new_employees?: number
+  // 线索漏斗（后端 /dashboard/summary 已提供，此前页面未渲染）
+  active_leads?: number
+  closed_leads?: number
+  conversion_rate?: number
   expiring_property?: string
+}
+
+/** `/dashboard/trend` 的月度序列（后端只有月粒度）。 */
+interface TrendPoint {
+  month: string
+  revenue: number
+}
+
+/** `/dashboard/trend/daily` 的日粒度序列（UTC 日界）。 */
+interface DailyTrendPoint {
+  date: string
+  revenue: number
+  leads_new: number
+  viewings_new: number
+  properties_new: number
+  leases_new: number
+}
+
+interface DailyTrend {
+  days: number
+  granularity: string
+  timezone: string
+  /** 各曲线数据源是否有可用样本；false 时不画该曲线 */
+  availability: Record<string, boolean>
+  series: DailyTrendPoint[]
 }
 
 /** `/dashboard/expiring-leases` 的条目。 */
@@ -75,27 +104,16 @@ interface RecentPayment {
   payer_name?: string | null
 }
 
-// 收入趋势的月度标签（近 12 个月）
-const monthLabels = (format: string) => {
-  const labels: string[] = []
-  for (let i = 11; i >= 0; i--) labels.push(dayjs().subtract(i, 'month').format(format))
-  return labels
-}
-
-// 与设计稿一致的柱形/趋势相对形状（用于按真实月度收入锚定生成趋势）
-const TREND_RATIO: Record<RangeKey, number[]> = {
-  '12m': [0.848, 0.874, 0.901, 0.928, 0.885, 0.916, 0.943, 0.889, 0.949, 0.967, 0.984, 1],
-  '30d': [0.818, 0.84, 0.801, 0.89, 0.856, 0.901, 0.873, 0.951, 0.934, 1],
-  '7d': [0.615, 0.865, 0.538, 1, 0.692, 0.788, 0.75],
-}
-
 // KPI 卡片配置（数值由真实接口填充）
 interface KpiMeta {
   label: string
   /** 限定为数值型指标，避免 key 指到 expiring_property 这类字符串字段 */
   key: 'monthly_revenue' | 'occupancy_rate' | 'rented' | 'employee_count'
   format: (v: number) => string
-  delta: (s: DashboardMetrics) => { up: boolean; text: string }
+  /** 有真实环比才返回；返回 null 时不画涨跌箭头 */
+  delta?: () => { up: boolean; text: string } | null
+  /** 无环比可算时展示的客观事实（不带涨跌暗示） */
+  hint?: (s: DashboardMetrics) => string
   icon: string
   bg: string
   color: string
@@ -142,6 +160,33 @@ const Dashboard = () => {
     },
   })
 
+  // 真实月度收入走势：后端 /dashboard/trend 提供月粒度（12m 保持原样）。
+  const trendQuery = useCachedQuery<TrendPoint[]>({
+    queryKey: ['dashboard-trend-12m'],
+    cacheKey: 'dashboard-trend-12m',
+    queryFn: async () => {
+      const res = await api.get('/dashboard/trend', { params: { months: 12 } })
+      const payload = res.data?.data ?? res.data
+      return (payload?.series ?? []) as TrendPoint[]
+    },
+  })
+
+  // 日粒度（7d/30d）：与月趋势同口径（succeeded + paid_at 兜底 created_at），
+  // 空档日期由后端补 0；仅在选中日范围时请求。
+  const dailyDays = range === '7d' ? 7 : 30
+  const dailyQuery = useCachedQuery<DailyTrend>({
+    queryKey: ['dashboard-trend-daily', String(dailyDays)],
+    cacheKey: `dashboard-trend-daily-${dailyDays}`,
+    queryFn: async () => {
+      const res = await api.get('/dashboard/trend/daily', {
+        params: { days: dailyDays },
+      })
+      const payload = res.data?.data ?? res.data
+      return (payload ?? { series: [], availability: {} }) as DailyTrend
+    },
+    enabled: range !== '12m',
+  })
+
   const loading = summaryQuery.isLoading && !summaryQuery.data
   const loadFailed = summaryQuery.isError && !summaryQuery.data
   const expiring = expiringQuery.data ?? []
@@ -164,7 +209,25 @@ const Dashboard = () => {
     summaryQuery.refetch()
     expiringQuery.refetch()
     paymentsQuery.refetch()
-  }, [summaryQuery, expiringQuery, paymentsQuery])
+    trendQuery.refetch()
+    if (range !== '12m') dailyQuery.refetch()
+  }, [summaryQuery, expiringQuery, paymentsQuery, trendQuery, dailyQuery, range])
+
+  // 真实环比：近两个月的营收变化（无上月营收时返回 null，不假装上涨）
+  const revenueDelta = useMemo(() => {
+    const series = trendQuery.data ?? []
+    if (series.length < 2) return null
+    const last = Number(series[series.length - 1]?.revenue ?? 0)
+    const prev = Number(series[series.length - 2]?.revenue ?? 0)
+    if (prev <= 0) return null
+    const pct = ((last - prev) / prev) * 100
+    return {
+      up: pct >= 0,
+      text: t('dashboardOps.deltaRevenue', {
+        value: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}`,
+      }),
+    }
+  }, [trendQuery.data, t])
 
   const kpiMeta: KpiMeta[] = [
     {
@@ -175,7 +238,8 @@ const Dashboard = () => {
       line: 'M12 1L12 23',
       bg: 'rgba(22,163,74,0.1)',
       color: 'var(--state-success)',
-      delta: () => ({ up: true, text: t('dashboardOps.vsLastMonth') }),
+      delta: () => revenueDelta,
+      hint: () => t('dashboardOps.vsLastMonth'),
     },
     {
       label: t('dashboardOps.kpiOccupancy'),
@@ -184,7 +248,7 @@ const Dashboard = () => {
       icon: 'M18 20L18 10M12 20L12 4M6 20L6 14',
       bg: 'rgba(217,119,6,0.1)',
       color: 'var(--state-warning)',
-      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaVacant', { count: s.vacant ?? 0 }) }),
+      hint: (s: DashboardMetrics) => t('dashboardOps.deltaVacant', { count: s.vacant ?? 0 }),
     },
     {
       label: t('dashboardOps.kpiActiveLease'),
@@ -195,7 +259,7 @@ const Dashboard = () => {
       extra: 'M16 13L8 13M16 17L8 17',
       bg: 'rgba(14,165,233,0.1)',
       color: 'var(--state-info)',
-      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaExpiring', { count: s.expiring_leases ?? 0 }) }),
+      hint: (s: DashboardMetrics) => t('dashboardOps.deltaExpiring', { count: s.expiring_leases ?? 0 }),
     },
     {
       label: t('dashboardOps.kpiEmployee'),
@@ -205,7 +269,7 @@ const Dashboard = () => {
       circle: '12 7 4',
       bg: 'rgba(20, 184, 166, 0.1)',
       color: 'var(--rent-primary)',
-      delta: (s: DashboardMetrics) => ({ up: true, text: t('dashboardOps.deltaNewEmployee', { count: s.new_employees ?? 0 }) }),
+      hint: (s: DashboardMetrics) => t('dashboardOps.deltaNewEmployee', { count: s.new_employees ?? 0 }),
     },
   ]
 
@@ -302,15 +366,25 @@ const Dashboard = () => {
     { key: '12m' as RangeKey, label: t('dashboardOps.range12m') },
   ]
 
-  const baseRevenue = Number(summary.monthly_revenue || summary.active_lease_revenue || 0)
+  // 趋势图：12m 用月粒度；7d/30d 用真实日粒度（空档已由后端补 0）。
+  const isDaily = range !== '12m'
+  const monthlySeries = trendQuery.data ?? []
+  const dailySeries = dailyQuery.data?.series ?? []
+  // 该区间没有任何已收款项时不画零值基线（避免看起来像「假曲线」），
+  // 改为明确空态；有真实营收时才绘制。
+  const dailyRevenueZero =
+    isDaily &&
+    dailySeries.length > 0 &&
+    dailySeries.every((p) => Number(p.revenue ?? 0) === 0)
 
-  // 收入趋势：以真实月度收入为锚点，按设计稿相对形状生成
   const lineChartData = {
-    labels: monthLabels(t('dashboardOps.monthFormat')),
+    labels: isDaily
+      ? dailySeries.map((p) => dayjs(p.date).format('MM-DD'))
+      : monthlySeries.map((p) => dayjs(`${p.month}-01`).format(t('dashboardOps.monthFormat'))),
     datasets: [
       {
         label: t('dashboardOps.income'),
-        data: TREND_RATIO['12m'].map((r) => Math.round(baseRevenue * r)),
+        data: (isDaily ? dailySeries : monthlySeries).map((p) => Math.round(Number(p.revenue ?? 0))),
         borderColor: chartTheme.primary,
         backgroundColor: 'rgba(20, 184, 166, 0.08)',
         fill: true,
@@ -324,6 +398,16 @@ const Dashboard = () => {
       },
     ],
   }
+
+  // 数据源不可靠的曲线不画，只列出「未绘制」项（不使用零值伪造走势）
+  const unavailableCurves = isDaily
+    ? [
+        !dailyQuery.data?.availability?.viewings_new && t('dashboardOps.trendViewings'),
+        !dailyQuery.data?.availability?.leads_new && t('dashboardOps.trendLeads'),
+        !dailyQuery.data?.availability?.properties_new && t('dashboardOps.trendProperties'),
+        !dailyQuery.data?.availability?.leases_new && t('dashboardOps.trendLeases'),
+      ].filter(Boolean) as string[]
+    : []
 
   const lineChartOptions = {
     responsive: true,
@@ -475,20 +559,26 @@ const Dashboard = () => {
       {/* KPI Cards Row */}
       <div className="rent-grid rent-grid--4 rent-mb-5">
         {kpiMeta.map((card) => {
-          const delta = card.delta(summary)
+          const delta = card.delta?.() ?? null
           return (
             <div className="rent-stat-card" key={card.label}>
               <div className="rent-stat-card__head">
                 <div>
                   <div className="rent-stat-card__label">{card.label}</div>
                   <div className="rent-stat-card__value rent-num">{card.format(Number(summary[card.key] || 0))}</div>
-                  <div className={`rent-stat-card__delta ${delta.up ? 'rent-stat-card__delta--up' : 'rent-stat-card__delta--down'}`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="19" x2="12" y2="5" />
-                      <polyline points="5 12 12 5 19 12" />
-                    </svg>
-                    {delta.text}
-                  </div>
+                  {delta ? (
+                    <div className={`rent-stat-card__delta ${delta.up ? 'rent-stat-card__delta--up' : 'rent-stat-card__delta--down'}`}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5" />
+                        <polyline points={delta.up ? '5 12 12 5 19 12' : '5 12 12 19 19 12'} />
+                      </svg>
+                      {delta.text}
+                    </div>
+                  ) : card.hint ? (
+                    <div className="rent-stat-card__delta" style={{ color: 'var(--rent-ink-3)' }}>
+                      {card.hint(summary)}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="rent-stat-card__icon" style={{ background: card.bg, color: card.color }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -502,6 +592,15 @@ const Dashboard = () => {
               </div>
             </div>
           )
+        })}
+      </div>
+
+      {/* 线索漏斗：后端 /dashboard/summary 已提供，此前未渲染 */}
+      <div className="rent-text-muted rent-mb-5" style={{ fontSize: 13 }}>
+        {t('dashboardOps.leadSummary', {
+          active: summary.active_leads ?? 0,
+          closed: summary.closed_leads ?? 0,
+          rate: summary.conversion_rate ?? 0,
         })}
       </div>
 
@@ -524,9 +623,51 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="rent-card__body">
-            <div className="rent-chart-container">
-              <Line data={lineChartData} options={lineChartOptions} />
-            </div>
+            {isDaily ? (
+              dailyQuery.isError && !dailyQuery.data ? (
+                <DataState
+                  error={t('dashboardOps.fetchFailed')}
+                  retryText={t('common.retry')}
+                  onRetry={() => dailyQuery.refetch()}
+                />
+              ) : dailyQuery.isLoading && !dailyQuery.data ? (
+                <DataState loading loadingText={t('dashboardOps.loadingData')} />
+              ) : dailySeries.length === 0 ? (
+                <DataState empty emptyTitle={t('dashboardOps.noDailyTrend')} />
+              ) : dailyRevenueZero ? (
+                <>
+                  <DataState empty emptyTitle={t('dashboardOps.noDailyRevenue')} />
+                  {unavailableCurves.length > 0 && (
+                    <div className="rent-text-muted" style={{ fontSize: 12, marginTop: 8 }}>
+                      {t('dashboardOps.trendUnavailable', { items: unavailableCurves.join(' / ') })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="rent-chart-container">
+                    <Line data={lineChartData} options={lineChartOptions} />
+                  </div>
+                  {unavailableCurves.length > 0 && (
+                    <div className="rent-text-muted" style={{ fontSize: 12, marginTop: 8 }}>
+                      {t('dashboardOps.trendUnavailable', { items: unavailableCurves.join(' / ') })}
+                    </div>
+                  )}
+                </>
+              )
+            ) : trendQuery.isError && !trendQuery.data ? (
+              <DataState
+                error={t('dashboardOps.fetchFailed')}
+                retryText={t('common.retry')}
+                onRetry={() => trendQuery.refetch()}
+              />
+            ) : monthlySeries.length === 0 && !trendQuery.isLoading ? (
+              <DataState empty emptyTitle={t('dashboardOps.noDailyTrend')} />
+            ) : (
+              <div className="rent-chart-container">
+                <Line data={lineChartData} options={lineChartOptions} />
+              </div>
+            )}
           </div>
         </div>
 

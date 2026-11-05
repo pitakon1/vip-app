@@ -65,7 +65,7 @@ const Leases = () => {
 
       <div className="rent-card">
         {list.loadError && list.displayData.length === 0 ? (
-          <DataState error={list.loadError} retryText={t('common.retry')} onRetry={list.fetchData} />
+          <DataState error={list.loadError} errorKind={list.loadErrorKind} retryText={t('common.retry')} onRetry={list.fetchData} />
         ) : list.loading && list.displayData.length === 0 ? (
           <DataState loading loadingText={t('common.loading')} skeletonRows={6} />
         ) : (

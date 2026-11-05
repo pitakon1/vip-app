@@ -52,6 +52,8 @@ const bannerColorFor = (seed: string) => {
 
 /**
  * 黄金导航：7 大业务入口（租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地）。
+ * 「公寓」不占首页入口（见截图口径），它仍由找房列表的「类型」筛选承载，
+ * 独立分类页 /category/apartment 保留供直达。
  * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
  * 图标沿用项目既有 antd 图标，颜色取设计令牌。
  */
@@ -308,7 +310,7 @@ const Home = () => {
                     <span className={`rent-prop-search-card__status-tag ${STATUS_CLASS[statusKey] || 'rent-status-tag--rented'}`}>
                       {t(`propertyStatus.${statusKey}`)}
                     </span>
-                    <span className="rent-prop-search-card__type-badge">
+                    <span className="rent-pill rent-prop-search-card__type-badge">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d={TYPE_ICON_PATH(ptype)} />
                       </svg>
@@ -325,8 +327,8 @@ const Home = () => {
                       {p.address || p.room_number || '—'}
                     </p>
                     <div className="rent-prop-search-card__tags">
-                      {p.furnished && <span className="rent-badge rent-badge--primary">{t('browse.furnished')}</span>}
-                      <span className="rent-badge rent-badge--success">{t('browse.moveIn')}</span>
+                      {p.furnished && <span className="rent-badge rent-badge--neutral">{t('browse.furnished')}</span>}
+                      <span className="rent-badge rent-badge--neutral">{t('browse.moveIn')}</span>
                     </div>
                     <div className="rent-prop-search-card__stats">
                       <span className="rent-prop-search-card__stat">

@@ -75,6 +75,9 @@ export default function EmployeePropertyBrowsePage() {
   const [filters, setFilters] = useState<ListingsFilters>(DEFAULT_FILTERS)
   const patchFilters = (patch: Partial<ListingsFilters>) =>
     setFilters((cur) => ({ ...cur, ...patch }))
+  // 房产类型 / 业务类型（与 C 端分类页同一口径，服务端 property_type / listing_type / is_new_development）
+  const [typeSel, setTypeSel] = useState('')
+  const [bizSel, setBizSel] = useState('')
 
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
@@ -143,10 +146,12 @@ export default function EmployeePropertyBrowsePage() {
         locationKw: activeLocationKw,
         cityKw: globalCityKw,
         biz,
+        typeSel,
+        bizSel,
         nearbyPos: nearby ? userPos : null
       })
     }),
-    [query, filters, activeLocationKw, globalCityKw, biz, nearby, userPos]
+    [query, filters, activeLocationKw, globalCityKw, biz, typeSel, bizSel, nearby, userPos]
   )
   const serverParamsRef = useRef(serverParams)
   serverParamsRef.current = serverParams
@@ -329,6 +334,32 @@ export default function EmployeePropertyBrowsePage() {
     Taro.navigateTo({ url: `/pages/tenant/property-detail/index?id=${item.id}` })
   }
 
+  // 房产类型 / 业务类型：单选即时生效；业务筛选与顶部租/售 Tab 保持口径一致
+  const handleTypeBizChange = (patch: { typeSel?: string; bizSel?: string }) => {
+    if (patch.typeSel !== undefined) setTypeSel(patch.typeSel)
+    if (patch.bizSel !== undefined) {
+      setBizSel(patch.bizSel)
+      if (patch.bizSel === 'rent') setBiz('rent')
+      else if (patch.bizSel === 'resale' || patch.bizSel === 'new') setBiz('sale')
+    }
+  }
+
+  // 顶部租/售 Tab 切换时，清掉与之冲突的业务筛选，避免结果与回显不一致
+  const handleBizChange = (next: BizKey) => {
+    setBiz(next)
+    if (next === 'sale' && bizSel === 'rent') setBizSel('')
+    if (next === 'rent' && (bizSel === 'resale' || bizSel === 'new')) setBizSel('')
+  }
+
+  // 空态「清除筛选」：清空全部筛选与搜索词，回到未筛选视图
+  const clearAllFilters = () => {
+    setFilters({ ...DEFAULT_FILTERS })
+    setTypeSel('')
+    setBizSel('')
+    setKeyword('')
+    setQuery('')
+  }
+
   return (
     <View className='pb-page'>
       <ListingsFeed
@@ -354,7 +385,11 @@ export default function EmployeePropertyBrowsePage() {
         nearby={nearby}
         onToggleNearby={handleToggleNearby}
         biz={biz}
-        onBizChange={setBiz}
+        onBizChange={handleBizChange}
+        typeSel={typeSel}
+        bizSel={bizSel}
+        onTypeBizChange={handleTypeBizChange}
+        onClearFilters={clearAllFilters}
         favSet={favSet}
         favPending={favPending}
         onToggleFavorite={toggleFav}

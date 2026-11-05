@@ -761,7 +761,10 @@ def list_public_map_points(
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
     # 单字符关键词（如 "a"）近乎全量命中，丢弃；全部丢弃则按无关键词处理
     terms = [t for t in terms if len(t) >= 2]
-    terms = list(dict.fromkeys(terms))[:20]
+    # 同义词组上限：定位城市会把「该城所有城区」的关键词一次带上来，曼谷约 90 个。
+    # 原来截断到 20 会砍掉后半段的城区（如 Bang Rak / Charoenkrung），导致按城市
+    # 看房时整页为 0；这里放宽到 100，保证城市作用域的关键词完整参与 OR 匹配。
+    terms = list(dict.fromkeys(terms))[:100]
     # 同义词组「任一命中」：所有关键词合并为一个 OR 组（与 /properties 口径一致）
     if terms:
         conditions.append(
@@ -1065,7 +1068,9 @@ def list_public_listings(
     terms = [q.strip()] if q and q.strip() else []
     terms += [k.strip() for k in (keywords or []) if k and k.strip()]
     terms = [t for t in terms if len(t) >= 2]
-    terms = list(dict.fromkeys(terms))[:20]
+    # 同义词组上限放宽到 100：定位城市会带上该城全部城区的关键词（曼谷约 90 个），
+    # 截断成 20 会丢掉后半段城区，按城市看房时地图与列表都会变空。
+    terms = list(dict.fromkeys(terms))[:100]
     if terms:
         conditions.append(
             or_(

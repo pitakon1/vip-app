@@ -48,6 +48,7 @@ export function useCommissionRuleForm(refresh: () => void, isAdmin: boolean, emp
       department: rule.department || '',
       employee_id: rule.employee_id || '',
       broker_id: rule.broker_id || '',
+      partner_id: rule.partner_id || '',
       broker_employee_id: rule.employee_id || '',
       cap_amount: rule.cap_amount != null ? String(rule.cap_amount) : '',
       minimum_amount: rule.minimum_amount != null ? String(rule.minimum_amount) : '',
@@ -103,7 +104,12 @@ export function useCommissionRuleForm(refresh: () => void, isAdmin: boolean, emp
         message.error(t('commissionRules.errBrokerRequired'))
         return
       }
+      if (form.scope === 'by_partner' && isAdmin && !form.partner_id) {
+        message.error(t('commissionRules.errPartner'))
+        return
+      }
       if (form.scope === 'by_broker' && isAdmin) payload.broker_id = form.broker_id
+      if (form.scope === 'by_partner' && isAdmin) payload.partner_id = form.partner_id
       if (form.cap_amount !== '') payload.cap_amount = Number(form.cap_amount)
       if (form.minimum_amount !== '') payload.minimum_amount = Number(form.minimum_amount)
 

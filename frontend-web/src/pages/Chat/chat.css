@@ -95,3 +95,19 @@
   padding: var(--rent-s-3);
   border-top: 1px solid var(--rent-line, #f2f5f7);
 }
+/* 连接状态提示条：连接中为中性色，断线重连为警示色 */
+.rent-chat__status {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: var(--rent-ink-3);
+  background: var(--rent-surface-2);
+  border-bottom: 1px solid var(--rent-line, #f2f5f7);
+}
+.rent-chat__status--warn {
+  color: #b45309;
+  background: #fffbeb;
+}
+.rent-chat__input .rent-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

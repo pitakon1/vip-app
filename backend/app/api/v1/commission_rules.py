@@ -24,6 +24,7 @@ from app.models import (
     CommissionRuleScope,
     DealType,
     Employee,
+    Partner,
     User,
 )
 
@@ -38,6 +39,7 @@ class CommissionRuleCreate(BaseModel):
     department: Optional[str] = None
     employee_id: Optional[uuid.UUID] = None
     broker_id: Optional[uuid.UUID] = None
+    partner_id: Optional[uuid.UUID] = None  # scope=by_partner 时必填
     cap_amount: Optional[float] = None
     minimum_amount: Optional[float] = None
     description: Optional[str] = None
@@ -54,6 +56,7 @@ class CommissionRuleUpdate(BaseModel):
     department: Optional[str] = None
     employee_id: Optional[uuid.UUID] = None
     broker_id: Optional[uuid.UUID] = None
+    partner_id: Optional[uuid.UUID] = None  # scope=by_partner 时必填
     cap_amount: Optional[float] = None
     minimum_amount: Optional[float] = None
     description: Optional[str] = None
@@ -73,6 +76,8 @@ class CommissionRuleResponse(BaseModel):
     department: Optional[str] = None
     employee_id: Optional[str] = None
     broker_id: Optional[str] = None
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     cap_amount: Optional[float] = None
     minimum_amount: Optional[float] = None
     description: Optional[str] = None
@@ -86,15 +91,46 @@ class CommissionRuleResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-def _to_dict(r: CommissionRule) -> dict:
+def _to_dict(r: CommissionRule, partner_name: Optional[str] = None) -> dict:
     return {
         **r.model_dump(exclude={"metadata_"}),
         "id": str(r.id),
         "scope": r.scope.value if r.scope else None,
         "employee_id": str(r.employee_id) if r.employee_id else None,
         "broker_id": str(r.broker_id) if r.broker_id else None,
+        "partner_id": str(r.partner_id) if r.partner_id else None,
+        "partner_name": partner_name,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
+
+
+def _partner_name(session: Session, partner_id: Optional[uuid.UUID]) -> Optional[str]:
+    """合作公司名称（列表展示用；不存在时返回 None）。"""
+    if not partner_id:
+        return None
+    partner = session.get(Partner, partner_id)
+    return partner.name if partner and not partner.deleted_at else None
+
+
+def _validate_partner_scope(
+    session: Session,
+    scope: Optional[CommissionRuleScope],
+    partner_id: Optional[uuid.UUID],
+    existing_partner_id: Optional[uuid.UUID] = None,
+) -> None:
+    """`by_partner` 必须绑定有效合作公司；其它 scope 不强制。
+
+    缺 partner 时直接 400（不静默回退全局），避免规则看似生效却不命中。
+    """
+    effective_partner = partner_id or existing_partner_id
+    if scope == CommissionRuleScope.by_partner and not effective_partner:
+        raise HTTPException(
+            status_code=400, detail="partner_id is required for by_partner scope"
+        )
+    if partner_id:
+        partner = session.get(Partner, partner_id)
+        if not partner or partner.deleted_at:
+            raise HTTPException(status_code=400, detail="Partner not found")
 
 
 def _broker_of_user(session: Session, user: User) -> Optional[uuid.UUID]:
@@ -115,6 +151,7 @@ def list_commission_rules(
     deal_type: Optional[str] = None,
     scope: Optional[CommissionRuleScope] = None,
     broker_id: Optional[uuid.UUID] = None,
+    partner_id: Optional[uuid.UUID] = None,
     active_only: bool = False,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -136,6 +173,8 @@ def list_commission_rules(
         conditions.append(CommissionRule.is_active.is_(True))
     if scope:
         conditions.append(CommissionRule.scope == scope)
+    if partner_id:
+        conditions.append(CommissionRule.partner_id == partner_id)
     if not is_admin:
         conditions.append(
             or_(
@@ -148,7 +187,13 @@ def list_commission_rules(
 
     stmt = select(CommissionRule).where(*conditions).order_by(CommissionRule.created_at.desc())
     page = paginate_query(session, stmt, pagination)
-    page.items = [_to_dict(r) for r in page.items]
+    # 批量取合作公司名，避免逐条查询
+    partner_ids = {r.partner_id for r in page.items if r.partner_id}
+    names = {
+        p.id: p.name
+        for p in session.exec(select(Partner).where(Partner.id.in_(partner_ids))).all()
+    } if partner_ids else {}
+    page.items = [_to_dict(r, names.get(r.partner_id)) for r in page.items]
     return page
 
 
@@ -168,7 +213,7 @@ def create_commission_rule(
     payload = req.model_dump()
 
     if is_admin:
-        pass
+        _validate_partner_scope(session, req.scope, req.partner_id)
     elif my_broker:
         if req.scope == CommissionRuleScope.by_employee:
             # 分销商管理员可为名下员工配置差异化费率
@@ -179,11 +224,13 @@ def create_commission_rule(
                 raise HTTPException(status_code=403, detail="Employee is not in your broker branch")
             payload["broker_id"] = my_broker
             payload["department"] = None
+            payload["partner_id"] = None
         else:
             payload["scope"] = CommissionRuleScope.by_broker
             payload["broker_id"] = my_broker
             payload["employee_id"] = None
             payload["department"] = None
+            payload["partner_id"] = None
     else:
         raise HTTPException(status_code=403, detail="Only admin or broker admin can create commission rules")
 
@@ -191,7 +238,7 @@ def create_commission_rule(
     session.add(rule)
     session.commit()
     session.refresh(rule)
-    return _to_dict(rule)
+    return _to_dict(rule, _partner_name(session, rule.partner_id))
 
 
 @router.get("/{rule_id}", response_model=CommissionRuleResponse)
@@ -210,7 +257,7 @@ def get_commission_rule(
     # my_broker 同为 None，`None != None` 为 False 会让任意登录用户通过校验。
     if user.role.value != "admin" and (not my_broker or rule.broker_id != my_broker):
         raise HTTPException(status_code=403, detail="No access to this rule")
-    return _to_dict(rule)
+    return _to_dict(rule, _partner_name(session, rule.partner_id))
 
 
 @router.patch("/{rule_id}")
@@ -235,12 +282,19 @@ def update_commission_rule(
         # 分销商管理员不可变更规则归属
         update_data.pop("broker_id", None)
         update_data.pop("scope", None)
+        update_data.pop("partner_id", None)
+    _validate_partner_scope(
+        session,
+        update_data.get("scope", rule.scope),
+        update_data.get("partner_id", rule.partner_id),
+        existing_partner_id=rule.partner_id,
+    )
     for key, value in update_data.items():
         setattr(rule, key, value)
     session.add(rule)
     session.commit()
     session.refresh(rule)
-    return _to_dict(rule)
+    return _to_dict(rule, _partner_name(session, rule.partner_id))
 
 
 @router.delete("/{rule_id}")

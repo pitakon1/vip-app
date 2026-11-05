@@ -265,14 +265,23 @@ export default function AttendanceManageScreen() {
   const [saving, setSaving] = useState(false);
 
   // 员工列表（部门筛选 / 考勤组成员多选共用）
-  const loadEmployees = useCallback(() => {
-    employeesApi
-      .list({ page: 1, pageSize: OPTION_PAGE_SIZE })
-      .then((res) => {
+  // 显式按 page_size 分页取全量：此前只取第一页（后端默认 20 人），
+  // 排在后面的人在部门筛选与考勤组多选里永远选不到。
+  const loadEmployees = useCallback(async () => {
+    try {
+      const collected: EmpOption[] = [];
+      for (let page = 1; page <= 20; page += 1) {
+        const res = await employeesApi.list({ page, page_size: OPTION_PAGE_SIZE });
         const payload = res.data?.data ?? res.data;
-        setEmpOptions(payload?.items ?? []);
-      })
-      .catch(() => setEmpOptions([]));
+        const batch = (payload?.items ?? []) as EmpOption[];
+        collected.push(...batch);
+        const total = Number(payload?.total ?? 0);
+        if (!batch.length || collected.length >= total || batch.length < OPTION_PAGE_SIZE) break;
+      }
+      setEmpOptions(collected);
+    } catch {
+      setEmpOptions([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -1725,12 +1734,12 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   cardCaption: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
-  cardHint: { fontSize: 11, color: colors.ink3, marginTop: 6, lineHeight: 16 },
+  cardHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: 16 },
 
   quickRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   field: { marginTop: 12 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.ink2, marginBottom: 6 },
-  fieldHint: { fontSize: 11, color: colors.ink3, marginTop: 4 },
+  fieldHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 4, lineHeight: colors.lineHeight.tight},
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
      minHeight: 44,
@@ -1792,7 +1801,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     alignSelf: 'flex-start',
   },
-  badgeText: { fontSize: 11, fontWeight: '600' },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
 
   empBlock: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, marginTop: 8 },
   empRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
@@ -1813,14 +1822,14 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   dayDate: { fontSize: 13, fontWeight: '600', color: colors.ink },
-  daySub: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  daySub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   emptyHint: { fontSize: 12, color: colors.ink3, paddingVertical: 8 },
 
   groupNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   groupName: { fontSize: 15, fontWeight: '700', color: colors.ink },
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   metaItem: { width: '50%', marginTop: 10, paddingRight: 8 },
-  metaLabel: { fontSize: 11, color: colors.ink3, marginBottom: 3 },
+  metaLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 3, lineHeight: colors.lineHeight.tight},
   metaValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
 
   ghostBtn: {
@@ -1886,7 +1895,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  th: { flex: 1, fontSize: 11, color: colors.ink3, fontWeight: '600', textAlign: 'center' },
+  th: { flex: 1, fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '600', textAlign: 'center', lineHeight: colors.lineHeight.tight},
   td: { flex: 1, fontSize: 12, color: colors.ink2, textAlign: 'center' },
   tdStrong: { color: colors.ink, fontWeight: '600', textAlign: 'left' },
   tdWarn: { color: colors.warning, fontWeight: '700' },
@@ -1912,7 +1921,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -0.2,
   },
-  reportCardEmail: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
+  reportCardEmail: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   reportBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1940,10 +1949,10 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   reportStatChipText: { fontSize: 12, fontWeight: '600', color: colors.ink2 },
-  reportStatChipLabel: { fontSize: 11, color: colors.ink3 },
+  reportStatChipLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
 
   trendRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  trendLabel: { width: 40, fontSize: 11, color: colors.ink3 },
+  trendLabel: { width: 40, fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   trendBarTrack: {
     flex: 1,
     height: 10,

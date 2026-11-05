@@ -38,20 +38,22 @@ export default function PropertyFilterBar({
     { key: 'renewing', label: statusLabelMap.renewing },
     { key: 'maintenance', label: statusLabelMap.maintenance },
   ]
+  // 房产类型大类：与 C 端同口径（公寓=apartment+condo、商铺办公=office+shop）
   const TYPE_OPTS = [
     { key: '', label: t('propertiesPage.optAllTypes') },
-    { key: 'apartment', label: propertyTypeMap.apartment },
+    { key: 'apartment', label: t('category.rentTabApartment') },
     { key: 'villa', label: propertyTypeMap.villa },
-    { key: 'shop', label: propertyTypeMap.shop },
-    { key: 'office', label: propertyTypeMap.office },
+    { key: 'commercial', label: t('category.commTitle') },
     { key: 'factory', label: propertyTypeMap.factory },
     { key: 'hotel', label: propertyTypeMap.hotel },
     { key: 'land', label: propertyTypeMap.land },
-    { key: 'townhouse', label: propertyTypeMap.townhouse },
-    { key: 'warehouse', label: propertyTypeMap.warehouse },
-    { key: 'coworking', label: propertyTypeMap.coworking },
-    { key: 'homeoffice', label: propertyTypeMap.homeoffice },
-    { key: 'showroom', label: propertyTypeMap.showroom },
+  ]
+  // 业务线：公寓这类大类天然横跨租房/二手房/新房，必须单独选择
+  const BIZ_OPTS = [
+    { key: '', label: t('common.all') },
+    { key: 'rent', label: t('category.rentTitle') },
+    { key: 'resale', label: t('category.resaleTitle') },
+    { key: 'new', label: t('category.newTitle') },
   ]
   const BED_OPTS = [
     { key: '', label: t('propertiesPage.optAnyBedrooms') },
@@ -327,21 +329,6 @@ export default function PropertyFilterBar({
           </div>
         </div>
         <div className="rent-loc-panel__group">
-          <div className="rent-loc-panel__group-title">{t('propertiesPage.optAllTypes')}</div>
-          <div className="rent-loc-panel__chips">
-            {TYPE_OPTS.map((o) => (
-              <button
-                key={o.key}
-                type="button"
-                className={`rent-loc-panel__chip${f.propertyType === o.key ? ' rent-loc-panel__chip--active' : ''}`}
-                onClick={() => f.setPropertyType(o.key)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rent-loc-panel__group">
           <div className="rent-loc-panel__group-title">{t('browse.filterArea')}</div>
           <div className="rent-loc-panel__chips">
             {AREA_OPTS.map((o) => (
@@ -388,8 +375,68 @@ export default function PropertyFilterBar({
             type="button"
             className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
             onClick={() => {
-              f.setStatus(''); f.setPropertyType(''); f.setAreaRange(''); f.setAreaCustomMin(''); f.setAreaCustomMax(''); setFilterOpen('')
+              f.setStatus(''); f.setAreaRange(''); f.setAreaCustomMin(''); f.setAreaCustomMax(''); setFilterOpen('')
             }}
+          >
+            {t('common.reset')}
+          </button>
+          <button type="button" className="rent-loc-panel__btn rent-loc-panel__btn--primary" onClick={() => setFilterOpen('')}>
+            {t('common.confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // 「类型」独立入口：大类 + 业务线，切换后 chip 上直接回显当前条件（不再埋进「更多」）
+  const typeTabLabel = (() => {
+    const typeLabel = TYPE_OPTS.find((o) => o.key === f.typeClass)?.label
+    const bizLabel = f.bizType ? BIZ_OPTS.find((o) => o.key === f.bizType)?.label : ''
+    if (typeLabel && typeLabel !== t('propertiesPage.optAllTypes') && bizLabel) return `${typeLabel}·${bizLabel}`
+    if (typeLabel && typeLabel !== t('propertiesPage.optAllTypes')) return typeLabel
+    if (bizLabel) return bizLabel
+    return t('propertiesPage.filterTypeLabel')
+  })()
+  const typePanelContent = (
+    <div className="rent-loc-panel">
+      <div className="rent-loc-panel__body">
+        <div className="rent-loc-panel__group">
+          <div className="rent-loc-panel__group-title">{t('propertiesPage.filterTypeLabel')}</div>
+          <div className="rent-loc-panel__chips">
+            {TYPE_OPTS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`rent-loc-panel__chip${f.typeClass === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                onClick={() => f.setTypeClass(o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rent-loc-panel__group">
+          <div className="rent-loc-panel__group-title">{t('propertiesPage.filterBizLabel')}</div>
+          <div className="rent-loc-panel__chips">
+            {BIZ_OPTS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                className={`rent-loc-panel__chip${f.bizType === o.key ? ' rent-loc-panel__chip--active' : ''}`}
+                onClick={() => f.setBizType(o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="rent-loc-panel__footer">
+        <div className="rent-loc-panel__actions">
+          <button
+            type="button"
+            className="rent-loc-panel__btn rent-loc-panel__btn--ghost"
+            onClick={() => { f.setTypeClass(''); f.setBizType(''); setFilterOpen('') }}
           >
             {t('common.reset')}
           </button>
@@ -403,7 +450,7 @@ export default function PropertyFilterBar({
 
   return (
     <>
-      {/* 贝壳风单行筛选栏：顶部搜索框 + 单行 text+chevron Tab（区域/价格/户型/更多/排序）+ 只看视频 | 结果计数 */}
+      {/* 贝壳风单行筛选栏：顶部搜索框 + 单行 text+chevron Tab（区域/类型/价格/户型/更多/排序）+ 只看视频 | 结果计数 */}
       <div className="pf-search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input
@@ -417,6 +464,14 @@ export default function PropertyFilterBar({
         <div className="pf-bar__tabs">
           <FilterTab label={f.locLabel} active={!!f.activeLocationKw.length} open={f.locOpen} onOpenChange={f.onLocOpenChange}>
             {locPanelContent}
+          </FilterTab>
+          <FilterTab
+            label={typeTabLabel}
+            active={!!f.typeClass || !!f.bizType}
+            open={filterOpen === 'type'}
+            onOpenChange={(o) => setFilterOpen(o ? 'type' : '')}
+          >
+            {typePanelContent}
           </FilterTab>
           <FilterTab
             label={f.priceRange ? currentOptLabel(PRICE_OPTS, f.priceRange, t('browse.filterPrice')) : t('browse.filterPrice')}
@@ -443,7 +498,7 @@ export default function PropertyFilterBar({
           </FilterTab>
           <FilterTab
             label={t('browse.filterMore')}
-            active={!!f.status || !!f.propertyType || !!f.areaRange}
+            active={!!f.status || !!f.areaRange}
             open={filterOpen === 'more'}
             onOpenChange={(o) => setFilterOpen(o ? 'more' : '')}
           >

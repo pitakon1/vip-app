@@ -244,14 +244,38 @@ export default function CalendarScreen() {
   const [eventMinute, setEventMinute] = useState(now.getMinutes());
 
   const load = useCallback(async () => {
-    const [meRes, vwRes, lsRes, wbRes, pvRes, ceRes] = await Promise.allSettled([
+    // 日历只关心当前月：带看按「本人 + 当月区间」服务端筛，
+    // 避免拉固定条数后本地过滤导致月初/月末预约被截断。
+    const monthStart = new Date(currentYear, currentMonth, 1, 0, 0, 0, 0);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 1, 0, 0, 0, 0);
+    monthEnd.setMilliseconds(-1);
+    const [meRes, lsRes, wbRes, pvRes, ceRes] = await Promise.allSettled([
       employeesApi.mine(),
-      viewingsApi.list({ pageSize: OPTION_PAGE_SIZE }),
       leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
       employeesApi.workbench(),
       propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
       calendarEventsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
     ]);
+
+    const myEmpId =
+      meRes.status === 'fulfilled' ? ((meRes.value as any)?.data?.id as string | undefined) : undefined;
+    if (myEmpId) {
+      try {
+        const vwRes = await viewingsApi.list({
+          page_size: OPTION_PAGE_SIZE,
+          assigned_to: myEmpId,
+          scheduled_from: monthStart.toISOString(),
+          scheduled_to: monthEnd.toISOString(),
+        });
+        const raw = vwRes.data as any;
+        const items = Array.isArray(raw) ? raw : raw?.items ?? [];
+        setViewings(items as ViewingItem[]);
+      } catch {
+        setViewings([]);
+      }
+    } else {
+      setViewings([]);
+    }
 
     if (pvRes.status === 'fulfilled') {
       const raw = pvRes.value.data as any;
@@ -263,16 +287,10 @@ export default function CalendarScreen() {
       setPropNames(map);
     }
 
-    if (vwRes.status === 'fulfilled') {
-      const raw = vwRes.value.data as any;
-      const items = Array.isArray(raw) ? raw : raw?.items ?? [];
-      setViewings(items as ViewingItem[]);
-    }
-
     if (lsRes.status === 'fulfilled') {
       const raw = lsRes.value.data as any;
       const items = Array.isArray(raw) ? raw : raw?.items ?? [];
-      const myId = meRes.status === 'fulfilled' ? (meRes.value as any)?.data?.id : null;
+      const myId = myEmpId ?? null;
       const mine = myId ? (items as LeaseItem[]).filter((l) => l.agent_id === myId) : (items as LeaseItem[]);
       setLeases(mine);
     }
@@ -293,7 +311,7 @@ export default function CalendarScreen() {
 
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [currentYear, currentMonth]);
 
   useEffect(() => {
     load();
@@ -1066,14 +1084,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  warnBadgeText: { fontSize: 11, fontWeight: '600', color: colors.warning },
+  warnBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.warning, lineHeight: colors.lineHeight.tight},
   dateBadge: {
     backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
     borderRadius: colors.radius.full,
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  dateBadgeText: { fontSize: 11, fontWeight: '600', color: colors.primary },
+  dateBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.primary, lineHeight: colors.lineHeight.tight},
   followItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1093,7 +1111,7 @@ const styles = StyleSheet.create({
   followTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   followTitle: { fontSize: 15, fontWeight: '600', color: colors.ink, flexShrink: 1 },
   followBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
-  followBadgeText: { fontSize: 10, fontWeight: '600' },
+  followBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   followSub: { fontSize: 12, color: colors.ink3, marginTop: 3 },
   followAction: {
     paddingHorizontal: 12,
@@ -1162,13 +1180,14 @@ const styles = StyleSheet.create({
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   legendItem: { flexDirection: 'row', alignItems: 'center' },
   legendDot: { width: 6, height: 6, borderRadius: 3, marginRight: 4 },
-  legendLabel: { fontSize: 11, color: colors.ink3 },
+  legendLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
 
   weekHeader: { flexDirection: 'row', marginTop: 8, paddingHorizontal: 8 },
   weekDay: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: colors.fontSize.xs,
+    lineHeight: colors.lineHeight.tight,
     fontWeight: '600',
     color: colors.ink3,
     paddingVertical: 6,
@@ -1213,7 +1232,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   listEventTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full },
-  listEventTagText: { fontSize: 11, fontWeight: '600' },
+  listEventTagText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   listEventBody: { flex: 1, minWidth: 0 },
   listEventTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
   listEventSub: { fontSize: 12, color: colors.ink3, marginTop: 3 },
@@ -1243,7 +1262,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  infoBadgeText: { fontSize: 11, fontWeight: '600', color: colors.info },
+  infoBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.info, lineHeight: colors.lineHeight.tight},
   sectionHeadTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
 
   /* 本月重点 */
@@ -1268,8 +1287,8 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   stripUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
-  stripLabel: { fontSize: 11, color: colors.ink3, fontWeight: '500' },
-  stripSub: { fontSize: 10, color: colors.ink3, textAlign: 'center' },
+  stripLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
+  stripSub: { fontSize: colors.fontSize.xs, color: colors.ink3, textAlign: 'center', lineHeight: colors.lineHeight.tight},
   progressWrap: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1283,7 +1302,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
-  progressLabel: { fontSize: 11, color: colors.ink3, marginTop: 6 },
+  progressLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
 
   /* 列表卡 */
   listCard: {
@@ -1309,7 +1328,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   expireBadgeWarn: { backgroundColor: colors.alpha(colors.errorRgb, 0.1) },
-  expireBadgeText: { fontSize: 11, fontWeight: '600', color: colors.ink2 },
+  expireBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.ink2, lineHeight: colors.lineHeight.tight},
 
   /* 添加事件悬浮按钮 */
   fab: {
@@ -1355,7 +1374,7 @@ const styles = StyleSheet.create({
   /* 滚轮式时间选择器 */
   wheelRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   wheelCol: { flex: 1, alignItems: 'center' },
-  wheelColLabel: { fontSize: 11, fontWeight: '600', color: colors.ink3, marginBottom: 6 },
+  wheelColLabel: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.ink3, marginBottom: 6, lineHeight: colors.lineHeight.tight},
   wheelBox: {
     height: WHEEL_HEIGHT,
     width: '100%',

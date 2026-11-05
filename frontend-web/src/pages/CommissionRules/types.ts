@@ -1,5 +1,5 @@
 export type DealType = 'new_rental' | 'renewal' | 'management'
-export type Scope = 'all_employees' | 'by_department' | 'by_employee' | 'by_broker'
+export type Scope = 'all_employees' | 'by_department' | 'by_employee' | 'by_broker' | 'by_partner'
 
 // 分佣拆分规则（对应后端 /commission-split-rules）
 export type SplitRole = 'listing_agent' | 'client_agent' | 'handler' | 'partner_company' | 'platform'
@@ -40,6 +40,8 @@ export interface CommissionRule {
   employee_name?: string
   broker_id?: string
   broker_name?: string
+  partner_id?: string
+  partner_name?: string
   cap_amount?: number
   minimum_amount?: number
   description?: string
@@ -54,6 +56,7 @@ export interface FormState {
   department: string
   employee_id: string
   broker_id: string
+  partner_id: string
   broker_employee_id: string
   cap_amount: string
   minimum_amount: string

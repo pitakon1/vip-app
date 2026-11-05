@@ -31,7 +31,7 @@ import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { HomeIcon, goMainHome } from '@/components/BeikeHeader';
 import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi';
-import { priceAlertsApi, viewingsApi } from '@/services/api';
+import { favoritesApi, chatApi, priceAlertsApi, viewingsApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import {
   decorationLabel,
@@ -87,6 +87,74 @@ export default function PublicListingDetailScreen() {
   const [priceAlertOn, setPriceAlertOn] = useState(false);
   const [priceAlertBusy, setPriceAlertBusy] = useState(false);
   const [priceAlertLoaded, setPriceAlertLoaded] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
+  const [contactBusy, setContactBusy] = useState(false);
+
+  // 收藏状态：详情页写「收藏后可接收降价通知」，就必须真的有收藏入口
+  useEffect(() => {
+    if (!isLoggedIn || !data?.property_id) {
+      setFavorited(false);
+      return;
+    }
+    let alive = true;
+    favoritesApi
+      .status(data.property_id)
+      .then((res: any) => {
+        const body = res?.data?.data ?? res?.data;
+        if (alive) setFavorited(Boolean(body?.favorited));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isLoggedIn, data?.property_id]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (favBusy) return;
+    if (!isLoggedIn) {
+      navigation.navigate('Login');
+      return;
+    }
+    if (!data?.property_id) return;
+    setFavBusy(true);
+    const next = !favorited;
+    setFavorited(next);
+    try {
+      if (next) await favoritesApi.toggle(data.property_id);
+      else await favoritesApi.remove(data.property_id);
+    } catch {
+      setFavorited(!next);
+    } finally {
+      setFavBusy(false);
+    }
+  }, [favBusy, isLoggedIn, navigation, data?.property_id, favorited]);
+
+  // 联系经纪人：按房源建会话后进入 ChatDetail（原来固定跳 ChatList，用户看到空列表）
+  const contactBroker = useCallback(async () => {
+    if (contactBusy) return;
+    if (!isLoggedIn) {
+      navigation.navigate('Login');
+      return;
+    }
+    if (!data?.id) return;
+    setContactBusy(true);
+    try {
+      const res: any = await chatApi.createConversation({
+        listing_id: data.id,
+        title: data.room_number || data.project_name || '',
+      });
+      const conv = res?.data?.data ?? res?.data;
+      if (conv?.id) {
+        navigation.navigate('ChatDetail', { conversationId: String(conv.id) });
+      }
+    } catch {
+      // 建会话失败时给出可见反馈，而不是跳去空列表
+      setBookingMsg({ tone: 'error', text: t('actionFailed') });
+    } finally {
+      setContactBusy(false);
+    }
+  }, [contactBusy, isLoggedIn, navigation, data?.id, data?.room_number, data?.project_name, t]);
 
   const togglePriceAlert = useCallback(async () => {
     if (!isLoggedIn) {
@@ -324,6 +392,22 @@ export default function PublicListingDetailScreen() {
             </Text>
           ) : null}
 
+          {/* 收藏：详情页提示「收藏后可接收降价通知」，这里提供真实红心 */}
+          <TouchableOpacity
+            style={[styles.priceAlert, favorited && styles.priceAlertOn, { marginBottom: 8 }]}
+            onPress={toggleFavorite}
+            disabled={favBusy}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={favorited ? 'heart' : 'heart-outline'}
+              size={16}
+              color={favorited ? colors.primary : colors.ink2}
+            />
+            <Text style={[styles.priceAlertText, favorited && styles.priceAlertTextOn]}>
+              {t('pub.myFollow')}
+            </Text>
+          </TouchableOpacity>
           {/* 降价提醒：贝壳式关注/降价通知，未登录引导登录 */}
           <TouchableOpacity
             style={[styles.priceAlert, priceAlertOn && styles.priceAlertOn]}
@@ -516,6 +600,15 @@ export default function PublicListingDetailScreen() {
                   <Text style={styles.lockText}>{t('pub.contactLocked')}</Text>
                 </View>
               ) : null}
+
+              <TouchableOpacity
+                style={styles.callRow}
+                onPress={contactBroker}
+                disabled={contactBusy}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primary} />
+                <Text style={styles.callText}>{t('prop.contactBroker')}</Text>
+              </TouchableOpacity>
 
               {data.broker.phone ? (
                 <TouchableOpacity

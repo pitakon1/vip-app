@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  typeBadgeText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primary, lineHeight: colors.lineHeight.tight},
 
   headCard: {
     marginHorizontal: 20,
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   dot: { width: 6, height: 6, borderRadius: 3 },
 
   keyRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginTop: 14 },
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...colors.shadow.sm,
   },
-  keyLabel: { fontSize: 11, color: colors.ink3 },
+  keyLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   keyValue: {
     fontSize: 13,
     fontWeight: '800',
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   infoItem: { width: '50%', paddingHorizontal: 10, paddingVertical: 10 },
   infoItemWide: { width: '100%' },
-  infoLabel: { fontSize: 11, color: colors.ink3, marginBottom: 4 },
+  infoLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 4, lineHeight: colors.lineHeight.tight},
   infoValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
 
   actionRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 14 },
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   tenantAvatarText: { fontSize: 17, fontWeight: '800', color: colors.primary },
   tenantInfo: { flex: 1, minWidth: 0 },
   tenantName: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  tenantMeta: { fontSize: 11, color: colors.ink3, marginTop: 3 },
+  tenantMeta: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 3, lineHeight: colors.lineHeight.tight},
   tenantRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -563,6 +563,6 @@ const styles = StyleSheet.create({
   ticketBody: { flex: 1, minWidth: 0 },
   ticketHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   ticketTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.ink },
-  ticketDate: { fontSize: 11, color: colors.ink3, fontVariant: ['tabular-nums'] },
+  ticketDate: { fontSize: colors.fontSize.xs, color: colors.ink3, fontVariant: ['tabular-nums'], lineHeight: colors.lineHeight.tight},
   ticketDesc: { fontSize: 12, color: colors.ink3, marginTop: 4 },
 });

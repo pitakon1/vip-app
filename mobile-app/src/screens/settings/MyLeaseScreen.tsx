@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  leaseBadgeText: { fontSize: 11, fontWeight: '600' },
+  leaseBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   leaseMeta: { fontSize: 12, color: colors.ink3, marginTop: 4 },
   leaseTrack: {
     flexDirection: 'row',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   leaseBar: { height: 4, borderRadius: colors.radius.full, backgroundColor: colors.primary },
-  leaseRange: { fontSize: 11, color: colors.ink3, marginTop: 6 },
+  leaseRange: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
   chevron: {
     width: 24,
     height: 24,

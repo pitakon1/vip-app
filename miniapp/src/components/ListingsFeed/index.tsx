@@ -89,6 +89,13 @@ export interface ListingsFeedProps {
   // 业务 Tab（整租 / 买房）
   biz: BizKey
   onBizChange: (biz: BizKey) => void
+  /** 房产类型分类（员工找房页）：不传则不显示「类型」筛选 Tab，C 端行为不变 */
+  typeSel?: string
+  /** 业务类型筛选（员工找房页）：'' | rent | resale | new */
+  bizSel?: string
+  onTypeBizChange?: (patch: { typeSel?: string; bizSel?: string }) => void
+  /** 空态「清除筛选」回调：仅在传值时由本组件展示清除入口 */
+  onClearFilters?: () => void
   // 收藏
   favSet: Set<string>
   favPending: Set<string>
@@ -219,6 +226,24 @@ export const STATUS_OPTIONS = [
   { key: 'rented', label: 'pub.statusRented' },
   { key: 'renewing', label: 'prop.statusRenewing' },
   { key: 'maintenance', label: 'pub.statusMaintenance' }
+]
+
+// ==================== 房产类型 / 业务类型（员工找房页专用，口径与 C 端分类页一致） ====================
+export const PROPERTY_TYPE_OPTIONS = [
+  { key: '', label: 'pub.filterAny' },
+  { key: 'apartment', label: 'prop.typeApartment' },
+  { key: 'villa', label: 'prop.typeVilla' },
+  { key: 'commercial', label: 'category.commTitle' },
+  { key: 'factory', label: 'prop.typeFactory' },
+  { key: 'hotel', label: 'prop.typeHotel' },
+  { key: 'land', label: 'prop.typeLand' }
+]
+
+export const BIZ_TYPE_OPTIONS = [
+  { key: '', label: 'category.tagAll' },
+  { key: 'rent', label: 'category.rentTitle' },
+  { key: 'resale', label: 'category.resaleTitle' },
+  { key: 'new', label: 'category.newTitle' }
 ]
 
 // ==================== 匹配 / 排序（客户端兜底，C 端与员工端共用） ====================
@@ -376,7 +401,7 @@ const statusMetaOf = (
 }
 
 // 当前展开的筛选 Tab；null = 全部收起
-type OpenTab = null | 'region' | 'price' | 'layout' | 'more' | 'sort'
+type OpenTab = null | 'region' | 'price' | 'layout' | 'type' | 'more' | 'sort'
 
 export default function ListingsFeed(props: ListingsFeedProps) {
   const { t } = useI18n()
@@ -404,6 +429,10 @@ export default function ListingsFeed(props: ListingsFeedProps) {
     onToggleNearby,
     biz,
     onBizChange,
+    typeSel = '',
+    bizSel = '',
+    onTypeBizChange,
+    onClearFilters,
     favSet,
     favPending,
     onToggleFavorite,
@@ -630,10 +659,32 @@ export default function ListingsFeed(props: ListingsFeedProps) {
     (filters.decorSel ? 1 : 0) +
     (filters.amenitySel.length ? 1 : 0)
 
+  const typeBizActive = !!(typeSel || bizSel)
+  // 空态语义：仅当调用页提供了「清除筛选」能力时，才把当前条件视为「筛选无结果」
+  const hasFilteredOut = !!onClearFilters && (
+    activeLocationKw.length > 0 ||
+    hasPriceFilter ||
+    !!filters.bedroomSel ||
+    hasAreaFilter ||
+    moreBadge > 0 ||
+    typeBizActive ||
+    !!keyword.trim()
+  )
+  const typeTabLabel = useMemo(() => {
+    const parts = [
+      typeSel ? t(PROPERTY_TYPE_OPTIONS.find((o) => o.key === typeSel)?.label || 'prop.typeLabel') : '',
+      bizSel ? t(BIZ_TYPE_OPTIONS.find((o) => o.key === bizSel)?.label || 'pl.bizType') : ''
+    ].filter(Boolean)
+    return parts.length ? parts.join('·') : t('prop.typeLabel')
+  }, [typeSel, bizSel, t])
+
   const filterTabs = [
     { key: 'region', label: activeLocationKw.length ? regionLabel : t('pub.district'), active: activeLocationKw.length > 0, badge: 0 },
     { key: 'price', label: hasPriceFilter ? priceLabel : t('pub.filterPrice'), active: hasPriceFilter, badge: 0 },
     { key: 'layout', label: filters.bedroomSel ? bedroomLabel : t('pub.filterBeds'), active: !!filters.bedroomSel, badge: 0 },
+    ...(onTypeBizChange
+      ? [{ key: 'type', label: typeTabLabel, active: typeBizActive, badge: 0 }]
+      : []),
     { key: 'more', label: t('pub.filterMore'), active: moreBadge > 0, badge: moreBadge },
     { key: 'sort', label: filters.sortKey !== 'default' ? sortLabel : t('pub.sort'), active: filters.sortKey !== 'default', badge: 0 }
   ] as { key: OpenTab; label: string; active: boolean; badge: number }[]
@@ -805,6 +856,49 @@ export default function ListingsFeed(props: ListingsFeedProps) {
           <Text>{t('pub.reset')}</Text>
         </View>
         <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('layout')}>
+          <Text>{t('pub.apply')}</Text>
+        </View>
+      </View>
+    </>
+  )
+
+  // 房产类型 + 业务类型（员工找房页专用；C 端不传 onTypeBizChange 时不渲染该面板）
+  const renderTypePanel = () => (
+    <>
+      <Text className='filter-group__title'>{t('prop.typeLabel')}</Text>
+      <View className='filter-chips'>
+        {PROPERTY_TYPE_OPTIONS.map((o) => (
+          <View
+            key={o.key || 'type-any'}
+            className={`filter-chip ${typeSel === o.key ? 'filter-chip--active' : ''}`}
+            onClick={() => onTypeBizChange?.({ typeSel: o.key })}
+          >
+            <Text>{t(o.label)}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text className='filter-group__title'>{t('pl.bizType')}</Text>
+      <View className='filter-chips'>
+        {BIZ_TYPE_OPTIONS.map((o) => (
+          <View
+            key={o.key || 'biz-any'}
+            className={`filter-chip ${bizSel === o.key ? 'filter-chip--active' : ''}`}
+            onClick={() => onTypeBizChange?.({ bizSel: o.key })}
+          >
+            <Text>{t(o.label)}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View className='filter-drop__footer'>
+        <View
+          className='loc-btn loc-btn--ghost'
+          onClick={() => onTypeBizChange?.({ typeSel: '', bizSel: '' })}
+        >
+          <Text>{t('pub.reset')}</Text>
+        </View>
+        <View className='loc-btn loc-btn--primary' onClick={() => setOpenTab(null)}>
           <Text>{t('pub.apply')}</Text>
         </View>
       </View>
@@ -1072,8 +1166,12 @@ export default function ListingsFeed(props: ListingsFeedProps) {
               key={tb.key}
               className={`filter-tab ${openTab === tb.key ? 'filter-tab--open' : ''} ${tb.active ? 'filter-tab--active' : ''}`}
               onClick={() => toggleTab(tb.key)}
+              // 「类型」入口需要回显「公寓·租房」这类组合条件，给该 Tab 更宽的展示位
+              style={tb.key === 'type' ? { flexGrow: 1.5 } : undefined}
             >
-              <Text className='filter-tab__label'>{tb.label}</Text>
+              <Text className='filter-tab__label' style={tb.key === 'type' ? { maxWidth: '72px' } : undefined}>
+                {tb.label}
+              </Text>
               {tb.badge > 0 && <Text className='filter-tab__badge'>{tb.badge}</Text>}
               <Text className='filter-tab__arrow'>{openTab === tb.key ? '▲' : '▼'}</Text>
             </View>
@@ -1085,6 +1183,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
             {openTab === 'region' && renderRegionPanel()}
             {openTab === 'price' && renderPricePanel()}
             {openTab === 'layout' && renderLayoutPanel()}
+            {openTab === 'type' && renderTypePanel()}
             {openTab === 'more' && renderMorePanel()}
             {openTab === 'sort' && renderSortPanel()}
           </View>
@@ -1106,7 +1205,18 @@ export default function ListingsFeed(props: ListingsFeedProps) {
         {!loading && !error && items.length === 0 && (
           <View className='empty-state'>
             <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
-            <Text>{activeLocationKw.length ? t('tl.emptyRegion') : t('pub.emptyList')}</Text>
+            <Text>
+              {hasFilteredOut
+                ? t('prop.emptyNoMatch')
+                : activeLocationKw.length
+                ? t('tl.emptyRegion')
+                : t('pub.emptyList')}
+            </Text>
+            {hasFilteredOut && (
+              <View className='error-retry' onClick={onClearFilters}>
+                <Text className='error-retry__text'>{t('common.clear')}</Text>
+              </View>
+            )}
           </View>
         )}
         {items.map((item) => {

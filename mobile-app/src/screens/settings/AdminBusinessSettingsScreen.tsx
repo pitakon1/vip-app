@@ -5,6 +5,8 @@ import { companyApi } from '@/services/api';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
+import { errorText } from '@/lib/errorText';
 
 /**
  * 业务设置（管理端「我的 → 业务设置」全屏下钻子页）。
@@ -21,28 +23,29 @@ export default function AdminBusinessSettingsScreen() {
   const [autoDunning, setAutoDunning] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // 读取失败必须阻止保存：此前失败后仍显示默认值且允许保存，会把 7/30/开启
+  // 静默写回，覆盖用户真实配置。
+  const load = React.useCallback(async () => {
+    setLoadError(null);
+    setLoaded(false);
+    try {
+      const { data } = await companyApi.settings();
+      const business = (data?.data ?? data)?.business ?? {};
+      setRentDays(String(business.rent_reminder_days ?? 7));
+      setLeaseDays(String(business.lease_reminder_days ?? 30));
+      setAutoDunning(business.auto_dunning !== false);
+    } catch (e) {
+      setLoadError(errorText(e, '加载业务设置失败'));
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
 
   React.useEffect(() => {
-    let alive = true;
-    companyApi
-      .settings()
-      .then(({ data }) => {
-        const business = (data?.data ?? data)?.business ?? {};
-        if (!alive) return;
-        setRentDays(String(business.rent_reminder_days ?? 7));
-        setLeaseDays(String(business.lease_reminder_days ?? 30));
-        setAutoDunning(business.auto_dunning !== false);
-      })
-      .catch(() => {
-        /* 读取失败时保留默认值，保存仍会覆盖 */
-      })
-      .finally(() => {
-        if (alive) setLoaded(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+    void load();
+  }, [load]);
 
   const save = async () => {
     const rent = Number.parseInt(rentDays, 10);
@@ -71,6 +74,20 @@ export default function AdminBusinessSettingsScreen() {
       setSaving(false);
     }
   };
+
+  if (loadError) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <EmptyState
+          tone="error"
+          title={loadError}
+          sub="读取失败时不会保存，避免覆盖原配置"
+          actionLabel={t('common.retry')}
+          onAction={() => void load()}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

@@ -1,8 +1,10 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Spin } from 'antd'
+import { useQuery } from '@tanstack/react-query'
+import { Spin, message } from 'antd'
 import DataState from '@/components/DataState'
+import api from '@/lib/api'
 import useAuthStore from '@/stores/auth'
 import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import { useListingFilters } from './hooks/useListingFilters'
@@ -38,6 +40,55 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const statusLabelMap = usePropertyStatusMap()
   const propertyTypeMap = usePropertyTypeMap()
 
+  // ===== 收藏：卡片上的心形必须真的落库，而不是空动作 =====
+  const propertyIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (query.pagedItems as any[])
+            .map((it) => it.property_id || '')
+            .filter(Boolean),
+        ),
+      ),
+    [query.pagedItems],
+  )
+  const [favOverride, setFavOverride] = useState<Record<string, boolean>>({})
+  const favQ = useQuery({
+    queryKey: ['public-listings-fav', user?.id ?? 'anon', propertyIds.join(',')],
+    enabled: !!token && propertyIds.length > 0,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const res = await api.get('/favorites/status', { params: { property_ids: propertyIds.join(',') } })
+      const payload = res.data?.data ?? res.data
+      return new Set<string>(
+        (payload?.items ?? [])
+          .filter((x: any) => x.favorited)
+          .map((x: any) => String(x.property_id)),
+      )
+    },
+  })
+  const favSet = favQ.data ?? new Set<string>()
+  const isFavorite = (item: any) =>
+    favOverride[item.property_id] ?? favSet.has(String(item.property_id || ''))
+
+  const toggleFavorite = async (item: any) => {
+    if (!item?.property_id) return
+    if (!token) {
+      message.info(t('browse.loginRequired'))
+      navigate('/login')
+      return
+    }
+    const next = !isFavorite(item)
+    setFavOverride((prev) => ({ ...prev, [item.property_id]: next }))
+    try {
+      if (next) await api.post('/favorites', { property_id: item.property_id })
+      else await api.delete(`/favorites/${item.property_id}`)
+    } catch {
+      setFavOverride((prev) => ({ ...prev, [item.property_id]: !next }))
+      message.error(t('browse.favFailed'))
+    }
+  }
+
   // 切换业务 / 城市时清空区域选择（区域候选集会变，旧选值可能已不在列表里）
   useEffect(() => {
     filters.setBackendDistrict(null)
@@ -68,7 +119,7 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
       {/* ===== 顶栏（对齐原型 rent-portal__header）——compact 模式由外层 PortalLayout 提供，此处跳过 ===== */}
       {!compact && (
         <PortalHeader
-          biz={filters.biz}
+          biz={filters.isSaleBiz ? 'sale' : 'rent'}
           videoOnly={filters.videoOnly}
           token={token}
           onEnterSystem={enterSystem}
@@ -113,7 +164,15 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
               <DataState
                 empty
                 filtered={query.hasActiveFilter}
-                emptyTitle={t('common.noData')}
+                emptyTitle={query.hasActiveFilter ? t('browse.emptyFiltered') : t('browse.emptyNone')}
+                emptySub={query.hasActiveFilter ? t('browse.emptyFilteredSub') : undefined}
+                emptyAction={
+                  query.hasActiveFilter ? (
+                    <button type="button" className="rent-btn rent-btn--secondary" onClick={filters.resetAll}>
+                      {t('browse.clearFilters')}
+                    </button>
+                  ) : undefined
+                }
               />
             ) : (
               <div className="rent-prop-grid">
@@ -121,11 +180,13 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
                   <PropertyCard
                     key={item.id}
                     item={item}
-                    biz={filters.biz}
+                    biz={filters.isSaleBiz ? 'sale' : 'rent'}
                     schoolId={filters.schoolId}
                     onClick={handleCardClick}
                     propertyTypeMap={propertyTypeMap}
                     statusLabelMap={statusLabelMap}
+                    favorited={isFavorite(item)}
+                    onToggleFavorite={toggleFavorite}
                   />
                 ))}
               </div>

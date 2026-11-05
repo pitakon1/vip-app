@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sectionHint: { fontSize: 11, color: colors.ink3 },
+  sectionHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   moreLink: { fontSize: 12, fontWeight: '600', color: colors.primary },
   statGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   statCard: {
@@ -305,6 +305,6 @@ const styles = StyleSheet.create({
   projectCover: { width: '100%', height: 96 },
   projectBody: { paddingHorizontal: 10, paddingVertical: 9, gap: 3 },
   projectName: { fontSize: 13, fontWeight: '600', color: colors.text },
-  projectSub: { fontSize: 11, color: colors.ink3 },
+  projectSub: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   projectPrice: { fontSize: 13, fontWeight: '700', color: colors.primary },
 });

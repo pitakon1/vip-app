@@ -284,6 +284,75 @@ def _save_receipt(upload: UploadFile) -> str:
     )
 
 
+@router.get("/summary")
+def payments_summary(
+    payment_type: Optional[PaymentType] = None,
+    channel: Optional[str] = None,
+    date_from: Optional[date_type] = None,
+    date_to: Optional[date_type] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """收付款全局汇总（不受分页影响）。
+
+    前端统计卡此前只对「当前页」reduce，翻页时已收/待收/逾期金额会跳变。
+    这里按筛选条件（类型/渠道/日期）在服务端聚合全量数据。
+    状态口径复用 core.payments.payment_bucket，与对账导出一致。
+    """
+    conditions = [Payment.deleted_at.is_(None)]
+    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
+        conditions.append(
+            (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
+        )
+    if payment_type:
+        conditions.append(Payment.payment_type == payment_type)
+    if channel:
+        conditions.append(Payment.channel == channel)
+    if date_from:
+        conditions.append(
+            Payment.created_at >= datetime.combine(date_from, datetime.min.time())
+        )
+    if date_to:
+        conditions.append(
+            Payment.created_at <= datetime.combine(date_to, datetime.max.time())
+        )
+
+    rows = session.exec(select(Payment).where(*conditions)).all()
+    now = datetime.utcnow()
+    received_amount = 0.0
+    received_count = 0
+    pending_amount = 0.0
+    pending_count = 0
+    overdue_amount = 0.0
+    overdue_count = 0
+    refund_amount = 0.0
+    for p in rows:
+        amount = float(p.amount or 0)
+        if p.payment_type == PaymentType.refund:
+            refund_amount += amount
+            continue
+        bucket = payment_bucket(p, now)
+        if bucket == "received":
+            received_amount += amount
+            received_count += 1
+        elif bucket == "overdue":
+            overdue_amount += amount
+            overdue_count += 1
+        else:
+            pending_amount += amount
+            pending_count += 1
+    return {
+        "received_amount": received_amount,
+        "received_count": received_count,
+        "pending_amount": pending_amount,
+        "pending_count": pending_count,
+        "overdue_amount": overdue_amount,
+        "overdue_count": overdue_count,
+        "refund_amount": refund_amount,
+        "total": len(rows),
+    }
+
+
 @router.get("", response_model=Page[Payment])
 def list_payments(
     pagination: PaginationParams = Depends(),
@@ -469,26 +538,96 @@ def upload_payment_proof(
     amount: Annotated[float, Form(gt=0)],
     payment_method: str = Form("bank_transfer"),
     receipt: Optional[UploadFile] = File(None),
+    payment_id: Optional[uuid.UUID] = Form(None),
+    payment_type: Optional[PaymentType] = Form(None),
+    currency: str = Form("THB"),
+    payment_date: Optional[date_type] = Form(None),
+    lease_id: Optional[uuid.UUID] = Form(None),
+    property_id: Optional[uuid.UUID] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """上传付款凭证（旧版兼容）：创建一条待审核支付记录。
+    """上传付款凭证。
 
-    凭证此前只记了 `receipt.filename`（客户端可随意伪造的名字），文件本身
-    从没落盘，「已上传」其实是假的。现在校验后真正写入 uploads/receipts，
-    并通过 `GET /payments/{id}/proof-file` 带鉴权读取。
+    两种用法：
+    1. 传 `payment_id`：把凭证挂到已有待缴账单上。账单状态 pending → processing
+       （已提交待核销），因此待缴汇总会真实减少；金额必须与账单一致，避免
+       「10 万账单上传 1 元凭证」冲账。这是租客「上传凭证」的正常路径。
+    2. 不传 `payment_id`（旧版兼容）：新建一条付款记录，类型/币种/付款日/租约
+       全部来自表单，不再写死 service_fee / THB / now。
+
+    凭证文件校验后真正落盘 uploads/receipts，通过
+    `GET /payments/{id}/proof-file` 带鉴权读取。
     """
     receipt_url = _save_receipt(receipt) if receipt else None
+    channel = payment_method if payment_method != "cash" else "bank_transfer"
+    paid_at = (
+        datetime.combine(payment_date, datetime.min.time()).replace(hour=12)
+        if payment_date
+        else datetime.utcnow()
+    )
+    cur = (currency or "THB").upper()[:3]
+
+    if payment_id:
+        payment = session.get(Payment, payment_id)
+        if payment is None or payment.deleted_at:
+            raise HTTPException(status_code=404, detail="Payment not found")
+        if payment.payer_id != user.id and user.role not in (UserRole.admin, UserRole.staff):
+            raise HTTPException(status_code=403, detail="Not allowed to upload proof for this payment")
+        if payment.status in (PaymentStatus.succeeded, PaymentStatus.refunded):
+            raise HTTPException(status_code=409, detail="Payment already settled")
+        if abs(float(payment.amount) - float(amount)) > 0.01:
+            raise HTTPException(
+                status_code=400,
+                detail="Amount mismatch with the bill; upload the exact outstanding amount",
+            )
+        payment.receipt_url = receipt_url or payment.receipt_url
+        payment.channel = channel
+        payment.paid_at = paid_at
+        if payment_type:
+            payment.payment_type = payment_type
+        if currency:
+            payment.currency = cur
+        if lease_id and payment.lease_id is None:
+            payment.lease_id = lease_id
+        if property_id and payment.property_id is None:
+            payment.property_id = property_id
+        # 已提交凭证：移出「待缴」口径，等待财务核销
+        payment.status = PaymentStatus.processing
+        session.add(payment)
+        session.commit()
+        session.refresh(payment)
+        return payment
+
+    # 新建凭证记录：租约能提供业主/房源时一并补齐，业主侧 /payments/me 才看得到
+    payee_id: Optional[uuid.UUID] = None
+    if lease_id:
+        lease = session.get(Lease, lease_id)
+        if lease is None or lease.deleted_at:
+            raise HTTPException(status_code=404, detail="Lease not found")
+        if user.role == UserRole.tenant:
+            tenant = session.get(Tenant, lease.tenant_id)
+            if tenant is None or tenant.user_id != user.id:
+                raise HTTPException(status_code=403, detail="Not your lease")
+        property_id = property_id or lease.property_id
+        owner = session.get(Owner, lease.owner_id)
+        if owner and owner.user_id:
+            payee_id = owner.user_id
+
     payment = Payment(
         receipt_no=next_no(session, "SK"),
         payer_id=user.id,
+        payee_id=payee_id,
+        lease_id=lease_id,
+        property_id=property_id,
         amount=amount,
-        currency="THB",
-        payment_type=PaymentType.service_fee,
-        status=PaymentStatus.pending,
-        channel=payment_method if payment_method != "cash" else "bank_transfer",
+        currency=cur,
+        # 默认租金而不是服务费：租客上传的绝大多数是租金/押金凭证
+        payment_type=payment_type or PaymentType.rent,
+        status=PaymentStatus.processing,
+        channel=channel,
         idempotency_key=str(uuid.uuid4()),
-        paid_at=datetime.utcnow(),
+        paid_at=paid_at,
         due_date=None,
         description=f"凭证上传 {payment_method}",
         receipt_url=receipt_url,

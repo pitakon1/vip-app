@@ -71,7 +71,7 @@
 
 .lp-left-item--active {
   background: #ffffff;
-  border-left-color: #14b8a6;
+  border-left-color: var(--rent-primary);
 }
 
 .lp-left-text {
@@ -82,7 +82,7 @@
 }
 
 .lp-left-text--active {
-  color: #14b8a6;
+  color: var(--rent-primary);
   font-weight: 700;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .lp-left-sub--active {
-  color: #14b8a6;
+  color: var(--rent-primary);
 }
 
 .lp-right {
@@ -122,7 +122,7 @@
 }
 
 .lp-right-text--active {
-  color: #14b8a6;
+  color: var(--rent-primary);
   font-weight: 700;
 }
 
@@ -139,5 +139,5 @@
 }
 
 .lp-right-check--active {
-  color: #14b8a6;
+  color: var(--rent-primary);
 }

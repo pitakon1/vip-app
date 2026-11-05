@@ -1658,7 +1658,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...colors.shadow.sm,
   },
-  statLabel: { fontSize: 11, color: colors.ink3 },
+  statLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   statValue: { fontSize: 20, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
 
   /* 首屏顶部「新增房源」主按钮（唯一新增入口） */
@@ -1706,7 +1706,7 @@ const styles = StyleSheet.create({
   publishBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
 
   /* 列表/宫格 切换 + 计数 */
-  sectionCount: { fontSize: 11, color: colors.ink3, marginTop: 2 },
+  sectionCount: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   viewToggle: {
     width: 32,
@@ -1749,7 +1749,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: colors.radius.full,
   },
-  gridBadgeText: { fontSize: 10, fontWeight: '700' },
+  gridBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   gridName: {
     fontSize: 14,
     fontWeight: '700',
@@ -1758,8 +1758,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   gridPrice: { fontSize: 15, fontWeight: '800', paddingHorizontal: 12, marginTop: 4, fontVariant: ['tabular-nums'] },
-  gridPriceUnit: { fontSize: 10, fontWeight: '500', color: colors.ink3 },
-  gridAddr: { fontSize: 11, color: colors.ink3, paddingHorizontal: 12, paddingBottom: 12, marginTop: 4 },
+  gridPriceUnit: { fontSize: colors.fontSize.xs, fontWeight: '500', color: colors.ink3, lineHeight: colors.lineHeight.tight},
+  gridAddr: { fontSize: colors.fontSize.xs, color: colors.ink3, paddingHorizontal: 12, paddingBottom: 12, marginTop: 4, lineHeight: colors.lineHeight.tight},
 
   /* 房源卡片（对齐管理端） */
   card: {
@@ -1787,7 +1787,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  typeBadgeText: { fontSize: 11, fontWeight: '700' },
+  typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   statusBadge: {
     position: 'absolute',
     right: 12,
@@ -1796,7 +1796,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  statusBadgeText: { fontSize: 11, fontWeight: '700' },
+  statusBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
 
   cardBody: { padding: 14 },
   name: { fontSize: 15, fontWeight: '700', color: colors.ink },
@@ -1805,7 +1805,7 @@ const styles = StyleSheet.create({
   spec: { fontSize: 12, color: colors.ink2, marginTop: 6 },
   priceRow: { marginTop: 8 },
   price: { fontSize: 16, fontWeight: '800', color: colors.primary, fontVariant: ['tabular-nums'] },
-  priceUnit: { fontSize: 11, fontWeight: '500', color: colors.ink3 },
+  priceUnit: { fontSize: colors.fontSize.xs, fontWeight: '500', color: colors.ink3, lineHeight: colors.lineHeight.tight},
   noPrice: { fontSize: 12, color: colors.ink3 },
 
   /* 卡片底部操作 */

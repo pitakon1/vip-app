@@ -19,12 +19,14 @@ export function useCommissionLabels() {
     by_department: t('commissionRules.scope.by_department'),
     by_employee: t('commissionRules.scope.by_employee'),
     by_broker: t('commissionRules.scope.by_broker'),
+    by_partner: t('commissionRules.scope.by_partner'),
   }
   const scopeOptions: { value: string; label: string }[] = [
     { value: 'all_employees', label: t('commissionRules.scopeOption.all_employees') },
     { value: 'by_department', label: t('commissionRules.scopeOption.by_department') },
     { value: 'by_employee', label: t('commissionRules.scopeOption.by_employee') },
     { value: 'by_broker', label: t('commissionRules.scopeOption.by_broker') },
+    { value: 'by_partner', label: t('commissionRules.scopeOption.by_partner') },
     { value: 'broker_employee', label: t('commissionRules.scopeOption.broker_employee') },
   ]
   const brokerScopeOptions: { value: string; label: string }[] = [

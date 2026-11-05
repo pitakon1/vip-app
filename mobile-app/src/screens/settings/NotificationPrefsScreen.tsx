@@ -5,6 +5,8 @@ import { authApi } from '@/services/api';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
+import EmptyState from '@/components/EmptyState';
+import { errorText } from '@/lib/errorText';
 
 /**
  * 通知设置（全屏下钻子页，微信「设置→新消息通知」式）。
@@ -18,28 +20,28 @@ export default function NotificationPrefsScreen() {
   const [push, setPush] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // 进入即读取用户偏好
-  React.useEffect(() => {
-    let alive = true;
-    authApi
-      .preferences()
-      .then(({ data }) => {
-        const p = data ?? {};
-        if (!alive) return;
-        setTimezone(p.timezone || 'Asia/Bangkok');
-        setEmail(p.notify_email !== false);
-        setPush(p.notify_push !== false);
-        setLoaded(true);
-      })
-      .catch(() => {
-        if (alive) setLoaded(true);
-        /* 读取失败用默认值 */
-      });
-    return () => {
-      alive = false;
-    };
+  // 进入即读取用户偏好；读取失败必须阻止保存，否则会用默认值静默覆盖用户设置。
+  const load = React.useCallback(async () => {
+    setLoadError(null);
+    setLoaded(false);
+    try {
+      const { data } = await authApi.preferences();
+      const p = data ?? {};
+      setTimezone(p.timezone || 'Asia/Bangkok');
+      setEmail(p.notify_email !== false);
+      setPush(p.notify_push !== false);
+    } catch (e) {
+      setLoadError(errorText(e, '加载通知设置失败'));
+    } finally {
+      setLoaded(true);
+    }
   }, []);
+
+  React.useEffect(() => {
+    void load();
+  }, [load]);
 
   const save = async () => {
     setSaving(true);
@@ -56,6 +58,20 @@ export default function NotificationPrefsScreen() {
       setSaving(false);
     }
   };
+
+  if (loadError) {
+    return (
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <EmptyState
+          tone="error"
+          title={loadError}
+          sub="读取失败时不会保存，避免覆盖原设置"
+          actionLabel={t('common.retry')}
+          onAction={() => void load()}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

@@ -13,6 +13,12 @@ export default function LoadingState({ label = '加载中…' }: { label?: strin
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 64 },
-  label: { fontSize: 13, color: colors.ink3, marginTop: 16, fontWeight: '500' },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: colors.spacing.xxxl * 2 },
+  label: {
+    fontSize: colors.fontSize.sm,
+    lineHeight: colors.lineHeight.snug,
+    color: colors.ink3,
+    marginTop: colors.spacing.lg,
+    fontWeight: colors.fontWeight.medium,
+  },
 });

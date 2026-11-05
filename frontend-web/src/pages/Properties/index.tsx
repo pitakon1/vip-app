@@ -27,7 +27,7 @@ import { errorText } from '@/lib/errorText'
 import PropertyFilterBar from './PropertyFilterBar'
 import PropertyList from './PropertyList'
 import PropertyFormModal from './PropertyFormModal'
-import { usePropertyFilters } from './hooks/usePropertyFilters'
+import { usePropertyFilters, TYPE_CLASS_MAP } from './hooks/usePropertyFilters'
 import { usePropertyForm } from './hooks/usePropertyForm'
 
 const PAGE_SIZE = LIST_PAGE_SIZE
@@ -59,7 +59,14 @@ const Properties = () => {
     try {
       await downloadReport(
         '/exports/properties',
-        { status: filters.status || undefined, property_type: filters.propertyType || undefined, q: filters.keyword.trim() || undefined },
+        {
+          status: filters.status || undefined,
+          property_type: filters.typeClass ? TYPE_CLASS_MAP[filters.typeClass] : undefined,
+          listing_type: filters.bizType === 'rent' ? 'rent' : filters.bizType ? 'sell' : undefined,
+          is_new_development:
+            filters.bizType === 'new' ? true : filters.bizType === 'resale' ? false : undefined,
+          q: filters.keyword.trim() || undefined,
+        },
         'properties.csv',
       )
       message.success(t('propertiesPage.exported'))

@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   name: { fontSize: 15, fontWeight: '600', color: colors.ink },
   meta: { marginTop: 6, fontSize: 12, color: colors.ink3 },
-  sourceTag: { fontSize: 11, fontWeight: '600' },
+  sourceTag: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   sourceOn: { color: colors.primary },
   sourceOff: { color: colors.ink3 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },

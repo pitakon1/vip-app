@@ -3,7 +3,9 @@ import uuid
 from datetime import datetime
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, select
 
@@ -11,6 +13,7 @@ from app.db import get_session
 from app.core.auth import STAFF_ROLES, get_current_user, require_agent
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate, paginate_query
+from app.core.uploads import detect_document_mime, save_upload
 from app.models import (
     Conversation,
     Employee,
@@ -28,6 +31,19 @@ from app.schemas.chat import ConversationOut
 from app.services.chat_participants import participant_ids, sync_participants
 
 router = APIRouter(prefix="/maintenance-tickets", tags=["maintenance"])
+
+# 报修照片落盘目录：只存现场照片，由 main.py 静态托管（不含证件/合同等敏感件）
+MAINTENANCE_PHOTO_DIR = Path(__file__).resolve().parents[3] / "uploads" / "maintenance"
+MAINTENANCE_PHOTO_URL_PREFIX = "/uploads/maintenance/"
+MAX_MAINTENANCE_PHOTO_SIZE = 10 * 1024 * 1024
+ALLOWED_PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+ALLOWED_PHOTO_CONTAINERS = {
+    ".jpg": {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+    ".png": {"image/png"},
+    ".webp": {"image/webp"},
+    ".gif": {"image/gif"},
+}
 
 # 允许租客/业主自助撤销的工单状态：已开工及之后的状态只能由员工侧走 PATCH 收口
 CANCELLABLE_STATUSES = (TicketStatus.open, TicketStatus.assigned)
@@ -185,6 +201,31 @@ class MaintenanceTicketUpdate(BaseModel):
     resolution_notes: Optional[str] = None
     resolution_photos: Optional[List[Any]] = None
     cost: Optional[float] = None
+
+
+@router.post("/photos")
+def upload_maintenance_photo(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """报修现场照片上传：返回可写入工单 photos 的站内 URL。
+
+    原先 Web 报修表单选了照片但提交 payload 没有附件字段，用户以为已上传。
+    这里补真实落盘能力；照片按现场记录处理，静态托管便于工单列表直接展示。
+    """
+    url = save_upload(
+        file,
+        MAINTENANCE_PHOTO_DIR,
+        MAX_MAINTENANCE_PHOTO_SIZE,
+        ALLOWED_PHOTO_EXTENSIONS,
+        ALLOWED_PHOTO_CONTAINERS,
+        detector=detect_document_mime,
+        name_prefix="mt",
+        url_prefix=MAINTENANCE_PHOTO_URL_PREFIX,
+        label="photo",
+        supported_text="（支持 JPG / PNG / WEBP / GIF）",
+    )
+    return {"url": url}
 
 
 @router.get("", response_model=Page[MaintenanceTicketOut])

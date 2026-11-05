@@ -56,7 +56,7 @@ export default function CRMScreen() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load, loadError } = useCrmLeads(stage);
+  const { leads, stageTotals, totalCustomers, monthNew, nameMap, myEmployeeId, load, loadError } = useCrmLeads(stage, { mine: true });
 
   // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
   const [formOpen, setFormOpen] = useState(false);
@@ -245,10 +245,13 @@ export default function CRMScreen() {
             <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
             <Text style={[styles.leadActionText, { color: colors.primary }]}>发消息</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
-            <Ionicons name="create-outline" size={14} color={colors.primary} />
-            <Text style={[styles.leadActionText, { color: colors.primary }]}>编辑状态</Text>
-          </TouchableOpacity>
+          {/* 非本人负责的线索隐藏编辑入口：PATCH 只允许负责人，避免点了必然 403 */}
+          {myEmployeeId && l.assigned_to === myEmployeeId ? (
+            <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
+              <Ionicons name="create-outline" size={14} color={colors.primary} />
+              <Text style={[styles.leadActionText, { color: colors.primary }]}>编辑状态</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     );

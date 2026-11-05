@@ -4,9 +4,10 @@
   1. by_employee   员工专属
   2. by_department 部门
   3. by_broker     分销商（渠道商）专属
-  4. all_employees 全局
-  5. broker.base_rate（分销商基础分成比例，>0 时生效）
-  6. fallback：调用方传入的 fallback_percent（默认佣金百分比）
+  4. by_partner    合作公司专属（必须带 partner_id，否则该层不参与匹配）
+  5. all_employees 全局
+  6. broker.base_rate（分销商基础分成比例，>0 时生效）
+  7. fallback：调用方传入的 fallback_percent（默认佣金百分比）
 
 返回值语义：统一为**百分比** 0-100（如 5 表示 5%），消费方除以 100 换算
 月租倍数。fallback 的默认值因场景而异，由调用方显式指定：
@@ -52,9 +53,15 @@ def resolve_commission_rate(
     employee_id: Optional[uuid.UUID] = None,
     department: Optional[str] = None,
     broker_id: Optional[uuid.UUID] = None,
+    partner_id: Optional[uuid.UUID] = None,
     broker_base_rate: float = 0.0,
 ) -> float:
     """解析最终佣金比例（%）。
+
+    `partner_id` 为合作公司（Partner）id；为 None 时 `by_partner` 层不参与匹配，
+    直接回退到全局/分销商基础分成/调用方默认值（不报错）。
+    注意：创建 `by_partner` 规则时接口会强制要求 partner_id，因此库里不会出现
+    「by_partner 但 partner 为空」的规则。
 
     fallback_percent：未命中任何配置时的默认佣金百分比（0-100）。
     租单结算传 100.0（=1 个月租金），售单挂牌传 1.0（=1% 卖房佣金）。
@@ -100,7 +107,19 @@ def resolve_commission_rate(
         if rate is not None:
             return rate
 
-    # 4) 全局
+    # 4) 合作公司专属（必须带 partner_id；缺失时跳过该层，回退全局）
+    if partner_id:
+        rows = session.exec(
+            base.where(
+                CommissionRule.scope == CommissionRuleScope.by_partner,
+                CommissionRule.partner_id == partner_id,
+            )
+        ).all()
+        rate = _pick_rate(rows)
+        if rate is not None:
+            return rate
+
+    # 5) 全局
     rows = session.exec(
         base.where(CommissionRule.scope == CommissionRuleScope.all_employees)
     ).all()
@@ -108,11 +127,11 @@ def resolve_commission_rate(
     if rate is not None:
         return rate
 
-    # 5) 分销商基础分成比例
+    # 6) 分销商基础分成比例
     if broker_base_rate and broker_base_rate > 0:
         return broker_base_rate
 
-    # 6) fallback：调用方指定的默认佣金百分比（见模块 docstring）
+    # 7) fallback：调用方指定的默认佣金百分比（见模块 docstring）
     return fallback_percent
 
 

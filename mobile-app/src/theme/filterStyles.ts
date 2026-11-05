@@ -7,9 +7,9 @@
  * 高度 / 字号 / 选中态，从而保证筛选区排版与 C 端浏览页完全一致。
  *
  * 取值逐项对齐 PublicListingsScreen 的 `chip` / `chipText` / `count`：
- *  - chip 固定 `height: 34`、`borderRadius: full`、hairline 描边、横向 padding 14
- *  - chipText 字号 `fontSize.sm`(12)、中性 ink2；选中态为实心主色底 + 白字
- *  - count 字号 sm(12)、ink3，水平 padding 16、上 10 / 下 8
+ *  - chip 固定 `minHeight: 44`、`borderRadius: full`、hairline 描边、横向 padding 12
+ *  - chipText 字号 `fontSize.sm`(13)、中性 ink2；选中态为实心主色底 + 白字
+ *  - count 字号 sm(13)、ink3，水平 padding 16、上下 8
  */
 import { StyleSheet } from 'react-native';
 import colors from './colors';
@@ -17,23 +17,24 @@ import colors from './colors';
 export const filterStyles = StyleSheet.create({
   /** 未选中 chip：胶囊、hairline 描边、最小高度 44（满足 iOS HIG 可点击区域）、透明底 */
   chip: {
-    minHeight: 44,
+    minHeight: colors.touch.min,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: colors.spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
-  chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
+  chipText: { fontSize: colors.fontSize.sm, lineHeight: colors.lineHeight.snug, color: colors.ink2 },
+  chipTextActive: { color: colors.primaryForeground, fontWeight: colors.fontWeight.semibold },
   /** 结果数行 */
   count: {
     fontSize: colors.fontSize.sm,
+    lineHeight: colors.lineHeight.snug,
     color: colors.ink3,
-    paddingHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 8,
+    paddingHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.sm,
+    marginBottom: colors.spacing.sm,
   },
 });

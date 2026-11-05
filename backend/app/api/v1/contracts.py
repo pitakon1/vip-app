@@ -1829,6 +1829,8 @@ def get_contract(
         "parties": [
             {
                 "id": str(p.id),
+                # 归属用户：前端据此判断「哪一方是本人」，避免遍历所有未签方代签
+                "user_id": str(p.user_id) if p.user_id else None,
                 "name": p.name,
                 "email": p.email,
                 "phone": p.phone,

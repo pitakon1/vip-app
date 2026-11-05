@@ -334,7 +334,7 @@ const ListingTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
             <span className="rent-pagination__info">{t('saleDeals.totalPerPage', { count: total })}</span>
             <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('saleDeals.prevPage')}</button>
             <span className="rent-pagination__info">{page}</span>
-            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('saleDeals.nextPage')}</button>
+            <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('saleDeals.nextPage')}</button>
           </div>
         </div>
       </div>
@@ -614,7 +614,7 @@ const DealTab = () => {
         <span className="rent-pagination__info">{t('saleDeals.totalCount', { count: total })}</span>
         <button className="rent-pagination__btn" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>{t('saleDeals.prevPage')}</button>
         <span className="rent-pagination__info">{page}</span>
-        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * 10 >= total}>{t('saleDeals.nextPage')}</button>
+        <button className="rent-pagination__btn" onClick={() => setPage(page + 1)} disabled={page * LIST_PAGE_SIZE >= total}>{t('saleDeals.nextPage')}</button>
       </div>
 
       {createOpen && (

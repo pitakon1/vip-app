@@ -12,6 +12,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import LazyImage from '@/components/LazyImage'
+import DataState from '@/components/DataState'
+import { errorKind, errorText, type ErrorKind } from '@/lib/errorText'
 import { loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, { type PublicListingCardData } from '@/components/PublicListingCard'
@@ -46,6 +48,8 @@ const SchoolDetailPage = () => {
 
   const [school, setSchool] = useState<SchoolDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<{ text: string; kind: ErrorKind } | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   const [form, setForm] = useState({ name: '', phone: '' })
   const [submitting, setSubmitting] = useState(false)
@@ -61,13 +65,20 @@ const SchoolDetailPage = () => {
     if (!id) return
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
     api
       .get(`/public/schools/${id}`, { params: { radius_km: DEFAULT_SCHOOL_RADIUS_KM, limit: NEARBY_LIMIT } })
       .then((res) => {
         if (!cancelled) setSchool(res.data)
       })
-      .catch(() => {
-        if (!cancelled) setSchool(null)
+      .catch((err) => {
+        if (!cancelled) {
+          setSchool(null)
+          setLoadError({
+            text: errorText(err, t('publicSite.schoolNotFound')),
+            kind: errorKind(err),
+          })
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -75,7 +86,7 @@ const SchoolDetailPage = () => {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, t, retryKey])
 
   const submitInquiry = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -111,11 +122,27 @@ const SchoolDetailPage = () => {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="pub-page">
+        <PublicTopBar />
+        <div className="pub-wrap">
+          <DataState
+            error={loadError.text}
+            errorKind={loadError.kind}
+            retryText={t('common.retry')}
+            onRetry={() => setRetryKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+    )
+  }
+
   if (!school) {
     return (
       <div className="pub-page">
         <PublicTopBar />
-        <div className="pub-empty">{t('publicSite.schoolNotFound')}</div>
+        <DataState empty emptyTitle={t('publicSite.schoolNotFound')} />
       </div>
     )
   }
@@ -167,7 +194,7 @@ const SchoolDetailPage = () => {
 
             <div className="pub-badge--row" style={{ marginBottom: 18 }}>
               {school.stage ? (
-                <span className="pub-badge pub-badge--primary">
+                <span className="pub-badge">
                   {schoolStageLabel(school.stage, t)}
                 </span>
               ) : null}

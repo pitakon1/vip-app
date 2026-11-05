@@ -176,10 +176,33 @@ def _referral_dict(r: Referral) -> dict:
     }
 
 
+@router.get("/summary")
+def brokers_summary(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """渠道商全局状态分布（不受分页影响）。
+
+    前端统计卡此前对「当前页」reduce，翻页后待审/生效/停用数量会变。
+    """
+    if user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="No permission")
+    rows = session.exec(
+        select(BrokerPartner.status).where(BrokerPartner.deleted_at.is_(None))
+    ).all()
+    counts = {"pending": 0, "active": 0, "suspended": 0}
+    for value in rows:
+        key = value.value if hasattr(value, "value") else str(value)
+        if key in counts:
+            counts[key] += 1
+    return {"total": len(rows), **counts}
+
+
 @router.get("", response_model=Page[BrokerOut])
 def list_brokers(
     status: Optional[BrokerStatus] = None,
     level: Optional[BrokerLevel] = None,
+    keyword: Optional[str] = None,
     pagination: PaginationParams = Depends(),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
@@ -192,6 +215,15 @@ def list_brokers(
         query = query.where(BrokerPartner.status == status)
     if level:
         query = query.where(BrokerPartner.level == level)
+    if keyword and keyword.strip():
+        kw = f"%{keyword.strip()}%"
+        query = query.where(
+            or_(
+                BrokerPartner.partner_name.ilike(kw),
+                BrokerPartner.contact_name.ilike(kw),
+                BrokerPartner.invite_code.ilike(kw),
+            )
+        )
     query = query.order_by(BrokerPartner.created_at.desc())
     page = paginate_query(session, query, pagination)
     page.items = [_broker_dict(i) for i in page.items]

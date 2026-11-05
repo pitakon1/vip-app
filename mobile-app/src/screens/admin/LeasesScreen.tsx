@@ -1,4 +1,5 @@
 ﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { fetchAllPages } from '@/lib/fetchAll';
 /**
  * 合同管理（管理端）
  * 原型：admin-mobile-leases.html
@@ -81,15 +82,15 @@ export default function AdminLeasesScreen() {
   const load = useCallback(async () => {
     setLoadError(null);
     const [leaseRes, propRes] = await Promise.allSettled([
-      leasesApi.list({ page: 1, page_size: PAGE_SIZE }),
+      // 显式全量加载：本页的搜索与状态筛选都在本地做，只取第一页会漏掉后面页的合同
+      fetchAllPages<LeaseRow>((page) => leasesApi.list({ page, page_size: PAGE_SIZE }), PAGE_SIZE),
       propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
     ]);
 
     if (leaseRes.status === 'fulfilled') {
-      const d = (leaseRes.value as any)?.data ?? {};
-      const rows = (Array.isArray(d) ? d : d.items ?? []) as LeaseRow[];
+      const { items: rows, total: rowTotal } = leaseRes.value as { items: LeaseRow[]; total: number };
       setLeases(rows);
-      setTotal(typeof d.total === 'number' ? d.total : rows.length);
+      setTotal(rowTotal);
     } else {
       setLoadError('合同加载失败，请重试');
     }
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...colors.shadow.sm,
   },
-  statLabel: { fontSize: 11, color: colors.ink3 },
+  statLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   statValue: { fontSize: 20, fontWeight: '800', marginTop: 4, fontVariant: ['tabular-nums'] },
 
   sectionTitle: {
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: colors.radius.full,
   },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
   dot: { width: 6, height: 6, borderRadius: 3 },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },

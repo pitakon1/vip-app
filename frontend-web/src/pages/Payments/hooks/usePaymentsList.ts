@@ -5,9 +5,9 @@ import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { leasesApi, paymentsApi } from '@/services/api'
 import { useCachedQuery } from '@/lib/queryCache'
 import { downloadReport } from '@/lib/download'
-import { errorText } from '@/lib/errorText'
+import { errorText, errorKind, type ErrorKind } from '@/lib/errorText'
 import type { Payment } from '@/types'
-import type { QueryParams } from '../types'
+import type { PaymentSummary, QueryParams } from '../types'
 
 /** 收付款列表：筛选/分页/缓存查询 + 租约租客姓名解析 + 导出 */
 export function usePaymentsList() {
@@ -56,6 +56,45 @@ export function usePaymentsList() {
   const total = listQuery.data?.total ?? 0
   const loading = listQuery.isFetching && !listQuery.data
   const loadError = listQuery.isError ? errorText(listQuery.error, t('common.loadFailed')) : null
+  const loadErrorKind: ErrorKind = listQuery.isError ? errorKind(listQuery.error) : 'unknown'
+
+  // 统计卡走服务端全局汇总：此前对当前页 reduce，翻页后金额会变
+  const [serverSummary, setServerSummary] = useState<PaymentSummary | null>(null)
+  const summaryKey = [
+    queryParams.payment_type ?? '',
+    queryParams.channel ?? '',
+    queryParams.date_from ?? '',
+    queryParams.date_to ?? '',
+  ].join(':')
+  useEffect(() => {
+    let cancelled = false
+    paymentsApi
+      .summary({
+        payment_type: queryParams.payment_type,
+        channel: queryParams.channel,
+        date_from: queryParams.date_from,
+        date_to: queryParams.date_to,
+      })
+      .then((res) => {
+        if (cancelled) return
+        const d = res.data?.data ?? res.data
+        setServerSummary({
+          totalAmount: Number(d?.received_amount ?? 0),
+          pendingAmount: Number(d?.pending_amount ?? 0),
+          overdueAmount: Number(d?.overdue_amount ?? 0),
+          expenseAmount: Number(d?.refund_amount ?? 0),
+          count: Number(d?.received_count ?? 0),
+          pendingCount: Number(d?.pending_count ?? 0),
+          overdueCount: Number(d?.overdue_count ?? 0),
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setServerSummary(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [summaryKey])
 
   useEffect(() => {
     if (listQuery.isError) message.error(errorText(listQuery.error, t('common.loadFailed')))
@@ -147,6 +186,8 @@ export function usePaymentsList() {
     total,
     loading,
     loadError,
+    loadErrorKind,
+    serverSummary,
     fetchData,
     queryParams,
     setQueryParams,

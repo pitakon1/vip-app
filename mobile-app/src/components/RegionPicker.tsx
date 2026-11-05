@@ -64,6 +64,12 @@ export default function RegionPicker({ value, onChange }: Props) {
   }, [visible, value]);
 
   const countries = useMemo(countriesOf, []);
+  // 国家列按最长国家名定宽（国家名 2–4 字，如「马来西亚」）。
+  // 三列各 flex:1 会让很窄的国家名占掉 1/3 宽度，城市/城区被挤压、右侧留大片空白。
+  const countryColWidth = useMemo(() => {
+    const maxLen = countries.reduce((m, c) => Math.max(m, c.length), 0);
+    return Math.min(120, Math.max(76, maxLen * 16 + 16));
+  }, [countries]);
   const cities = useMemo(
     () => (country ? AREA_GROUPS.filter((g) => g.country === country) : []),
     [country],
@@ -142,6 +148,7 @@ export default function RegionPicker({ value, onChange }: Props) {
                 active={(o) => o === country}
                 disabled={false}
                 onPick={pickCountry}
+                width={countryColWidth}
               />
               <Column
                 title={t('regionFilter.city')}
@@ -171,16 +178,19 @@ function Column({
   active,
   disabled,
   onPick,
+  width,
 }: {
   title: string;
   options: string[];
   active: (o: string) => boolean;
   disabled: boolean;
   onPick: (o: string | undefined) => void;
+  /** 固定列宽（国家列按最长国家名）；不传则等分剩余空间 */
+  width?: number;
 }) {
   const { t } = useI18n();
   return (
-    <View style={styles.col}>
+    <View style={[styles.col, width ? { flex: 0, width } : null]}>
       <Text style={styles.colTitle}>{title}</Text>
       {disabled || options.length === 0 ? (
         <View style={styles.colEmpty}>

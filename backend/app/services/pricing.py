@@ -100,16 +100,38 @@ SERVICE_PRICE_CATALOG: Dict[str, dict] = {
 }
 
 
-def service_quote(code: str, qty: int = 1) -> dict:
-    """按其备注 A5 生成含 不含税价 / 税费 / 合计 的结构，税费由业主自理。"""
+# 购买规格相对「单次基准价」的单价系数（服务端定价唯一来源）。
+# 客户端只展示报价，禁止用本地系数自行算 billing_amount，否则下单金额
+# 与服务端入账不一致会造成资损。
+SERVICE_BILLING_FACTOR: Dict[str, float] = {
+    "per_use": 1.0,  # 按次：基准价
+    "daily": 0.5,    # 按日：单日价
+    "monthly": 3.0,  # 按月：包月价
+}
+
+
+def service_quote(code: str, qty: int = 1, billing_model: str = "per_use") -> dict:
+    """按其备注 A5 生成 不含税价 / 税费 / 合计 的结构，税费由业主自理。
+
+    单价 = 基准价 × 规格系数（per_use=1 / daily=0.5 / monthly=3），
+    合计 = 单价 × 数量。水电代缴固定单笔，不参与规格折算。
+    """
     item = SERVICE_PRICE_CATALOG.get(code)
     if item is None:
         raise KeyError(f"Unknown service code: {code}")
-    base = round(item["base_price"] * qty, 2)
+    model = "per_use" if code == ServiceCode.utility_payment.value else billing_model
+    factor = SERVICE_BILLING_FACTOR.get(model)
+    if factor is None:
+        raise ValueError(f"Unknown billing model: {billing_model}")
+    unit_price = round(item["base_price"] * factor, 2)
+    base = round(unit_price * qty, 2)
     tax = round(base * VAT_RATE, 2)
     return {
         "code": code,
         **item,
+        "billing_model": model,
+        "billing_interval": qty,
+        "unit_price": unit_price,
         "quantity": qty,
         "base_amount": base,
         "tax_amount": tax,  # 税费另算
