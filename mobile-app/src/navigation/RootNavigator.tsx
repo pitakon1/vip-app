@@ -95,7 +95,6 @@ export type RootStackParamList = {
   About: undefined;
   /** ===== 贝壳式分类页（首页黄金导航 5 入口 → 各自独立页）===== */
   RentCategory: undefined;
-  Apartment: undefined;
   NewHouse: undefined;
   Resale: undefined;
   Commercial: undefined;
@@ -219,7 +218,6 @@ const MyContractsScreen = lazyScreen(() => import('../screens/contracts/MyContra
 const AboutScreen = lazyScreen(() => import('../screens/AboutScreen'));
 // 贝壳式分类页：4 个 C 端分类页 + 新房（楼盘视角），顶栏为自绘磨砂玻璃，故 headerShown:false
 const RentCategoryScreen = lazyScreen(() => import('../screens/category/RentCategoryScreen'));
-const ApartmentScreen = lazyScreen(() => import('../screens/category/ApartmentScreen'));
 const NewHouseScreen = lazyScreen(() => import('../screens/category/NewHouseScreen'));
 const ResaleScreen = lazyScreen(() => import('../screens/category/ResaleScreen'));
 const CommercialScreen = lazyScreen(() => import('../screens/category/CommercialScreen'));
@@ -320,7 +318,6 @@ export function RootNavigator() {
       <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: true, title: t('profile.about') }} />
       {/* 贝壳式分类页：页面自绘磨砂玻璃顶栏，故 headerShown:false */}
       <Stack.Screen name="RentCategory" component={RentCategoryScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Apartment" component={ApartmentScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NewHouse" component={NewHouseScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Resale" component={ResaleScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Commercial" component={CommercialScreen} options={{ headerShown: false }} />

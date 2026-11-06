@@ -15,11 +15,9 @@
 - 除留资外**不做任何写操作**。
 """
 import math
-import time
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from urllib.parse import urlencode
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict
@@ -66,6 +64,29 @@ _LISTING_SORTS = ["latest", "price_asc", "price_desc", "area_desc", "distance", 
 # 这些类目的卡片展示日租金/㎡ 与层高/荷载等工业口径字段（住宅类目不展示）。
 _COMMERCIAL_TYPES = {"office", "shop", "commercial", "factory"}
 
+# 公开筛选允许的房源类型白名单。取值与后台「选项管理」里 seed 的 property_type
+# 枚举一致（见 app/core/migrations.py）；不在白名单内一律 422，避免把拼写错误
+# 当成「有效筛选但 0 条」静默返回。
+_PROPERTY_TYPES = frozenset(
+    {
+        "apartment", "condo", "villa", "house", "townhouse",
+        "shop", "commercial", "office", "coworking", "homeoffice", "showroom",
+        "factory", "warehouse", "hotel", "land",
+    }
+)
+
+
+def _parse_property_types(values: Optional[List[str]]) -> List[str]:
+    """校验并归一化 `property_type` 多值参数；含未知取值时抛 422。"""
+    types = [t.strip() for t in (values or []) if t and t.strip()]
+    unknown = sorted(set(types) - _PROPERTY_TYPES)
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail=f"未知的房源类型: {', '.join(unknown)}",
+        )
+    return types
+
 # 学区找房：候选集上限。距离要精确算（haversine）而 SQL 里没法算，
 # 因此先按 bounding box 粗筛、再在 Python 里精算与排序。
 # 上限是防止无边界扫描把库拖死的第一道闸。
@@ -75,25 +96,8 @@ _SCHOOL_CANDIDATE_LIMIT = 800
 # 再在 Python 里 haversine 精算排序，避免全表学校都参与距离计算。
 _NEARBY_SCHOOL_RADIUS_KM = 50.0
 
-# 公开列表总数（分页计数）的进程内 TTL 缓存。
-# 计数是列表页最贵的查询之一（join + 多层条件），而总数对翻页体验并不需要
-# 实时精确；30 秒内复用旧值是可接受的取舍（代价是 total 可能略旧）。
-_TOTAL_CACHE: Dict[str, Tuple[float, int]] = {}
-_TOTAL_CACHE_TTL = 30.0
-_TOTAL_CACHE_MAX_ENTRIES = 512
-
-
-def _cached_total(key: str, compute: Callable[[], int]) -> int:
-    """取（或计算并写入）某组筛选条件下的列表总数。"""
-    now = time.monotonic()
-    entry = _TOTAL_CACHE.get(key)
-    if entry is not None and now - entry[0] < _TOTAL_CACHE_TTL:
-        return entry[1]
-    total = int(compute())
-    if len(_TOTAL_CACHE) >= _TOTAL_CACHE_MAX_ENTRIES:
-        _TOTAL_CACHE.clear()
-    _TOTAL_CACHE[key] = (now, total)
-    return total
+# 公开列表总数（分页计数）此前有 30 秒进程内 TTL 缓存，会让 total 与当页数据
+# 不同源（用户可见的不一致），已移除；总数改为每次实时计算。
 
 
 # 注意：房源详情 `/public/listings/{id}` 不能加 Cache-Control。
@@ -432,6 +436,26 @@ def _enum_value(value: Any) -> Optional[str]:
     return value.value if hasattr(value, "value") else str(value)
 
 
+def _price_expr(listing_type: Optional[ListingType]):
+    """统一价格口径（列表 / 地图 / 排序 / 学区精算共用）。
+
+    - 指定业务线时收敛到该业务线的价格列：租=月租、售=挂牌价；
+    - 不指定业务线时**逐行按房源自身类型取价**（租→月租、售→挂牌价）。
+
+    此前不传 `listing_type` 时一律落 `asking_price`，而租房没有挂牌价（NULL），
+    于是「全部」业务线下带总价筛选会把租房整体筛掉；地图侧又用
+    `COALESCE(monthly_rent, asking_price)`，同一条件在列表与地图结果不一致。
+    """
+    if listing_type == ListingType.rent:
+        return Listing.monthly_rent
+    if listing_type == ListingType.sell:
+        return Listing.asking_price
+    return case(
+        (Listing.listing_type == ListingType.rent, Listing.monthly_rent),
+        else_=Listing.asking_price,
+    )
+
+
 def _sort_key_price(listing: Listing) -> float:
     """按业务类型取价格（租=月租、售=挂牌价），空值排到最后。"""
     price = (
@@ -743,7 +767,7 @@ def list_public_map_points(
     if listing_type:
         conditions.append(Listing.listing_type == listing_type)
     if property_type:
-        types = [t.strip() for t in property_type if t and t.strip()]
+        types = _parse_property_types(property_type)
         if types:
             conditions.append(Property.property_type.in_(types))
     if is_new_development is not None:
@@ -781,12 +805,7 @@ def list_public_map_points(
             )
         )
     # 价格口径与列表一致：租比月租、售比挂牌价
-    price_column = (
-        Listing.monthly_rent
-        if listing_type == ListingType.rent
-        else (Listing.asking_price if listing_type == ListingType.sell
-              else func.coalesce(Listing.monthly_rent, Listing.asking_price))
-    )
+    price_column = _price_expr(listing_type)
     if price_min is not None:
         conditions.append(price_column >= price_min)
     if price_max is not None:
@@ -838,7 +857,6 @@ def list_public_map_points(
 
 @router.get("/listings", response_model=Page[PublicListingCard])
 def list_public_listings(
-    request: Request,
     response: Response,
     pagination: PaginationParams = Depends(),
     listing_type: Optional[ListingType] = Query(None, description="rent / sell，不传=全部"),
@@ -940,7 +958,7 @@ def list_public_listings(
     # 房源类型：多值「任一命中」。「商铺办公」=office+shop 这类跨类型入口一次传入，
     # 避免前端为同一语义发多次请求再自行合并。
     if property_type:
-        types = [t.strip() for t in property_type if t and t.strip()]
+        types = _parse_property_types(property_type)
         if types:
             conditions.append(Property.property_type.in_(types))
     # 新房/二手房：按上架单标记过滤（资金/业务口径见 models/listing.py 注释）
@@ -1043,12 +1061,7 @@ def list_public_listings(
     if environmental_permit:
         conditions.append(Property.environmental_permit.is_(True))
 
-    # 价格口径随业务类型变化：租比月租、售比挂牌价
-    price_column = (
-        Listing.monthly_rent
-        if listing_type == ListingType.rent
-        else Listing.asking_price
-    )
+    price_column = _price_expr(listing_type)
     if price_min is not None:
         conditions.append(price_column >= price_min)
     if price_max is not None:
@@ -1178,24 +1191,10 @@ def list_public_listings(
     count_stmt = select(func.count()).select_from(
         base.where(*conditions).order_by(None).subquery()
     )
-    # 总数与翻页无关：缓存 key 用「路径 + 排序后的筛选参数」，剔除 page/page_size。
-    # 取舍：翻第 2 页起 30 秒内可能拿到略旧的总数（新增/下架房源尚未反映），
-    # 换来翻页时不必每页都重复执行一次昂贵的 count 查询。
-    total_key = request.url.path + "?" + urlencode(
-        sorted(
-            (key, value)
-            for key, value in request.query_params.multi_items()
-            if key not in {"page", "page_size"}
-        )
-    )
-    if pagination.page == 1:
-        # 第 1 页是真算，并把结果留给后续翻页复用
-        total = int(session.exec(count_stmt).one())
-        if len(_TOTAL_CACHE) >= _TOTAL_CACHE_MAX_ENTRIES:
-            _TOTAL_CACHE.clear()
-        _TOTAL_CACHE[total_key] = (time.monotonic(), total)
-    else:
-        total = _cached_total(total_key, lambda: session.exec(count_stmt).one())
+    # 总数每页实时计算：与列表同条件、同会话、同一事务，保证 total 与 items 同源。
+    # 此前用 30 秒 TTL 缓存换翻页性能，代价是翻页时 total 与当页数据不同步
+    # （新增/下架不能及时反映），属于用户可见的数据不一致，已移除。
+    total = int(session.exec(count_stmt).one())
     rows = session.exec(stmt.offset(pagination.offset).limit(pagination.limit)).all()
     cards = [_build_card(listing, prop, project) for listing, prop, project in rows]
     return paginate(cards, total, pagination)
@@ -1428,6 +1427,10 @@ def _home_listing_rail(
 @router.get("/home", response_model=PublicHomeOut)
 def get_public_home(
     response: Response,
+    city: Optional[str] = Query(
+        None,
+        description="城市（按 slug 归一化比对，可传定位 cityKey）；不传=不限城市",
+    ),
     session: Session = Depends(get_session),
 ):
     """App 首页聚合：租房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地 / 楼盘 / 学校。
@@ -1438,13 +1441,19 @@ def get_public_home(
     """
     response.headers["Cache-Control"] = "public, max-age=60"
 
+    # 首页必须跟随定位城市：此前不带 city，换城市仍返回同一批曼谷房源/楼盘/学校。
+    city_cond = [slug_expr(Project.city) == slug_text(city)] if city else []
+
     rent = ListingType.rent
-    listings = _home_listing_rail(session, [Listing.listing_type == rent], 20)
+    listings = _home_listing_rail(
+        session, [Listing.listing_type == rent, *city_cond], 20
+    )
     sale = _home_listing_rail(
         session,
         [
             Listing.listing_type == ListingType.sell,
             Listing.is_new_development.is_(False),
+            *city_cond,
         ],
         10,
     )
@@ -1453,34 +1462,41 @@ def get_public_home(
         [
             Listing.listing_type == rent,
             Property.property_type.in_(("office", "shop")),
+            *city_cond,
         ],
         10,
     )
     factory = _home_listing_rail(
         session,
-        [Listing.listing_type == rent, Property.property_type == "factory"],
+        [Listing.listing_type == rent, Property.property_type == "factory", *city_cond],
         10,
     )
     hotel = _home_listing_rail(
         session,
-        [Listing.listing_type == rent, Property.property_type == "hotel"],
+        [Listing.listing_type == rent, Property.property_type == "hotel", *city_cond],
         10,
     )
     land = _home_listing_rail(
         session,
-        [Listing.listing_type == rent, Property.property_type == "land"],
+        [Listing.listing_type == rent, Property.property_type == "land", *city_cond],
         10,
     )
 
+    project_conds = [Project.deleted_at.is_(None)]
+    if city:
+        project_conds.append(slug_expr(Project.city) == slug_text(city))
     projects = session.exec(
         select(Project)
-        .where(Project.deleted_at.is_(None))
+        .where(*project_conds)
         .order_by(Project.name)
         .limit(10)
     ).all()
+    school_conds = [School.deleted_at.is_(None)]
+    if city:
+        school_conds.append(slug_expr(School.city) == slug_text(city))
     schools = session.exec(
         select(School)
-        .where(School.deleted_at.is_(None))
+        .where(*school_conds)
         .order_by(School.sort_weight.desc(), School.name)
         .limit(8)
     ).all()

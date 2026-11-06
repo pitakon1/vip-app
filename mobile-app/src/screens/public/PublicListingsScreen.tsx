@@ -36,10 +36,10 @@ import { SCHOOL_RADIUS_OPTIONS, loadRates } from '@/lib/publicSite';
 import PublicListingRow from './PublicListingRow';
 import PublicBackRow from './PublicBackRow';
 import ListState from '@/components/ListState';
+import { bizToParams, type BizKey } from '@/lib/bizFilter';
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
 
-type BizKey = 'all' | 'rent' | 'resale' | 'new';
 type SortKey = 'latest' | 'price_asc' | 'price_desc' | 'area_desc' | 'distance';
 
 const SORTS: SortKey[] = ['latest', 'price_asc', 'price_desc', 'area_desc'];
@@ -138,11 +138,11 @@ export default function PublicListingsScreen() {
 
   const queryParams = useMemo(
     () => ({
-      listing_type: (biz === 'rent' ? 'rent' : biz === 'all' ? undefined : 'sell') as
-        | 'rent'
-        | 'sell'
-        | undefined,
-      is_new_development: biz === 'resale' ? false : biz === 'new' ? true : undefined,
+      ...bizToParams(biz),
+
+
+
+
       property_type: typeClass ? TYPE_CLASS_GROUPS[typeClass] : undefined,
       q: debounced || undefined,
       sort: schoolId ? (sort === 'latest' ? ('distance' as SortKey) : sort) : sort,

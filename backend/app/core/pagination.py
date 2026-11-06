@@ -1,12 +1,9 @@
 """分页工具类"""
 from typing import TypeVar, Generic, List
+from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlmodel import Session, select
-
-from app.core.logging import get_logger
-
-logger = get_logger(__name__)
 
 T = TypeVar("T")
 
@@ -22,27 +19,23 @@ class Page(BaseModel, Generic[T]):
     total_pages: int
 
 class PaginationParams:
-    """分页参数，`page_size` 硬顶 `MAX_PAGE_SIZE`。
+    """分页参数，`page` 与 `page_size` 越界时**显式 422**（不再静默纠正）。
 
-    截断本身**必须留痕**：调用方（尤其前端那些把分页接口当「取全量」用的地方）
-    传了超限值却只拿回 100 条时不会报错，表现为「下拉少选项 / 总数偏小 / 筛选不全」
-    这类静默错误，是排查成本最高的一类问题。这里记 warning 让问题自己浮出来，
-    而不是安静地把请求改小。
+    静默纠错会让调用方以为请求生效，实际拿到的是被改小的结果，表现为
+    「总数偏小 / 翻不到后面的数据」这类无报错的错数据；宁可让调用方看到 422。
     """
 
     def __init__(self, page: int = 1, page_size: int = 20):
-        self.page = max(1, page)
-        self.page_size = min(MAX_PAGE_SIZE, max(1, page_size))
-        if page_size > MAX_PAGE_SIZE or page_size < 1:
-            logger.warning(
-                "pagination.page_size_clamped",
-                requested=page_size,
-                clamped_to=self.page_size,
-                hint=(
-                    "调用方要求的分页大小超出 [1, 100] 区间，已强制收敛。"
-                    "若本意是取全量，请改用真·分页或按条件缩小范围。"
+        if page < 1 or page_size < 1 or page_size > MAX_PAGE_SIZE:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"分页参数越界：page 需 >= 1，page_size 需在 "
+                    f"[1, {MAX_PAGE_SIZE}]（收到 page={page}, page_size={page_size}）"
                 ),
             )
+        self.page = page
+        self.page_size = page_size
 
     @property
     def offset(self) -> int:

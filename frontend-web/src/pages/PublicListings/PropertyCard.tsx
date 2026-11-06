@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import LazyImage from '@/components/LazyImage'
 import { formatMoney } from '@/lib/money'
+import { optionalNumber } from '@/lib/displayValue'
 import { STATUS_CLASS, TYPE_ICON_PATH, bannerColorFor, formatTotal } from './constants'
 
 /**
@@ -35,10 +36,10 @@ export default function PropertyCard({
   const ptype = propertyTypeMap[item.property_type] || item.property_type || t('propertyType.apartment')
   const ptypeKey = (propertyTypeMap[item.property_type] ? item.property_type : 'apartment') as string
   const statusKey = (item.status || 'vacant').toLowerCase()
-  const beds = Number(item.bedrooms || 0)
-  const baths = Number(item.bathrooms || 0)
-  const size = Number(item.size_sqm || 0)
-  const price = Number(item.price || item.monthly_rent || 0)
+  const beds = optionalNumber(item.bedrooms)
+  const baths = optionalNumber(item.bathrooms)
+  const size = optionalNumber(item.size_sqm)
+  const price = optionalNumber(item.price ?? item.monthly_rent)
   const seed = String(item.id || item.room_number || '')
   const cover = typeof item.cover === 'string' ? item.cover : ''
 
@@ -115,34 +116,46 @@ export default function PropertyCard({
             <span key={i} className="rent-badge rent-badge--neutral">{tag}</span>
           ))}
         </div>
-        <div className="rent-prop-search-card__stats">
-          <span className="rent-prop-search-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="1" />
-            </svg>
-            {size}㎡
-          </span>
-          <span className="rent-prop-search-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
-            </svg>
-            {beds ? `${beds}${t('browse.statBed')}` : t('roomType.studio')}
-          </span>
-          <span className="rent-prop-search-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12V6a2 2 0 0 1 2-2h1M9 6.5 6.5 4M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3zM7 19l-1 2M18 19l1 2" />
-            </svg>
-            {baths}{t('browse.statBath')}
-          </span>
-        </div>
+        {(size != null || beds != null || baths != null) && (
+          <div className="rent-prop-search-card__stats">
+            {size != null && (
+              <span className="rent-prop-search-card__stat">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="1" />
+                </svg>
+                {size}㎡
+              </span>
+            )}
+            {beds != null && (
+              <span className="rent-prop-search-card__stat">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
+                </svg>
+                {beds ? `${beds}${t('browse.statBed')}` : t('roomType.studio')}
+              </span>
+            )}
+            {baths != null && (
+              <span className="rent-prop-search-card__stat">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12V6a2 2 0 0 1 2-2h1M9 6.5 6.5 4M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3zM7 19l-1 2M18 19l1 2" />
+                </svg>
+                {baths}{t('browse.statBath')}
+              </span>
+            )}
+          </div>
+        )}
         <div className="rent-prop-search-card__foot">
           <div className="rent-prop-search-card__price">
             <span className="rent-prop-search-card__price-value">
-              {biz === 'sale' ? formatTotal(price, item.currency) : formatMoney(price, item.currency)}
+              {price != null
+                ? (biz === 'sale' ? formatTotal(price, item.currency) : formatMoney(price, item.currency))
+                : '—'}
             </span>
-            <span className="rent-prop-search-card__price-unit">
-              {biz === 'sale' ? t('browse.saleUnit') : t('property.perMonth')}
-            </span>
+            {price != null && (
+              <span className="rent-prop-search-card__price-unit">
+                {biz === 'sale' ? t('browse.saleUnit') : t('property.perMonth')}
+              </span>
+            )}
           </div>
           <button className="rent-prop-search-card__cta" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(item) }}>
             {t('property.viewDetail')}

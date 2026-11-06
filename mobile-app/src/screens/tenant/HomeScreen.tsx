@@ -23,6 +23,7 @@ import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, type PublicSchool, type PublicProject } from '@/services/publicApi';
 import { ProjectRailCard } from '@/screens/category/categoryCards';
 import { fmtMoney as formatMoney } from '@/utils/format';
+import { joinFacts } from '@/lib/displayValue';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import { useLocationStore } from '@/stores/location';
@@ -388,9 +389,13 @@ const PropertyCard = React.memo(function PropertyCard({
             {item.address || t('prop.noAddress')}
           </Text>
           <View style={styles.propTags}>
-            <Text style={styles.propTag}>
-              {t('prop.bedroomN', { n: item.bedrooms ?? 0 })} · {item.size_sqm ?? 0}㎡
-            </Text>
+            {(() => {
+              const facts = joinFacts([
+                item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
+                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+              ])
+              return facts ? <Text style={styles.propTag}>{facts}</Text> : null
+            })()}
             <Text style={styles.propTag}>
               {statusText(t, String(item.status ?? '')) || t('prop.status.rented')}
             </Text>
@@ -465,9 +470,13 @@ const SaleCard = React.memo(function SaleCard({
             {item.address || t('prop.noAddress')}
           </Text>
           <View style={styles.propTags}>
-            <Text style={styles.propTag}>
-              {t('prop.bedroomN', { n: item.bedrooms ?? 0 })} · {item.size_sqm ?? 0}㎡
-            </Text>
+            {(() => {
+              const facts = joinFacts([
+                item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
+                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+              ])
+              return facts ? <Text style={styles.propTag}>{facts}</Text> : null
+            })()}
           </View>
           <Text style={styles.propPrice}>{formatMoney(item.asking_price, item.currency)}</Text>
         </View>
@@ -575,16 +584,20 @@ export default function HomeScreen() {
   // 时间戳，与 staleTime 对齐 → 3 分钟内不发请求，超时才后台刷新）；会话内由 staleTime 去重。
   // 缓存键带版本：HomePublic 新增 schools / 商铺办公 / 厂房 / 楼盘 rail 字段后，旧缓存不含这些字段，
   // 若继续复用会在 staleTime 内渲染出空区块
-  const publicKey = 'home:public:v5';
+  // 缓存键必须带城市：否则切换城市后仍命中旧城市的首页缓存（/public/home 已支持 city）
+  const publicKey = `home:public:v6:${locationSel.cityKey || 'all'}`;
   const userKey = token ? `home:user:${user?.id ?? 'anon'}` : null;
 
   const publicQ = useQuery<HomePublic>({
-    queryKey: ['home', 'public'],
+    queryKey: ['home', 'public', locationSel.cityKey || 'all'],
     queryFn: async () => {
       // 首页 8 个 rail 合并成一次请求（后端 /public/home 聚合，口径与各分类页一致），
       // 避免冷启动并发 8 个接口拖慢首屏；分页与筛选仍在各自分类页。
       // 登录/未登录统一走匿名公开层（对齐贝壳：浏览无需注册），保证内容对所有访客一致。
-      const res: any = await publicApi.home();
+      // 带 city：否则换城市仍返回同一批曼谷房源/楼盘/学校。
+      const res: any = await publicApi.home(
+        locationSel.cityKey ? { city: locationSel.cityKey } : undefined,
+      );
       const data: any = res?.data ?? {};
       // 公开层列表接口有的返回裸数组、有的返回 {items}，统一在这里收口
       const list = <T,>(value: unknown): T[] => {

@@ -24,7 +24,6 @@ const Sign = lazy(() => import('@/pages/Sign'))
 
 // C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房 / 酒店 / 土地）
 const RentCategory = lazy(() => import('@/pages/category/RentCategory'))
-const ApartmentCategory = lazy(() => import('@/pages/category/Apartment'))
 const NewHouse = lazy(() => import('@/pages/category/NewHouse'))
 const Resale = lazy(() => import('@/pages/category/Resale'))
 const Commercial = lazy(() => import('@/pages/category/Commercial'))
@@ -179,9 +178,8 @@ const App = () => {
           <Route path="/school/:id" element={<SchoolDetail />} />
           <Route path="/communities" element={<Communities />} />
           <Route path="/community/:id" element={<CommunityDetail />} />
-          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页（公寓页保留供筛选/直达） */}
+          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页 */}
           <Route path="/category/rent" element={<RentCategory />} />
-          <Route path="/category/apartment" element={<ApartmentCategory />} />
           <Route path="/category/new" element={<NewHouse />} />
           <Route path="/category/resale" element={<Resale />} />
           <Route path="/category/commercial" element={<Commercial />} />

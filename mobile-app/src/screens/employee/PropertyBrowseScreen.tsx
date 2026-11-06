@@ -11,6 +11,7 @@ import { View, Alert, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
+import { bizToParams } from '@/lib/bizFilter';
 import * as Location from 'expo-location';
 import { favoritesApi, translateApi } from '@/services/api';
 import {
@@ -188,17 +189,9 @@ export default function PropertyBrowseScreen() {
         params.school_id = schoolId;
         params.school_radius_km = schoolKm;
       }
-      // 业务线：租房 / 二手房 / 新房；二手房与新房共用 listing_type=sell，
-      // 再用 is_new_development 区分；「全部」两者都不传（不新增后端参数）
-      if (biz === 'rent') {
-        params.listing_type = 'rent';
-      } else if (biz === 'resale') {
-        params.listing_type = 'sell';
-        params.is_new_development = false;
-      } else if (biz === 'new') {
-        params.listing_type = 'sell';
-        params.is_new_development = true;
-      }
+      // 业务线：租房 / 二手房 / 新房 → listing_type + is_new_development
+      // 映射收敛在 @/lib/bizFilter，与 C 端找房页共用同一份规则
+      Object.assign(params, bizToParams(biz));
       // 共用层：房产类型多值（公寓=apartment+condo、商铺办公=office+shop）
       if (filterTypes.length) params.property_type = filterTypes;
       // 价格：租=月租、售=挂牌总价（后端按 listing_type 切换口径）

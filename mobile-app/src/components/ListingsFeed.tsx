@@ -34,6 +34,7 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
 import { AREA_PRESETS as AREA_PRESET_TIERS, PRICE_PRESETS } from '@/constants/filters';
 import { fmtMoney as formatRent, currencySymbol } from '@/utils/format';
+import { joinFacts } from '@/lib/displayValue';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import RemoteImage from '@/components/RemoteImage';
@@ -481,9 +482,13 @@ const ListingCard = React.memo(function ListingCard({
           {item.address || t('prop.noAddress')}
         </Text>
         <View style={styles.tagRow}>
-          <Text style={styles.tag}>
-            {t('list.bedArea', { bed: item.bedrooms ?? 0, area: item.size_sqm ?? 0 })}
-          </Text>
+          {(() => {
+            const facts = joinFacts([
+              item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
+              item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+            ])
+            return facts ? <Text style={styles.tag}>{facts}</Text> : null
+          })()}
           <Text style={styles.tag}>{statusLabels(t)[item.status ?? 'vacant'] ?? '—'}</Text>
         </View>
         <View style={styles.bottomRow}>
@@ -1080,9 +1085,13 @@ export default function ListingsFeed({
             {item.address || t('prop.noAddress')}
           </Text>
           <View style={styles.tagRow}>
-            <Text style={styles.tag}>
-              {t('list.bedArea', { bed: item.bedrooms ?? 0, area: item.size_sqm ?? 0 })}
-            </Text>
+            {(() => {
+              const facts = joinFacts([
+                item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
+                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+              ])
+              return facts ? <Text style={styles.tag}>{facts}</Text> : null
+            })()}
           </View>
           <View style={styles.bottomRow}>
             <Text style={styles.rent}>

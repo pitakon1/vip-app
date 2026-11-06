@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import LazyImage from '@/components/LazyImage'
 import { convertCurrency, formatMoney } from '@/lib/money'
+import { optionalNumber } from '@/lib/displayValue'
 
 export type PublicListingCardData = {
   id: string
@@ -36,7 +37,7 @@ const PublicListingCard = ({ item }: Props) => {
   const { t } = useTranslation()
 
   const isRent = item.listing_type === 'rent'
-  const price = item.price ?? 0
+  const price = optionalNumber(item.price)
   const title =
     item.project_name ||
     item.room_number ||
@@ -76,16 +77,18 @@ const PublicListingCard = ({ item }: Props) => {
 
         <div>
           <span className="pub-listing__price">
-            {formatMoney(price, item.currency || 'THB')}
+            {price != null ? formatMoney(price, item.currency || 'THB') : '—'}
           </span>
-          {isRent ? (
+          {price != null && isRent ? (
             <span className="pub-listing__price-sub">{t('property.perMonth')}</span>
           ) : null}
         </div>
 
-        <div className="pub-listing__price-sub" style={{ marginLeft: 0 }}>
-          ≈ {formatMoney(convertCurrency(price, 'CNY'), 'CNY')}
-        </div>
+        {price != null && (
+          <div className="pub-listing__price-sub" style={{ marginLeft: 0 }}>
+            ≈ {formatMoney(convertCurrency(price, 'CNY'), 'CNY')}
+          </div>
+        )}
 
         {item.nearest_school_name ? (
           <div className="pub-listing__school">

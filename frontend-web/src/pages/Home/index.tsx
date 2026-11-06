@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { BankOutlined, CoffeeOutlined, ContainerOutlined, EnvironmentOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
+import { optionalNumber } from '@/lib/displayValue'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -52,8 +53,7 @@ const bannerColorFor = (seed: string) => {
 
 /**
  * 黄金导航：7 大业务入口（租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地）。
- * 「公寓」不占首页入口（见截图口径），它仍由找房列表的「类型」筛选承载，
- * 独立分类页 /category/apartment 保留供直达。
+ * 「公寓」不占首页入口（见截图口径），由找房列表的「类型」筛选（公寓 = apartment + condo）承载，无独立分类页。
  * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
  * 图标沿用项目既有 antd 图标，颜色取设计令牌。
  */
@@ -99,16 +99,19 @@ const Home = () => {
   // 全局定位（国家 → 城市）：与找房页顶栏共用同一个 Store
   const [locOpen, setLocOpen] = useState(false)
   const cityLabel = useLocationStore((s) => s.selection.cityLabel)
+  const cityKey = useLocationStore((s) => s.selection.cityKey)
 
   // 精选房源（缓存优先渲染 + 后台刷新，秒开）
   // 必须走匿名可访问的 /public/listings：/properties 是 B 端鉴权接口，
   // 匿名访客会拿到 401，catch 后静默返回空数组 —— 首页首屏会整块空白。
   const q = useCachedQuery<FeaturedListing[]>({
-    queryKey: ['home-featured'],
-    cacheKey: 'home:featured',
+    queryKey: ['home-featured', cityKey || 'all'],
+    cacheKey: `home:featured:${cityKey || 'all'}`,
     queryFn: async () => {
       try {
-        const res = await api.get('/public/listings', { params: { page_size: SHOWCASE_PAGE_SIZE } })
+        const res = await api.get('/public/listings', {
+          params: { page_size: SHOWCASE_PAGE_SIZE, city: cityKey || undefined },
+        })
         const payload = res.data?.data ?? res.data
         const items = payload?.items
         return Array.isArray(items) ? items.slice(0, 8) : []
@@ -274,9 +277,10 @@ const Home = () => {
               props.map((p) => {
               const ptype = p.property_type || 'apartment'
               const statusKey = (p.status || 'vacant').toLowerCase()
-              const beds = Number(p.bedrooms || 0)
-              const baths = Number(p.bathrooms || 0)
-              const size = Number(p.size_sqm || 0)
+              const beds = optionalNumber(p.bedrooms)
+              const baths = optionalNumber(p.bathrooms)
+              const size = optionalNumber(p.size_sqm)
+              const price = optionalNumber(p.monthly_rent ?? p.price)
               const cover = typeof p.cover === 'string' ? p.cover : ''
               const title = p.address || p.room_number || t('publicSite.untitledListing')
               return (
@@ -330,30 +334,42 @@ const Home = () => {
                       {p.furnished && <span className="rent-badge rent-badge--neutral">{t('browse.furnished')}</span>}
                       <span className="rent-badge rent-badge--neutral">{t('browse.moveIn')}</span>
                     </div>
-                    <div className="rent-prop-search-card__stats">
-                      <span className="rent-prop-search-card__stat">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="1" />
-                        </svg>
-                        {size}㎡
-                      </span>
-                      <span className="rent-prop-search-card__stat">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
-                        </svg>
-                        {beds ? `${beds}${t('browse.statBed')}` : t('roomType.studio')}
-                      </span>
-                      <span className="rent-prop-search-card__stat">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M4 12V6a2 2 0 0 1 2-2h1M9 6.5 6.5 4M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3zM7 19l-1 2M18 19l1 2" />
-                        </svg>
-                        {baths}{t('browse.statBath')}
-                      </span>
-                    </div>
+                    {(size != null || beds != null || baths != null) && (
+                      <div className="rent-prop-search-card__stats">
+                        {size != null && (
+                          <span className="rent-prop-search-card__stat">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="1" />
+                            </svg>
+                            {size}㎡
+                          </span>
+                        )}
+                        {beds != null && (
+                          <span className="rent-prop-search-card__stat">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            {beds ? `${beds}${t('browse.statBed')}` : t('roomType.studio')}
+                          </span>
+                        )}
+                        {baths != null && (
+                          <span className="rent-prop-search-card__stat">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M4 12V6a2 2 0 0 1 2-2h1M9 6.5 6.5 4M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3zM7 19l-1 2M18 19l1 2" />
+                            </svg>
+                            {baths}{t('browse.statBath')}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="rent-prop-search-card__foot">
                       <div className="rent-prop-search-card__price">
-                        <span className="rent-prop-search-card__price-value">{formatMoney(p.monthly_rent ?? p.price ?? 0, p.currency || 'THB')}</span>
-                        <span className="rent-prop-search-card__price-unit">{t('property.perMonth')}</span>
+                        <span className="rent-prop-search-card__price-value">
+                          {price != null ? formatMoney(price, p.currency || 'THB') : '—'}
+                        </span>
+                        {price != null && (
+                          <span className="rent-prop-search-card__price-unit">{t('property.perMonth')}</span>
+                        )}
                       </div>
                       <button
                         className="rent-prop-search-card__cta"
