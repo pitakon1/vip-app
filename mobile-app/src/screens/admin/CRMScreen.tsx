@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * 客户管理（CRM）· 管理端专属
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
@@ -6,7 +6,7 @@
  * 说明：与员工端 CRM 相互独立（员工端见 screens/employee/CRMScreen.tsx），
  *       底部导航「客户」Tab 与管理端首页快捷入口均指向本页。
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -48,7 +48,25 @@ export default function AdminCRMScreen() {
   const insets = useSafeAreaInsets();
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
-  const { leads, stageTotals, totalCustomers, monthNew, nameMap, load, loadError } = useCrmLeads(stage);
+  // 关键词防抖后再交给服务端搜索：避免逐字请求，也避免旧词结果覆盖新词
+  const [query, setQuery] = useState('');
+  const {
+    leads,
+    stageTotals,
+    totalCustomers,
+    monthNew,
+    nameMap,
+    hasMore,
+    loadingMore,
+    load,
+    loadMore,
+    loadError,
+  } = useCrmLeads(stage, { keyword: query });
+
+  useEffect(() => {
+    const handle = setTimeout(() => setQuery(keyword.trim()), 400);
+    return () => clearTimeout(handle);
+  }, [keyword]);
 
   // 线索表单弹窗（id 存在为编辑，否则新建）
   const [formOpen, setFormOpen] = useState(false);
@@ -173,18 +191,6 @@ export default function AdminCRMScreen() {
         t('crm.cannotSend'),errorText(e, t('crm.notRegistered')));
     }
   };
-
-  const visibleLeads = useMemo(() => {
-    const kw = keyword.trim().toLowerCase();
-    if (!kw) return leads;
-    return leads.filter((l) =>
-      [l.name, l.phone, l.email, l.line_id, l.wechat_id]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(kw),
-    );
-  }, [leads, keyword]);
 
   const renderItem = useCallback(
     ({ item: l }: { item: Lead }) => {
@@ -404,13 +410,26 @@ export default function AdminCRMScreen() {
       <FlatList
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
-        data={visibleLeads}
+        data={leads}
         keyExtractor={(l) => l.id}
         renderItem={renderItem}
         refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
+        onEndReached={() => {
+          if (hasMore && !loadingMore) loadMore();
+        }}
+        onEndReachedThreshold={0.3}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={listEmpty}
+        ListFooterComponent={
+          leads.length > 0 ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, color: colors.ink3 }}>
+                {loadingMore ? t('crm.loading') : hasMore ? t('pub.loadMore') : t('pub.noMore')}
+              </Text>
+            </View>
+          ) : null
+        }
       />
 
       {/* 新建 / 编辑线索弹层 */}

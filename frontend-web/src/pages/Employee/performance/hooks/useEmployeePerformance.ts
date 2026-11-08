@@ -3,6 +3,7 @@ import { message } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useTranslation } from 'react-i18next'
 import { downloadReport } from '@/lib/download'
+import { MAX_PAGE_SIZE } from '@/lib/api'
 import { performanceApi, commissionsApi } from '@/services/api'
 import { chartTheme } from '@/lib/chartTheme'
 import { DEAL_LABELS, STATUS_LABELS } from '../constants'
@@ -45,11 +46,28 @@ export const useEmployeePerformance = () => {
       setSummary(null)
       setMonthly([])
     }
-    // 成交明细：我的佣金结算
+    // 成交明细：我的佣金结算。
+    // 后端 `page_size` 上限 100 且超限是静默截断，只取第 1 页会丢掉 100 条之后的
+    // 佣金（月度状态、成交明细都因此偏少）。这里按上限逐页拉全，直到取满 total。
     try {
-      const res = await commissionsApi.me({ pageSize: 100 })
-      const payload = res.data?.data ?? res.data
-      setData(payload?.items ?? [])
+      const all: CommissionRow[] = []
+      // 防御性上限：分页游标异常（total 持续变大）时不至于无限循环
+      const MAX_PAGES = 100
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const res = await commissionsApi.me({ page, pageSize: MAX_PAGE_SIZE })
+        const payload = res.data?.data ?? res.data
+        const items = (payload?.items ?? []) as CommissionRow[]
+        all.push(...items)
+        const total = Number(payload?.total)
+        if (
+          items.length === 0 ||
+          items.length < MAX_PAGE_SIZE ||
+          (Number.isFinite(total) && all.length >= total)
+        ) {
+          break
+        }
+      }
+      setData(all)
     } catch {
       setData([])
     } finally {

@@ -1,5 +1,5 @@
 import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import api from '@/lib/api';
 import { employeesApi, leadsApi } from '@/services/api';
@@ -40,9 +40,17 @@ export const CRM_STAGE_KEYS = [
  *
  * `mine`：员工端必须为 true —— 列表按当前员工档案收窄（服务端 mine/assigned_to），
  * 避免拿到全平台客户联系方式；管理端看全量，保持不变。
+ *
+ * `keyword`：服务端关键词搜索（姓名/电话/邮箱/社交账号）。此前只在首屏数据上做
+ * 客户端过滤，第 1 页之后命中不了的客户永远搜不到；现在交给服务端，并配合
+ * 下面的加载更多一起覆盖全部线索。
+ *
+ * 分页：`load` 始终从第 1 页重取（筛选/搜索变更即回到第 1 页），`loadMore`
+ * 追加下一页；`hasMore` 以服务端 `total` 为准，不再静默丢弃超出首页的数据。
  */
-export function useCrmLeads(stage: string, opts?: { mine?: boolean }) {
+export function useCrmLeads(stage: string, opts?: { mine?: boolean; keyword?: string }) {
   const mine = !!opts?.mine;
+  const keyword = opts?.keyword?.trim() ?? '';
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [stageTotals, setStageTotals] = useState<Record<string, number>>({});
@@ -50,9 +58,17 @@ export function useCrmLeads(stage: string, opts?: { mine?: boolean }) {
   const [monthNew, setMonthNew] = useState<number | null>(null);
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // 触底会连续触发多次 onEndReached，用 ref 做同步防重入（state 更新是异步的）
+  const loadingMoreRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoadError(false);
+    loadingMoreRef.current = false;
+    setLoadingMore(false);
     // 员工端先解析本人员工档案：服务端既按 mine 收窄，也接受 assigned_to 校验
     let empId: string | null = null;
     if (mine) {
@@ -71,7 +87,13 @@ export function useCrmLeads(stage: string, opts?: { mine?: boolean }) {
     // 不再逐阶段发 COUNT_ONLY 探测请求。
     const results = await Promise.allSettled([
       leadsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE, ...scope }),
-      leadsApi.list({ page: 1, page_size: DETAIL_PAGE_SIZE, ...(stage ? { stage } : {}), ...scope }),
+      leadsApi.list({
+        page: 1,
+        page_size: DETAIL_PAGE_SIZE,
+        ...(stage ? { stage } : {}),
+        ...(keyword ? { keyword } : {}),
+        ...scope,
+      }),
       api.get('/employees/directory'),
     ]);
 
@@ -87,10 +109,25 @@ export function useCrmLeads(stage: string, opts?: { mine?: boolean }) {
       allLeads.filter((l) => l.created_at && dayjs(l.created_at).isSame(dayjs(), 'month')).length,
     );
 
+    const items = itemsOf(results[1]) as Lead[];
     if (results[1].status === 'fulfilled') {
-      setLeads(itemsOf(results[1]) as Lead[]);
+      setLeads(items);
     } else {
+      setLeads([]);
       setLoadError(true);
+    }
+    // 分页游标回到第 1 页：搜索/阶段变更后必须重算，否则会接着旧页继续追加
+    setPage(1);
+    const pageTotal =
+      results[1].status === 'fulfilled'
+        ? Number((results[1].value?.data as { total?: number } | undefined)?.total)
+        : NaN;
+    if (Number.isFinite(pageTotal)) {
+      setTotal(pageTotal);
+      setHasMore(items.length < pageTotal);
+    } else {
+      setTotal(items.length);
+      setHasMore(items.length >= DETAIL_PAGE_SIZE);
     }
 
     const totals: Record<string, number> = {};
@@ -125,7 +162,62 @@ export function useCrmLeads(stage: string, opts?: { mine?: boolean }) {
         }, {}),
       );
     }
-  }, [stage, mine]);
+  }, [stage, mine, keyword]);
 
-  return { leads, stageTotals, totalCustomers, monthNew, nameMap, myEmployeeId, load, loadError };
+  /** 加载下一页并追加到列表尾部（筛选/搜索口径与首页保持一致）。 */
+  const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const params: Record<string, unknown> = {
+        page: nextPage,
+        page_size: DETAIL_PAGE_SIZE,
+      };
+      if (stage) params.stage = stage;
+      if (keyword) params.keyword = keyword;
+      if (mine) {
+        params.mine = true;
+        if (myEmployeeId) params.assigned_to = myEmployeeId;
+      }
+      const res: any = await leadsApi.list(params);
+      const payload = res?.data ?? {};
+      const items: Lead[] = Array.isArray(payload) ? payload : (payload.items ?? []);
+      // 按 id 去重：服务端分页期间若有新增记录，简单追加会出现重复 key
+      setLeads((prev) => {
+        const seen = new Set(prev.map((l) => l.id));
+        return [...prev, ...items.filter((l) => !seen.has(l.id))];
+      });
+      setPage(nextPage);
+      const serverTotal = Number(payload.total);
+      if (Number.isFinite(serverTotal)) {
+        setTotal(serverTotal);
+        setHasMore(nextPage * DETAIL_PAGE_SIZE < serverTotal);
+      } else {
+        setHasMore(items.length >= DETAIL_PAGE_SIZE);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [page, hasMore, stage, keyword, mine, myEmployeeId]);
+
+  return {
+    leads,
+    stageTotals,
+    totalCustomers,
+    monthNew,
+    nameMap,
+    myEmployeeId,
+    page,
+    total,
+    hasMore,
+    loadingMore,
+    load,
+    loadMore,
+    loadError,
+  };
 }

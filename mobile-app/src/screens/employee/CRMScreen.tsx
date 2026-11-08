@@ -1,11 +1,11 @@
-﻿/**
+﻿﻿/**
  * 客户管理（CRM）
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
  * 数据源：/leads（真实客户线索 + 各阶段计数）、/employees/directory
  * 说明：与管理员端一致支持填写/修改客户阶段（leadsApi.update），不对员工开放新建/删除
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -54,9 +54,28 @@ export default function CRMScreen() {
   const respContainer = useResponsiveContainerStyle();
   const [stage, setStage] = useState('');
   const [keyword, setKeyword] = useState('');
+  // 关键词防抖后再交给服务端搜索：避免逐字请求，也避免旧词结果覆盖新词
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { leads, stageTotals, totalCustomers, monthNew, nameMap, myEmployeeId, load, loadError } = useCrmLeads(stage, { mine: true });
+  const {
+    leads,
+    stageTotals,
+    totalCustomers,
+    monthNew,
+    nameMap,
+    myEmployeeId,
+    hasMore,
+    loadingMore,
+    load,
+    loadMore,
+    loadError,
+  } = useCrmLeads(stage, { mine: true, keyword: query });
+
+  useEffect(() => {
+    const handle = setTimeout(() => setQuery(keyword.trim()), 400);
+    return () => clearTimeout(handle);
+  }, [keyword]);
 
   // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
   const [formOpen, setFormOpen] = useState(false);
@@ -164,18 +183,6 @@ export default function CRMScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const visibleLeads = useMemo(() => {
-    const kw = keyword.trim().toLowerCase();
-    if (!kw) return leads;
-    return leads.filter((l) =>
-      [l.name, l.phone, l.email, l.line_id, l.wechat_id]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(kw),
-    );
-  }, [leads, keyword]);
-
   const renderLead = (l: Lead) => {
     const meta = stageMeta(l.stage);
     const budget =
@@ -271,10 +278,23 @@ export default function CRMScreen() {
         style={styles.container}
         contentContainerStyle={[styles.content, respContainer]}
         showsVerticalScrollIndicator={false}
-        data={visibleLeads}
+        data={leads}
         keyExtractor={(l) => l.id}
         renderItem={({ item }) => <View style={styles.listItem}>{renderLead(item)}</View>}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        onEndReached={() => {
+          if (hasMore && !loadingMore) loadMore();
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          leads.length > 0 ? (
+            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, color: colors.ink3 }}>
+                {loadingMore ? '加载中…' : hasMore ? '上拉加载更多' : '没有更多了'}
+              </Text>
+            </View>
+          ) : null
+        }
         ListHeaderComponent={
           <>
       {loadError && leads.length > 0 ? (
@@ -506,7 +526,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   leadTop: { flexDirection: 'row', alignItems: 'flex-start' },
   avatar: {
