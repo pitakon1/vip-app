@@ -67,7 +67,7 @@
   font-family: var(--rent-font-sans);
   transition: color var(--motion-fast);
 }
-.rent-back-link:hover { color: var(--rent-primary); }
+.rent-back-link:hover { color: var(--rent-primary-text); }
 
 /* ===== 房源头部 ===== */
 .rent-prop-header {
@@ -80,11 +80,11 @@
   height: 200px;
   border-radius: var(--rent-radius-lg);
   flex-shrink: 0;
-  background: #14b8a6;
+  background: var(--rent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--rent-primary-foreground);
 }
 
 /* 看房视频：沿用占位图尺寸，等比裁切，黑底避免播放器留白突兀 */
@@ -94,7 +94,7 @@
 }
 .rent-prop-header__info { flex: 1; min-width: 0; }
 .rent-prop-header__name {
-  font-size: 22px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 600;
   color: var(--rent-ink);
   letter-spacing: -0.015em;
@@ -144,7 +144,7 @@
 .rent-prop-rent {
   font-size: var(--rent-fs-3xl);
   font-weight: 700;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -223,7 +223,7 @@
   overflow: hidden;
   margin-top: var(--rent-s-2);
 }
-.rent-split-bar__owner { background: var(--rent-primary); }
+.rent-split-bar__owner { background: var(--rent-primary-text); }
 .rent-split-bar__mgmt { background: var(--rent-ink-3); }
 .rent-split-legend {
   display: flex;

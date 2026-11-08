@@ -13,7 +13,8 @@ export const MonthlyRecordsCard = ({ records }: Props) => {
     <div className="rent-card">
       <div className="rent-card__header">
         <h3 className="rent-card__title">{t('employeePerformance.recordsTitle')}</h3>
-        <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">{t('employeePerformance.viewAll')}</a>
+        {/* 原「查看全部」是 href="#" 死入口：项目里没有独立的业绩记录页，
+            本页就是该数据的完整视图，故移除假控件。 */}
       </div>
       <div className="rent-card__body">
         {records.length === 0 ? (

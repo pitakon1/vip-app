@@ -65,12 +65,12 @@ interface OwnerProperty {
 
 // 上架单状态元数据（仓库 MyListingsScreen 同口径）
 const LIST_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  pending: { text: '待审核', color: colors.warning, bg: colors.warningLight },
-  active: { text: '已上架', color: colors.success, bg: colors.successLight },
-  rejected: { text: '已驳回', color: colors.error, bg: colors.errorLight },
+  pending: { text: '待审核', color: colors.warningInk, bg: colors.warningLight },
+  active: { text: '已上架', color: colors.successInk, bg: colors.successLight },
+  rejected: { text: '已驳回', color: colors.errorInk, bg: colors.errorLight },
   closed: { text: '已下架', color: colors.ink3, bg: colors.surface2 },
-  sold: { text: '已售出', color: colors.primary, bg: colors.sidebarActive },
-  rented: { text: '已出租', color: colors.primary, bg: colors.sidebarActive },
+  sold: { text: '已售出', color: colors.primaryText, bg: colors.sidebarActive },
+  rented: { text: '已出租', color: colors.primaryText, bg: colors.sidebarActive },
 };
 
 interface HomePayload {
@@ -183,10 +183,10 @@ export default function HomeScreen() {
 
   const propStatusStyle = (p: OwnerProperty): { text: string; color: string; bg: string } => {
     const s = String(p.status || '').toLowerCase();
-    if (s === 'vacant' || s === 'available') return { text: '空置', color: colors.warning, bg: `${colors.warningRgb}1F` };
+    if (s === 'vacant' || s === 'available') return { text: '空置', color: colors.warningInk, bg: `${colors.warningRgb}1F` };
     if (s === 'for_sale' || s === 'on_sale' || s === 'sale')
-      return { text: '在售', color: colors.info, bg: `${colors.infoRgb}1F` };
-    return { text: '出租中', color: colors.success, bg: `${colors.successRgb}1F` };
+      return { text: '在售', color: colors.infoInk, bg: `${colors.infoRgb}1F` };
+    return { text: '出租中', color: colors.successInk, bg: `${colors.successRgb}1F` };
   };
 
   const listingTitle = (l: Listing) => l.room_number || l.address || '房源上架单';
@@ -240,19 +240,19 @@ export default function HomeScreen() {
 
           <View style={styles.heroStats}>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.success }]}>{statusCount.rented}</Text>
+              <Text style={[styles.heroStatSmallVal, { color: colors.successInk }]}>{statusCount.rented}</Text>
               <Text style={styles.heroStatSmallLabel}>出租中</Text>
             </View>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.warning }]}>{statusCount.vacant}</Text>
+              <Text style={[styles.heroStatSmallVal, { color: colors.warningInk }]}>{statusCount.vacant}</Text>
               <Text style={styles.heroStatSmallLabel}>空置</Text>
             </View>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.info }]}>{statusCount.forSale}</Text>
+              <Text style={[styles.heroStatSmallVal, { color: colors.infoInk }]}>{statusCount.forSale}</Text>
               <Text style={styles.heroStatSmallLabel}>在售</Text>
             </View>
             <View style={styles.heroStatSmall}>
-              <Text style={[styles.heroStatSmallVal, { color: colors.primary }]}>
+              <Text style={[styles.heroStatSmallVal, { color: colors.primaryText }]}>
                 {yearReceived ? money(yearReceived, annual?.currency || currency) : '—'}
               </Text>
               <Text style={styles.heroStatSmallLabel}>年累计收益</Text>
@@ -266,9 +266,9 @@ export default function HomeScreen() {
                 totalValue={`共 ${statusCount.total} 套`}
                 barHeight={10}
                 segments={[
-                  { value: statusCount.rented, color: colors.success, label: '出租中', subLabel: `${statusCount.rented} 套` },
-                  { value: statusCount.vacant, color: colors.warning, label: '空置', subLabel: `${statusCount.vacant} 套` },
-                  { value: statusCount.forSale, color: colors.info, label: '在售', subLabel: `${statusCount.forSale} 套` },
+                  { value: statusCount.rented, color: colors.successInk, label: '出租中', subLabel: `${statusCount.rented} 套` },
+                  { value: statusCount.vacant, color: colors.warningInk, label: '空置', subLabel: `${statusCount.vacant} 套` },
+                  { value: statusCount.forSale, color: colors.infoInk, label: '在售', subLabel: `${statusCount.forSale} 套` },
                 ]}
               />
             </View>
@@ -493,10 +493,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heroLabel: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
-  heroPropsLink: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
+  heroPropsLink: { fontSize: colors.fontSize.sm, color: colors.primaryText, fontWeight: '600' },
   heroTotal: {
     fontSize: colors.fontSize['3xl'],
-    fontWeight: '800',
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     letterSpacing: -0.5,
     fontVariant: ['tabular-nums'],
@@ -513,10 +513,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: colors.spacing.xl,
+    paddingHorizontal: colors.spacing.lg,
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
+  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
   sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '600' },
 
   /* ===== 通用卡片 ===== */
@@ -525,10 +525,9 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.lg,
     padding: colors.spacing.lg,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
+    borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    ...colors.shadow.sm,
   },
 
   /* ===== 发布房源按钮 ===== */
@@ -549,10 +548,9 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.lg,
     paddingHorizontal: colors.spacing.lg,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
+    borderRadius: colors.radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    ...colors.shadow.sm,
   },
   alertRow: {
     flexDirection: 'row',
@@ -582,7 +580,7 @@ const styles = StyleSheet.create({
   alertDesc: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 2 },
 
   /* ===== 列表通用行 ===== */
-  moreLink: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
+  moreLink: { fontSize: colors.fontSize.sm, color: colors.primaryText, fontWeight: '600' },
   moreRow: { alignItems: 'flex-end', paddingTop: 10, marginTop: 2 },
   propListItem: {
     flexDirection: 'row',
@@ -607,7 +605,7 @@ const styles = StyleSheet.create({
   propListPrice: {
     fontSize: colors.fontSize.base,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.primaryText,
     marginTop: 4,
     fontVariant: ['tabular-nums'],
   },

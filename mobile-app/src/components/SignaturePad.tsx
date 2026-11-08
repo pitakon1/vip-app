@@ -37,7 +37,7 @@ interface Props {
   svgRef?: React.Ref<any>;
 }
 
-const STROKE_COLORS = [colors.primary, colors.error, colors.success];
+const STROKE_COLORS = [colors.primary, colors.error, colors.primaryText];
 
 const toSvg = (strokes: Point[][], widths: number[], w: number, h: number) => {
   if (!strokes.length) return '';

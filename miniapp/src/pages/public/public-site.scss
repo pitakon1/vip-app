@@ -22,7 +22,7 @@
 
 .pub-head__title {
   font-size: 44rpx;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
@@ -103,8 +103,8 @@
 /* 选中态统一为「浅底 + 主色边框 + 主色文字」，与 Web / App 三端一致 */
 .pub-chip--on {
   background: var(--sidebar-active);
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-text);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -148,7 +148,7 @@
 }
 
 .pub-filter__tab--on {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -157,19 +157,19 @@
 }
 
 .pub-filter__badge {
-  min-width: 28rpx;
-  height: 28rpx;
-  line-height: 28rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
   text-align: center;
   padding: 0 6rpx;
   border-radius: var(--radius-full);
-  background: var(--primary);
+  background: var(--primary-text);
   color: #fff;
-  font-size: 20rpx;
+  font-size: 24rpx;
 }
 
 .pub-filter__caret {
-  font-size: 18rpx;
+  font-size: 24rpx;
   color: var(--ink-3);
 }
 
@@ -177,7 +177,8 @@
   margin-top: 12rpx;
   background: var(--card);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  /* 筛选展开面板属于浮层，保留投影（静态卡才降级为 1rpx 描边） */
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -232,7 +233,7 @@
 
 .pub-loc-tab--on {
   background: var(--sidebar-active);
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -276,8 +277,8 @@
 
 .pub-twocol__item--on {
   background: var(--card);
-  border-left-color: var(--primary);
-  color: var(--primary);
+  border-left-color: var(--primary-text);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -342,7 +343,7 @@
   display: flex;
   gap: 22rpx;
   background: var(--card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 20rpx;
   box-shadow: var(--shadow-sm);
@@ -369,7 +370,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--ink-3);
 }
 
@@ -379,10 +380,10 @@
   top: 10rpx;
   padding: 4rpx 14rpx;
   border-radius: var(--radius-full);
-  font-size: 20rpx;
+  font-size: 24rpx;
   font-weight: 600;
   color: #fff;
-  background: var(--primary);
+  background: var(--primary-text);
 }
 
 .pub-listing__type--sell {
@@ -410,7 +411,7 @@
 .pub-listing__addr {
   display: block;
   margin-top: 6rpx;
-  font-size: 23rpx;
+  font-size: 24rpx;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -421,20 +422,20 @@
   display: flex;
   gap: 18rpx;
   margin-top: 10rpx;
-  font-size: 22rpx;
-  color: var(--ink-3);
+  font-size: 24rpx;
+  color: var(--ink-2);
 }
 
 .pub-listing__price {
   margin-top: 10rpx;
-  font-size: 34rpx;
-  font-weight: 800;
-  color: var(--primary);
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--primary-text);
 }
 
 .pub-listing__price-sub {
   margin-left: 8rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 400;
   color: var(--ink-3);
 }
@@ -442,8 +443,8 @@
 .pub-listing__school {
   display: block;
   margin-top: 8rpx;
-  font-size: 22rpx;
-  color: var(--primary-hover);
+  font-size: 24rpx;
+  color: var(--primary-text);
 }
 
 /* ===== 通用行卡片（学校 / 小区）===== */
@@ -451,7 +452,7 @@
   display: flex;
   align-items: center;
   background: var(--card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 28rpx;
   margin-bottom: 20rpx;
   box-shadow: var(--shadow-sm);
@@ -471,7 +472,7 @@
 .pub-row__sub {
   display: block;
   margin-top: 8rpx;
-  font-size: 23rpx;
+  font-size: 24rpx;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -482,7 +483,7 @@
   flex-shrink: 0;
   margin-left: 16rpx;
   font-size: 24rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .pub-row__distance {
@@ -490,7 +491,7 @@
   margin-left: 16rpx;
   font-size: 26rpx;
   font-weight: 600;
-  color: var(--primary-hover);
+  color: var(--primary-text);
 }
 
 .pub-badges {
@@ -503,7 +504,7 @@
 /* ===== 小区卡片（大图）===== */
 .pub-project {
   background: var(--card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 20rpx;
   box-shadow: var(--shadow-sm);
@@ -539,7 +540,7 @@
 .pub-project__sub {
   display: block;
   margin-top: 8rpx;
-  font-size: 23rpx;
+  font-size: 24rpx;
   color: var(--ink-2);
 }
 
@@ -553,7 +554,7 @@
 /* ===== 详情页区块 ===== */
 .pub-card {
   background: var(--card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 24rpx;
   box-shadow: var(--shadow-sm);
@@ -561,7 +562,7 @@
 
 .pub-card__title {
   font-size: 36rpx;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -582,7 +583,7 @@
 .pub-section__hint {
   display: block;
   margin-bottom: 20rpx;
-  font-size: 23rpx;
+  font-size: 24rpx;
   color: var(--ink-3);
 }
 
@@ -632,7 +633,7 @@
 }
 
 .pub-kv__link {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600;
 }
 
@@ -641,7 +642,7 @@
   margin-top: 18rpx;
   font-size: 27rpx;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .pub-desc {
@@ -675,7 +676,7 @@
 .pub-footer-note {
   padding: 32rpx 24rpx 24rpx;
   text-align: center;
-  font-size: 23rpx;
+  font-size: 24rpx;
   color: var(--ink-3);
 }
 
@@ -690,10 +691,10 @@
 
 .pub-inquiry__input {
   width: 100%;
-  height: 84rpx;
+  height: 88rpx;
   background: var(--surface-2);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 0 26rpx;
   font-size: 28rpx;
   color: var(--ink);
@@ -705,7 +706,7 @@
   min-height: 150rpx;
   background: var(--surface-2);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 20rpx 26rpx;
   font-size: 28rpx;
   color: var(--ink);
@@ -719,11 +720,11 @@
 }
 
 .pub-inquiry__msg--ok {
-  color: var(--success);
+  color: var(--success-ink);
 }
 
 .pub-inquiry__msg--err {
-  color: var(--error);
+  color: var(--error-ink);
 }
 
 .pub-inquiry__submit {
@@ -759,13 +760,13 @@
   align-items: center;
   justify-content: center;
   font-size: 56rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .pub-guest__title {
   margin-top: 26rpx;
   font-size: 40rpx;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ink);
 }
 
@@ -796,7 +797,7 @@
 
 .pub-guest__cap-mark {
   margin-left: auto;
-  color: var(--success);
+  color: var(--success-ink);
 }
 
   .pub-guest__actions {
@@ -820,5 +821,5 @@
   .pub-lock-cta__text {
     font-size: 28rpx;
     font-weight: 600;
-    color: var(--primary);
+    color: var(--primary-text);
   }

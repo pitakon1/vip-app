@@ -49,21 +49,6 @@ export const PROPERTY_TYPE_LABEL_KEYS: Record<string, string> = {
   land: 'propertyType.land',
 }
 
-// 卡片 banner 主题色（使用设计令牌 CSS 变量）
-export const BANNER_COLORS = [
-  'var(--rent-primary)',
-  'var(--state-info)',
-  'var(--state-success)',
-  'var(--state-purple)',
-  'var(--state-warning)',
-  'var(--state-error)',
-]
-export const bannerColorFor = (seed: string) => {
-  let h = 0
-  for (let i = 0; i < (seed || 'x').length; i++) h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
-  return BANNER_COLORS[h % BANNER_COLORS.length]
-}
-
 // 状态标签样式类（对应 CSS modifier 类）
 export const STATUS_CLASS: Record<string, string> = {
   vacant: 'rent-status-tag--vacant',

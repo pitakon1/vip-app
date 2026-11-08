@@ -29,6 +29,16 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
   const typeBadge = colors.badge;
   const price = item.price ?? (isSell ? item.asking_price : item.monthly_rent);
   const title = item.project_name || item.room_number || item.address || t('pub.listingsTitle');
+  // 房号 + 地址合并为一行，减少文本层级
+  const subline = [
+    item.project_name && item.room_number ? item.room_number : null,
+    item.address,
+  ].filter(Boolean).join(' · ');
+  const facts = [
+    item.bedrooms != null ? `${item.bedrooms} BED` : null,
+    item.bathrooms != null ? `${item.bathrooms} BATH` : null,
+    item.size_sqm != null ? `${item.size_sqm} ${t('pub.sqm')}` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <TouchableOpacity
@@ -64,24 +74,12 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
 
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        {item.room_number && item.project_name ? (
-          <Text style={styles.unit} numberOfLines={1}>{item.room_number}</Text>
+        {subline ? (
+          <Text style={styles.subline} numberOfLines={1}>{subline}</Text>
         ) : null}
-        {item.address ? (
-          <Text style={styles.addr} numberOfLines={1}>{item.address}</Text>
+        {facts ? (
+          <Text style={styles.facts} numberOfLines={1}>{facts}</Text>
         ) : null}
-
-        <View style={styles.factRow}>
-          {item.bedrooms != null ? (
-            <Text style={styles.fact}>{item.bedrooms} BED</Text>
-          ) : null}
-          {item.bathrooms != null ? (
-            <Text style={styles.fact}>{item.bathrooms} BATH</Text>
-          ) : null}
-          {item.size_sqm != null ? (
-            <Text style={styles.fact}>{item.size_sqm} {t('pub.sqm')}</Text>
-          ) : null}
-        </View>
 
         {/* 房东直租 / 优选 / VR 标签（仅真实字段存在时渲染） */}
         {item.owner_direct || item.is_featured || item.vr_url ? (
@@ -156,11 +154,9 @@ const styles = StyleSheet.create({
   },
   typeTagText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   body: { flex: 1, justifyContent: 'center' },
-  title: { fontSize: colors.fontSize.lg, fontWeight: '700', color: colors.ink },
-  unit: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
-  addr: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3 },
-  factRow: { flexDirection: 'row', gap: colors.spacing.md, marginTop: 6 },
-  fact: { fontSize: colors.fontSize.xs, color: colors.ink3 },
+  title: { fontSize: colors.fontSize.base, fontWeight: colors.fontWeight.semibold, color: colors.ink },
+  subline: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 3 },
+  facts: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 4 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   tag: {
     backgroundColor: colors.surface2,
@@ -172,7 +168,7 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 6 },
-  price: { fontSize: colors.fontSize.xl, fontWeight: colors.fontWeight.bold, color: colors.primary },
+  price: { fontSize: colors.fontSize.title, fontWeight: colors.fontWeight.bold, color: colors.primaryText },
   priceUnit: { fontSize: colors.fontSize.sm, color: colors.ink3 },
-  school: { fontSize: colors.fontSize.xs, color: colors.accent, marginTop: 4 },
+  school: { fontSize: colors.fontSize.xs, color: colors.primaryText, marginTop: 4 },
 });

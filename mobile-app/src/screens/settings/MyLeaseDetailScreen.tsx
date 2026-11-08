@@ -164,7 +164,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   leaseHead: {
     flexDirection: 'row',

@@ -37,7 +37,7 @@
   background: var(--rent-surface-2);
   overflow: hidden;
 }
-.ml-chart__fill { display: block; height: 100%; border-radius: 999px; transition: width .4s ease; }
+.ml-chart__fill { display: block; height: 100%; border-radius: 999px; transition: width var(--motion-slow) ease; }
 .ml-chart__value { font-size: 12px; font-weight: 600; color: var(--rent-ink); text-align: right; }
 @media (max-width: 760px) {
   .ml-chart__rows { grid-template-columns: 1fr; }
@@ -79,7 +79,7 @@
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
+  color: var(--rent-primary-foreground);
   background: rgba(var(--rent-primary-rgb), .92);
 }
 .ml-card__type--sell { background: rgba(28, 39, 51, .85); }

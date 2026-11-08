@@ -28,7 +28,8 @@
   font-size: var(--rent-fs-base);
   font-weight: 700;
   cursor: pointer;
-  transition: all var(--motion-fast);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast),
+    box-shadow var(--motion-fast), color var(--motion-fast), transform var(--motion-fast);
 }
 
 .continue-btn:hover {

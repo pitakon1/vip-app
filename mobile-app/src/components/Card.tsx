@@ -27,7 +27,6 @@ const styles = StyleSheet.create({
     marginHorizontal: colors.spacing.md, // 12
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   title: {
     fontSize: colors.fontSize.lg,

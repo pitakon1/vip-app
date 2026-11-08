@@ -38,7 +38,6 @@
       border-radius: var(--radius-xl);
       padding: 24rpx 8rpx;
       text-align: center;
-      box-shadow: var(--shadow-sm);
 
       &--warning .stat-num {
         color: var(--warning);
@@ -124,7 +123,6 @@
     border-radius: var(--radius-xl);
     padding: 28rpx;
     margin-bottom: 24rpx;
-    box-shadow: var(--shadow-sm);
 
     &__head {
       display: flex;
@@ -169,7 +167,8 @@
     border: 1rpx solid var(--line);
     border-radius: var(--radius-lg);
     background: var(--card);
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
     &--hover {
       transform: scale(0.99);
@@ -459,7 +458,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.15s ease;
+      transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
       &--active {
         background: var(--primary);

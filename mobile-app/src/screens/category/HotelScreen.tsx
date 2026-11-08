@@ -64,7 +64,7 @@ export default function HotelScreen() {
       mk('select', t('category.hotelGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.hotelGridSelect'))),
       mk('rent', t('category.hotelTabRent'), 'bed-outline', colors.info, colors.infoRgb, () => setTab('rent-hotel')),
       mk('sell', t('category.hotelTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-hotel')),
-      mk('all', t('category.allListings'), 'grid-outline', colors.success, colors.successRgb, () => navigation.navigate('PublicListings')),
+      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings')),
       mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('vr', t('category.filterHasVr'), 'cube-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.filterHasVr'))),
       mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),

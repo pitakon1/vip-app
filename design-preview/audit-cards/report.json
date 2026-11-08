@@ -1,0 +1,2421 @@
+﻿{
+    "generatedAt":  "2026-11-07T04:51:23.433Z",
+    "pages":  [
+                  {
+                      "role":  "public",
+                      "route":  "/",
+                      "name":  "public-home.png",
+                      "status":  "ok",
+                      "finalUrl":  "/",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "public",
+                      "route":  "/listings",
+                      "name":  "public-listings.png",
+                      "status":  "ok",
+                      "finalUrl":  "/listings",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "public",
+                      "route":  "/listing/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "name":  "public-listing-083da18c-7fd5-493d-8aa2-d5c79c26c912.png",
+                      "status":  "ok",
+                      "finalUrl":  "/listing/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/dashboard",
+                      "name":  "admin-dashboard.png",
+                      "status":  "ok",
+                      "finalUrl":  "/dashboard",
+                      "total":  4,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/properties",
+                      "name":  "admin-properties.png",
+                      "status":  "ok",
+                      "finalUrl":  "/properties",
+                      "total":  20,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/properties/detail/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "name":  "admin-properties-detail-083da18c-7fd5-493d-8aa2-d5c79c26c912.png",
+                      "status":  "ok",
+                      "finalUrl":  "/properties/detail/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/crm",
+                      "name":  "admin-crm.png",
+                      "status":  "ok",
+                      "finalUrl":  "/crm",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/leases",
+                      "name":  "admin-leases.png",
+                      "status":  "ok",
+                      "finalUrl":  "/leases",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  283,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/payments",
+                      "name":  "admin-payments.png",
+                      "status":  "ok",
+                      "finalUrl":  "/payments",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/contracts",
+                      "name":  "admin-contracts.png",
+                      "status":  "ok",
+                      "finalUrl":  "/contracts",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  742,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  134,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  775,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/verify",
+                      "name":  "admin-verify.png",
+                      "status":  "ok",
+                      "finalUrl":  "/verify",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  114,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/employees",
+                      "name":  "admin-employees.png",
+                      "status":  "ok",
+                      "finalUrl":  "/employees",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  387,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/settings",
+                      "name":  "admin-settings.png",
+                      "status":  "ok",
+                      "finalUrl":  "/settings",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  901,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/viewings",
+                      "name":  "admin-viewings.png",
+                      "status":  "ok",
+                      "finalUrl":  "/viewings",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/trend",
+                      "name":  "admin-trend.png",
+                      "status":  "ok",
+                      "finalUrl":  "/trend",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  370,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  370,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  668,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/commission-rules",
+                      "name":  "admin-commission-rules.png",
+                      "status":  "ok",
+                      "finalUrl":  "/commission-rules",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  162,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/audit-logs",
+                      "name":  "admin-audit-logs.png",
+                      "status":  "ok",
+                      "finalUrl":  "/audit-logs",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  306,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/sale-deals",
+                      "name":  "admin-sale-deals.png",
+                      "status":  "ok",
+                      "finalUrl":  "/sale-deals",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  279,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/distribution",
+                      "name":  "admin-distribution.png",
+                      "status":  "ok",
+                      "finalUrl":  "/distribution",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  219,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/markets",
+                      "name":  "admin-markets.png",
+                      "status":  "ok",
+                      "finalUrl":  "/markets",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  279,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/market-intelligence",
+                      "name":  "admin-market-intelligence.png",
+                      "status":  "ok",
+                      "finalUrl":  "/market-intelligence",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  162,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/company",
+                      "name":  "admin-company.png",
+                      "status":  "ok",
+                      "finalUrl":  "/company",
+                      "total":  2,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  445,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  386,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/employee/dashboard",
+                      "name":  "admin-employee-dashboard.png",
+                      "status":  "ok",
+                      "finalUrl":  "/employee/dashboard",
+                      "total":  5,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  691,
+                                         "h":  374,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  691,
+                                         "h":  321,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  691,
+                                         "h":  320,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  691,
+                                         "h":  162,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  445,
+                                         "h":  323,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/employee/attendance",
+                      "name":  "admin-employee-attendance.png",
+                      "status":  "ok",
+                      "finalUrl":  "/employee/attendance",
+                      "total":  9,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+                                         {
+                                             "cls":  "rent-card rent-clock-card rent-mb-5",
+                                             "w":  1152,
+                                             "h":  195,
+                                             "bg":  "rgb(20, 184, 166)"
+                                         }
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  195,
+                                         "borderWidth":  0,
+                                         "borderColor":  "rgb(28, 39, 51)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(20, 184, 166)",
+                                         "cls":  "rent-card rent-clock-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  599,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  599,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  349,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  315,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  433,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  433,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  344,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  344,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/employee/performance",
+                      "name":  "admin-employee-performance.png",
+                      "status":  "ok",
+                      "finalUrl":  "/employee/performance",
+                      "total":  5,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  299,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  498,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  412,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  412,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  299,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/employee/contacts",
+                      "name":  "admin-employee-contacts.png",
+                      "status":  "ok",
+                      "finalUrl":  "/employee/contacts",
+                      "total":  4,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  82,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  327,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  373,
+                                         "h":  327,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  286,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/users",
+                      "name":  "admin-system-users.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/users",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  640,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/partners",
+                      "name":  "admin-system-partners.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/partners",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  376,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/groups",
+                      "name":  "admin-system-groups.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/groups",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/permissions",
+                      "name":  "admin-system-permissions.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/permissions",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/departments",
+                      "name":  "admin-system-departments.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/departments",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/data-scopes",
+                      "name":  "admin-system-data-scopes.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/data-scopes",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/options",
+                      "name":  "admin-system-options.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/options",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/system/review-center",
+                      "name":  "admin-system-review-center.png",
+                      "status":  "ok",
+                      "finalUrl":  "/system/review-center",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  492,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/operations",
+                      "name":  "admin-operations.png",
+                      "status":  "ok",
+                      "finalUrl":  "/operations",
+                      "total":  4,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  405,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  405,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  271,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  271,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/operations/listing-review",
+                      "name":  "admin-operations-listing-review.png",
+                      "status":  "ok",
+                      "finalUrl":  "/operations/listing-review",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/operations/dedupe-review",
+                      "name":  "admin-operations-dedupe-review.png",
+                      "status":  "ok",
+                      "finalUrl":  "/operations/dedupe-review",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/attendance-manage",
+                      "name":  "admin-attendance-manage.png",
+                      "status":  "ok",
+                      "finalUrl":  "/attendance-manage",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  80,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  121,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  207,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/partner/members",
+                      "name":  "admin-partner-members.png",
+                      "status":  "ok",
+                      "finalUrl":  "/dashboard",
+                      "total":  4,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/partner/attendance",
+                      "name":  "admin-partner-attendance.png",
+                      "status":  "ok",
+                      "finalUrl":  "/dashboard",
+                      "total":  4,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  568,
+                                         "h":  257,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/my-listings",
+                      "name":  "admin-my-listings.png",
+                      "status":  "ok",
+                      "finalUrl":  "/my-listings",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "admin",
+                      "route":  "/broker-agreements",
+                      "name":  "admin-broker-agreements.png",
+                      "status":  "ok",
+                      "finalUrl":  "/broker-agreements",
+                      "total":  2,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  147,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-4"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1152,
+                                         "h":  147,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-4"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/dashboard",
+                      "name":  "tenant-tenant-dashboard.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/dashboard",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  162,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-todo-feed"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/my",
+                      "name":  "tenant-tenant-my.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/my",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  860,
+                                         "h":  93,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgba(20, 184, 166, 0.06)",
+                                         "cls":  "rent-card rent-my__user"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  860,
+                                         "h":  313,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  860,
+                                         "h":  379,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/payments",
+                      "name":  "tenant-tenant-payments.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/payments",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  631,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/documents",
+                      "name":  "tenant-tenant-documents.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/documents",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/services",
+                      "name":  "tenant-tenant-services.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/services",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/maintenance",
+                      "name":  "tenant-tenant-maintenance.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/maintenance",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/leases",
+                      "name":  "tenant-tenant-leases.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/leases",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  309,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/deals",
+                      "name":  "tenant-tenant-deals.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/deals",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  259,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/contracts",
+                      "name":  "tenant-tenant-contracts.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/contracts",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  342,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/properties/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "name":  "tenant-tenant-properties-083da18c-7fd5-493d-8aa2-d5c79c26c912.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/properties/083da18c-7fd5-493d-8aa2-d5c79c26c912",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "owner",
+                      "route":  "/tenant/my-properties",
+                      "name":  "owner-tenant-my-properties.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/my-properties",
+                      "total":  21,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1072,
+                                         "h":  157,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  347,
+                                         "h":  366,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-prop-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "owner",
+                      "route":  "/tenant/income",
+                      "name":  "owner-tenant-income.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/income",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1072,
+                                         "h":  430,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1072,
+                                         "h":  424,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1072,
+                                         "h":  460,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "owner",
+                      "route":  "/tenant/marketing",
+                      "name":  "owner-tenant-marketing.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/marketing",
+                      "total":  3,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  528,
+                                         "h":  1377,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  528,
+                                         "h":  261,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1072,
+                                         "h":  371,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card rent-mb-5"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "owner",
+                      "route":  "/tenant/my-listings",
+                      "name":  "owner-tenant-my-listings.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/my-listings",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/leases/21787a04-c6f3-45c0-9ef6-efd270e98e1d",
+                      "name":  "tenant-lease-detail.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/leases/21787a04-c6f3-45c0-9ef6-efd270e98e1d",
+                      "total":  2,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  180,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     },
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  261,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+                                    "补查"
+                                ]
+                  },
+                  {
+                      "role":  "tenant",
+                      "route":  "/tenant/deals/00000000-0000-0000-0000-000000000000",
+                      "name":  "tenant-deal-detail.png",
+                      "status":  "ok",
+                      "finalUrl":  "/tenant/deals/00000000-0000-0000-0000-000000000000",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1120,
+                                         "h":  104,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+                                    "补查"
+                                ]
+                  },
+                  {
+                      "role":  "public",
+                      "route":  "/map",
+                      "name":  "public-map.png",
+                      "status":  "ok",
+                      "finalUrl":  "/map",
+                      "total":  0,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+                                    "补查"
+                                ]
+                  },
+                  {
+                      "role":  "public",
+                      "route":  "/sign/invalid-token",
+                      "name":  "public-sign-invalid.png",
+                      "status":  "ok",
+                      "finalUrl":  "/sign/invalid-token",
+                      "total":  1,
+                      "pageBg":  "rgb(251, 249, 246)",
+                      "noBoundary":  [
+
+                                     ],
+                      "shadowOnly":  [
+
+                                     ],
+                      "sample":  [
+                                     {
+                                         "visible":  true,
+                                         "w":  1068,
+                                         "h":  118,
+                                         "borderWidth":  1,
+                                         "borderColor":  "rgb(236, 231, 223)",
+                                         "shadow":  "none",
+                                         "bg":  "rgb(255, 255, 255)",
+                                         "cls":  "rent-card"
+                                     }
+                                 ],
+                      "errors":  [
+
+                                 ],
+                      "extra":  [
+                                    "补查"
+                                ]
+                  }
+              ]
+}

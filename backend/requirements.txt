@@ -24,3 +24,10 @@ slowapi==0.1.9
 PyMuPDF==1.28.2
 # 电子签引擎生成签名/印章图（kaifang_sign_service.py 的 Image/ImageDraw/ImageFont）
 Pillow==13.0.0
+# 电子签引擎合同 PDF 渲染（kaifang_sign_service.render_contract_pdf 的 reportlab）
+reportlab==5.0.1
+# 电子签引擎 PDF 数字签名与验签（incremental_writer / signers / validate_pdf_signature）
+pyHanko==0.37.0
+pyhanko-certvalidator==0.32.1
+# 电子签引擎 PDF 读写（pypdf，页数/文本抽取兜底）
+pypdf==6.19.0

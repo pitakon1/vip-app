@@ -89,6 +89,8 @@ export default function PublicListingDetailScreen() {
   const [priceAlertLoaded, setPriceAlertLoaded] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favBusy, setFavBusy] = useState(false);
+  // 收藏失败要给出可见反馈：此前只回滚红心，用户以为「点了没反应」
+  const [favError, setFavError] = useState<string | null>(null);
   const [contactBusy, setContactBusy] = useState(false);
 
   // 收藏状态：详情页写「收藏后可接收降价通知」，就必须真的有收藏入口
@@ -118,6 +120,7 @@ export default function PublicListingDetailScreen() {
     }
     if (!data?.property_id) return;
     setFavBusy(true);
+    setFavError(null);
     const next = !favorited;
     setFavorited(next);
     try {
@@ -125,10 +128,11 @@ export default function PublicListingDetailScreen() {
       else await favoritesApi.remove(data.property_id);
     } catch {
       setFavorited(!next);
+      setFavError(t('actionFailed'));
     } finally {
       setFavBusy(false);
     }
-  }, [favBusy, isLoggedIn, navigation, data?.property_id, favorited]);
+  }, [favBusy, isLoggedIn, navigation, data?.property_id, favorited, t]);
 
   // 联系经纪人：按房源建会话后进入 ChatDetail（原来固定跳 ChatList，用户看到空列表）
   const contactBroker = useCallback(async () => {
@@ -408,6 +412,7 @@ export default function PublicListingDetailScreen() {
               {t('pub.myFollow')}
             </Text>
           </TouchableOpacity>
+          {favError ? <Text style={[styles.msg, styles.msgError]}>{favError}</Text> : null}
           {/* 降价提醒：贝壳式关注/降价通知，未登录引导登录 */}
           <TouchableOpacity
             style={[styles.priceAlert, priceAlertOn && styles.priceAlertOn]}
@@ -915,8 +920,8 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: colors.radius.lg,
-    borderTopRightRadius: colors.radius.lg,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: colors.spacing.lg,
   },
   modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

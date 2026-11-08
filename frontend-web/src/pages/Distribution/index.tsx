@@ -389,7 +389,7 @@ const BrokersTab = ({ createOpen, onOpenChange }: { createOpen: boolean; onOpenC
 
       {approveBroker && (
         <div className="rent-modal-backdrop" onClick={() => setApproveBroker(null)}>
-          <div className="rent-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
+          <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">{t('distribution.approveTitle', { name: approveBroker.partner_name })}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">
@@ -500,7 +500,7 @@ const ReferralsTab = () => {
 
       {createOpen && (
         <div className="rent-modal-backdrop" onClick={() => setCreateOpen(false)}>
-          <div className="rent-modal" style={{ width: 420 }} onClick={(e) => e.stopPropagation()}>
+          <div className="rent-modal" style={{ width: 480 }} onClick={(e) => e.stopPropagation()}>
             <div className="rent-modal__header"><h3 className="rent-card__title">{t('distribution.modalRecordReferral')}</h3></div>
             <div className="rent-modal__body">
               <div className="rent-form-row">

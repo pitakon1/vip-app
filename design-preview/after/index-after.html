@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>阶段 0/1 改动后 · 真实效果截图总览</title>
+<style>
+  :root {
+    --bg: #fbf9f6;
+    --card: #ffffff;
+    --ink: #1c2733;
+    --ink-2: #55606c;
+    --ink-3: #8a94a0;
+    --border: #ece7df;
+    --primary: #14b8a6;
+    --primary-ink: #0f766e;
+    --warn-bg: #fdf5e9;
+    --warn-ink: #a64c07;
+    --danger-ink: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+  header.page-head { margin-bottom: 44px; }
+  .eyebrow {
+    display: inline-block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--primary-ink); background: rgba(20,184,166,.10);
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+  h1 { font-size: 40px; line-height: 1.15; letter-spacing: -.02em; margin: 16px 0 12px; }
+  .lede { font-size: 16px; color: var(--ink-2); max-width: 760px; margin: 0; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 22px; font-size: 13px; color: var(--ink-2);
+  }
+  .meta span { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 4px 10px; }
+
+  section { margin-top: 52px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.02em; }
+  .sec-head .badge {
+    font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: rgba(20,184,166,.10); color: var(--primary-ink);
+  }
+  .sec-desc { font-size: 14px; color: var(--ink-2); margin: 0 0 20px; }
+
+  .grid { display: grid; gap: 24px; }
+  .grid-web { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-app { grid-template-columns: repeat(2, minmax(0, 420px)); }
+  .grid-mini { grid-template-columns: repeat(2, minmax(0, 375px)); }
+
+  figure {
+    margin: 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(28,39,51,.04);
+  }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { padding: 12px 14px; font-size: 13px; color: var(--ink-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  figcaption b { color: var(--ink); font-weight: 600; font-size: 14px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag-real { background: rgba(20,184,166,.12); color: var(--primary-ink); }
+  .tag-expo { background: rgba(3,105,161,.10); color: #0369a1; }
+  .tag-replica { background: var(--warn-bg); color: var(--warn-ink); }
+
+  .note {
+    background: var(--warn-bg); border: 1px solid #f4d9ad; color: var(--warn-ink);
+    border-radius: 14px; padding: 14px 16px; font-size: 13px; margin-bottom: 22px;
+  }
+  .note b { color: var(--warn-ink); }
+
+  h3.issues-title { font-size: 20px; margin: 0 0 16px; letter-spacing: -.01em; }
+  .issues { display: grid; gap: 12px; }
+  .issue {
+    background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--border);
+    border-radius: 12px; padding: 14px 18px;
+  }
+  .issue[data-level="high"] { border-left-color: var(--danger-ink); }
+  .issue[data-level="mid"] { border-left-color: var(--warn-ink); }
+  .issue[data-level="low"] { border-left-color: var(--primary-ink); }
+  .issue__head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .issue__head strong { font-size: 15px; }
+  .level { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+  .level.high { background: rgba(185,28,28,.10); color: var(--danger-ink); }
+  .level.mid { background: rgba(166,76,7,.10); color: var(--warn-ink); }
+  .level.low { background: rgba(15,118,110,.10); color: var(--primary-ink); }
+  .issue p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; background: #f3f0ea; border-radius: 4px; padding: 1px 5px; color: var(--ink);
+  }
+
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--ink-3); }
+  @media (max-width: 900px) {
+    .wrap { padding: 32px 18px 64px; }
+    h1 { font-size: 30px; }
+    .grid-web, .grid-app, .grid-mini { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page-head">
+    <span class="eyebrow">Design Review · After</span>
+    <h1>阶段 0 / 1 改动后的真实效果</h1>
+    <p class="lede">令牌层与最高曝光页面已改完，这里用真实运行页面回看效果。小程序因本机无微信开发者工具，改用 HTML 复刻并按 375×812 渲染，图上已标注"复刻示意，非真实截图"。</p>
+    <div class="meta">
+      <span>Web：vite dev + 真实 API，1440×900</span>
+      <span>App：Expo Web 渲染（非真机）</span>
+      <span>小程序：HTML 复刻，375×812</span>
+      <span>截图时间 2026-11-07</span>
+    </div>
+  </header>
+
+  <!-- Web -->
+  <section>
+    <div class="sec-head"><h2>Web</h2><span class="badge">真实页面</span></div>
+    <p class="sec-desc">本地 dev server + 本地后端，无登录态浏览公开页面，按 1440×900 视口、2x 像素密度截取。</p>
+    <div class="grid grid-web">
+      <figure>
+        <img src="web-home.png" alt="Web 公开首页" />
+        <figcaption><b>公开首页</b><span class="tag tag-real">真实截图 1440×900</span></figcaption>
+      </figure>
+      <figure>
+        <img src="web-listings.png" alt="Web 公开房源列表" />
+        <figcaption><b>公开房源列表</b><span class="tag tag-real">真实截图 1440×900</span></figcaption>
+      </figure>
+      <figure>
+        <img src="web-detail.png" alt="Web 房源详情" />
+        <figcaption><b>房源详情</b><span class="tag tag-real">真实截图 1440×900</span></figcaption>
+      </figure>
+      <figure>
+        <img src="web-login.png" alt="Web 登录页" />
+        <figcaption><b>登录页</b><span class="tag tag-real">真实截图 1440×900</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- App -->
+  <section>
+    <div class="sec-head"><h2>App</h2><span class="badge" style="background:rgba(3,105,161,.10);color:#0369a1">Expo Web 渲染</span></div>
+    <p class="sec-desc">用 Expo Web 跑起 React Native 页面后截取，宽度 430。以下为 Web 渲染结果，安全区、字体与真机可能有差异，需真机复核。</p>
+    <div class="grid grid-app">
+      <figure>
+        <img src="app-admin-home.png" alt="App 管理员首页" />
+        <figcaption><b>管理员首页</b><span class="tag tag-expo">Expo Web · 非真机</span></figcaption>
+      </figure>
+      <figure>
+        <img src="app-tenant-home.png" alt="App 租客首页" />
+        <figcaption><b>租客首页</b><span class="tag tag-expo">Expo Web · 非真机</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 小程序 -->
+  <section>
+    <div class="sec-head"><h2>小程序</h2><span class="badge" style="background:var(--warn-bg);color:var(--warn-ink)">复刻示意</span></div>
+    <p class="sec-desc">本机没有微信开发者工具，无法截真实运行时。以下为按页面 SCSS 数值 1:1 复刻的 HTML，按 375×812（1rpx = 0.5px）渲染，图内右上角已标注。</p>
+    <div class="note"><b>复刻示意，非真实截图。</b> 字体字重、图片资源、系统状态栏与真机存在差异，仅用于核对配色、字号层级、圆角与间距。</div>
+    <div class="grid grid-mini">
+      <figure>
+        <img src="miniapp-tenant-home-replica.png" alt="小程序租客首页复刻" />
+        <figcaption><b>租客首页</b><span class="tag tag-replica">复刻示意 · 非真实截图</span></figcaption>
+      </figure>
+      <figure>
+        <img src="miniapp-login-replica.png" alt="小程序登录页复刻" />
+        <figcaption><b>登录页</b><span class="tag tag-replica">复刻示意 · 非真实截图</span></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 发现的问题 -->
+  <section>
+    <h3 class="issues-title">截图过程中发现的问题（未改代码，等确认）</h3>
+    <div class="issues">
+      <div class="issue" data-level="high">
+        <div class="issue__head"><span class="level high">高</span><strong>Web 首页/列表的改动有一半没命中真实渲染类名</strong></div>
+        <p>实际页面渲染的是 <code>rent-search-hero</code> / <code>rent-prop-search-card</code>（在 <code>prototype-portal.css</code>），而本轮改的 <code>.bk-hero</code>（home.css）、<code>.pl-hero</code> / <code>.pl-item</code>（public-listings.css）在 DOM 里并不存在。实测：标题与搜索按钮已是深墨 <code>#0b2f2b</code>（5.80:1），但副标题仍是 <code>rgba(255,255,255,.88)</code>（约 1.9:1，未达 AA），且首页 hero 仍有 3 个装饰圆。需要确认是把改动迁到 <code>rent-*</code> 选择器，还是删掉这批旧样式。</p>
+      </div>
+      <div class="issue" data-level="high">
+        <div class="issue__head"><span class="level high">高</span><strong>Web 房源详情页也复用了另一套类名</strong></div>
+        <p>详情页 DOM 是 <code>pub-detail</code> / <code>pub-gallery</code> / <code>pub-detail__title</code>，不是 <code>PropertyDetail.css</code> 里的 <code>rent-prop-header</code> / <code>rent-prop-rent</code>。该页本轮改的价格色、分成条、占位图底色在这个路由上不生效；截图中价格仍是旧样式。</p>
+      </div>
+      <div class="issue" data-level="mid">
+        <div class="issue__head"><span class="level mid">中</span><strong>Expo Web 底部 Tab 文案被裁切</strong></div>
+        <p>管理员首页与租客首页的底部 Tab（首页/发现/消息/我的）文字下缘被切掉约一半，疑似 Expo Web 安全区高度计算问题。真机不一定复现，但当前 Web 预览下确实可读性受损。</p>
+      </div>
+      <div class="issue" data-level="mid">
+        <div class="issue__head"><span class="level mid">中</span><strong>房源封面缺图回落为高饱和绿/紫色块</strong></div>
+        <p>种子数据多数房源无 cover 图，卡片回落到生成的高饱和纯色占位，和暖米白 + 墨色的体系明显冲突（首页与公开列表都可见）。这是数据/占位策略问题，不是本轮改出来的，但观感影响最大。</p>
+      </div>
+      <div class="issue" data-level="low">
+        <div class="issue__head"><span class="level low">低</span><strong>App 430 宽下地址与项目名截断偏早</strong></div>
+        <p>租客首页房源卡的地址、学校名都按单行省略，实际只剩半句（如 "Sukhumvit Soi 24, Suite D-016, B…"）。可考虑放宽卡片宽度或允许两行，待确认是否属于本轮范围。</p>
+      </div>
+      <div class="issue" data-level="low">
+        <div class="issue__head"><span class="level low">低</span><strong>详情页样例房源无图片</strong></div>
+        <p>用于截图的 D-016 房源没有任何相片，画廊是"暂无图片"的暖米白占位，无法验证渐变移除后的视觉效果。建议换一条有封面的房源再看一次。</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    截图工具：Playwright（Chromium）。Web 端口 3000、后端 8000、Expo Web 8081。仅生成截图与复刻页，未修改任何业务源码，未执行 git add / commit。
+  </footer>
+</div>
+</body>
+</html>

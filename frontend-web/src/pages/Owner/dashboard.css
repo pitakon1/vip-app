@@ -33,10 +33,10 @@
 .rent-v17-entry--sale { background: var(--state-warning-soft); border: 1px solid rgba(217,119,6,.30); }
 .rent-v17-entry__icon {
   width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; color: #fff;
+  display: flex; align-items: center; justify-content: center; color: var(--rent-primary-foreground);
 }
-.rent-v17-entry--rent .rent-v17-entry__icon { background: #14b8a6; box-shadow: 0 6px 16px -6px rgba(20,184,166,.55); }
-.rent-v17-entry--sale .rent-v17-entry__icon { background: var(--state-warning); box-shadow: 0 6px 16px -6px rgba(217,119,6,.55); }
+.rent-v17-entry--rent .rent-v17-entry__icon { background: var(--rent-primary); box-shadow: 0 6px 16px -6px rgba(20,184,166,.55); }
+.rent-v17-entry--sale .rent-v17-entry__icon { background: var(--state-warning); color: var(--rent-on-status); box-shadow: 0 6px 16px -6px rgba(217,119,6,.55); }
 .rent-v17-entry__title { font-size: 15px; font-weight: 700; color: var(--rent-ink); letter-spacing: -.01em; }
 .rent-v17-entry__sub { font-size: var(--rent-fs-xs); color: var(--rent-ink-2); margin-top: 2px; line-height: 1.4; }
 .rent-v17-entry__arrow { margin-left: auto; color: var(--rent-ink-2); flex-shrink: 0; display: flex; }

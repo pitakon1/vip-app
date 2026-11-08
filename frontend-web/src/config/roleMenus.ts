@@ -1,4 +1,4 @@
-﻿import { MENU_ICONS, type MenuIconKey } from '@/constants/menuIcons'
+﻿﻿import { MENU_ICONS, type MenuIconKey } from '@/constants/menuIcons'
 
 /**
  * 角色菜单单一配置源（Web 端）。

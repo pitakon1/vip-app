@@ -204,7 +204,8 @@
   background: #ffffff;
   color: #1a1a1b;
   cursor: pointer;
-  transition: all var(--motion-fast);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast),
+    color var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .rent-register-page .rent-login-back__btn:hover {
@@ -237,7 +238,8 @@
   background: #ffffff;
   cursor: pointer;
   text-align: center;
-  transition: all var(--motion-fast);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast),
+    color var(--motion-fast), box-shadow var(--motion-fast);
   color: #2b2b2c;
   font-family: var(--rent-font-sans);
 }

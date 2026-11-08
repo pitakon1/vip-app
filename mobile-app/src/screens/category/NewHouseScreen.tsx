@@ -80,12 +80,12 @@ export default function NewHouseScreen() {
       mk('brand', t('category.newGridBrand'), 'ribbon-outline', colors.primary, colors.primaryRgb),
       mk('land', t('category.newGridLand'), 'map-outline', colors.info, colors.infoRgb),
       mk('broker', t('category.findBroker'), 'people-outline', colors.warning, colors.warningRgb),
-      mk('ready', t('category.newGridReady'), 'home-outline', colors.success, colors.successRgb),
+      mk('ready', t('category.newGridReady'), 'home-outline', colors.primaryText, colors.primaryRgb),
       mk('small', t('category.newGridSmall'), 'resize-outline', colors.error, colors.errorRgb),
       mk('rank', t('category.newGridRank'), 'podium-outline', colors.primary, colors.primaryRgb),
       mk('vr', t('category.newGridVr'), 'cube-outline', colors.info, colors.infoRgb),
       mk('live', t('category.newGridLive'), 'videocam-outline', colors.warning, colors.warningRgb),
-      mk('three', t('category.newGridThree'), 'people-outline', colors.success, colors.successRgb),
+      mk('three', t('category.newGridThree'), 'people-outline', colors.primaryText, colors.primaryRgb),
       mk('subway', t('category.newGridSubway'), 'subway-outline', colors.error, colors.errorRgb),
     ];
   }, [t, navigation]);

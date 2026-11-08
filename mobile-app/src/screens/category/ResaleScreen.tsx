@@ -65,12 +65,12 @@ export default function ResaleScreen() {
       mk('map', t('category.resaleGridMap'), 'map-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridMap'))),
       mk('community', t('pub.tabCommunities'), 'business-outline', colors.info, colors.infoRgb, () => navigation.navigate('PublicCommunities')),
       mk('deal', t('category.resaleGridDeal'), 'stats-chart-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.resaleGridDeal'))),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.success, colors.successRgb, () => notAvailable(navigation, t('category.findBroker'))),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('all', t('category.allListings'), 'grid-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings')),
       mk('school', t('pub.tabSchools'), 'school-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicSchools')),
       mk('rank', t('category.resaleGridRank'), 'podium-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.resaleGridRank'))),
       mk('live', t('category.resaleGridLive'), 'videocam-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.resaleGridLive'))),
-      mk('subway', t('category.resaleGridSubway'), 'subway-outline', colors.success, colors.successRgb, () => notAvailable(navigation, t('category.resaleGridSubway'))),
+      mk('subway', t('category.resaleGridSubway'), 'subway-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridSubway'))),
       mk('owner', t('category.resaleGridOwner'), 'home-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.resaleGridOwner'))),
     ];
   }, [t, navigation]);

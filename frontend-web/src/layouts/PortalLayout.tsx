@@ -101,7 +101,7 @@ const PortalLayout = () => {
     },
   ]
 
-  const displayName = user?.full_name || user?.name || t('welcome')
+  const displayName = user?.full_name || user?.name || t('common.welcome')
   const avatarChar = (displayName || '我').charAt(0).toUpperCase()
 
   return (

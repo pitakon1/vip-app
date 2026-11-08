@@ -7,7 +7,8 @@
 .rent-login-page {
   display: flex;
   min-height: 100vh;
-  background: var(--rent-surface);
+  /* 暖米白画布 + 白色表单卡，替代原先整屏纯白无边界的分屏残留 */
+  background: var(--rent-background);
 }
 
 /* 语言切换悬浮右上角 */
@@ -25,13 +26,18 @@
   align-items: center;
   justify-content: center;
   padding: 48px 40px;
-  background: var(--rent-surface);
+  background: transparent;
 }
 
 /* ---- Login form card ---- */
 .rent-login-card {
   width: 100%;
   max-width: 440px;
+  background: var(--rent-card);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  padding: 40px 36px;
+  box-shadow: var(--rent-shadow-1);
 }
 
 .rent-login-card__header {
@@ -44,8 +50,8 @@
   height: auto;
   margin: 0 auto 20px;
   object-fit: contain;
-  border-radius: 12px;
-  background: #fff;
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-card);
   padding: 10px;
 }
 
@@ -61,21 +67,21 @@
 
 .rent-login-card__subtitle {
   font-family: var(--rent-font-sans);
-  font-size: 15px;
+  font-size: var(--rent-fs-base);
   color: var(--rent-ink-2);
   line-height: 1.5;
 }
 
 /* ---- 测试账号提示 ---- */
 .rent-login-hint {
-  background: #f5f2ea;
-  border: 1px solid #e8e0cd;
+  background: var(--state-warning-soft);
+  border: 1px solid var(--state-warning-light);
   border-radius: var(--rent-radius-md);
   padding: 10px 14px;
   margin-bottom: 20px;
-  font-size: 12.5px;
+  font-size: var(--rent-fs-sm);
   line-height: 1.8;
-  color: #6b5d3e;
+  color: var(--state-warning-ink);
   word-break: break-all;
 }
 
@@ -100,14 +106,14 @@
 .rent-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: var(--rent-primary);
+  accent-color: var(--rent-primary-text);
   cursor: pointer;
 }
 
 .rent-login-link {
   font-family: var(--rent-font-sans);
   font-size: var(--rent-fs-base);
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   text-decoration: none;
   font-weight: 500;
   transition: opacity var(--motion-fast);
@@ -128,7 +134,7 @@
 
 .rent-login-footer a,
 .rent-login-footer .rent-login-footer__link {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   text-decoration: none;
   font-weight: 500;
 }
@@ -166,16 +172,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--rent-border, #edeff1);
+  border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-full);
-  background: #ffffff;
-  color: #1a1a1b;
+  background: var(--rent-card);
+  color: var(--rent-ink);
   cursor: pointer;
-  transition: all var(--motion-fast);
+  transition: background-color var(--motion-fast), border-color var(--motion-fast), color var(--motion-fast);
 }
 
 .rent-login-back__btn:hover {
-  background: #f6f7f8;
+  background: var(--rent-surface-2);
+  border-color: var(--rent-ring);
 }
 
 /* ---- 国家码 + 手机号 / 验证码 + 按钮 ---- */
@@ -213,9 +220,18 @@
   .rent-login-right {
     padding: 40px 24px;
   }
+
+  .rent-login-card {
+    padding: 32px 28px;
+  }
 }
 
 @media (max-width: 520px) {
+  .rent-login-card {
+    padding: 28px 20px;
+    border-radius: var(--rent-radius-md);
+  }
+
   .rent-login-card__title {
     font-size: var(--rent-fs-2xl);
   }

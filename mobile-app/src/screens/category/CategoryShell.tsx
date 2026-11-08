@@ -316,7 +316,7 @@ export function ServiceBar({
 }) {
   return (
     <View style={styles.serviceBar}>
-      <Ionicons name="sparkles-outline" size={16} color={colors.accent} />
+      <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
       <Text style={styles.serviceText} numberOfLines={1}>
         {text}
       </Text>

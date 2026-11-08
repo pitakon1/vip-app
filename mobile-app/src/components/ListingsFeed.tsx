@@ -2196,10 +2196,10 @@ const styles = StyleSheet.create({
   },
   heroTab: {
     flex: 1,
-    minHeight: 36,
+    minHeight: colors.touch.min,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: colors.radius.md,
   },
   heroTabActive: {
     backgroundColor: colors.surface,
@@ -2215,7 +2215,7 @@ const styles = StyleSheet.create({
   heroSearchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroSearchInput: {
     flex: 1,
-    minHeight: 40,
+    minHeight: colors.touch.min,
     paddingVertical: 6,
     fontSize: 15,
     color: colors.text,
@@ -2274,7 +2274,7 @@ const styles = StyleSheet.create({
   recentClear: { fontSize: 12, color: colors.ink3, paddingVertical: 2 },
   recentGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   recentChip: {
-    minHeight: 34,
+    minHeight: colors.touch.min,
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 5,
@@ -2495,13 +2495,14 @@ const styles = StyleSheet.create({
   keRadioDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.surface },
   // 筛选项：方块样式
   filterChip: {
-    minHeight: 40,
+    // 44pt 是移动端触控下限（FE-05 / UI-07），圆角统一走设计令牌
+    minHeight: 44,
     minWidth: 76,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     backgroundColor: colors.surface2,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -2534,7 +2535,7 @@ const styles = StyleSheet.create({
     left: 8,
     paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     backgroundColor: colors.badge.bg,
     borderWidth: 1,
     borderColor: colors.badge.border,

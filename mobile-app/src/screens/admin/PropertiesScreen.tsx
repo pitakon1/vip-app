@@ -1,4 +1,4 @@
-﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { errorText } from '@/lib/errorText';
 /**
  * 房源管理（管理端）
@@ -67,7 +67,7 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 const typeMeta = (t: TFunc): Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> => ({
   apartment: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
   condo: { label: t('prop.type.apartment'), icon: 'business-outline', color: colors.primary },
-  house: { label: t('prop.type.house'), icon: 'home-outline', color: colors.success },
+  house: { label: t('prop.type.house'), icon: 'home-outline', color: colors.primaryText },
   commercial: { label: t('prop.type.commercial'), icon: 'storefront-outline', color: colors.warning },
   office: { label: t('prop.type.office'), icon: 'briefcase-outline', color: colors.info },
 });
@@ -1463,8 +1463,8 @@ const styles = StyleSheet.create({
   filterMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   filterSheet: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: colors.radius.xxl,
-    borderTopRightRadius: colors.radius.xxl,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: colors.spacing.lg,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

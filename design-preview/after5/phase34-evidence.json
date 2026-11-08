@@ -1,0 +1,19 @@
+{
+  "listContainer": {
+    "cls": "rent-card rent-prop-card",
+    "boxShadow": "none",
+    "border": "1px solid rgb(236, 231, 223)"
+  },
+  "emptyState": {
+    "statePresent": true,
+    "svgCount": 1,
+    "iconText": "",
+    "padding": "40px 20px"
+  },
+  "modal": {
+    "widthStyle": "880px",
+    "contentRadius": "20px",
+    "overflow": "hidden",
+    "widthBox": 880
+  }
+}

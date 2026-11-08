@@ -6,19 +6,20 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { Project, Property } from '@/types'
 
-// 房源卡片 banner 主题色（使用设计令牌 CSS 变量，teal 色系层次）
-const BANNER_COLORS = [
-  'var(--rent-primary)',
-  'var(--rent-accent)',
-  'var(--state-success)',
-]
-
-const bannerColorFor = (seed: string) => {
-  let h = 0
-  for (let i = 0; i < (seed || 'x').length; i++) {
-    h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
+// 户型剪影图标（与首页/公开列表同一套 lucide 路径，缺封面时作为低对比占位）
+const typeIconPath = (pt: string): string => {
+  switch (pt) {
+    case 'villa':
+    case 'house':
+      return 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'
+    case 'shop':
+    case 'commercial':
+      return 'M3 9l1-5h16l1 5M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M9 21v-6h6v6'
+    case 'office':
+      return 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M2 22h20'
+    default: // apartment / condo
+      return 'M3 21h18M5 21V7l8-4v18M19 21V11l-6-4'
   }
-  return BANNER_COLORS[h % BANNER_COLORS.length]
 }
 
 const formatRent = (v: any) => Number(v || 0).toLocaleString()
@@ -55,7 +56,6 @@ export default function PropertyCard({
   const baths = Number(item.bathrooms || 0)
   const size = Number(item.size_sqm || 0)
   const rent = Number(item.monthly_rent || 0)
-  const seed = String(item.id || item.room_number || '')
 
   const statusTone =
     statusKey === 'rented' ? 'success'
@@ -69,8 +69,11 @@ export default function PropertyCard({
       className="rent-card rent-prop-card"
       onClick={() => navigate(`/properties/detail/${item.id}`)}
     >
-      {/* 头部渐变 + 类型角标 */}
-      <div className="rent-prop-card__banner" style={{ background: bannerColorFor(seed) }}>
+      {/* 头部暖灰占位 + 低对比户型剪影（不按 id 生成纯色块） */}
+      <div className="rent-prop-card__banner" data-photo="false">
+        <svg className="rent-prop-card__banner-icon" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d={typeIconPath(item.property_type || '')} />
+        </svg>
         <span className="rent-prop-card__type-badge">{ptype}</span>
       </div>
 

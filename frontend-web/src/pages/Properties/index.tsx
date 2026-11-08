@@ -365,7 +365,7 @@ const Properties = () => {
         open={coordOpen}
         onCancel={() => setCoordOpen(false)}
         footer={null}
-        width={760}
+        width={880}
       >
         <p className="coord-modal__hint">{t('project.coordHint')}</p>
         <Spin spinning={coordLoading}>

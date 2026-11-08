@@ -1,4 +1,4 @@
-﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源管理（业主端）
  * 结构对齐管理端 PropertiesScreen：搜索 → 状态筛选 → 房型/价格/面积/排序筛选 → 统计行 → 房源卡片
@@ -1770,7 +1770,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
-    ...colors.shadow.card,
   },
   banner: {
     height: 96,

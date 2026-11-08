@@ -22,7 +22,7 @@ export const EmployeePerformanceModal = ({ emp, rows, loading, onClose }: Props)
           {t('common.close')}
         </button>
       }
-      width={720}
+      width={880}
       destroyOnClose
     >
       {loading ? (

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Input, Modal, DatePicker, message as antdMessage } from 'antd'
+import { useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
 import api from '@/lib/api'
@@ -148,6 +149,7 @@ const ListingDetailPage = () => {
   const [favorited, setFavorited] = useState(false)
   const [favBusy, setFavBusy] = useState(false)
   const [contactBusy, setContactBusy] = useState(false)
+  const queryClient = useQueryClient()
 
   // 收藏状态：以 property_id 为键（公开详情返回的 listing id 不是收藏主键）
   useEffect(() => {
@@ -178,6 +180,10 @@ const ListingDetailPage = () => {
     try {
       if (next) await api.post('/favorites', { property_id: detail.property_id })
       else await api.delete(`/favorites/${detail.property_id}`)
+      // 成功后失效列表页的收藏状态缓存（公共列表 / 租客门户推荐流各自持有一份），
+      // 否则返回列表仍显示旧的红心状态，直到 60s staleTime 到期。
+      void queryClient.invalidateQueries({ queryKey: ['public-listings-fav'] })
+      void queryClient.invalidateQueries({ queryKey: ['tenant-home-fav'] })
     } catch {
       setFavorited(!next)
       setFeedback({ tone: 'error', text: t('browse.favFailed') })

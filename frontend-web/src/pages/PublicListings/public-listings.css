@@ -1,435 +1,7 @@
 /* =========================================================
-   公共房源列表页 — 承接主页 bk-header/footer 风格
-   紧凑搜索区 + 链家式垂直列表
-   主色: var(--rent-primary) = #14b8a6 (teal)
+   公共房源列表页 — 房源卡上的视频标记与筛选弹层
+   配色统一走 rent-* 设计令牌
    ========================================================= */
-
-/* ===== 页面容器 ===== */
-.pl-page {
-  min-height: 100vh;
-  background: var(--rent-background);
-}
-
-/* ===== 紧凑搜索区（与主页 hero 同色系，高度减半）===== */
-.pl-hero {
-  background: var(--rent-primary);
-  padding: 36px 24px 44px;
-  position: relative;
-  overflow: hidden;
-}
-.pl-hero::before {
-  content: '';
-  position: absolute;
-  top: -60px;
-  right: -40px;
-  width: 280px;
-  height: 280px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
-.pl-hero__inner {
-  max-width: 800px;
-  margin: 0 auto;
-  text-align: center;
-  position: relative;
-  z-index: 1;
-}
-.pl-hero__title {
-  font-size: var(--rent-fs-3xl);
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-  margin-bottom: var(--rent-s-2);
-}
-.pl-hero__subtitle {
-  font-size: var(--rent-fs-base);
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.6;
-  margin-bottom: var(--rent-s-5);
-}
-
-/* ===== 搜索栏（与主页 bk-search-bar 一致）===== */
-.pl-search-bar {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: #fff;
-  border-radius: var(--rent-radius-full);
-  padding: 5px 5px 5px 24px;
-  box-shadow: var(--rent-shadow-3);
-  max-width: 640px;
-  margin: 0 auto;
-}
-.pl-search-bar__input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 15px;
-  color: var(--rent-ink);
-  font-family: var(--rent-font-sans);
-  background: transparent;
-}
-.pl-search-bar__input::placeholder {
-  color: var(--rent-ink-3);
-}
-.pl-search-bar__btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 26px;
-  border: none;
-  border-radius: var(--rent-radius-full);
-  background: var(--rent-primary);
-  color: var(--rent-primary-foreground);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--rent-font-sans);
-  transition: background var(--motion-fast), transform var(--motion-instant);
-  white-space: nowrap;
-}
-.pl-search-bar__btn:hover { background: var(--rent-primary-hover); }
-.pl-search-bar__btn:active { transform: scale(0.97); }
-
-/* ===== 搜索标签 ===== */
-.pl-search-tags {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: var(--rent-s-4);
-  flex-wrap: wrap;
-}
-.pl-search-tag {
-  padding: 4px 14px;
-  border-radius: var(--rent-radius-full);
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: var(--rent-fs-sm);
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: background var(--motion-fast);
-  font-family: var(--rent-font-sans);
-}
-.pl-search-tag:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* ===== 内容容器 ===== */
-.pl-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 24px 40px;
-}
-
-/* ===== 筛选栏 ===== */
-.pl-filter {
-  background: var(--rent-card);
-  border-radius: var(--rent-radius-lg) var(--rent-radius-lg) 0 0;
-  padding: 20px 24px;
-  margin-top: -20px;
-  position: relative;
-  z-index: 2;
-  box-shadow: var(--rent-shadow-1);
-}
-.pl-filter__selects {
-  display: flex;
-  gap: var(--rent-s-3);
-  flex-wrap: wrap;
-}
-.pl-filter__select {
-  min-width: 140px;
-  flex: 1;
-  max-width: 220px;
-}
-.pl-filter__select .ant-select-selector {
-  border-radius: var(--rent-radius-md);
-}
-
-/* ===== 排序栏 ===== */
-.pl-sortbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--rent-card);
-  padding: 0 var(--rent-s-5);
-  border-bottom: 1px solid var(--rent-border);
-  flex-wrap: wrap;
-  gap: var(--rent-s-2);
-}
-.pl-sortbar__items {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-.pl-sortbar__item {
-  position: relative;
-  padding: var(--rent-s-4) var(--rent-s-5);
-  font-size: var(--rent-fs-base);
-  color: var(--rent-ink-2);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color var(--motion-fast);
-  font-family: var(--rent-font-sans);
-  white-space: nowrap;
-}
-.pl-sortbar__item:hover {
-  color: var(--rent-primary);
-}
-.pl-sortbar__item[data-active='true'] {
-  color: var(--rent-primary);
-  font-weight: 600;
-}
-.pl-sortbar__item[data-active='true']::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--rent-primary);
-}
-.pl-sortbar__count {
-  font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-2);
-  white-space: nowrap;
-  padding: 14px 0;
-}
-.pl-sortbar__count-num {
-  color: var(--state-error);
-  font-weight: 700;
-  font-size: 15px;
-}
-
-/* ===== 列表容器 ===== */
-.pl-list {
-  background: var(--rent-card);
-  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
-  overflow: hidden;
-  box-shadow: var(--rent-shadow-1);
-}
-
-/* ===== 列表项（链家式横向卡片）===== */
-.pl-item {
-  display: flex;
-  gap: 20px;
-  padding: var(--rent-s-5);
-  border-bottom: 1px solid var(--rent-border);
-  cursor: pointer;
-  transition: background var(--motion-fast);
-}
-.pl-item:last-child {
-  border-bottom: none;
-}
-.pl-item:hover {
-  background: var(--rent-surface-2);
-}
-
-/* 左侧图片占位 */
-.pl-item__img {
-  width: 232px;
-  height: 174px;
-  flex-shrink: 0;
-  border-radius: var(--rent-radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-.pl-item__img-text {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: var(--rent-fs-2xl);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.pl-item__badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 3px 10px;
-  border-radius: var(--rent-radius-sm);
-  font-size: var(--rent-fs-xs);
-  font-weight: 600;
-  color: #fff;
-  backdrop-filter: blur(4px);
-}
-/* 状态徽标压在照片上，需 0.85 不透明保证白字可读；色值仍走 -rgb 令牌
-   （原 #3b82f6 / #9333ea 为 Tailwind 蓝与表外紫，违反 UI-设计原则.md §4） */
-.pl-item__badge--vacant { background: rgba(var(--state-success-rgb), 0.85); }
-.pl-item__badge--rented { background: rgba(var(--state-info-rgb), 0.85); }
-.pl-item__badge--maintenance { background: rgba(var(--state-warning-rgb), 0.85); }
-
-/* 右侧内容 */
-.pl-item__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--rent-s-2);
-}
-
-/* 标题 */
-.pl-item__title {
-  font-size: var(--rent-fs-xl);
-  font-weight: 600;
-  color: var(--rent-ink);
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color var(--motion-fast);
-}
-.pl-item:hover .pl-item__title {
-  color: var(--rent-primary);
-}
-
-/* 地址行 */
-.pl-item__addr {
-  display: flex;
-  align-items: center;
-  gap: var(--rent-s-1);
-  font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-2);
-}
-
-/* 信息行（管道符分隔） */
-.pl-item__info {
-  font-size: var(--rent-fs-base);
-  color: var(--rent-ink-2);
-  line-height: 1.6;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.pl-item__info > span {
-  display: inline-flex;
-  align-items: center;
-}
-.pl-item__sep {
-  font-style: normal;
-  color: var(--rent-border);
-  margin: 0 10px;
-  font-size: var(--rent-fs-xs);
-}
-
-/* 元信息行 */
-.pl-item__meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-2);
-}
-.pl-item__meta-icon {
-  font-size: var(--rent-fs-sm);
-  color: var(--rent-ink-2);
-}
-
-/* 标签 */
-.pl-item__tags {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.pl-chip {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: var(--rent-radius-sm);
-  font-size: var(--rent-fs-xs);
-  line-height: 1.6;
-  white-space: nowrap;
-}
-/* 状态浅底统一走 -rgb 通道令牌（UI-设计原则.md §1.3 / §4：禁自造浅底十六进制） */
-.pl-chip--vacant { color: var(--state-success); background: rgba(var(--state-success-rgb), 0.08); }
-.pl-chip--rented { color: var(--state-info); background: rgba(var(--state-info-rgb), 0.08); }
-.pl-chip--maintenance { color: var(--state-warning); background: rgba(var(--state-warning-rgb), 0.08); }
-.pl-chip--feature { color: var(--rent-primary); background: rgba(var(--rent-primary-rgb), 0.08); }
-
-/* 底部价格 */
-.pl-item__bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-top: var(--rent-s-1);
-  flex-wrap: wrap;
-  gap: var(--rent-s-3);
-}
-.pl-item__price {
-  display: flex;
-  align-items: baseline;
-  gap: var(--rent-s-1);
-}
-.pl-item__price-num {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--state-error);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-.pl-item__price-unit {
-  font-size: var(--rent-fs-sm);
-  color: var(--state-error);
-  margin-left: 2px;
-}
-.pl-item__price-per {
-  font-size: var(--rent-fs-xs);
-  color: var(--rent-ink-2);
-  margin-left: var(--rent-s-3);
-}
-
-/* ===== 空状态 ===== */
-.pl-empty {
-  background: var(--rent-card);
-  border-radius: 0 0 var(--rent-radius-lg) var(--rent-radius-lg);
-  padding: var(--rent-s-8) var(--rent-s-5);
-  text-align: center;
-}
-
-/* ===== 分页 ===== */
-.pl-pagination {
-  margin-top: var(--rent-s-5);
-  text-align: center;
-  background: var(--rent-card);
-  padding: var(--rent-s-4);
-  border-radius: var(--rent-radius-lg);
-  box-shadow: var(--rent-shadow-1);
-}
-.pl-pagination .ant-pagination {
-  justify-content: center;
-}
-
-/* ===== 响应式 ===== */
-@media (max-width: 768px) {
-  .pl-hero { padding: 28px 20px 36px; }
-  .pl-hero__title { font-size: 22px; }
-  .pl-hero__subtitle { font-size: var(--rent-fs-sm); }
-  .pl-item {
-    flex-direction: column;
-    gap: 14px;
-    padding: 18px 16px;
-  }
-  .pl-item__img {
-    width: 100%;
-    height: 180px;
-  }
-  .pl-item__title {
-    font-size: var(--rent-fs-lg);
-    white-space: normal;
-  }
-  .pl-container { padding: 0 var(--rent-s-4) var(--rent-s-6); }
-  .pl-filter { padding: var(--rent-s-4); }
-  .pl-filter__selects { flex-direction: column; }
-  .pl-filter__select { max-width: 100%; width: 100%; }
-  .pl-sortbar { padding: 0 var(--rent-s-4); }
-  .pl-sortbar__item { padding: 12px 14px; font-size: var(--rent-fs-sm); }
-  .pl-item__price-num { font-size: 22px; }
-}
 
 /* 视频看房标记：仅当房源带 video_url 时出现在封面右下角 */
 .rent-prop-search-card__video-tag {
@@ -443,8 +15,8 @@
   padding: 4px 10px;
   border-radius: var(--rent-radius-full);
   background: rgba(20, 184, 166, 0.9);
-  color: #fff;
-  font-size: 11px;
+  color: var(--rent-primary-foreground);
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
 }
 
@@ -499,11 +71,11 @@
   transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 .rent-loc-panel__tab:hover {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 .rent-loc-panel__tab--active {
-  color: var(--rent-primary);
-  border-bottom-color: var(--rent-primary);
+  color: var(--rent-primary-text);
+  border-bottom-color: var(--rent-primary-text);
   font-weight: 600;
 }
 
@@ -543,16 +115,17 @@
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  transition: all var(--motion-fast) ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 .rent-loc-panel__chip:hover {
-  border-color: var(--rent-primary);
-  color: var(--rent-primary);
+  border-color: var(--rent-primary-text);
+  color: var(--rent-primary-text);
 }
 .rent-loc-panel__chip--active {
   background: var(--rent-sidebar-active);
-  border-color: var(--rent-primary);
-  color: var(--rent-primary);
+  border-color: var(--rent-primary-text);
+  color: var(--rent-primary-text);
   font-weight: 600;
 }
 
@@ -602,7 +175,7 @@
 }
 .rent-loc-panel__line--active {
   background: var(--rent-accent-soft);
-  color: var(--rent-accent);
+  color: var(--rent-primary-text);
   font-weight: 600;
 }
 .rent-loc-panel__stations {
@@ -664,7 +237,7 @@
   color: var(--rent-muted-foreground);
 }
 .rent-loc-panel__count strong {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 .rent-loc-panel__actions {
   display: flex;
@@ -679,7 +252,8 @@
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--motion-fast) ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 .rent-loc-panel__btn--ghost {
   background: var(--rent-surface);
@@ -687,8 +261,8 @@
   color: var(--rent-ink-2);
 }
 .rent-loc-panel__btn--ghost:hover {
-  border-color: var(--rent-primary);
-  color: var(--rent-primary);
+  border-color: var(--rent-primary-text);
+  color: var(--rent-primary-text);
 }
 .rent-loc-panel__btn--primary {
   background: var(--rent-primary);
@@ -730,7 +304,7 @@
 }
 .rent-price-custom__input:focus {
   outline: none;
-  border-color: var(--rent-primary);
+  border-color: var(--rent-ring);
   box-shadow: 0 0 0 3px var(--rent-accent-soft);
 }
 
@@ -757,9 +331,9 @@
   gap: 6px;
   padding: 7px 12px;
   border-radius: var(--rent-radius-full);
-  border: 1px solid var(--rent-primary);
+  border: 1px solid var(--rent-primary-text);
   background: var(--rent-sidebar-active);
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   font-size: var(--rent-fs-xs);
   font-weight: 600;
   font-family: inherit;
@@ -793,7 +367,7 @@
   margin: 6px 0 0;
   font-size: var(--rent-fs-xs);
   font-weight: 500;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 
 /* 房源卡片封面（.rent-prop-search-card__cover / [data-photo]）的样式已上移到

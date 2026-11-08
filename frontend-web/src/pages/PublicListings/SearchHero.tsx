@@ -17,9 +17,6 @@ export default function SearchHero({
 
   return (
     <section className="rent-search-hero">
-      <span className="rent-search-hero__decor rent-search-hero__decor--1"></span>
-      <span className="rent-search-hero__decor rent-search-hero__decor--2"></span>
-      <span className="rent-search-hero__decor rent-search-hero__decor--3"></span>
       <div className="rent-search-hero__inner">
         <h1 className="rent-search-hero__title">{t('browse.findTitle')}</h1>
         <p className="rent-search-hero__subtitle">{t('browse.findSubtitle')}</p>

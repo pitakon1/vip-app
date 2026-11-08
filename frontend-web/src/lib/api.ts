@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 import { cachedGetAdapter } from '@/lib/httpCache'
+import { isPublicPath } from '@/lib/publicRoutes'
 
 /**
  * axios catch 里访问后端错误体的安全入口。
@@ -34,9 +35,11 @@ export function apiErrorResponse(err: unknown): AxiosResponse | undefined {
  * 只会安静地少拿数据，表现为「下拉少选项 / 总数偏小 / 筛选不全」——
  * 这类静默错误排查成本极高，所以前端侧一律用这个常量，不要再手写大数字。
  *
- * ⚠️ 已知技术债：`pages/Properties` 与 `pages/Tenant/Dashboard` 目前是
- * 「拉全量 → 前端筛选 → 前端切片」的假分页。改成真·服务端分页需要把
- * 20+ 个筛选条件一起下推后端，属独立一轮的改造，此处仅先把取值收敛到上限内。
+ * 前端消费分页接口时一律只认服务端 `total`：`pages/Properties` 已改为
+ * 服务端分页（筛选条件下推 + `page/pageSize` + 服务端 total）；
+ * `pages/Tenant/Dashboard` 是聚合接口（`/owners/me/properties` 返回完整数组），
+ * 不存在列表假分页。历史「拉全量 → 前端切片」只剩少量小数据量页面
+ * （如 `pages/Owner/ownerProperties`），其数组长度即真实全量。
  */
 export const MAX_PAGE_SIZE = 100
 
@@ -106,30 +109,6 @@ const refreshAccessToken = async (): Promise<string> => {
 }
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean }
-
-/**
- * 匿名可访问的路由。401 时不对这些路径做重定向，交给页面自行降级。
- *
- * 拆成「精确匹配 / 前缀匹配」两张表：原先是一长串 `||` 手写条件，
- * 新增公开路由极易漏配，而漏配的后果是**匿名用户访问公开页时被误踢回登录页**，
- * 且只在未登录态复现，最容易漏测。改成数组后新增路由只需加一行。
- */
-const PUBLIC_EXACT_ROUTES = ['/', '/login', '/register']
-const PUBLIC_PREFIX_ROUTES = [
-  '/listings',
-  '/listing/',
-  '/schools',
-  '/school/',
-  '/communities',
-  '/community/',
-  // C 端分类页（匿名可浏览，未登录不应被踢回登录页）
-  '/category',
-  // 地图找房（匿名可浏览，点位接口 /public/map-points 免登录）
-  '/map',
-  '/properties/detail',
-  // 公共签署页（客户 /sign/:token 匿名访问，token 即访客身份）
-  '/sign/',
-]
 
 /**
  * 统一返回信封解包。
@@ -220,10 +199,8 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !isCredentialCall) {
       const pathname = window.location.pathname
-      const isPublicRoute =
-        PUBLIC_EXACT_ROUTES.includes(pathname) ||
-        PUBLIC_PREFIX_ROUTES.some((prefix) => pathname.startsWith(prefix))
-      if (!isPublicRoute) {
+      // 公开路由清单集中在 lib/publicRoutes.ts，新增公开页只改那一处。
+      if (!isPublicPath(pathname)) {
         useAuthStore.getState().logout()
         // 避免已在 /login 时重复跳转
         if (pathname !== '/login') {

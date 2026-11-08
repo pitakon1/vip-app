@@ -41,9 +41,9 @@ export const bottomSheetStyles = StyleSheet.create({
     marginBottom: colors.spacing.xs,
   },
 
-  /** ScrollView contentContainerStyle：内容区内边距 */
+  /** ScrollView contentContainerStyle：内容区内边距（统一 16） */
   bsContent: {
-    paddingHorizontal: colors.spacing.xl,
+    paddingHorizontal: colors.spacing.lg,
     paddingTop: colors.spacing.sm,
     paddingBottom: colors.spacing.md,
   },
@@ -52,7 +52,7 @@ export const bottomSheetStyles = StyleSheet.create({
   bsActions: {
     flexDirection: 'row',
     gap: colors.spacing.md,
-    paddingHorizontal: colors.spacing.xl,
+    paddingHorizontal: colors.spacing.lg,
     paddingTop: colors.spacing.md,
     paddingBottom: colors.spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,

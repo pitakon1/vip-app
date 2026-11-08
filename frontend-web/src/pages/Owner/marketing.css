@@ -28,7 +28,7 @@
   font-size: var(--rent-fs-xs); font-weight: 600; position: relative; z-index: 1;
 }
 .rent-v17-step--active .rent-v17-step__dot {
-  background: var(--rent-primary); color: #fff;
+  background: var(--rent-primary); color: var(--rent-primary-foreground);
   box-shadow: 0 4px 12px -4px rgba(20,184,166,.5);
 }
 .rent-v17-step--done .rent-v17-step__dot { background: var(--state-success); color: #fff; }

@@ -313,7 +313,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   cardTitle: {
     fontSize: 15,

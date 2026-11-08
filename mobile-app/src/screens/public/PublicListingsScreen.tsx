@@ -1,4 +1,4 @@
-﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * C 端房源列表（匿名可浏览，无需注册）。
  *
@@ -109,6 +109,8 @@ export default function PublicListingsScreen() {
   const [schools, setSchools] = useState<PublicSchool[]>([]);
   const [schoolPickOpen, setSchoolPickOpen] = useState(false);
   const [schoolKw, setSchoolKw] = useState('');
+  const [schoolKwDebounced, setSchoolKwDebounced] = useState('');
+  const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
   // ---- 列表状态 ----
@@ -123,11 +125,6 @@ export default function PublicListingsScreen() {
 
   useEffect(() => {
     void loadRates();
-    // 学校清单只为筛选器备选，取前 100 条即可（列表页不需要全量学校）
-    publicApi
-      .schools({ page_size: OPTION_PAGE_SIZE })
-      .then((res: any) => setSchools(unwrapPage<PublicSchool>(res?.data).items))
-      .catch(() => setSchools([]));
   }, []);
 
   // 关键词防抖：输入时不打接口，停 350ms 再查
@@ -135,6 +132,33 @@ export default function PublicListingsScreen() {
     const timer = setTimeout(() => setDebounced(keyword.trim()), 350);
     return () => clearTimeout(timer);
   }, [keyword]);
+
+  // 学校选择器改为服务端检索：学校库可能上千条，原先只拉前 100 条再前端过滤，
+  // 第 100 条之后的学校永远搜不到（FE-06）。
+  useEffect(() => {
+    const timer = setTimeout(() => setSchoolKwDebounced(schoolKw.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [schoolKw]);
+
+  useEffect(() => {
+    if (!schoolPickOpen) return;
+    let alive = true;
+    setSchoolsLoading(true);
+    publicApi
+      .schools({ q: schoolKwDebounced || undefined, page_size: OPTION_PAGE_SIZE })
+      .then((res: any) => {
+        if (alive) setSchools(unwrapPage<PublicSchool>(res?.data).items);
+      })
+      .catch(() => {
+        if (alive) setSchools([]);
+      })
+      .finally(() => {
+        if (alive) setSchoolsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [schoolPickOpen, schoolKwDebounced]);
 
   const queryParams = useMemo(
     () => ({
@@ -224,14 +248,6 @@ export default function PublicListingsScreen() {
     setSchoolName('');
     setSchoolKm(3);
   };
-
-  const filteredSchools = useMemo(() => {
-    const kw = schoolKw.trim().toLowerCase();
-    if (!kw) return schools;
-    return schools.filter((s) =>
-      `${s.name ?? ''} ${s.name_en ?? ''} ${s.district ?? ''}`.toLowerCase().includes(kw),
-    );
-  }, [schools, schoolKw]);
 
   // ---- 类型入口的回显与动作 ----
   const bizLabel =
@@ -534,10 +550,12 @@ export default function PublicListingsScreen() {
             />
 
             <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
-              {filteredSchools.length === 0 ? (
+              {schoolsLoading ? (
+                <ActivityIndicator style={{ marginVertical: 16 }} color={colors.primary} />
+              ) : schools.length === 0 ? (
                 <Text style={styles.sheetEmpty}>{t('pub.schoolFilterEmpty')}</Text>
               ) : (
-                filteredSchools.map((school) => {
+                schools.map((school) => {
                   const active = schoolId === school.id;
                   return (
                     <TouchableOpacity
@@ -741,8 +759,8 @@ const styles = StyleSheet.create({
   modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: colors.radius.xxl,
-    borderTopRightRadius: colors.radius.xxl,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: colors.spacing.lg,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

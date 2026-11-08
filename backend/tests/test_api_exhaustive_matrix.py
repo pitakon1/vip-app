@@ -43,6 +43,7 @@ from app.main import app  # noqa: E402
 from app.models import *  # noqa: E402,F401,F403  # 导入全部模型以注册 metadata（create_all 依赖）
 from app.models import User, UserRole  # noqa: E402,F401
 from app.services import backup_service  # noqa: E402
+from app.api.v1.public import router as public_router  # noqa: E402
 
 ROLES = [UserRole.tenant, UserRole.owner, UserRole.employee, UserRole.agent, UserRole.admin]
 
@@ -117,7 +118,8 @@ def _has_manual_role_gate(route) -> bool:
 
 
 # 设计上匿名可访问的路径前缀（C 端公开 API 层：浏览/搜索/留资/学校/小区/开发商等）
-PUBLIC_PATH_PREFIXES = ("/api/v1/public/",)
+# 单一来源：直接取 public 路由自己的 prefix，避免前端/测试各写一份字符串后漂移。
+PUBLIC_PATH_PREFIXES = (f"/api/v1{public_router.prefix}/",)
 
 
 def _is_public(method: str, path: str) -> bool:
@@ -285,8 +287,9 @@ def test_public_routes_do_not_require_auth(api, engine):
         for method, path in PUBLIC_ROUTES:
             url = _substitute(path)
             r = client.request(method, url)
-            # 503 = 依赖未配置的主动降级（如 otp 发送通道未配），公开但不等于可用
-            assert r.status_code in (200, 400, 401, 422, 503), (method, path, r.status_code)
+            # 503 = 依赖未配置的主动降级（如 otp 发送通道未配），公开但不等于可用；
+            # 404 = 令牌/资源本身不存在（如合同预览未知 token），同样是「无需登录」的合法响应
+            assert r.status_code in (200, 400, 401, 404, 422, 503), (method, path, r.status_code)
             assert r.status_code != 500, (method, path, "公开接口 500")
         # webhook 无签名调用：不能 404/500（要么 400 要么 401）
         hook = client.post("/api/v1/payments/webhook/test")

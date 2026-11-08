@@ -181,8 +181,8 @@ const styles = StyleSheet.create({
   mapCard: {
     maxHeight: '78%',
     backgroundColor: colors.surface,
-    borderTopLeftRadius: colors.radius.lg,
-    borderTopRightRadius: colors.radius.lg,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     paddingHorizontal: 16,
     paddingTop: 16,
   },

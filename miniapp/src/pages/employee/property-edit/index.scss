@@ -100,10 +100,10 @@
 
 /* ===== 输入控件 ===== */
 .pe-input {
-  height: 64rpx;
-  padding: 0 20rpx;
+  height: 88rpx;
+  padding: 0 24rpx;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   color: var(--ink);
   width: 100%;
@@ -112,10 +112,10 @@
 }
 
 .pe-picker {
-  height: 64rpx;
-  padding: 0 20rpx;
+  height: 88rpx;
+  padding: 0 24rpx;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   gap: 12rpx;
@@ -139,7 +139,7 @@
   min-height: 200rpx;
   padding: 20rpx;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   color: var(--ink);
   line-height: 1.5;

@@ -171,6 +171,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/dashboard/trend/daily",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/properties",
     "type": "APIRoute"
   },
@@ -361,6 +368,13 @@
       "DELETE"
     ],
     "path": "/api/v1/leads/{lead_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/payments/summary",
     "type": "APIRoute"
   },
   {
@@ -610,6 +624,13 @@
   },
   {
     "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/maintenance-tickets/photos",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/maintenance-tickets",
@@ -687,6 +708,27 @@
   },
   {
     "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/performance/deals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/performance/deals",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/performance/deals/{deal_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
       "GET"
     ],
     "path": "/api/v1/performance/me",
@@ -732,6 +774,13 @@
       "GET"
     ],
     "path": "/api/v1/employees/me",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/employees/summary",
     "type": "APIRoute"
   },
   {
@@ -1781,6 +1830,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/brokers/summary",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/brokers",
     "type": "APIRoute"
   },
@@ -2173,6 +2229,111 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/v1/admin/departments/tree",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/departments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/departments",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/admin/departments/{dep_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/admin/departments/{dep_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/admin/departments/assign",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/admin/data-scopes",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/admin/data-scopes/roles/{role}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/v1/admin/data-scopes/users/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/admin/data-scopes/users/{user_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/options",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/options/bundle",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/v1/admin/options",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "PATCH"
+    ],
+    "path": "/api/v1/admin/options/{option_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/v1/admin/options/{option_id}",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
     "path": "/api/v1/review-center/todos",
     "type": "APIRoute"
   },
@@ -2262,13 +2423,6 @@
   },
   {
     "methods": [
-      "POST"
-    ],
-    "path": "/api/v1/listings/from-property/{property_id}",
-    "type": "APIRoute"
-  },
-  {
-    "methods": [
       "GET"
     ],
     "path": "/api/v1/listings/{listing_id}",
@@ -2342,6 +2496,13 @@
       "GET"
     ],
     "path": "/api/v1/public/listings/{listing_id}/similar",
+    "type": "APIRoute"
+  },
+  {
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/v1/public/home",
     "type": "APIRoute"
   },
   {

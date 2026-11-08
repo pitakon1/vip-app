@@ -356,7 +356,7 @@ const Operations = () => {
         title={`${countryName} · ${t('operations.cityDist')}`}
         open={countryOpen}
         onClose={() => setCountryOpen(false)}
-        width={420}
+        width={480}
       >
         {cityError && cityRows.length === 0 ? (
           <DataState

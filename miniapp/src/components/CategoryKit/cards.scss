@@ -32,9 +32,8 @@
   margin: 0 24rpx 20rpx;
   padding: 24rpx;
   background-color: var(--card);
-  border: 2rpx solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
 }
 
 .ck-row__cover-wrap {
@@ -138,10 +137,9 @@
 .ck-project {
   margin: 0 24rpx 20rpx;
   background-color: var(--card);
-  border: 2rpx solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .ck-project__body {
@@ -176,10 +174,9 @@
   width: 440rpx;
   margin-right: 20rpx;
   background-color: var(--card);
-  border: 2rpx solid var(--line);
+  border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .ck-railcard__body {

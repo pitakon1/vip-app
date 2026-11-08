@@ -46,7 +46,8 @@ const ClockCard = ({
           <div
             style={{
               fontSize: 14,
-              color: 'rgba(255,255,255,0.85)',
+              // 品牌绿底上用深墨前景（白字 2.49:1 不达标，UI-01）
+              color: 'rgba(11,47,43,0.78)',
               marginBottom: 8,
               display: 'flex',
               alignItems: 'center',
@@ -95,7 +96,7 @@ const ClockCard = ({
               />
               {todayLabelMap[todayStatus ?? 'absent']}
             </span>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>
+            <span style={{ fontSize: 13, color: 'rgba(11,47,43,0.78)' }}>
               {t('attendance.todayCheckIn')}{' '}
               <span className="rent-mono" style={{ color: 'var(--rent-primary-foreground)' }}>
                 {checkInTime ? fmtHHmm(checkInTime) : '--:--'}
@@ -103,7 +104,7 @@ const ClockCard = ({
               {t('attendance.todayCheckOut')}{' '}
               <span
                 className="rent-mono"
-                style={{ color: checkOutTime ? '#fff' : 'rgba(255,255,255,0.7)' }}
+                style={{ color: checkOutTime ? 'var(--rent-primary-foreground)' : 'rgba(11,47,43,0.6)' }}
               >
                 {checkOutTime ? fmtHHmm(checkOutTime) : '--:--'}
               </span>
@@ -143,7 +144,7 @@ const ClockCard = ({
             </svg>
             {t('attendance.outingRegister')}
           </button>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: 'rgba(11,47,43,0.7)', textAlign: 'center', lineHeight: 1.5 }}>
             {gpsStatus === 'denied'
               ? t('attendance.gpsDenied')
               : geoInfo

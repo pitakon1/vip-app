@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>绿色修正 · 改后确认</title>
+<style>
+  :root{
+    --bg:#f6f3ee; --card:#fff; --ink:#1c2733; --ink2:#55606c; --ink3:#68737f;
+    --line:#e5ded2; --line-soft:#f0ebe3; --primary:#0f766e; --primary-soft:#e8f6f3;
+    --ok:#15803d; --ok-bg:#eefaf2; --ok-line:#bfe3c9; --warn:#a64c07; --warn-bg:#fdf5e9; --warn-line:#f0dcb8;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;line-height:1.65;}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 28px;}
+  header{padding:46px 0 22px;border-bottom:1px solid var(--line);}
+  .eyebrow{font-size:12px;letter-spacing:2px;color:var(--primary);font-weight:700;text-transform:uppercase;}
+  h1{font-size:32px;line-height:1.25;letter-spacing:-.7px;margin:10px 0 8px;font-weight:700;}
+  .lead{font-size:14px;color:var(--ink3);max-width:940px;margin:0;}
+  .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+  .pill{font-size:12px;padding:4px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink3);}
+  .pill.real{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg);}
+  .pill.mock{color:var(--warn);border-color:var(--warn-line);background:var(--warn-bg);}
+  main{padding:26px 0 60px;}
+  .shot{background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+  .shot .cap{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line-soft);font-size:12px;color:var(--ink3);}
+  .shot .cap b{font-size:13px;color:var(--ink);font-weight:600;}
+  .shot img{display:block;width:100%;height:auto;background:#fbfaf8;}
+  .shot a{display:block;}
+  .note{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:12px;}
+  .box{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px 17px;}
+  .box h4{margin:0 0 6px;font-size:12px;letter-spacing:.4px;color:var(--ink2);font-weight:600;}
+  .box p{margin:0;font-size:13px;color:var(--ink2);}
+  .box code{font-family:"SFMono-Regular",Consolas,Menlo,monospace;font-size:12px;color:var(--primary);background:var(--primary-soft);padding:1px 5px;border-radius:4px;}
+  .full{margin-bottom:22px;}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+  footer{border-top:1px solid var(--line);padding:22px 0 50px;color:var(--ink3);font-size:12px;}
+  @media (max-width:900px){
+    .wrap{padding:0 16px;}
+    h1{font-size:25px;}
+    .pair,.note{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Green Fix · After Check</div>
+    <h1>绿色修正 · 改后确认</h1>
+    <p class="lead">三处代表性画面：装饰性 success 绿已统一为主题青绿，状态语义绿与第三方品牌绿未动。Web 与 App 为真实 dev server + 种子数据截图；小程序为按当前编译产物重出的复刻示意。</p>
+    <div class="meta">
+      <span class="pill real">Web 真实截图</span>
+      <span class="pill real">App 真实截图</span>
+      <span class="pill mock">小程序复刻示意 · 非真实截图</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="full">
+    <div class="shot">
+      <div class="cap"><b>01 · Web 管理端数据总览</b><span>真实截图 · 1440×900</span></div>
+      <a href="web-dashboard.png" target="_blank"><img src="web-dashboard.png" alt="Web 管理端数据总览改后"></a>
+    </div>
+    <div class="note">
+      <div class="box"><h4>看什么</h4><p>「本月营收」KPI 的图标底已变为青绿浅底、图标为深青绿；同屏「员工数」「在租合同」保持青绿体系，「出租率」仍是暖橙、「欠租与逾期」仍是红色，没有被一起改绿或改青。</p></div>
+      <div class="box"><h4>实测值</h4><p>图标底 <code>rgba(20,184,166,0.1)</code>；图标 <code>rgb(15,118,110)</code>；同屏员工数图标 <code>rgb(20,184,166)</code>。</p></div>
+    </div>
+  </section>
+
+  <section class="pair">
+    <div>
+      <div class="shot">
+        <div class="cap"><b>02 · App 管理端首页</b><span>真实截图 · 430×900</span></div>
+        <a href="app-admin-home.png" target="_blank"><img class="phone-img" src="app-admin-home.png" alt="App 管理端首页改后"></a>
+      </div>
+      <div class="note" style="grid-template-columns:1fr">
+        <div class="box"><h4>看什么</h4><p>主 KPI「本月营收」整卡仍是主题青绿；下方「+0 本月」增长徽标已由绿色改为青绿浅底 + 深青绿文字；「空置 13 套」仍为暖橙状态色。</p></div>
+        <div class="box"><h4>实测值</h4><p>主卡 <code>rgb(20,184,166)</code>；徽标底 <code>rgba(20,184,166,0.12)</code>；徽标文字 <code>rgb(15,118,110)</code>。</p></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="shot">
+        <div class="cap"><b>03 · 小程序租客首页</b><span>复刻示意 · 非真实截图</span></div>
+        <a href="miniapp-tenant-home.png" target="_blank"><img class="phone-img" src="miniapp-tenant-home.png" alt="小程序租客首页复刻示意"></a>
+      </div>
+      <div class="note" style="grid-template-columns:1fr">
+        <div class="box"><h4>看什么</h4><p>「厂房」分类图标已从 success 绿改为与其它分类一致的主题青绿浅底 + 青绿线条；Hero 仍是主题青绿 <code>#14b8a6</code>。右上角保留「复刻示意 · 非真实截图」标注。</p></div>
+        <div class="box"><h4>依据</h4><p>编译后 <code>index.wxss</code>：<code>.gold-nav__icon--factory{background-color:rgba(var(--primary-rgb),.1)}</code>；编译后 <code>app-origin.wxss</code>：<code>--primary:#14b8a6</code>；<code>icons.ts</code> 的 <code>navFactory</code> SVG stroke 已改为 <code>#14b8a6</code>。</p></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">绿色修正改后确认 · Web/App 使用本地 dev server 与现有种子数据；小程序无微信开发者工具，按编译产物重出复刻示意。未改业务逻辑，未执行 git add / commit。</div>
+</footer>
+</body>
+</html>

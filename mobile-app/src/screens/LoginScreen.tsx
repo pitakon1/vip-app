@@ -18,7 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
-import { tokenStorage } from '@/lib/storage';
+import { refreshTokenStorage, tokenStorage } from '@/lib/storage';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
 import { notifyError } from '@/utils/feedback';
 import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
@@ -111,10 +111,17 @@ export default function LoginScreen() {
       if (!token || !user) {
         throw new Error(t('login.badResponse'));
       }
+      const refreshToken: string | undefined = data?.refresh_token ?? data?.data?.refresh_token;
       if (remember) {
         await tokenStorage.set(token);
+        // 验证码/邮箱登录同样下发 refresh_token；不落盘会导致访问令牌
+        // 过期后静默续期失败，用户被直接踢回登录页。
+        if (refreshToken) {
+          await refreshTokenStorage.set(refreshToken);
+        }
       } else {
         await tokenStorage.remove();
+        await refreshTokenStorage.remove();
       }
       useAuthStore.setState({ user, token, isAuthenticated: true });
     } catch (err: any) {

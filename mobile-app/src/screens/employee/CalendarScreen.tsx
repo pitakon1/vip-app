@@ -1352,11 +1352,11 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: colors.radius.xxl,
-    borderTopRightRadius: colors.radius.xxl,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 28,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    paddingHorizontal: colors.spacing.lg,
+    paddingTop: colors.spacing.lg,
+    paddingBottom: colors.spacing.xl,
   },
   modalTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 14 },
   eventInput: {

@@ -25,7 +25,8 @@
   padding: 12rpx 28rpx;
   border-radius: var(--radius-full);
   background: var(--surface-2);
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
   &--active {
     background: #14b8a6;
@@ -61,7 +62,6 @@
   background: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
   padding: 24rpx;
   margin-bottom: 24rpx;
 
@@ -454,7 +454,6 @@
   background: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
   padding: 24rpx;
   display: flex;
   flex-direction: column;
@@ -670,11 +669,11 @@
   }
 
   &__input {
-    height: 72rpx;
+    height: 88rpx;
     background: var(--surface-2);
-    border-radius: var(--radius-md);
-    padding: 0 20rpx;
-    font-size: 26rpx;
+    border-radius: var(--radius-lg);
+    padding: 0 24rpx;
+    font-size: 28rpx;
     color: var(--ink);
   }
 
@@ -682,17 +681,17 @@
     width: 100%;
     height: 160rpx;
     background: var(--surface-2);
-    border-radius: var(--radius-md);
-    padding: 16rpx 20rpx;
+    border-radius: var(--radius-lg);
+    padding: 16rpx 24rpx;
     font-size: 26rpx;
     color: var(--ink);
     box-sizing: border-box;
   }
 
   &__readonly {
-    height: 72rpx;
+    height: 88rpx;
     background: var(--surface-2);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: 0 20rpx;
     display: flex;
     align-items: center;
@@ -705,10 +704,10 @@
   }
 
   &__select {
-    height: 72rpx;
+    height: 88rpx;
     background: var(--surface-2);
-    border-radius: var(--radius-md);
-    padding: 0 20rpx;
+    border-radius: var(--radius-lg);
+    padding: 0 24rpx;
     display: flex;
     align-items: center;
     justify-content: space-between;

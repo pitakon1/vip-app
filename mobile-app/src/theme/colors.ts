@@ -22,6 +22,8 @@ export const colors = {
   primaryRgb: '20, 184, 166',
   /** 主色底上的前景：深墨字 5.80:1（禁止再用白字） */
   primaryForeground: '#0b2f2b',
+  /** 品牌绿作为「文字」落在白底时使用：5.42:1（原 primary 仅 2.49:1） */
+  primaryText: '#0f766e',
   /** 深色 / 照片压暗层 / 高饱和状态色底上的前景：白字 */
   onDark: '#ffffff',
   /** 主色浅底：大面积实色色块（禁止渐变，故用实色） */
@@ -50,9 +52,9 @@ export const colors = {
   mutedForeground: '#5f6b78',
   border: '#ece7df',
   input: '#ece7df',
-  // Reddit 式浅灰输入填充 / 分段控件底
-  fieldFill: '#F6F7F8',
-  fieldFillBorder: '#EDEFF1',
+  // 输入填充 / 分段控件底（暖调浅灰，原 #F6F7F8 / #EDEFF1 为冷调）
+  fieldFill: '#F7F4EF',
+  fieldFillBorder: '#E6E0D8',
 
   // 兼容别名（历史组件使用 colors.text）
   text: '#1c2733',
@@ -61,14 +63,25 @@ export const colors = {
   success: '#16a34a',
   successRgb: '22, 163, 74',
   successLight: 'rgba(22,163,74,0.08)',
+  /** 状态文字 / 实心标签底：白底 5.02:1；原 #16a34a 作文字仅 3.1:1 */
+  successInk: '#15803d',
   warning: '#d97706',
   warningRgb: '217, 119, 6',
   warningLight: 'rgba(217,119,6,0.08)',
+  /** 状态文字 / 实心标签底：白底 5.4:1 */
+  warningInk: '#a64c07',
+  /** 预警卡浅底 / 描边（与 Web --state-warning-soft / -light 对齐） */
+  warningSoft: '#fdf5e9',
+  warningBorder: '#f4d9ad',
   error: '#dc2626',
   errorRgb: '220, 38, 38',
   errorLight: 'rgba(220,38,38,0.08)',
+  /** 状态文字 / 实心标签底：白底 6.2:1 */
+  errorInk: '#b91c1c',
   info: '#0ea5e9',
   infoRgb: '14, 165, 233',
+  /** 状态文字 / 实心标签底：白底 5.93:1 */
+  infoInk: '#0369a1',
 
   /**
    * ---- 标签（徽标）----
@@ -87,12 +100,15 @@ export const colors = {
   googleRed: '#EA4335',
   googleGreen: '#34A853',
   googleYellow: '#FBBC05',
+  /** 微信品牌绿（第三方品牌色，不并入主色/状态色） */
+  wechatGreen: '#07C160',
+  wechatGreenRgb: '7, 193, 96',
   black: '#000000',
 
-  // ---- 浅色强调底 / 描边（选中态、错误态）----
-  tint: '#f0f5ff',
-  tintBorder: '#adc6ff',
-  errorBorder: '#ffccc7',
+  // ---- 浅色强调底 / 描边（选中态、错误态）：主色/错误色的暖调浅底，不再用 antd 蓝 ----
+  tint: '#e6f7f5',
+  tintBorder: '#9fdcd4',
+  errorBorder: 'rgba(220, 38, 38, 0.28)',
 
   // ---- 代码 / JSON 查看器（开发调试页）----
   codeBg: '#1e1e1e',
@@ -179,6 +195,8 @@ export const colors = {
     sm: 13,
     base: 15,
     lg: 17,
+    /** 区块标题 18：补齐 base(15) 与 xl(20) 之间的空档，避免各页裸写 18 */
+    title: 18,
     xl: 20,
     '2xl': 24,
     '3xl': 28,
@@ -189,6 +207,7 @@ export const colors = {
     tight: 18,   // xs / 大数字
     snug: 20,    // sm
     base: 24,    // base
+    titleSm: 24, // title(18)
     relaxed: 26, // lg
     title: 28,   // xl
     display: 34, // 2xl / 3xl

@@ -168,7 +168,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   rowBorder: {},
   thumb: { width: 84, height: 84, borderRadius: colors.radius.lg, backgroundColor: colors.surface2 },

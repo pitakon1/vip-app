@@ -7,6 +7,8 @@ interface CommissionRulesTabProps {
   loading: boolean
   loadFailed: boolean
   items: CommissionRule[]
+  /** 服务端 total（FE-08：总数只认服务端，不用本页数组长度） */
+  total: number
   pagedItems: CommissionRule[]
   page: number
   pageCount: number
@@ -26,6 +28,7 @@ export default function CommissionRulesTab({
   loading,
   loadFailed,
   items,
+  total,
   pagedItems,
   page,
   pageCount,
@@ -59,7 +62,7 @@ export default function CommissionRulesTab({
         <div className="rent-card">
           <div className="rent-card__header">
             <h3 className="rent-card__title">{t('commissionRules.listTitle')}</h3>
-            <span className="rent-badge rent-badge--neutral">{t('commissionRules.countItem', { count: items.length })}</span>
+            <span className="rent-badge rent-badge--neutral">{t('commissionRules.countItem', { count: total })}</span>
           </div>
           <div className="rent-card__body" style={{ padding: 0 }}>
             {items.length === 0 ? (
@@ -141,9 +144,9 @@ export default function CommissionRulesTab({
                 </table>
               </div>
             )}
-            {items.length > 0 && (
+            {total > 0 && (
               <div className="rent-pagination" style={{ marginTop: 14, padding: '0 22px 16px' }}>
-                <span className="rent-pagination__info">共 {items.length} 条 · 每页 {pageSize} 条</span>
+                <span className="rent-pagination__info">共 {total} 条 · 每页 {pageSize} 条</span>
                 <button className="rent-pagination__btn" onClick={onPrev} disabled={page <= 1}>上一页</button>
                 <span className="rent-pagination__info">{page} / {pageCount}</span>
                 <button className="rent-pagination__btn" onClick={onNext} disabled={page >= pageCount}>下一页</button>

@@ -450,6 +450,7 @@ _DASHBOARD_CONTRACT = {
         "total_properties", "vacant", "rented", "maintenance", "expiring_leases",
         "upcoming_payments", "monthly_revenue", "active_lease_revenue",
         "occupancy_rate", "active_leads", "closed_leads", "conversion_rate",
+        "employee_count", "new_employees",
     },
     "/api/v1/dashboard/recent-payments": {"items"},
     "/api/v1/dashboard/expiring-leases": {"items"},

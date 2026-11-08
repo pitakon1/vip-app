@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuthStore } from '../stores/auth';
@@ -117,8 +118,15 @@ const screenOptions = {
   tabBarStyle: {
     backgroundColor: colors.surface,
     borderTopColor: colors.border,
+    /* Web：默认 49px 高度放不下 25px 图标 + 18px 标签行高，标签下缘会被裁切；
+       native 保留默认高度，由安全区 inset 自动撑开 */
+    ...(Platform.OS === 'web' ? { height: 64, paddingTop: 6, paddingBottom: 6 } : null),
   },
-  tabBarLabelStyle: { fontSize: colors.fontSize.xs, lineHeight: colors.lineHeight.tight},
+  tabBarLabelStyle: {
+    fontSize: colors.fontSize.xs,
+    /* Web：行高降到 14 给图标让位，避免标签被压成 7px 高度裁切 */
+    lineHeight: Platform.OS === 'web' ? 14 : colors.lineHeight.tight,
+  },
 };
 
 // 统一按 ROLE_TABS 渲染底部导航，消除各角色重复的 Tab.Screen 结构。

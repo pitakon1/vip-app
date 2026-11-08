@@ -5,8 +5,11 @@ page {
   --primary: #14b8a6;
   --primary-rgb: 20, 184, 166;
   --primary-hover: #0d9488;
-  --primary-foreground: #ffffff;
-  --primary-foreground-rgb: 255, 255, 255;
+  /* 主色底上的前景：深墨字 5.80:1（原白字仅 2.49:1） */
+  --primary-foreground: #0b2f2b;
+  --primary-foreground-rgb: 11, 47, 43;
+  /* 品牌绿作为「文字」落在白底时的深档：5.42:1（仅用于文字/图标） */
+  --primary-text: #0f766e;
   /* 主色浅底：用于找房页「顶部头部区」这类大面积实色色块（禁止渐变，故用实色） */
   --primary-soft: #e6f7f5;
   --sidebar-active: #d9f2ee;
@@ -17,14 +20,17 @@ page {
   --ink: #1c2733;
   --ink-rgb: 28, 39, 51;
   --ink-2: #55606c;
-  --ink-3: #98a1ab;
-  --ink-4: #94a3b8;
+  /* 辅助文字：米白底 5.18:1、白底 5.44:1（原 #98a1ab 仅 2.44:1） */
+  --ink-3: #5f6b78;
+  /* 禁用 / 装饰专用，禁止作为正文色（原 ink-4 为冷调 slate #94a3b8） */
+  --ink-4: #98a1ab;
+  --ink-disabled: #98a1ab;
   --line: #ece7df;
   --card: #ffffff;
   --surface-2: #f4f1ec;
   --surface-2-rgb: 244, 241, 236;
-  --surface-3: #f2f2f2;
-  --avatar-bg: #f2f3f5;
+  --surface-3: #f0ece5;
+  --avatar-bg: #f2efe9;
 
   /* ---- 状态色 ---- */
   --success: #16a34a;
@@ -41,19 +47,26 @@ page {
   --state-warning-light: #f4d9ad;
   --state-error-hover: #b91c1c;
   --state-purple: #7a5cd6;
+  /* 状态色文字/实心底档：高饱和状态色作文字或白字底时不达 AA，改用加深档 */
+  --success-ink: #15803d;
+  --warning-ink: #a64c07;
+  --error-ink: #b91c1c;
+  --info-ink: #0369a1;
+  /* 焦点环：图形元素需 ≥3:1，白底 3.74:1 */
+  --ring: #0d9488;
 
   /* ---- 品牌色 ---- */
   --wechat: #07c160;
 
-  /* ---- 圆角 ---- */
-  --radius-sm: 8rpx;
-  --radius-md: 16rpx;
-  --radius-lg: 24rpx;
-  --radius-xl: 32rpx;
+  /* ---- 圆角（对应 6 / 10 / 18 / 24 px，rpx = px × 2）---- */
+  --radius-sm: 12rpx;
+  --radius-md: 20rpx;
+  --radius-lg: 36rpx;
+  --radius-xl: 48rpx;
   --radius-full: 999rpx;
 
-  /* ---- 阴影（更柔和、空气感）---- */
-  --shadow-sm: 0 2rpx 8rpx rgba(28, 39, 51, 0.04);
+  /* ---- 阴影（静态卡只用 1rpx 描边式阴影，浮层才用 md/lg 投影）---- */
+  --shadow-sm: 0 0 0 1rpx var(--line);
   --shadow-md: 0 6rpx 18rpx rgba(28, 39, 51, 0.06);
   --shadow-lg: 0 10rpx 32rpx rgba(28, 39, 51, 0.09);
   --shadow-primary: 0 8rpx 24rpx -4rpx rgba(20, 184, 166, 0.35);
@@ -81,11 +94,11 @@ view, text {
 .gap-16 { gap: 16rpx; }
 .gap-24 { gap: 24rpx; }
 
-.text-primary { color: var(--primary); }
+.text-primary { color: var(--primary-text); }
 .text-secondary { color: var(--ink-3); }
-.text-danger { color: var(--error); }
-.text-success { color: var(--success); }
-.text-warning { color: var(--warning); }
+.text-danger { color: var(--error-ink); }
+.text-success { color: var(--success-ink); }
+.text-warning { color: var(--warning-ink); }
 .text-ink { color: var(--ink); }
 .text-ink-2 { color: var(--ink-2); }
 .text-ink-3 { color: var(--ink-3); }
@@ -169,7 +182,7 @@ view, text {
 
 .section-header__more {
   font-size: 26rpx;
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 500;
 }
 
@@ -182,7 +195,8 @@ view, text {
   font-size: 30rpx;
   font-weight: 600;
   height: 88rpx;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 
 .btn--primary {
@@ -204,7 +218,7 @@ view, text {
 
 .btn--ghost {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .btn--block {
@@ -235,11 +249,12 @@ view, text {
   line-height: 1.4;
 }
 
-.badge--success { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
-.badge--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
-.badge--error { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
-.badge--info { background: rgba(var(--info-rgb), 0.1); color: var(--info); }
-.badge--primary { background: rgba(var(--primary-rgb), 0.1); color: var(--primary); }
+/* 浅底 badge 的文字统一用加深档，保证在 10% 浅底上 ≥4.5:1 */
+.badge--success { background: rgba(var(--success-rgb), 0.1); color: var(--success-ink); }
+.badge--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning-ink); }
+.badge--error { background: rgba(var(--error-rgb), 0.1); color: var(--error-ink); }
+.badge--info { background: rgba(var(--info-rgb), 0.1); color: var(--info-ink); }
+.badge--primary { background: rgba(var(--primary-rgb), 0.1); color: var(--primary-text); }
 .badge--neutral { background: var(--surface-2); color: var(--ink-2); }
 
 /* 状态标签（实心）*/
@@ -253,10 +268,11 @@ view, text {
   color: #fff;
 }
 
-.status-tag--vacant { background: var(--success); }
-.status-tag--rented { background: var(--primary); }
-.status-tag--renewing { background: var(--warning); }
-.status-tag--maintenance { background: var(--error); }
+/* 白字实心标签：底色改用加深档，白字均 ≥4.5:1 */
+.status-tag--vacant { background: var(--success-ink); }
+.status-tag--rented { background: var(--primary-text); }
+.status-tag--renewing { background: var(--warning-ink); }
+.status-tag--maintenance { background: var(--error-ink); }
 
 /* 分割线 */
 .divider {
@@ -287,7 +303,7 @@ view, text {
   flex-shrink: 0;
   padding-left: 24rpx;
   font-size: 26rpx;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* 空状态 */
@@ -322,7 +338,7 @@ view, text {
 }
 
 .input-field:focus {
-  border-color: var(--primary);
+  border-color: var(--ring);
   box-shadow: 0 0 0 6rpx rgba(var(--primary-rgb), 0.1);
 }
 

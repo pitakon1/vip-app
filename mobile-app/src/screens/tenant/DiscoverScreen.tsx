@@ -75,7 +75,7 @@ export default function DiscoverScreen() {
   const stats = useMemo(
     () => [
       { key: 'rent', label: t('discover.statRent'), value: summary?.rent_count ?? 0, icon: 'key-outline' as const, color: colors.primary },
-      { key: 'sale', label: t('discover.statSale'), value: summary?.sell_count ?? 0, icon: 'pricetag-outline' as const, color: colors.success },
+      { key: 'sale', label: t('discover.statSale'), value: summary?.sell_count ?? 0, icon: 'pricetag-outline' as const, color: colors.primaryText },
       { key: 'new', label: t('discover.statNew'), value: summary?.new_count ?? 0, icon: 'business-outline' as const, color: colors.warning },
       { key: 'shop', label: t('discover.statShop'), value: summary?.office_shop_count ?? 0, icon: 'storefront-outline' as const, color: colors.info },
     ],

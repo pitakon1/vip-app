@@ -113,7 +113,7 @@
 }
 .rent-pagination__btn[data-active='true'] {
   background: var(--rent-primary);
-  color: #fff;
+  color: var(--rent-primary-foreground);
   border-color: var(--rent-primary);
 }
 

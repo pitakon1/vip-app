@@ -1,4 +1,5 @@
 """推荐服务路由：增值服务订单管理。"""
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -29,6 +30,8 @@ from app.models import (
 
 router = APIRouter(prefix="/service-orders", tags=["service-orders"])
 
+logger = logging.getLogger(__name__)
+
 # 服务订单状态流转白名单：仅允许前进（pending→assigned→in_progress→completed/cancelled），
 # 回退一律 409——状态回退后再置 completed 会让按次扣次（quota_used+1）重复执行。
 _SERVICE_ORDER_STATUS_RANK = {
@@ -53,6 +56,8 @@ class ServiceOrderCreate(BaseModel):
     # 购买计费方式与本次结算金额（配合服务套餐做「按次扣次」）
     billing_model: Optional[str] = None  # monthly/per_use/annual
     billing_amount: Optional[float] = Field(default=None, ge=0)
+    # 计费周期数：monthly=月数 / daily=天数；per_use 忽略（取值 1）
+    billing_interval: int = Field(default=1, ge=1)
     service_package_id: Optional[uuid.UUID] = None  # 关联的按次套餐
 
 
@@ -169,14 +174,31 @@ def create_service_order(
                 "currency": quote.get("currency", req.currency),
             }
         )
-    except (KeyError, ValueError):
+    except KeyError:
+        # 价目表未收录的服务（如 annual_management 促销单）沿用客户端金额，
+        # 但必须留痕，避免后续接入新服务时静默按客户端价格入账。
+        logger.warning(
+            "service order priced by client amount: code=%s interval=%s model=%s",
+            req.service_type.value,
+            req.billing_interval,
+            req.billing_model,
+        )
         quote = None
+    except ValueError:
+        # 已知服务 + 非法计费方式：拒绝，避免回退成「客户端定价」。
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown billing model: {req.billing_model}",
+        )
     billing_amount = (
         quote["unit_price"]
         if quote
         else (req.billing_amount if req.billing_amount is not None else req.amount)
     )
-    order = ServiceOrder(**req.model_dump(exclude_none=True))
+    # billing_interval 只参与定价，ServiceOrder 表无此列，落库前剔除。
+    order = ServiceOrder(
+        **req.model_dump(exclude_none=True, exclude={"billing_interval"})
+    )
     order.billing_amount = billing_amount
     session.add(order)
     publish_event(

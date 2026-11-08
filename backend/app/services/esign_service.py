@@ -7,6 +7,7 @@
 import hashlib
 import hmac
 import html as html_mod
+import logging
 import math
 import uuid
 from datetime import datetime
@@ -14,6 +15,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Protocol
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _esc(v: Any) -> str:
@@ -213,6 +216,7 @@ def list_templates() -> list:
             # 空 counters 渲染出的即为该模板的标准范本正文
             content = render({}, **kw)
         except Exception:  # noqa: BLE001  单个模板渲染失败不阻塞其余模板
+            logger.warning("contract template preview render failed: %s", kind, exc_info=True)
             content = ""
         items.append({"kind": kind, "title": title, "content_html": content})
     return items
@@ -375,6 +379,9 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
         pdf_file.write_bytes(pdf_bytes)
         pdf_path = str(pdf_file)
     except Exception:  # noqa: BLE001  引擎缺失/异常时回退，不阻塞合同生成
+        # 回退是设计行为，但必须留日志：此前静默吞掉导致少装依赖时
+        # 合同长期无 PDF，前端页图/关键字签署全部 404 却无迹可查。
+        logger.warning("contract PDF render failed, fallback to html only", exc_info=True)
         pdf_path = None
 
     return {

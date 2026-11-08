@@ -13,9 +13,7 @@
 }
 .rent-prop-card:hover {
   transform: translateY(-4px);
-  box-shadow:
-    0 16px 32px -12px rgba(15, 23, 42, 0.15),
-    0 6px 12px -6px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--rent-shadow-2);
 }
 .rent-prop-card__banner {
   position: relative;
@@ -24,6 +22,8 @@
   align-items: flex-end;
   padding: 14px;
   overflow: hidden;
+  /* 缺封面统一暖灰占位，不再按房源 id 生成高饱和纯色块 */
+  background: var(--rent-surface-3);
   transition: transform var(--motion-slow) ease;
 }
 .rent-prop-card:hover .rent-prop-card__banner {
@@ -35,6 +35,23 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.02);
   pointer-events: none;
+}
+.rent-prop-card__banner[data-photo='false']::after {
+  background: none;
+}
+/* 暖灰底上的低对比户型剪影，避免与类型角标抢注意力 */
+.rent-prop-card__banner-icon {
+  position: absolute;
+  right: -24px;
+  top: -24px;
+  opacity: 0.28;
+  color: var(--rent-ink-2);
+  pointer-events: none;
+  transition: opacity var(--motion-base), transform var(--motion-slow) ease;
+}
+.rent-prop-card:hover .rent-prop-card__banner-icon {
+  opacity: 0.36;
+  transform: scale(1.1);
 }
 .rent-prop-card__type-badge {
   position: relative;

@@ -7,6 +7,7 @@ import type { User, UserRole } from '@/types'
 import { useI18n } from '@/i18n'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
+import { REFRESH_TOKEN_KEY } from '@/lib/api'
 
 type OtpMode = 'login' | 'register'
 
@@ -71,6 +72,12 @@ export default function LoginPage() {
 
     Taro.setStorageSync('token', token)
     Taro.setStorageSync('user', JSON.stringify(user))
+    // 登录响应同时下发 refresh_token，必须落盘：否则 api 层的静默续期
+    // 永远拿不到刷新令牌，access token 过期后直接把用户踢回登录页。
+    const refreshToken = res?.refresh_token || res?.data?.refresh_token
+    if (refreshToken) {
+      Taro.setStorageSync(REFRESH_TOKEN_KEY, refreshToken)
+    }
     login(token, user)
     return user
   }

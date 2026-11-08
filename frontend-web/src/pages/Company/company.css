@@ -3,11 +3,11 @@
 .cmp-hero {
   position: relative;
   overflow: hidden;
-  background: #14b8a6;
+  background: var(--rent-primary);
   border-radius: var(--rent-radius-xl);
   padding: 44px;
   margin-bottom: var(--rent-s-6);
-  color: #fff;
+  color: var(--rent-primary-foreground);
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -41,7 +41,7 @@ export default function SignAssetLibraryModal({
     <Modal
       open={open}
       title={t('contracts.mySignLib')}
-      width={720}
+      width={880}
       okText={t('common.close')}
       okButtonProps={{ style: { display: 'none' } }}
       cancelText={t('common.close')}

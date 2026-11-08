@@ -1,5 +1,5 @@
 import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -208,12 +208,22 @@ export default function EmployeePropertiesPage() {
     fetchList()
   })
 
-  if (schools.length === 0) {
+  // 学校清单只为筛选器备选：必须在 effect 里请求一次。
+  // 原先写在渲染体内，schools 为空时每次渲染都会重新发请求（失败时永不停止）。
+  useEffect(() => {
+    let alive = true
     publicApi
       .schools({ page_size: OPTION_PAGE_SIZE })
-      .then((res: any) => setSchools(pickListPublic(res)))
-      .catch(() => setSchools([]))
-  }
+      .then((res: any) => {
+        if (alive) setSchools(pickListPublic(res))
+      })
+      .catch(() => {
+        if (alive) setSchools([])
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // 由筛选 state 构建后端查询参数（overrides 用于状态尚未更新时传本次变更）
   const buildParams = (over: Partial<{
@@ -302,7 +312,10 @@ export default function EmployeePropertiesPage() {
       }
       setTotal(t)
       setPage(pg)
-      setHasMore(items.length >= PAGE_SIZE && listings.length + items.length < t)
+      // 不能用闭包里的旧 listings.length 计算（刷新第 1 页时它代表上一批数据，
+      // 会把"还有下一页"误判为 false）。按本次实际累计条数与服务端 total 比较。
+      const loadedCount = append ? listings.length + items.length : items.length
+      setHasMore(loadedCount < t)
     } catch (err) {
       console.error('[Properties] 获取房源失败', err)
       if (!append) {
@@ -360,15 +373,35 @@ export default function EmployeePropertiesPage() {
     setOpenTab(null)
   }
 
-  const resetMore = () => {
-    setBedrooms('')
+  // 价格面板的「重置」只清价格，不牵连同页其他筛选
+  const resetPrice = () => {
     setPriceRange('')
     setPriceCustomMin('')
     setPriceCustomMax('')
+    fetchList({ priceRange: '', priceCustomMin: '', priceCustomMax: '' })
+    setOpenTab(null)
+  }
+
+  // 「更多」面板的重置必须把所有该类筛选都清掉，并把空值作为 overrides 下发，
+  // 否则 setState 异步生效前 buildParams 仍会读到旧条件。
+  const resetMore = () => {
+    setStatus('')
+    setType('')
+    setBedrooms('')
     setAreaRange('')
     setAreaCustomMin('')
     setAreaCustomMax('')
-    fetchList({ bedrooms: '', priceRange: '', areaRange: '' })
+    setSchoolId('')
+    setSchoolName('')
+    fetchList({
+      status: '',
+      type: '',
+      bedrooms: '',
+      areaRange: '',
+      areaCustomMin: '',
+      areaCustomMax: '',
+      schoolId: ''
+    })
     setOpenTab(null)
   }
 
@@ -511,7 +544,7 @@ export default function EmployeePropertiesPage() {
                   </View>
                 )}
                 <View className='pb-panel__actions'>
-                  <View className='pb-act pb-act--ghost' onClick={resetMore}>
+                  <View className='pb-act pb-act--ghost' onClick={resetPrice}>
                     <Text>{t('pub.reset')}</Text>
                   </View>
                   <View className='pb-act pb-act--primary' onClick={() => setOpenTab(null)}>

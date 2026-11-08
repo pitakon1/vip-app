@@ -291,7 +291,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     marginBottom: 10,
-    ...colors.shadow.card,
   },
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   name: { fontSize: 15, fontWeight: '600', color: colors.ink },

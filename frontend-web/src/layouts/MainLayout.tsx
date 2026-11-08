@@ -155,7 +155,7 @@ const MainLayout = () => {
     },
   ]
 
-  const displayName = user?.full_name || user?.name || t('welcome')
+  const displayName = user?.full_name || user?.name || t('common.welcome')
   const avatarChar = (displayName || 'U').charAt(0).toUpperCase()
   const brandKey = roleBrandKey[role]
   // 侧边栏品牌标签：对齐设计稿仅显示角色名（logo 图已含 HaoFang.World 字标）

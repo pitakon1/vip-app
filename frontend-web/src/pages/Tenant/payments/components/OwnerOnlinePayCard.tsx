@@ -201,7 +201,8 @@ const OwnerOnlinePayCard = ({ onPaid }: { onPaid: () => void }) => {
             <label className="pay-check">
               <input type="checkbox" defaultChecked />
               <span>
-                {t('ownerPayments.termsPrefix')}<a href="#">{t('ownerPayments.termsLink')}</a>{t('ownerPayments.termsSuffix')}
+                {/* 原协议名是 href="#" 死链接；项目内暂无协议详情页，改为纯文本，不再伪装成可点击入口。 */}
+                {t('ownerPayments.termsPrefix')}<span>{t('ownerPayments.termsLink')}</span>{t('ownerPayments.termsSuffix')}
               </span>
             </label>
           </div>

@@ -1026,7 +1026,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   avatar: {
     width: 56,
@@ -1181,7 +1180,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    ...colors.shadow.card,
   },
   serviceCell: {
     width: '25%',

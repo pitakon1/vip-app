@@ -53,6 +53,7 @@ const CommissionRules = () => {
                 loading={list.loading}
                 loadFailed={list.loadFailed}
                 items={list.items}
+                total={list.total}
                 pagedItems={list.pagedItems}
                 page={list.page}
                 pageCount={list.pageCount}

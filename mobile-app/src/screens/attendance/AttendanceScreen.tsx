@@ -1444,7 +1444,6 @@ const styles = StyleSheet.create({
     marginHorizontal: colors.spacing.md,
     marginTop: colors.spacing.md,
     paddingVertical: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   overviewItem: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
   overviewValue: {
@@ -1469,7 +1468,6 @@ const styles = StyleSheet.create({
     marginHorizontal: colors.spacing.md,
     marginTop: colors.spacing.md,
     padding: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   locIconWrap: {
     width: 40,
@@ -1550,7 +1548,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     paddingHorizontal: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   todayRow: {
     flexDirection: 'row',
@@ -1587,7 +1584,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.md,
     paddingTop: colors.spacing.lg,
     paddingBottom: colors.spacing.md,
-    ...colors.shadow.card,
   },
   cardHead: {
     flexDirection: 'row',
@@ -1649,7 +1645,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     paddingHorizontal: colors.spacing.md,
-    ...colors.shadow.card,
   },
   recRow: {
     paddingVertical: colors.spacing.md,
@@ -1684,7 +1679,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     paddingHorizontal: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   ruleHead: {
     flexDirection: 'row',
@@ -1715,7 +1709,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     padding: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: colors.spacing.md },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.sm },
@@ -1778,7 +1771,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     marginTop: colors.spacing.md,
-    ...colors.shadow.card,
   },
   tripHead: {
     flexDirection: 'row',
@@ -1805,7 +1797,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     marginHorizontal: colors.spacing.md,
     paddingHorizontal: colors.spacing.lg,
-    ...colors.shadow.card,
   },
   leaveRow: {
     flexDirection: 'row',

@@ -125,8 +125,6 @@ interface BizItem {
   icon: IoniconName;
   /** 空态图标（磁贴用的是实心图标，空态用线性图标） */
   emptyIcon: IoniconName;
-  color: string;
-  tint: string;
   /** 磁贴与「更多」进入的分类页 */
   target: string;
 }
@@ -138,8 +136,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'home.featured',
     icon: 'home',
     emptyIcon: 'home-outline',
-    color: colors.primary,
-    tint: colors.alpha(colors.primaryRgb, 0.1),
     target: 'RentCategory',
   },
   {
@@ -148,8 +144,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'category.newTitle',
     icon: 'business',
     emptyIcon: 'business-outline',
-    color: colors.warning,
-    tint: colors.alpha(colors.warningRgb, 0.1),
     target: 'NewHouse',
   },
   {
@@ -158,8 +152,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'home.hotSecondHand',
     icon: 'swap-horizontal',
     emptyIcon: 'pricetag-outline',
-    color: colors.info,
-    tint: colors.alpha(colors.infoRgb, 0.1),
     target: 'Resale',
   },
   {
@@ -168,8 +160,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'category.commTitle',
     icon: 'storefront',
     emptyIcon: 'storefront-outline',
-    color: colors.error,
-    tint: colors.alpha(colors.errorRgb, 0.1),
     target: 'Commercial',
   },
   {
@@ -178,8 +168,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'category.factTitle',
     icon: 'cube',
     emptyIcon: 'cube-outline',
-    color: colors.success,
-    tint: colors.alpha(colors.successRgb, 0.1),
     target: 'Factory',
   },
   {
@@ -188,8 +176,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'category.hotelTitle',
     icon: 'bed',
     emptyIcon: 'bed-outline',
-    color: colors.info,
-    tint: colors.alpha(colors.infoRgb, 0.1),
     target: 'Hotel',
   },
   {
@@ -198,8 +184,6 @@ const BIZ_ITEMS: BizItem[] = [
     titleKey: 'category.landTitle',
     icon: 'map',
     emptyIcon: 'map-outline',
-    color: colors.warning,
-    tint: colors.alpha(colors.warningRgb, 0.1),
     target: 'Land',
   },
 ];
@@ -297,25 +281,25 @@ const ticketStatusMeta = (
   // 展示文案保持业务语义：open=待处理、assigned=已受理。
   open: {
     text: t('ticket.status.open'),
-    color: colors.warning,
+    color: colors.warningInk,
     bg: colors.warningLight,
     progress: 25,
   },
   assigned: {
     text: t('ticket.status.assigned'),
-    color: colors.info,
+    color: colors.infoInk,
     bg: colors.alpha(colors.infoRgb, 0.1),
     progress: 50,
   },
   in_progress: {
     text: t('common.processing'),
-    color: colors.info,
+    color: colors.infoInk,
     bg: colors.alpha(colors.infoRgb, 0.1),
     progress: 70,
   },
   resolved: {
     text: t('ticket.status.resolved'),
-    color: colors.success,
+    color: colors.successInk,
     bg: colors.successLight,
     progress: 100,
   },
@@ -1011,8 +995,8 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(it.labelKey)}
           >
-            <View style={[styles.goldNavIcon, { backgroundColor: it.tint }]}>
-              <Ionicons name={it.icon} size={22} color={it.color} />
+            <View style={styles.goldNavIcon}>
+              <Ionicons name={it.icon} size={22} color={colors.primary} />
             </View>
             <Text style={styles.goldNavLabel} numberOfLines={1}>
               {t(it.labelKey)}
@@ -1033,11 +1017,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: colors.spacing.md, paddingBottom: colors.spacing.xxl },
+  content: { padding: colors.spacing.lg, paddingBottom: colors.spacing.xxl },
   // 边框与阴影二选一：保留柔和阴影，去掉 1px 描边，避免「边 + 影」双重描边显得层级平
   card: {
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
+    borderRadius: colors.radius.lg,
     padding: colors.spacing.lg,
     marginBottom: colors.spacing.md,
     ...colors.shadow.card,
@@ -1058,7 +1042,7 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.md,
     ...colors.shadow.sm,
   },
-  searchPlaceholder: { flex: 1, fontSize: 14, color: colors.ink3 },
+  searchPlaceholder: { flex: 1, fontSize: colors.fontSize.base, color: colors.ink3 },
   searchBtn: {
     width: 34,
     height: 34,
@@ -1073,9 +1057,7 @@ const styles = StyleSheet.create({
   skelCard: {
     width: 210,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
     overflow: 'hidden',
   },
   skelImg: { height: 110, backgroundColor: colors.muted },
@@ -1103,16 +1085,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.xs,
   },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
-  linkText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  linkText: { fontSize: 13, color: colors.primaryText, fontWeight: '600' },
 
   /* 房源 rail */
   rail: { gap: colors.spacing.md, paddingBottom: colors.spacing.sm },
   propCard: {
     width: 210,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
     overflow: 'hidden',
     ...colors.shadow.card,
   },
@@ -1151,9 +1131,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   propPrice: {
-    color: colors.primary,
-    fontSize: 17,
-    fontWeight: '800',
+    color: colors.primaryText,
+    fontSize: colors.fontSize.title,
+    fontWeight: colors.fontWeight.bold,
     marginTop: colors.spacing.sm,
     letterSpacing: -0.2,
   },
@@ -1188,6 +1168,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: colors.radius.lg,
+    backgroundColor: colors.surface2,
     alignItems: 'center',
     justifyContent: 'center',
   },

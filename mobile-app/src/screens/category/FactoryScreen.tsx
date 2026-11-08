@@ -68,11 +68,11 @@ export default function FactoryScreen() {
       mk('select', t('category.factGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.factGridSelect'))),
       mk('rent', t('category.factTabRent'), 'cube-outline', colors.info, colors.infoRgb, () => setTab('rent-factory')),
       mk('sell', t('category.factTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-factory')),
-      mk('project', t('category.factGridProject'), 'business-outline', colors.success, colors.successRgb, () => navigation.navigate('PublicCommunities')),
+      mk('project', t('category.factGridProject'), 'business-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicCommunities')),
       mk('land', t('category.factGridLand'), 'map-outline', colors.error, colors.errorRgb, () => navigation.navigate('Land')),
       mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('subway', t('category.factGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.factGridSubway'))),
-      mk('env', t('category.factGridEnv'), 'leaf-outline', colors.success, colors.successRgb, () => notAvailable(navigation, t('category.factGridEnv'))),
+      mk('env', t('category.factGridEnv'), 'leaf-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.factGridEnv'))),
       mk('vr', t('category.factGridVr'), 'cube-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.factGridVr'))),
       mk('assist', t('category.helpFind'), 'hand-left-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.helpFind'))),
     ];

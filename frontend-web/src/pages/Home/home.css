@@ -74,7 +74,7 @@
   color: var(--rent-ink);
 }
 .bk-header__nav-item[data-active="true"] {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   font-weight: 600;
 }
 .bk-header__right {
@@ -87,29 +87,9 @@
 /* ===== Hero ===== */
 .bk-hero {
   background: var(--rent-primary);
-  padding: 64px 24px 72px;
+  padding: var(--rent-s-8) 24px;
   position: relative;
   overflow: hidden;
-}
-.bk-hero::before {
-  content: '';
-  position: absolute;
-  top: -100px;
-  right: -80px;
-  width: 400px;
-  height: 400px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
-.bk-hero::after {
-  content: '';
-  position: absolute;
-  bottom: -120px;
-  left: -60px;
-  width: 320px;
-  height: 320px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.04);
 }
 .bk-hero__inner {
   max-width: 800px;
@@ -120,15 +100,17 @@
 }
 .bk-hero__title {
   font-size: var(--rent-fs-4xl);
-  font-weight: 800;
-  color: #fff;
+  font-weight: 700;
+  /* 品牌绿底上用深墨前景：白字仅 2.49:1，不满足 AA（UI-01） */
+  color: var(--rent-primary-foreground);
   letter-spacing: -0.02em;
   line-height: 1.3;
   margin-bottom: var(--rent-s-3);
 }
 .bk-hero__subtitle {
   font-size: var(--rent-fs-lg);
-  color: rgba(255, 255, 255, 0.8);
+  /* 深墨实色：半透明深墨叠在主色上只有 ~2.3:1 */
+  color: var(--rent-primary-foreground);
   line-height: 1.6;
   margin-bottom: var(--rent-s-6);
 }
@@ -149,7 +131,7 @@
   flex: 1;
   border: none;
   outline: none;
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   color: var(--rent-ink);
   font-family: var(--rent-font-sans);
   background: transparent;
@@ -166,7 +148,7 @@
   border-radius: var(--rent-radius-full);
   background: var(--rent-primary);
   color: var(--rent-primary-foreground);
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   cursor: pointer;
   font-family: var(--rent-font-sans);
@@ -187,12 +169,12 @@
 .bk-search-tag {
   padding: 5px 14px;
   border-radius: var(--rent-radius-full);
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(11, 47, 43, 0.08);
+  color: var(--rent-primary-foreground);
   font-size: var(--rent-fs-sm);
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(11, 47, 43, 0.25);
   transition: background var(--motion-fast);
   font-family: var(--rent-font-sans);
 }
@@ -281,7 +263,7 @@
 }
 .bk-section-head__more {
   font-size: var(--rent-fs-base);
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
@@ -311,7 +293,7 @@
 }
 .bk-prop-card:focus-visible,
 .bk-quick-item:focus-visible {
-  outline: 2px solid var(--rent-primary);
+  outline: 2px solid var(--rent-ring);
   outline-offset: 2px;
 }
 .bk-prop-card__banner {
@@ -332,7 +314,7 @@
   backdrop-filter: blur(4px);
   font-size: var(--rent-fs-xs);
   font-weight: 600;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 .bk-prop-card__body {
   padding: var(--rent-s-4);
@@ -367,10 +349,10 @@
 .bk-prop-card__tag {
   padding: 2px 8px;
   border-radius: var(--rent-radius-full);
-  font-size: 11px;
+  font-size: var(--rent-fs-xs);
   font-weight: 500;
   background: rgba(20, 184, 166, 0.08);
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 .bk-prop-card__price {
   display: flex;
@@ -378,9 +360,9 @@
   gap: 2px;
 }
 .bk-prop-card__price-value {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--rent-primary);
+  font-size: var(--rent-fs-2xl);
+  font-weight: 700;
+  color: var(--rent-primary-text);
   letter-spacing: -0.02em;
 }
 .bk-prop-card__price-unit {
@@ -446,16 +428,6 @@
   position: relative;
   overflow: hidden;
 }
-.bk-cta::before {
-  content: '';
-  position: absolute;
-  top: -60px;
-  right: -40px;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-}
 .bk-cta__text {
   position: relative;
   z-index: 1;
@@ -463,30 +435,34 @@
 .bk-cta__title {
   font-size: var(--rent-fs-2xl);
   font-weight: 700;
-  color: #fff;
+  color: var(--rent-primary-foreground);
   margin-bottom: var(--rent-s-2);
 }
 .bk-cta__desc {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--rent-fs-base);
+  color: var(--rent-primary-foreground);
 }
 .bk-cta__btn {
   position: relative;
   z-index: 1;
   padding: 14px 36px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  border: none;
   border-radius: var(--rent-radius-full);
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  /* 全站唯一白色实心 CTA，成为 Hero 之后的视觉焦点 */
+  background: var(--rent-card);
+  color: var(--rent-ink);
   font-size: var(--rent-fs-lg);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   font-family: var(--rent-font-sans);
-  transition: background var(--motion-fast);
+  transition: background var(--motion-fast), transform var(--motion-instant);
   white-space: nowrap;
 }
 .bk-cta__btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--rent-surface-2);
+}
+.bk-cta__btn:active {
+  transform: scale(0.97);
 }
 
 /* ===== 页脚 ===== */
@@ -530,7 +506,7 @@
   cursor: pointer;
   transition: color var(--motion-fast);
 }
-.bk-footer__col a:hover { color: var(--rent-primary); }
+.bk-footer__col a:hover { color: var(--rent-primary-text); }
 .bk-footer__bottom {
   max-width: 1200px;
   margin: var(--rent-s-6) auto 0;

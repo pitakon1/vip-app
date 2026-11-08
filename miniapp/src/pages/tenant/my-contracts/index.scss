@@ -641,10 +641,10 @@
 
 .mc-verify-input {
   flex: 1;
-  height: 72rpx;
-  padding: 0 20rpx;
+  height: 88rpx;
+  padding: 0 24rpx;
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--card);
   font-size: 28rpx;
 }
@@ -1007,7 +1007,6 @@
     border-radius: 50%;
     background: var(--card);
     border: 1rpx solid var(--line);
-    box-shadow: var(--shadow-sm);
     z-index: 4;
   }
 

@@ -76,12 +76,12 @@ export default function CommercialScreen() {
       mk('select', t('category.commGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.commGridSelect'))),
       mk('rent-office', t('category.commTabRentOffice'), 'business-outline', colors.info, colors.infoRgb, () => setTab('rent-office')),
       mk('sell-office', t('category.commTabSellOffice'), 'briefcase-outline', colors.warning, colors.warningRgb, () => setTab('sell-office')),
-      mk('rent-shop', t('category.commTabRentShop'), 'storefront-outline', colors.success, colors.successRgb, () => setTab('rent-shop')),
+      mk('rent-shop', t('category.commTabRentShop'), 'storefront-outline', colors.primaryText, colors.primaryRgb, () => setTab('rent-shop')),
       mk('sell-shop', t('category.commTabSellShop'), 'pricetags-outline', colors.error, colors.errorRgb, () => setTab('sell-shop')),
       mk('project', t('category.commGridProject'), 'business-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicCommunities')),
       mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('subway', t('category.commGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.commGridSubway'))),
-      mk('vr', t('category.commGridVr'), 'cube-outline', colors.success, colors.successRgb, () => notAvailable(navigation, t('category.commGridVr'))),
+      mk('vr', t('category.commGridVr'), 'cube-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.commGridVr'))),
       mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
     ];
   }, [t, navigation]);

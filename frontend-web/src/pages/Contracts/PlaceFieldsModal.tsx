@@ -91,7 +91,7 @@ export default function PlaceFieldsModal({
     <Modal
       open={open}
       title={t('contracts.placeFields')}
-      width={1160}
+      width={880}
       okText={t('contracts.saveFields')}
       cancelText={t('common.cancel')}
       onOk={saveFields}

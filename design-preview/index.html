@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>三端视觉方案预览 · 8 组 before / after</title>
+<style>
+  :root{
+    --bg:#f7f4ef; --card:#ffffff; --ink:#1c2733; --ink2:#55606c; --ink3:#5f6b78;
+    --line:#e7e1d6; --line-soft:#f0ebe2; --primary:#14b8a6; --primary-ink:#0f766e;
+    --warning:#a64c07; --warning-bg:#fdf5e9; --warning-line:#f0dcb8;
+    --success:#15803d; --success-bg:#effaf3; --success-line:#bfe3c9;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;line-height:1.7;}
+  a{color:inherit;text-decoration:none;}
+  .wrap{max-width:1360px;margin:0 auto;padding:0 32px;}
+
+  header.top{padding:56px 0 28px;border-bottom:1px solid var(--line);}
+  .eyebrow{font-size:12px;letter-spacing:2px;color:var(--primary-ink);font-weight:700;text-transform:uppercase;}
+  h1{font-size:38px;line-height:1.25;letter-spacing:-.8px;margin:10px 0 10px;font-weight:700;}
+  .lead{font-size:14px;color:var(--ink3);max-width:820px;margin:0;}
+  .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;}
+  .pill{font-size:12px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink3);}
+  .pill.real{color:var(--success);border-color:var(--success-line);background:var(--success-bg);}
+  .pill.mock{color:var(--warning);border-color:var(--warning-line);background:var(--warning-bg);}
+
+  nav.jump{position:sticky;top:0;z-index:9;background:rgba(247,244,239,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);}
+  nav.jump .wrap{display:flex;gap:6px;overflow-x:auto;padding:10px 32px;}
+  nav.jump a{flex:none;font-size:12px;color:var(--ink2);padding:6px 10px;border-radius:8px;}
+  nav.jump a:hover{background:#fff;color:var(--ink);}
+
+  main{padding:34px 0 70px;}
+  section.sample{margin-bottom:54px;scroll-margin-top:70px;}
+  .s-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px;}
+  .no{width:34px;height:34px;flex:none;border-radius:10px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--primary-ink);}
+  .s-title{font-size:21px;font-weight:700;letter-spacing:-.3px;margin:2px 0 4px;}
+  .s-sub{font-size:12px;color:var(--ink3);}
+  .s-badges{display:flex;gap:8px;margin-left:auto;align-items:center;}
+  .frame-card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(28,39,51,.03);}
+  .frame-card img{display:block;width:100%;height:auto;}
+  .frame-card.small{max-width:860px;}
+  .notes{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:16px;}
+  .note-box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;}
+  .note-box h4{margin:0 0 10px;font-size:13px;letter-spacing:.5px;color:var(--ink2);font-weight:600;}
+  .note-box ul{margin:0;padding-left:18px;}
+  .note-box li{font-size:13px;color:var(--ink2);margin:6px 0;}
+  .note-box li b{color:var(--ink);font-weight:600;}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .tag{font-size:11px;padding:3px 9px;border-radius:6px;border:1px solid var(--line-soft);background:#fbf9f6;color:var(--ink3);}
+  .tag.visual{color:var(--primary-ink);border-color:#cfeae5;background:#f0fdfa;}
+  .tag.struct{color:#7a5cd6;border-color:#e0d8f5;background:#f7f4ff;}
+  .links{margin-top:10px;font-size:11px;color:var(--ink3);}
+  .links a{color:var(--primary-ink);border-bottom:1px solid #cfeae5;margin-right:14px;}
+
+  .banner{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .banner h3{margin:0 0 6px;font-size:14px;}
+  .banner p{margin:0;font-size:12.5px;color:var(--ink3);}
+  .banner .k{font-size:22px;font-weight:700;color:var(--primary-ink);letter-spacing:-.4px;}
+
+  footer{border-top:1px solid var(--line);padding:26px 0 60px;color:var(--ink3);font-size:12px;}
+  @media(max-width:900px){
+    .wrap{padding:0 18px;}
+    h1{font-size:28px;}
+    .notes{grid-template-columns:1fr;}
+    .banner{grid-template-columns:1fr;}
+    .s-badges{margin-left:0;}
+    .s-head{flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Visual Audit · Design Preview</div>
+    <h1>三端视觉方案预览</h1>
+    <p class="lead">8 组“改前 / 改后”对照，覆盖 Web 公开站与登录、App 管理员与租客首页、小程序租客首页与定位页。改后方案均为按设计令牌复刻的示意，用于确认方向后再落代码。</p>
+    <div class="meta">
+      <span class="pill">Web 1440 × 900</span>
+      <span class="pill">App 390 × 844</span>
+      <span class="pill">小程序 375 × 812</span>
+      <span class="pill real">真实截图：Web 4 组</span>
+      <span class="pill mock">重构示意：App / 小程序</span>
+    </div>
+  </div>
+</header>
+
+<nav class="jump">
+  <div class="wrap">
+    <a href="#s1">01 Web 首页</a>
+    <a href="#s2">02 Web 列表</a>
+    <a href="#s3">03 Web 详情</a>
+    <a href="#s4">04 Web 登录</a>
+    <a href="#s5">05 App 管理员</a>
+    <a href="#s6">06 App 租客</a>
+    <a href="#s7">07 小程序首页</a>
+    <a href="#s8">08 小程序定位</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <div class="banner" style="margin-bottom:44px">
+    <div><div class="k">4</div><h3>真实页面截图</h3><p>Web 首页 / 列表 / 详情 / 登录，由本地 dev server + 种子数据实拍。</p></div>
+    <div><div class="k">4</div><h3>重构示意</h3><p>App 与小程序无法在本次环境内启动真机渲染，按真实视口与令牌 1:1 复刻。</p></div>
+    <div><div class="k">8</div><h3>优先修复页</h3><p>首屏曝光最高、观感收益最大的页面，建议按序号顺序推进。</p></div>
+  </div>
+
+  <!-- 1 -->
+  <section class="sample" id="s1">
+    <div class="s-head">
+      <div class="no">01</div>
+      <div><div class="s-title">Web 公开首页</div><div class="s-sub">Hero 去装饰圆，CTA 成为唯一焦点</div></div>
+      <div class="s-badges"><span class="pill real">改前真实截图</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card"><img src="shots/sample1-pair.png" alt="Web 首页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>Hero 由满幅品牌绿改为 <b>--rent-surface-2</b> 暖色面，删除两个装饰圆，品牌绿只留给搜索按钮。</li>
+        <li>标题降到 <b>700 字重 / 34px / 1.25 行高</b>，不再使用 800。</li>
+        <li>分类入口改“仅描边无阴影”，卡片圆角统一 <b>--rent-radius-lg</b>。</li>
+        <li>房源卡移除彩色占位，改用中性占位 + 线描建筑图标，价格成为卡面唯一强调色。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P0</b>：品牌色既是背景又是按钮，CTA 失去焦点。</li>
+        <li>成本：仅 CSS 调整；房源卡占位替换在无图时生效。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag">首页首屏</span></div>
+      <div class="links"><a href="shots/sample1-before.png">改前单图</a><a href="shots/sample1-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="sample" id="s2">
+    <div class="s-head">
+      <div class="no">02</div>
+      <div><div class="s-title">Web 房源列表</div><div class="s-sub">筛选栏与列表合并为单一容器，去双层阴影与 40 条分割线</div></div>
+      <div class="s-badges"><span class="pill real">改前真实截图</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card"><img src="shots/sample2-pair.png" alt="Web 列表页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>筛选条与结果区收进<b>同一个白底容器</b>，只保留一条横向分隔。</li>
+        <li>列表卡改为<b>描边无阴影</b>、12px 栅格间距，取消每行 1px 分割线。</li>
+        <li>移除 -20px 叠压与双层投影，卡片之间用留白而不是线条分组。</li>
+        <li>页面主标题缩为 22px，避免与 Hero 争夺视觉重量。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P1</b>：容器结构需要一次 DOM 合并。</li>
+        <li>需回归：筛选栏吸顶、滚动加载、移动端断点。</li>
+      </ul><div class="tags"><span class="tag struct">结构改动</span><span class="tag visual">CSS 占多数</span></div>
+      <div class="links"><a href="shots/sample2-before.png">改前单图</a><a href="shots/sample2-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="sample" id="s3">
+    <div class="s-head">
+      <div class="no">03</div>
+      <div><div class="s-title">Web 房源详情</div><div class="s-sub">清掉蓝紫 / 橙色渐变，字重从 800 收敛到 700</div></div>
+      <div class="s-badges"><span class="pill real">改前真实截图</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card"><img src="shots/sample3-pair.png" alt="Web 详情页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>画廊有图时改用<b>纯色压暗层</b>，删除 <b>#8a9cfb</b> 蓝紫、<b>#ff6b35</b> 橙、<b>#5b3fa8</b> 青紫三段渐变。</li>
+        <li>无图状态统一暖色占位 + 线描图标，不再写死 <b>#14b8a6</b> 底色。</li>
+        <li>标题 24px/700，价格 30px/700，价格与房源名形成明确主次。</li>
+        <li>右侧三张卡去掉“卡中卡”，联系方式与表单各只保留一层容器。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P0</b>：渐变与品牌底色直接破坏“克制高端”的观感。</li>
+        <li>真实种子数据无实拍图，渐变问题在有图房源时出现。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag">详情页</span></div>
+      <div class="links"><a href="shots/sample3-before.png">改前单图</a><a href="shots/sample3-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="sample" id="s4">
+    <div class="s-head">
+      <div class="no">04</div>
+      <div><div class="s-title">Web 登录页</div><div class="s-sub">给表单一个清晰边界，测试账号提示改用语义色</div></div>
+      <div class="s-badges"><span class="pill real">改前真实截图</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card"><img src="shots/sample4-pair.png" alt="Web 登录页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>真实页面是<b>单列居中</b>，不存在旧 CSS 的左右分屏；改后以“暖色画布 + 白色卡片”重建边界。</li>
+        <li>卡片 460px、圆角 20、1px 描边与柔和阴影，表单不再是悬浮白块。</li>
+        <li>测试账号提示改用 <b>--state-warning-soft / --state-warning-light / --state-warning-ink</b>，替换写死的米黄三色。</li>
+        <li>输入框高度 44、圆角 10；主按钮文字改深墨 <b>#0b2f2b</b>（5.80:1）。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P1</b>：登录是转化入口，白底白卡让页面显得未完成。</li>
+        <li>说明：旧 <b>login.css</b> 的 split 样式已无对应结构，应以实际单列表单为准。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag">表单</span></div>
+      <div class="links"><a href="shots/sample4-before.png">改前单图</a><a href="shots/sample4-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="sample" id="s5">
+    <div class="s-head">
+      <div class="no">05</div>
+      <div><div class="s-title">App 管理员首页</div><div class="s-sub">四张满饱和 KPI 卡 → 1 张主卡 + 白底语义色数字</div></div>
+      <div class="s-badges"><span class="pill mock">改前重构示意</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card small"><img src="shots/sample5-pair.png" alt="App 管理员首页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>只保留一张品牌绿主指标卡，文字改深墨；其余 3 项改白底 + 语义色数字（#15803d / #a64c07 / #b91c1c）。</li>
+        <li>页面左右边距从 20 统一为 <b>16</b>，与租客端一致。</li>
+        <li>标题 22px/800 → <b>20px/700</b>；待办卡去掉投影，只留 1px 描边。</li>
+        <li>白色数字 <b>#fff</b> 压橙/绿底（3.19–3.25:1）的问题一并消除。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P0</b>：管理员首屏最“花”，且多角色边距不一致。</li>
+        <li>需回归：KPI 数据绑定与空值展示。</li>
+      </ul><div class="tags"><span class="tag struct">结构改动</span><span class="tag visual">对比度修复</span></div>
+      <div class="links"><a href="shots/sample5-before.png">改前单图</a><a href="shots/sample5-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="sample" id="s6">
+    <div class="s-head">
+      <div class="no">06</div>
+      <div><div class="s-title">App 租客首页</div><div class="s-sub">标题与价格主次分离，卡片描边 / 阴影二选一</div></div>
+      <div class="s-badges"><span class="pill mock">改前重构示意</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card small"><img src="shots/sample6-pair.png" alt="App 租客首页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>房源卡去掉阴影，只保留 1px 描边；图片圆角 12，内边距 10。</li>
+        <li>标题 17px/700 收为 <b>15px/600 ink</b>；价格 20px/800 亮绿改为 <b>18px/700 #0f766e</b>，成为唯一强调。</li>
+        <li>地址、参数、标签压缩为三行，删除 6 层文本堆叠。</li>
+        <li>搜索框从冷灰 #F6F7F8 改暖白 + 描边；页面边距 12 → 16。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P1</b>：最常用的房源列表，信息层级决定浏览效率。</li>
+        <li>需回归：卡片点击热区与图片懒加载。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag struct">内容精简</span></div>
+      <div class="links"><a href="shots/sample6-before.png">改前单图</a><a href="shots/sample6-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="sample" id="s7">
+    <div class="s-head">
+      <div class="no">07</div>
+      <div><div class="s-title">小程序租客首页</div><div class="s-sub">深墨字替白字，--ink-2 替 --ink-3，磁贴尺寸收敛</div></div>
+      <div class="s-badges"><span class="pill mock">改前重构示意</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card small"><img src="shots/sample7-pair.png" alt="小程序租客首页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>Hero 上的白字全部改 <b>#0b2f2b</b>（5.80:1），保留品牌绿作为“面”。</li>
+        <li>删除 <b>rgba(20,184,166,.45)</b> 与 <b>.3</b> 双层投影与两个装饰圆。</li>
+        <li>磁贴图标 66px → <b>48px</b>，圆角 19 → <b>12</b>；磁贴改描边无阴影。</li>
+        <li>未选中 Tab 由 --ink-3 改 <b>--ink-2</b>；页面边距 24rpx 保持 12px。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P0</b>：CTA 与辅助文字对比度是根因级问题。</li>
+        <li>需回归：自定义导航与胶囊安全区。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag">小程序首页</span></div>
+      <div class="links"><a href="shots/sample7-before.png">改前单图</a><a href="shots/sample7-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="sample" id="s8">
+    <div class="s-head">
+      <div class="no">08</div>
+      <div><div class="s-title">小程序定位页</div><div class="s-sub">5.5–8px 字号全部提升到 ≥12px</div></div>
+      <div class="s-badges"><span class="pill mock">改前重构示意</span><span class="pill mock">改后示意</span></div>
+    </div>
+    <div class="frame-card small"><img src="shots/sample8-pair.png" alt="小程序定位页改前改后对比"></div>
+    <div class="notes">
+      <div class="note-box"><h4>具体改动</h4><ul>
+        <li>正文、副标题、说明文字最低 <b>12px</b>，列表主行 <b>14px</b>，区块标题 <b>13–16px</b>。</li>
+        <li>可点行高从挤压态统一为 <b>44px</b>，符合触控最小值。</li>
+        <li>搜索框 32 → 40px；热门城市 chip 由 5.5px 改 12px。</li>
+        <li>分组改用留白与 1px 浅线，信息不再糊成一片。</li>
+      </ul></div>
+      <div class="note-box"><h4>优先级与类型</h4><ul>
+        <li>优先级 <b>P0</b>：5.5px 在真机上不可读，是功能可用性问题。</li>
+        <li>需回归：字母索引跳转与键盘弹起布局。</li>
+      </ul><div class="tags"><span class="tag visual">纯视觉</span><span class="tag">可读性</span></div>
+      <div class="links"><a href="shots/sample8-before.png">改前单图</a><a href="shots/sample8-after.png">改后单图</a></div></div>
+    </div>
+  </section>
+
+  <div class="note-box" style="margin-top:8px">
+    <h4>落地顺序建议</h4>
+    <ul>
+      <li><b>第 1 步</b>：三端令牌层（小程序 --primary-foreground / --ink-3 / 字号阶梯；App 冷灰与状态 ink；Web foreground 与 Modal 圆角）——改完后对比度问题一次清零。</li>
+      <li><b>第 2 步</b>：Web 首页、列表、详情、登录 + App 管理员首页（曝光最高，收益最大）。</li>
+      <li><b>第 3 步</b>：App 租客首页、小程序首页与定位页（改版节奏与列表信息密度）。</li>
+      <li><b>第 4 步</b>：其余列表 / 详情 / 表单按同一套令牌做批量替换与状态态收敛。</li>
+    </ul>
+  </div>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    说明：01–04 的“改前”为本地 dev server（localhost:3000）+ 种子数据真实截图；04 展示的是实际邮箱登录表单屏。
+    App 与小程序无法在本次环境内启动真机渲染，05–08 及全部“改后”均为按真实视口与设计令牌复刻的重构示意，不代表线上现状。
+  </div>
+</footer>
+
+</body>
+</html>

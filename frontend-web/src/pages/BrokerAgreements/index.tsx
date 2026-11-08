@@ -211,7 +211,7 @@ const BrokerAgreements = () => {
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         footer={null}
-        width={720}
+        width={880}
         title={detail?.title || t('brokerAgreements.preview')}
       >
         {detail && (

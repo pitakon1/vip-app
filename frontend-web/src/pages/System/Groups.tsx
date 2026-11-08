@@ -201,7 +201,7 @@ const Groups = () => {
         title={t('systemGroups.drawerTitle', { name: drawerGroup?.name || '' })}
         open={!!drawerGroup}
         onClose={() => setDrawerGroup(null)}
-        width={420}
+        width={480}
       >
         <Form form={memberForm} layout="inline" style={{ marginBottom: 20 }}>
           <Form.Item name="user_id" style={{ flex: 1 }}>

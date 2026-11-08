@@ -13,14 +13,16 @@ export function useCommissionRulesList() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
 
-  // 规则列表：缓存优先渲染 + 后台刷新（与其余页面策略一致）
-  const rulesQ = useCachedQuery<CommissionRule[]>({
-    queryKey: ['commission-rules', 'list'],
-    cacheKey: 'commission-rules:list',
+  // 规则列表：服务端分页（FE-08：只消费服务端 total，不再用本页数组长度冒充总数）
+  const rulesQ = useCachedQuery<{ items: CommissionRule[]; total: number }>({
+    queryKey: ['commission-rules', 'list', String(page)],
+    cacheKey: `commission-rules:list:${page}`,
     queryFn: async () => {
-      const res = await commissionRulesApi.list()
+      const res = await commissionRulesApi.list({ page, page_size: LIST_PAGE_SIZE })
       const payload = res.data?.data ?? res.data
-      return payload?.items ?? payload ?? []
+      const items: CommissionRule[] = payload?.items ?? payload ?? []
+      const total = Number(payload?.total ?? items.length)
+      return { items, total }
     },
   })
   // 员工 / 分销商下拉：非关键数据，失败静默降级为空
@@ -51,7 +53,8 @@ export function useCommissionRulesList() {
     },
   })
 
-  const items = rulesQ.data ?? []
+  const items = rulesQ.data?.items ?? []
+  const total = rulesQ.data?.total ?? 0
   const employees = employeesQ.data ?? []
   const brokers = brokersQ.data ?? []
   const loading = rulesQ.isPending && !rulesQ.data
@@ -65,10 +68,10 @@ export function useCommissionRulesList() {
     }
   }, [rulesQ.isError, rulesQ.error, t])
 
-  // 前端本地分页（规则量小，保持现有接口不变）
+  // 服务端分页：本页即服务端返回的一页，页码/总数都来自服务端 total
   const pageSize = LIST_PAGE_SIZE
-  const pageCount = Math.max(1, Math.ceil(items.length / pageSize))
-  const pagedItems = items.slice((page - 1) * pageSize, page * pageSize)
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const pagedItems = items
 
   // 删除/禁用后当前页可能超出范围，自动回退到可用的最后一页
   useEffect(() => {
@@ -77,6 +80,7 @@ export function useCommissionRulesList() {
 
   return {
     items,
+    total,
     employees,
     brokers,
     loading,

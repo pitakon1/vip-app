@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>修复后复查 · 阶段 0/1 目标达成情况</title>
+<style>
+  :root {
+    --bg: #fbf9f6; --card: #fff; --ink: #1c2733; --ink-2: #55606c; --ink-3: #8a94a0;
+    --border: #ece7df; --primary-ink: #0f766e; --warn-bg: #fdf5e9; --warn-ink: #a64c07; --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 56px 32px 96px; }
+  .eyebrow { display: inline-block; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--primary-ink); background: rgba(20,184,166,.10); padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+  h1 { font-size: 40px; line-height: 1.15; letter-spacing: -.02em; margin: 16px 0 12px; }
+  .lede { font-size: 16px; color: var(--ink-2); max-width: 780px; margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 22px; font-size: 13px; color: var(--ink-2); }
+  .meta span { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 4px 10px; }
+  section { margin-top: 48px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .sec-head h2 { font-size: 24px; margin: 0; letter-spacing: -.02em; }
+  .sec-head .badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: rgba(20,184,166,.10); color: var(--primary-ink); }
+  .sec-desc { font-size: 14px; color: var(--ink-2); margin: 0 0 20px; }
+  .grid { display: grid; gap: 24px; }
+  .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-app { grid-template-columns: repeat(2, minmax(0, 430px)); }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(28,39,51,.04); }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { padding: 14px 16px 16px; }
+  .cap-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .cap-top b { font-size: 15px; }
+  .verdict { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .pass { background: rgba(21,128,61,.10); color: var(--ok); }
+  .partial { background: var(--warn-bg); color: var(--warn-ink); }
+  .cap-body { font-size: 13px; color: var(--ink-2); margin: 0; }
+  .cap-body code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #f3f0ea; border-radius: 4px; padding: 1px 5px; color: var(--ink); }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(3,105,161,.10); color: #0369a1; }
+  .note { background: var(--warn-bg); border: 1px solid #f4d9ad; color: var(--warn-ink); border-radius: 14px; padding: 14px 16px; font-size: 13px; }
+  h3 { font-size: 20px; margin: 0 0 16px; letter-spacing: -.01em; }
+  .issues { display: grid; gap: 12px; }
+  .issue { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--primary-ink); border-radius: 12px; padding: 14px 18px; }
+  .issue[data-level="mid"] { border-left-color: var(--warn-ink); }
+  .issue__head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .issue__head strong { font-size: 15px; }
+  .level { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(15,118,110,.10); color: var(--primary-ink); }
+  .level.mid { background: rgba(166,76,7,.10); color: var(--warn-ink); }
+  .issue p { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+  footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--ink-3); }
+  @media (max-width: 900px) { .wrap { padding: 32px 18px 64px; } h1 { font-size: 30px; } .grid-2, .grid-app { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Design Review · After 2</span>
+    <h1>修复后复查：改动是否真正落到页面上</h1>
+    <p class="lede">这一轮把 Web 的视觉规则迁到真实 DOM 类名、清掉两套死样式、缺封面统一暖灰占位、修 Expo Web 底部 Tab 裁切。以下是重新截取的真实页面，以及每张图是否达到阶段 1 目标的判定。</p>
+    <div class="meta">
+      <span>Web：vite dev + 真实 API，1440×900</span>
+      <span>App：Expo Web 渲染（非真机）</span>
+      <span>截图时间 2026-11-07</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head"><h2>Web 真实页面</h2><span class="badge">已复验 computed style</span></div>
+    <p class="sec-desc">三页都改用真实渲染的 <code>rent-search-hero</code> / <code>rent-prop-search-card</code> / <code>pub-*</code> 类名，浏览器实测颜色已记录在 <code>evidence.json</code>。</p>
+    <div class="grid grid-2">
+      <figure>
+        <img src="web-home.png" alt="Web 公开首页" />
+        <figcaption>
+          <div class="cap-top"><b>公开首页</b><span class="verdict pass">达成</span></div>
+          <p class="cap-body">装饰圆 0 个；副标题 <code>rgb(11,47,43)</code>（5.80:1，达 AA）；标签改浅底深墨；缺封面卡片底色 <code>#f0ece5</code>。</p>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="web-listings.png" alt="Web 公开房源列表" />
+        <figcaption>
+          <div class="cap-top"><b>公开房源列表</b><span class="verdict pass">达成</span></div>
+          <p class="cap-body">与首页共用同一套 hero 规则，装饰圆已消失、副标题达 AA；卡片封面统一为暖灰 + 低对比户型剪影。</p>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="web-detail.png" alt="Web 房源详情" />
+        <figcaption>
+          <div class="cap-top"><b>房源详情</b><span class="verdict pass">达成（价格）</span></div>
+          <p class="cap-body">标题 24px/600；月租 <code>rgb(15,118,110)</code>（5.42:1，主色强调）；画廊空态为暖灰 <code>#f4f1ec</code>。此前判定"价格灰色"是误读了单价行，主价格一直是强调色。</p>
+        </figcaption>
+      </figure>
+    </div>
+    <div class="note" style="margin-top:18px">
+      <b>数据限制：</b>全库 25 条房源的 <code>cover</code> 与 <code>photos</code> 均为空（详情接口 <code>photo_count = 0</code>），没有"有封面的房源"可选，所以详情页只能展示暖灰空态，无法复验照片画廊。需要补一条带图的演示数据后再看。
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>App（Expo Web）</h2><span class="badge" style="background:rgba(3,105,161,.10);color:#0369a1">非真机</span></div>
+    <p class="sec-desc">底部 Tab 裁切已定位为 Web 布局问题：默认 49px 高度容纳不下 27px 图标 + 18px 标签，标签被压到 7–10px。修复只在 <code>Platform.OS === 'web'</code> 生效，native 仍走安全区默认值。</p>
+    <div class="grid grid-app">
+      <figure>
+        <img src="app-admin-home.png" alt="App 管理员首页" />
+        <figcaption>
+          <div class="cap-top"><b>管理员首页</b><span class="verdict pass">已修复 Tab</span></div>
+          <p class="cap-body">Tab 栏 64px，标签框高 13px（行高 14），实测 876→889 完全落在栏内，不再裁切。</p>
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="app-tenant-home.png" alt="App 租客首页" />
+        <figcaption>
+          <div class="cap-top"><b>租客首页</b><span class="verdict pass">已修复 Tab</span></div>
+          <p class="cap-body">同一套 Tab 修复生效；房源卡占位本来就是中性浅灰（RemoteImage 内置），无需改动。</p>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h3>本轮代码改动</h3>
+    <div class="issues">
+      <div class="issue">
+        <div class="issue__head"><span class="level">已完成</span><strong>视觉规则迁到真实类名</strong></div>
+        <p><code>prototype-portal.css</code>：删掉 hero 三个装饰圆，副标题与标签改深墨，新增 <code>[data-photo='false']</code> 暖灰占位；JSX 移除装饰 span 与按 id 生成的色块。</p>
+      </div>
+      <div class="issue">
+        <div class="issue__head"><span class="level">已完成</span><strong>清掉两套死样式</strong></div>
+        <p><code>home.css</code> 593→54 行（删 <code>.bk-*</code>），<code>public-listings.css</code> 799→383 行（删 <code>.pl-*</code>），只保留仍在用的 <code>rent-goldnav</code> 与筛选弹层/视频标记。</p>
+      </div>
+      <div class="issue">
+        <div class="issue__head"><span class="level">已完成</span><strong>缺封面统一暖灰占位</strong></div>
+        <p>Web 首页/列表去掉了 <code>bannerColorFor</code> 的高饱和色；小程序 <code>.rv-prop__img</code> 从青色底改 <code>--surface-3</code> 并给图标 0.35 透明度；App 原本就是中性占位，未改。</p>
+      </div>
+      <div class="issue" data-level="mid">
+        <div class="issue__head"><span class="level mid">保留</span><strong>App 430 宽地址截断</strong></div>
+        <p>房源卡地址仍按单行省略（"Sukhumvit Soi 24, Suite D-016, B…"），属于卡片宽度与信息取舍，本轮未动，等确认是否要允许两行。</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Playwright 实测 computed style 存于 <code>evidence.json</code>。构建：Web <code>npm run build</code> ✓ 8.62s、App <code>npx tsc --noEmit</code> ✓ 0、小程序 <code>npm run build:weapp</code> ✓ 25.94s。未改后端逻辑，未执行 git add / commit。
+  </footer>
+</div>
+</body>
+</html>

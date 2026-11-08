@@ -24,6 +24,56 @@ interface DataStateProps {
   onRetry?: () => void
 }
 
+type StateIconKind = 'forbidden' | 'notFound' | 'error' | 'filtered' | 'empty'
+
+/** 空/错状态图标：用 SVG 替代 ⨯ ? ! ⌕ ○，避免不同字体下字形与基线不一致 */
+function StateIcon({ kind }: { kind: StateIconKind }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {kind === 'forbidden' && (
+        <>
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </>
+      )}
+      {kind === 'notFound' && (
+        <>
+          <path d="M9.09 9a3 3 0 1 1 4.6 2.5c-.9.6-1.7 1.2-1.7 2.5" />
+          <path d="M12 17h.01" />
+        </>
+      )}
+      {kind === 'error' && (
+        <>
+          <path d="M12 8v5" />
+          <path d="M12 17h.01" />
+        </>
+      )}
+      {kind === 'filtered' && (
+        <>
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.6-3.6" />
+        </>
+      )}
+      {kind === 'empty' && (
+        <>
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 /**
  * 列表/面板统一的三态：加载中（骨架）/ 加载失败（可重试）/ 空数据。
  *
@@ -54,7 +104,8 @@ export default function DataState({
     )
   }
   if (error) {
-    const icon = errorKind === 'forbidden' ? '⨯' : errorKind === 'notFound' ? '?' : '!'
+    const iconKind: StateIconKind =
+      errorKind === 'forbidden' ? 'forbidden' : errorKind === 'notFound' ? 'notFound' : 'error'
     // 403/404 重试无意义，避免用「重试」把权限/地址问题伪装成临时故障
     const showRetry = onRetry && errorKind !== 'forbidden' && errorKind !== 'notFound'
     return (
@@ -64,7 +115,7 @@ export default function DataState({
         data-kind={errorKind}
       >
         <div className="rent-state__icon" aria-hidden="true">
-          {icon}
+          <StateIcon kind={iconKind} />
         </div>
         <div className="rent-state__title" style={{ color: 'var(--rent-danger)' }}>
           {error}
@@ -81,7 +132,7 @@ export default function DataState({
   return (
     <div className="rent-empty rent-state rent-state--empty" data-filtered={filtered ? 'true' : 'false'}>
       <div className="rent-state__icon" aria-hidden="true">
-        {filtered ? '⌕' : '○'}
+        <StateIcon kind={filtered ? 'filtered' : 'empty'} />
       </div>
       {emptyTitle ? <div className="rent-state__title">{emptyTitle}</div> : null}
       {emptySub ? <div className="rent-state__sub">{emptySub}</div> : null}

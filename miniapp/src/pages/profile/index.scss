@@ -33,7 +33,6 @@
   background-color: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
 
   /* 列表型卡片：行自带上下内边距，左右内边距与 App Card 一致 */
   &--list {
@@ -74,7 +73,6 @@
   background-color: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
 
   .avatar--lg {
     width: 112rpx;
@@ -410,14 +408,14 @@
   }
 
   &__input {
-    height: 80rpx;
-    line-height: 80rpx;
+    height: 88rpx;
+    line-height: 88rpx;
     padding: 0 24rpx;
     font-size: 28rpx;
     color: var(--ink);
     background-color: var(--bg);
     border: 1rpx solid var(--line);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
   }
 
   &__input--error {

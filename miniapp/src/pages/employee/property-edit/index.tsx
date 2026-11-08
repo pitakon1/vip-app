@@ -64,6 +64,9 @@ const PROPERTY_TYPES = [
 ]
 
 const num = (v: unknown) => {
+  // Number('') / Number(null) 都是 0，会把「未填写」静默写成 0。
+  // 空值必须视为 undefined（PATCH 时该字段不下发，保持原值/NULL）。
+  if (v === '' || v === null || v === undefined) return undefined
   const n = Number(v)
   return Number.isFinite(n) ? n : undefined
 }
@@ -175,7 +178,8 @@ export default function EmployeePropertyEditPage() {
         currency: form.currency,
         building: form.building,
         floor: num(form.floor),
-        available_from: form.available_from,
+        // 后端是 Optional[datetime]：空字符串会触发 422，整单保存失败。
+        available_from: form.available_from || undefined,
         furnished: !!form.furnished,
         orientation: form.orientation || undefined,
         decoration: form.decoration || undefined,

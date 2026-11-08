@@ -15,7 +15,9 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-/** 统一空态/失败态：图标 + 主文案 + 副文案 + 可选操作，避免裸文字空占位 */
+/** 统一空态/失败态：图标 + 主文案 + 副文案 + 可选操作，避免裸文字空占位。
+ *  与 Web `DataState`（.rent-state）同构：44 圆形描边图标 + 标题 + 副文案 + 可选操作，
+ *  仅按移动端令牌换算尺寸，不共享组件。 */
 export default function EmptyState({
   icon,
   title,
@@ -27,10 +29,14 @@ export default function EmptyState({
   const resolvedIcon = icon ?? (tone === 'error' ? 'alert-circle-outline' : 'file-tray-outline');
   return (
     <View style={styles.wrap} accessibilityRole={tone === 'error' ? 'alert' : undefined}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={resolvedIcon} size={30} color={colors.mutedForeground} />
+      <View style={[styles.iconWrap, tone === 'error' && styles.iconWrapError]}>
+        <Ionicons
+          name={resolvedIcon}
+          size={20}
+          color={tone === 'error' ? colors.error : colors.ink3}
+        />
       </View>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, tone === 'error' && styles.titleError]}>{title}</Text>
       {sub ? <Text style={styles.sub}>{sub}</Text> : null}
       {actionLabel && onAction ? (
         <TouchableOpacity style={styles.action} onPress={onAction} activeOpacity={0.8}>
@@ -45,24 +51,30 @@ const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: colors.spacing.xxxl * 2,
-    paddingHorizontal: colors.spacing.xxl,
+    paddingVertical: colors.spacing.huge,
+    paddingHorizontal: colors.spacing.xl,
   },
   iconWrap: {
-    width: 72,
-    height: 72,
+    width: 44,
+    height: 44,
     borderRadius: colors.radius.full,
-    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.line,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: colors.spacing.xl,
+    marginBottom: colors.spacing.md,
+  },
+  iconWrapError: {
+    borderColor: colors.error,
   },
   title: {
-    fontSize: colors.fontSize.lg,
-    lineHeight: colors.lineHeight.relaxed,
+    fontSize: colors.fontSize.base,
+    lineHeight: colors.lineHeight.snug,
     color: colors.ink,
-    fontWeight: colors.fontWeight.bold,
-    letterSpacing: -0.1,
+    fontWeight: colors.fontWeight.semibold,
+  },
+  titleError: {
+    color: colors.error,
   },
   sub: {
     fontSize: colors.fontSize.sm,
@@ -73,7 +85,7 @@ const styles = StyleSheet.create({
   },
   action: {
     minHeight: colors.touch.min,
-    marginTop: colors.spacing.xxl,
+    marginTop: colors.spacing.lg,
     backgroundColor: colors.primary,
     paddingVertical: colors.spacing.md,
     paddingHorizontal: colors.spacing.xxl,

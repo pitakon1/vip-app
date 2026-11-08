@@ -1,4 +1,4 @@
-﻿import { COUNT_ONLY_PAGE_SIZE, DETAIL_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { COUNT_ONLY_PAGE_SIZE, DETAIL_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,

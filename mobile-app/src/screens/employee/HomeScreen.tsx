@@ -76,10 +76,10 @@ interface AgendaEvent {
 }
 
 const AGENDA_META: Record<AgendaKind, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  viewing: { label: '带看', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.12), icon: 'eye-outline' },
-  rent: { label: '租金', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12), icon: 'wallet-outline' },
-  contract: { label: '合同', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12), icon: 'document-text-outline' },
-  user: { label: '日程', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12), icon: 'calendar-outline' },
+  viewing: { label: '带看', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.12), icon: 'eye-outline' },
+  rent: { label: '租金', color: colors.warningInk, bg: colors.alpha(colors.warningRgb, 0.12), icon: 'wallet-outline' },
+  contract: { label: '合同', color: colors.infoInk, bg: colors.alpha(colors.infoRgb, 0.12), icon: 'document-text-outline' },
+  user: { label: '日程', color: colors.successInk, bg: colors.alpha(colors.successRgb, 0.12), icon: 'calendar-outline' },
 };
 
 const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
@@ -109,10 +109,10 @@ const buildMonthDays = (year: number, month: number) => {
 
 const VIEWING_STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   pending: { label: '待确认', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
-  confirmed: { label: '待开始', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primary },
-  completed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.success },
+  confirmed: { label: '待开始', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
+  completed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
   cancelled: { label: '已取消', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
-  no_show: { label: '爽约', bg: colors.alpha(colors.errorRgb, 0.12), color: colors.error },
+  no_show: { label: '爽约', bg: colors.alpha(colors.errorRgb, 0.12), color: colors.errorInk },
 };
 
 const getStatusMeta = (status?: string | null) =>
@@ -128,10 +128,10 @@ const toTime = (dt: Date | null) =>
 // 客户线索阶段（后端 LeadStage 枚举）
 const LEAD_STAGE_META: Record<string, { label: string; bg: string; color: string }> = {
   inquiring: { label: '咨询中', bg: colors.alpha('148, 163, 184', 0.14), color: colors.ink2 },
-  viewing_scheduled: { label: '看房中', bg: colors.alpha(colors.infoRgb, 0.12), color: colors.info },
-  negotiating: { label: '谈判中', bg: colors.alpha(colors.warningRgb, 0.12), color: colors.warning },
-  pending_contract: { label: '待签约', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primary },
-  closed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.success },
+  viewing_scheduled: { label: '看房中', bg: colors.alpha(colors.infoRgb, 0.12), color: colors.infoInk },
+  negotiating: { label: '谈判中', bg: colors.alpha(colors.warningRgb, 0.12), color: colors.warningInk },
+  pending_contract: { label: '待签约', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
+  closed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
 };
 
 const getLeadStageMeta = (stage?: string | null) =>
@@ -681,7 +681,7 @@ export default function HomeScreen() {
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>待跟进客户</Text>
           <View style={[styles.countBadge, styles.countBadgeWarn]}>
-            <Text style={[styles.countBadgeText, { color: colors.warning }]}>
+            <Text style={[styles.countBadgeText, { color: colors.warningInk }]}>
               {leads.length} 位
             </Text>
           </View>
@@ -744,7 +744,7 @@ export default function HomeScreen() {
       <View style={styles.chartCard}>
         <View style={styles.chartKeyRow}>
           <View style={styles.chartKeyCell}>
-            <Text style={[styles.chartKeyValue, { color: colors.primary }]}>
+            <Text style={[styles.chartKeyValue, { color: colors.primaryText }]}>
               {perf?.month_deals ?? 0}
               <Text style={styles.chartKeyUnit}> 单</Text>
             </Text>
@@ -781,7 +781,7 @@ export default function HomeScreen() {
                 <View
                   style={[
                     styles.chartBar,
-                    { height: b.height, backgroundColor: b.isCurrent ? colors.primary : colors.alpha(colors.primaryRgb, 0.32) },
+                    { height: b.height, backgroundColor: b.isCurrent ? colors.primaryText : colors.alpha(colors.primaryRgb, 0.32) },
                   ]}
                 />
               </View>
@@ -808,13 +808,13 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  /* ===== 问候行（品牌色底 + 白字） ===== */
+  /* ===== 问候行（品牌色底 + 深墨字） ===== */
   greeting: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    marginHorizontal: 20,
+    marginHorizontal: colors.spacing.lg,
     marginTop: 16,
     marginBottom: 16,
     padding: 16,
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   greetingLeft: { flex: 1, minWidth: 0 },
-  greetingSub: { fontSize: 13, color: colors.alpha('255, 255, 255', 0.85), marginTop: 2 },
+  greetingSub: { fontSize: 13, color: colors.primaryForeground, marginTop: 2 },
   greetingAvatar: {
     width: 36,
     height: 36,
@@ -839,18 +839,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: colors.spacing.lg,
     marginTop: 4,
     marginBottom: 12,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   blockTitle: {
-    fontSize: 17,
+    fontSize: colors.fontSize.title,
     fontWeight: '700',
     color: colors.ink,
     letterSpacing: -0.2,
-    paddingHorizontal: 20,
+    paddingHorizontal: colors.spacing.lg,
     marginTop: 4,
     marginBottom: 12,
   },
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   },
   chartMore: {
     fontSize: 13,
-    color: colors.primary,
+    color: colors.primaryText,
     fontWeight: '600',
     marginTop: 4,
     marginBottom: 12,
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   countBadgeWarn: { backgroundColor: colors.alpha(colors.warningRgb, 0.1) },
-  countBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.primary, fontVariant: ['tabular-nums'], lineHeight: colors.lineHeight.tight},
+  countBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', color: colors.primaryText, fontVariant: ['tabular-nums'], lineHeight: colors.lineHeight.tight},
   newBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
 
   /* ===== 今日工作台时间线 ===== */
   timelineCard: {
-    marginHorizontal: 20,
+    marginHorizontal: colors.spacing.lg,
     marginBottom: 20,
     paddingHorizontal: 16,
     paddingBottom: 4,
@@ -910,18 +910,18 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
-  timelineRangeActive: { color: colors.primary },
+  timelineRangeActive: { color: colors.primaryText },
   timelineHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   timelineBody: { flex: 1, minWidth: 0 },
   timelineName: { fontSize: 15, fontWeight: '600', color: colors.ink },
   timelineProp: { fontSize: 13, color: colors.ink3, marginTop: 2 },
   scheduleEmpty: { alignItems: 'center', paddingVertical: 28, gap: 6 },
   scheduleEmptyText: { fontSize: 13, color: colors.ink3 },
-  scheduleEmptyLink: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  scheduleEmptyLink: { fontSize: 13, fontWeight: '600', color: colors.primaryText },
 
   /* ===== 待跟进客户列表 ===== */
   listCard: {
-    marginHorizontal: 20,
+    marginHorizontal: colors.spacing.lg,
     marginBottom: 20,
     paddingHorizontal: 16,
     backgroundColor: colors.surface,
@@ -955,11 +955,11 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
   },
-  followBtnText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  followBtnText: { fontSize: 12, fontWeight: '700', color: colors.primaryText },
 
   /* ===== 业绩摘要图表卡片 ===== */
   chartCard: {
-    marginHorizontal: 20,
+    marginHorizontal: colors.spacing.lg,
     marginBottom: 20,
     padding: 16,
     backgroundColor: colors.surface,
@@ -973,7 +973,7 @@ const styles = StyleSheet.create({
   chartKeyDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   chartKeyValue: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   chartTitle: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
-  chartTitleDelta: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  chartTitleDelta: { fontSize: 12, fontWeight: '600', color: colors.primaryText },
   chartWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   chartCol: { flex: 1, alignItems: 'center', gap: 4 },
   chartBarValue: {
@@ -1002,7 +1002,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
-  chartBarValueActive: { color: colors.primary },
+  chartBarValueActive: { color: colors.primaryText },
   chartBarTrack: {
     height: 64,
     width: 18,
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: colors.radius.sm,
   },
   chartBarLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
-  chartBarLabelActive: { color: colors.primary, fontWeight: '700' },
+  chartBarLabelActive: { color: colors.primaryText, fontWeight: '700' },
   chartDeltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  chartDelta: { fontSize: 12, fontWeight: '600', color: colors.success },
+  chartDelta: { fontSize: 12, fontWeight: '600', color: colors.successInk },
   chartDeltaMuted: { fontSize: 12, color: colors.ink3 },
 
   /* ===== 首页日历 ===== */
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
   },
   calMonthBtn: { alignItems: 'center' },
   calMonthText: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  calTodayText: { fontSize: colors.fontSize.xs, color: colors.primary, marginTop: 1, lineHeight: colors.lineHeight.tight},
+  calTodayText: { fontSize: colors.fontSize.xs, color: colors.primaryText, marginTop: 1, lineHeight: colors.lineHeight.tight},
   calWeekRow: { flexDirection: 'row', paddingTop: 8, paddingHorizontal: 6 },
   calWeekDay: {
     flex: 1,
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   calDayNumMuted: { color: colors.ink3, opacity: 0.45 },
   calDayNumSelected: { color: colors.primaryForeground, fontWeight: '700' },
-  calDayNumToday: { color: colors.primary, fontWeight: '800' },
+  calDayNumToday: { color: colors.primaryText, fontWeight: '700' },
   calDots: { flexDirection: 'row', gap: 2, marginTop: 3 },
   calDot: { width: 4, height: 4, borderRadius: 2 },
   calCountText: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 1, lineHeight: colors.lineHeight.tight},

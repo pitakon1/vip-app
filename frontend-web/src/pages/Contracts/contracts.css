@@ -101,8 +101,8 @@
 }
 .rent-field-placed--signed {
   border-style: solid;
-  border-color: #10b981;
-  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--state-success);
+  background: rgba(var(--state-success-rgb), 0.1);
 }
 .rent-field-placed__tag {
   position: absolute;
@@ -117,8 +117,8 @@
   white-space: nowrap;
 }
 .rent-field-placed--signed .rent-field-placed__tag {
-  color: #10b981;
-  border-color: #10b981;
+  color: var(--state-success-ink);
+  border-color: var(--state-success);
 }
 .rent-field-placed__party {
   font-size: 10px;

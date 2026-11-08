@@ -1,4 +1,4 @@
-﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { BANGKOK_CENTER } from '@/constants/location';
 /**
  * 管理端「考勤管理」（对标企业微信考勤应用，四个页签）：
@@ -1724,7 +1724,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: 16,
-    ...colors.shadow.card,
   },
   cardHeadRow: {
     flexDirection: 'row',
@@ -1868,7 +1867,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: 14,
-    ...colors.shadow.card,
   },
   kpiLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
   kpiValue: {
@@ -1985,21 +1983,21 @@ const styles = StyleSheet.create({
   },
   sheetCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: colors.radius.xxl,
-    borderTopRightRadius: colors.radius.xxl,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     maxHeight: '88%',
   },
   sheetHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: colors.spacing.lg,
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  sheetBody: { paddingHorizontal: 20 },
+  sheetBody: { paddingHorizontal: colors.spacing.lg },
   sheetBodyContent: { paddingBottom: 8 },
-  sheetFooter: { paddingHorizontal: 20, paddingVertical: 14 },
+  sheetFooter: { paddingHorizontal: colors.spacing.lg, paddingVertical: 14 },
 });

@@ -188,7 +188,8 @@
   background: transparent;
   border-radius: var(--rent-radius-sm);
   cursor: pointer;
-  transition: all var(--motion-fast);
+  transition: background-color var(--motion-fast), color var(--motion-fast),
+    box-shadow var(--motion-fast);
   font-family: var(--rent-font-sans);
 }
 .rent-chart-range:hover { color: var(--rent-ink); }
@@ -333,4 +334,13 @@
 @media (max-width: 480px) {
   .rent-my__grid { grid-template-columns: repeat(2, 1fr); }
   .rent-my__stats { grid-template-columns: 1fr; }
+}
+
+/* ===== antd 浮层圆角统一（Modal / Drawer 走设计令牌 xl）===== */
+.ant-modal .ant-modal-content {
+  border-radius: var(--rent-radius-xl);
+  overflow: hidden;
+}
+.ant-drawer .ant-drawer-content {
+  border-radius: var(--rent-radius-xl) 0 0 var(--rent-radius-xl);
 }

@@ -91,5 +91,8 @@ export const rentTheme: ThemeConfig = {
     Badge: { borderRadiusSM: 6 },
     Tag: { borderRadiusSM: 6 },
     Statistic: { contentFontSize: 28 },
+    /* Modal / Drawer 属于浮层，圆角取 Web 的 xl 档（20），与卡片 lg（14）区分 */
+    Modal: { borderRadiusLG: 20 },
+    Drawer: { borderRadiusLG: 20 },
   },
 }

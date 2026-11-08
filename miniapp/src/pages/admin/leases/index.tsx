@@ -89,7 +89,9 @@ export default function AdminLeasesPage() {
       }
       setTotal(t)
       setPage(p)
-      setHasMore(items.length >= PAGE_SIZE && list.length + items.length < t)
+      // 刷新第 1 页时闭包里的 list.length 是上一批数据，不能拿来判断"还有下一页"
+      const loadedCount = append ? list.length + items.length : items.length
+      setHasMore(loadedCount < t)
     } catch (error) {
       console.error('[AdminLeases] 获取合同失败', error)
       if (!append) setLoadError(true)

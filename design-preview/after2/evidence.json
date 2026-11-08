@@ -1,0 +1,163 @@
+{
+  "home": {
+    "decorCount": 0,
+    "subtitle": {
+      "color": "rgb(11, 47, 43)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "16px",
+      "weight": "400"
+    },
+    "tag": {
+      "color": "rgb(11, 47, 43)",
+      "bg": "rgba(255, 255, 255, 0.55)",
+      "fs": "13px",
+      "weight": "500"
+    },
+    "noPhotoBanner": {
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgb(240, 236, 229)",
+      "fs": "14px",
+      "weight": "400"
+    },
+    "cardPrice": {
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "14px",
+      "weight": "400"
+    }
+  },
+  "listings": {
+    "decorCount": 0,
+    "subtitle": {
+      "color": "rgb(11, 47, 43)",
+      "bg": "rgba(0, 0, 0, 0)"
+    },
+    "noPhotoBanner": {
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgb(240, 236, 229)"
+    }
+  },
+  "detail": {
+    "title": {
+      "text": "The River condos",
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "24px",
+      "weight": "600"
+    },
+    "priceMain": {
+      "text": "฿30,000",
+      "color": "rgb(15, 118, 110)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "26px",
+      "weight": "500"
+    },
+    "gallery": {
+      "text": "暂无图片",
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgb(244, 241, 236)",
+      "fs": "14px",
+      "weight": "400"
+    },
+    "empty": {
+      "text": "暂无图片",
+      "color": "rgb(85, 96, 108)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "13px",
+      "weight": "400"
+    }
+  },
+  "webErrors": [],
+  "app-admin-home.png": {
+    "viewportH": 900,
+    "tabbar": {
+      "top": 843,
+      "bottom": 894,
+      "h": 51
+    },
+    "labels": [
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      },
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      },
+      {
+        "t": "首页",
+        "r": {
+          "top": 876,
+          "bottom": 889,
+          "h": 13
+        },
+        "lh": "14px"
+      },
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      }
+    ]
+  },
+  "app-tenant-home.png": {
+    "viewportH": 900,
+    "tabbar": {
+      "top": 843,
+      "bottom": 894,
+      "h": 51
+    },
+    "labels": [
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      },
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      },
+      {
+        "t": "首页",
+        "r": {
+          "top": 876,
+          "bottom": 889,
+          "h": 13
+        },
+        "lh": "14px"
+      },
+      {
+        "t": "",
+        "r": {
+          "top": 849,
+          "bottom": 876,
+          "h": 27
+        },
+        "lh": "normal"
+      }
+    ]
+  }
+}

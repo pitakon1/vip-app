@@ -1,4 +1,4 @@
-﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { errorText } from '@/lib/errorText';
 /**
  * 房源台账：搜索 + 状态/排序筛选 + 结果统计 + 房源卡片（租客信息）+ 加载更多
@@ -1132,7 +1132,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: colors.spacing.md,
-    ...colors.shadow.card,
   },
   thumb: {
     width: 84,
@@ -1263,8 +1262,8 @@ const styles = StyleSheet.create({
   filterMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   filterSheet: {
     backgroundColor: colors.card,
-    borderTopLeftRadius: colors.radius.xxl,
-    borderTopRightRadius: colors.radius.xxl,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
     padding: colors.spacing.lg,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

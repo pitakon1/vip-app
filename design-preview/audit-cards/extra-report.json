@@ -1,0 +1,109 @@
+[
+  {
+    "role": "tenant",
+    "route": "/tenant/leases/21787a04-c6f3-45c0-9ef6-efd270e98e1d",
+    "name": "tenant-lease-detail.png",
+    "status": "ok",
+    "finalUrl": "/tenant/leases/21787a04-c6f3-45c0-9ef6-efd270e98e1d",
+    "total": 2,
+    "pageBg": "rgb(251, 249, 246)",
+    "noBoundary": [],
+    "shadowOnly": [],
+    "sample": [
+      {
+        "visible": true,
+        "w": 1120,
+        "h": 180,
+        "borderWidth": 1,
+        "borderColor": "rgb(236, 231, 223)",
+        "shadow": "none",
+        "bg": "rgb(255, 255, 255)",
+        "cls": "rent-card"
+      },
+      {
+        "visible": true,
+        "w": 1120,
+        "h": 261,
+        "borderWidth": 1,
+        "borderColor": "rgb(236, 231, 223)",
+        "shadow": "none",
+        "bg": "rgb(255, 255, 255)",
+        "cls": "rent-card"
+      }
+    ],
+    "errors": [],
+    "extra": [
+      "补查"
+    ]
+  },
+  {
+    "role": "tenant",
+    "route": "/tenant/deals/00000000-0000-0000-0000-000000000000",
+    "name": "tenant-deal-detail.png",
+    "status": "ok",
+    "finalUrl": "/tenant/deals/00000000-0000-0000-0000-000000000000",
+    "total": 1,
+    "pageBg": "rgb(251, 249, 246)",
+    "noBoundary": [],
+    "shadowOnly": [],
+    "sample": [
+      {
+        "visible": true,
+        "w": 1120,
+        "h": 104,
+        "borderWidth": 1,
+        "borderColor": "rgb(236, 231, 223)",
+        "shadow": "none",
+        "bg": "rgb(255, 255, 255)",
+        "cls": "rent-card"
+      }
+    ],
+    "errors": [],
+    "extra": [
+      "补查"
+    ]
+  },
+  {
+    "role": "public",
+    "route": "/map",
+    "name": "public-map.png",
+    "status": "ok",
+    "finalUrl": "/map",
+    "total": 0,
+    "pageBg": "rgb(251, 249, 246)",
+    "noBoundary": [],
+    "shadowOnly": [],
+    "sample": [],
+    "errors": [],
+    "extra": [
+      "补查"
+    ]
+  },
+  {
+    "role": "public",
+    "route": "/sign/invalid-token",
+    "name": "public-sign-invalid.png",
+    "status": "ok",
+    "finalUrl": "/sign/invalid-token",
+    "total": 1,
+    "pageBg": "rgb(251, 249, 246)",
+    "noBoundary": [],
+    "shadowOnly": [],
+    "sample": [
+      {
+        "visible": true,
+        "w": 1068,
+        "h": 118,
+        "borderWidth": 1,
+        "borderColor": "rgb(236, 231, 223)",
+        "shadow": "none",
+        "bg": "rgb(255, 255, 255)",
+        "cls": "rent-card"
+      }
+    ],
+    "errors": [],
+    "extra": [
+      "补查"
+    ]
+  }
+]

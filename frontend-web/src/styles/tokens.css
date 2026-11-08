@@ -19,16 +19,19 @@
 :root {
   /* ---- 语义色 ---- */
   --rent-background: #fbf9f6;
-  --rent-foreground: #16202b;
+  --rent-foreground: #1c2733;
   --rent-card: #ffffff;
-  --rent-card-foreground: #16202b;
+  --rent-card-foreground: #1c2733;
   --rent-popover: #ffffff;
-  --rent-popover-foreground: #16202b;
+  --rent-popover-foreground: #1c2733;
 
   /* 品牌主色：保持原值 #14b8a6，作为「面」使用（按钮底、Hero、选中底） */
   --rent-primary: #14b8a6;
   /* 主色底上的前景：深墨字（5.80:1），不再用白字（2.49:1） */
   --rent-primary-foreground: #0b2f2b;
+  /* 品牌绿作为「文字」落在白底时的深档：#0f766e 白底 5.42:1、浅青底 5.05:1，
+     满足正文 AA；仅用于文字/图标，主色 #14b8a6 仍只作「面」使用 */
+  --rent-primary-text: #0f766e;
   /* 交互态：hover/active 统一用更亮的同色系，保证深墨字仍 ≥4.5:1 */
   --rent-primary-hover: #2dd4bf;   /* 配深墨 7.75:1 */
   --rent-primary-active: #0fb3a3;  /* 配深墨 5.42:1 */
@@ -91,8 +94,10 @@
   --rent-tint: rgba(20, 184, 166, 0.045);
 
   /* ---- 补充中性色（媒体占位 / 浅色底）---- */
-  --rent-surface-3: #eef2f5;
-  --rent-tint-indigo: #f3f6ff;
+  /* 第三层中性底：暖灰（原 #eef2f5 为冷调 slate，与米白基底冲突） */
+  --rent-surface-3: #f0ece5;
+  /* 暖调浅底（原 tint-indigo #f3f6ff 为冷蓝，仅用于待办/提示类浅底） */
+  --rent-tint-warm: #fbf7ef;
   --rent-tint-teal: #f0fdfa;
 
   /* ---- 补充状态色（看板阶段 / 评分 / 状态点）---- */
@@ -183,9 +188,8 @@
   --rent-fw-bold: 700;     /* 标题 / 金额上限 */
   --rent-fw-display: 700;  /* 大数字，与 bold 同档，禁止 800 */
 
-  /* ---- 金额/数字（对齐）：文字用加深同色相，白底 3.85:1 仍不足，
-     金额作为大号加粗数字按大文本 3:1 计，若改成正文大小需用 --rent-ink ---- */
-  --rent-price: #0d9488;
+  /* ---- 金额/数字（文字用加深同色相 #0f766e，白底 5.42:1，正文 AA 达标）---- */
+  --rent-price: var(--rent-primary-text);
 
   /* ---- 半透明浅色文字最低透明度 ---- */
   --rent-text-on-brand: 0.9;

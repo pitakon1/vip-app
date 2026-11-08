@@ -45,7 +45,7 @@ interface DocItem {
 const TYPE_META: Record<string, { label: string; color: string; bg: string; icon: IoniconName }> = {
   contract: { label: '合同', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
   receipt: { label: '收据', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
-  inspection_photo: { label: '验房照片', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'image-outline' },
+  inspection_photo: { label: '验房照片', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'image-outline' },
   tax_invoice: { label: '税务发票', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
   wht_certificate: { label: '代扣税凭证', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
   other: { label: '其他', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },

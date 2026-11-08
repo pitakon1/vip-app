@@ -46,7 +46,6 @@
   border: 1px solid var(--rent-border);
   border-radius: var(--rent-radius-lg);
   overflow: hidden;
-  box-shadow: var(--rent-shadow-1);
 }
 .rent-card__header {
   display: flex;
@@ -199,11 +198,10 @@
 
 /* ===== 空态 / 失败态 ===== */
 .rent-empty {
-  padding: 48px 20px;
+  padding: 40px 20px;
   text-align: center;
   color: var(--rent-ink-3);
 }
-.rent-state { padding: 40px 20px; }
 .rent-state--loading { max-width: 760px; margin: 0 auto; text-align: left; }
 .rent-state__icon {
   width: 44px;

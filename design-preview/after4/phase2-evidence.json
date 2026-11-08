@@ -1,0 +1,8 @@
+{
+  "listCardHover": {
+    "boxShadow": "rgba(28, 39, 51, 0.14) 0px 10px 30px -10px",
+    "borderColor": "rgba(0, 0, 0, 0)",
+    "transform": "matrix(1, 0, 0, 1, 0, -6)"
+  },
+  "detailCard": null
+}

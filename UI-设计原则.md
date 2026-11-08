@@ -19,84 +19,84 @@
 
 所有端的所有组件，**禁止直接写十六进制颜色**，一律使用下列语义令牌。令牌名与含义已与 §5.1 的三端令牌文件对齐，跨端映射方式见第 5 节。
 
+> **本文只约定语义与用法，不重复列出数值。** 具体色值、圆角、阴影、字号一律以三端令牌文件（§5.1）为准；文档与代码冲突时以代码令牌为准。改令牌时只改令牌文件。
+
 ### 1.1 语义色
 
-| 令牌 | 值 | 用途 |
-|---|---|---|
-| `background` | `#fbf9f6` | 页面/列表底色（温暖米白） |
-| `foreground` | `#1c2733` | 全局文本主色 |
-| `card` | `#ffffff` | 卡片 / 弹层 / 输入框底 |
-| `card-foreground` | `#1c2733` | 卡片内文本主色 |
-| `popover` | `#ffffff` | 弹层底 |
-| `popover-foreground` | `#1c2733` | 弹层文本 |
-| `primary` | `#14b8a6` | 品牌主色（CTA、选中态、Tab 高亮、链接） |
-| `primary-hover` | `#0d9488` | 主色 hover/按下态（`accent` 同值） |
-| `primary-foreground` | `#ffffff` | 主色按钮上的文字/图标 |
-| `muted` | `#f3f1ec` | 弱化底（表头、占位区块、hover 底） |
-| `muted-foreground` | `#6b7280` | 弱化文本 |
-| `border` | `#ece7df` | 细边框、分隔线 |
-| `input` | `#ece7df` | 输入框描边 |
-| `ring` | `#14b8a6` | 焦点环 / 选中描边 |
-| `sidebar-active` | `#d9f2ee` | 导航选中底色（浅 teal） |
-| `surface-2` | `#f4f1ec` | 次级底、表头、选中底淡色 |
+| 令牌 | 用途 |
+|---|---|
+| `background` | 页面/列表底色（温暖米白） |
+| `foreground` | 全局文本主色（暖墨，三端统一） |
+| `card` / `card-foreground` | 卡片 / 弹层 / 输入框底及其文本 |
+| `popover` / `popover-foreground` | 弹层底及其文本 |
+| `primary` | 品牌主色，**仅作「面」**：CTA 底、选中底、Hero、进度条 |
+| `primary-foreground` | 主色底上的文字/图标（深墨；**禁止白字**，白字在品牌绿上仅 2.49:1） |
+| `primary-text` | 品牌绿作为「文字」落在白底时的深档（满足正文 AA） |
+| `primary-hover` / `primary-active` | 交互态（更亮的同色相，配深墨前景仍 ≥4.5:1） |
+| `muted` / `muted-foreground` | 弱化底（表头、占位区块、hover 底）/ 弱化文本 |
+| `border` / `input` | 细边框、分隔线 / 输入框描边 |
+| `ring` | 焦点环 / 选中描边（图形元素需 ≥3:1，比主色加深一档） |
+| `sidebar-active` | 导航选中底色（浅 teal） |
+| `surface-2` | 次级底、表头、选中底淡色 |
+| `surface-3` | 第三层中性底（媒体占位、骨架屏等） |
 
 ### 1.2 中性色阶梯（直接引用如 `ink` / `ink-2` / `ink-3`）
 
-| 令牌 | 值 | 用途 |
-|---|---|---|
-| `ink` | `#1c2733` | 标题、主文本、金额数字（暖墨） |
-| `ink-2` | `#55606c` | 正文、次级文本 |
-| `ink-3` | `#98a1ab` | 占位符、辅助说明、时间戳 |
-| `line` | `#ece7df` | 分割线、描边（暖描边） |
-| `surface` | `#ffffff` | 卡片/列表项白底 |
+| 令牌 | 用途 |
+|---|---|
+| `ink` | 标题、主文本、金额数字（暖墨） |
+| `ink-2` | 正文、次级文本 |
+| `ink-3` | 辅助说明、时间戳（满足 ≥4.5:1，可作正文） |
+| `ink-4` / `ink-disabled` | 占位符、禁用态、装饰；**禁止作为正文色** |
+| `line` | 分割线、描边（暖描边） |
+| `surface` | 卡片/列表项白底 |
 
 > `muted` / `surface-2` / `sidebar-active` 见 1.1，不在此重复定义。
 
 ### 1.3 状态色（仅语义状态使用，禁作装饰）
 
-| 令牌 | 值 | 用途 |
+| 令牌 | 用途 |
+|---|---|
+| `success` / `success-ink` | 成功、已签约、已收款 |
+| `warning` / `warning-ink` | 待办、即将到期、注意 |
+| `warning-soft` / `warning-light` | 预警卡/待办条的浅底 / 描边 |
+| `error` / `error-ink` / `error-hover` | 错误、欠费、失败 / 危险操作 hover |
+| `info` / `info-ink` | 信息、提示、进行中 |
+| `purple` | 合同/流程类中性紫（**唯一紫色**，禁另起 `#8b5cf6`） |
+
+对比度规则（见 2.4）：
+- 高饱和状态色（`success` / `warning` / `error` / `info`）**只作「面」**：徽章底、进度条、状态点。
+- 状态色作文字，或作为实心徽章底承载白字时，一律用对应的 `*-ink` 加深档（Web `--state-*-ink`、App `colors.*Ink`、小程序 `--*-ink`）。
+- 需要透明度叠加时统一用 `-rgb` 通道变量（如 `rgba(var(--success-rgb), 0.1)`），**不要新造浅底十六进制值**（如 `#e7f6ee` / `#fff6e6`）。
+
+### 1.4 圆角（各端独立阶梯，语义一致）
+
+三端**不共享具体像素值**（移动端需要更饱满的圆角），只共享语义档位。数值定义在各端令牌文件内，本文不再列出：
+
+| 端 | 令牌 | 令牌文件 |
 |---|---|---|
-| `success` | `#16a34a` | 成功、已签约、已收款 |
-| `warning` | `#d97706` | 待办、即将到期、注意 |
-| `warning-soft` | `#fdf5e9` | 预警卡/待办条的浅底 |
-| `warning-light` | `#f4d9ad` | 预警卡描边 |
-| `error` | `#dc2626` | 错误、欠费、失败 |
-| `error-hover` | `#b91c1c` | 危险操作 hover/按下态 |
-| `info` | `#0ea5e9` | 信息、提示、进行中 |
-| `purple` | `#7a5cd6` | 合同/流程类中性紫（**唯一紫色**，禁另起 `#8b5cf6`） |
+| Web | `--rent-radius-sm/md/lg/xl/full` | `frontend-web/src/styles/tokens.css` |
+| App | `colors.radius.sm/md/lg/xl/xxl/full` | `mobile-app/src/theme/colors.ts` |
+| 小程序 | `--radius-sm/md/lg/xl/full`（rpx） | `miniapp/src/app.scss` |
 
-状态色使用时注意对比度（见 2.4）。需要透明度叠加时统一用 `-rgb` 通道变量（如 `rgba(var(--success-rgb), 0.1)`），**不要新造浅底十六进制值**（如 `#e7f6ee` / `#fff6e6`）。
-
-### 1.4 圆角（温和阶梯，上限 24px）
-
-**基准值以 px 为准**，三端同名令牌必须映射到同一 px 值：
-
-| 令牌 | px（Web / RN） | 小程序（rpx，= px×2） | 用途 |
-|---|---|---|---|
-| `radius-sm` | `6` | `12rpx` | 小标签、日期格子 |
-| `radius-md` | `10` | `20rpx` | 按钮、输入框、筛选控件 |
-| `radius-lg` | `18` | `36rpx` | 卡片、弹层、房源卡 |
-| `radius-xl` | `24` | `48rpx` | Hero 大卡片、Banner |
-| `radius-full` | `9999` | `999rpx` | 胶囊、Badge、头像 |
-
-> ⚠️ 当前 `mobile-app` 的 `radius.lg = 14 / xl = 18 / xxl = 24`，`小程序` 的 `radius-sm..xl = 8/16/24/32rpx`（≈4/8/12/16px）**均低于基准一档**，需按上表对齐（见 §5.5）。
+> 组件只使用本端令牌中的档位，**禁止裸写表外圆角**（如 12px / 14px）。Web 的 `lg/xl` 与 App 的 `lg/xl/xxl` 不是同一像素值，**不要跨端套用**。
 
 ### 1.5 阴影（静态面 alpha ≤ 0.05；深阴影仅浮层）
 
-阴影色基准统一为**暖墨** `rgba(28, 39, 51, α)`（禁止旧的冷调 `rgba(15, 23, 42, α)`）。模糊/扩散值允许按平台微调（RN 用 elevation、小程序用 rpx），但**层级语义必须一致**：
+阴影色基准统一为**暖墨** `rgba(28, 39, 51, α)`（禁止旧的冷调 `rgba(15, 23, 42, α)`）。具体模糊/扩散值以各端令牌文件为准（Web `--rent-shadow-1..3`、App `colors.shadow.*`、小程序 `--shadow-*`），但**层级语义必须一致**：
 
-| 令牌 | Web（`--rent-shadow-*`） | 语义 |
-|---|---|---|
-| `shadow-1` | `0 1px 2px rgba(28,39,51,.04), 0 1px 3px rgba(28,39,51,.03)` | 静态卡片（α ≤ 0.05） |
-| `shadow-2` | `0 10px 30px -10px rgba(28,39,51,.14)` | 卡片悬浮 / hover |
-| `shadow-3` | `0 28px 70px -24px rgba(28,39,51,.26)` | Modal / 浮层 |
-| `shadow-primary` | `0 8px 24px -4px rgba(20,184,166,.35)` | 主色 CTA / Hero（品牌青绿投影） |
+| 层级 | 语义 |
+|---|---|
+| `shadow-1` / `shadow.sm` / `--shadow-sm` | 静态卡片（α ≤ 0.05） |
+| `shadow-2` / `shadow.md` / `--shadow-md` | 卡片悬浮 / hover |
+| `shadow-3` / `shadow.lg` / `--shadow-lg` | Modal / 浮层 |
+| `shadow-primary` | 主色 CTA / Hero（仅 CTA 使用） |
 
 > 副作用提醒：静态卡片优先"无阴影 + `border`"，只有需要浮起时才用 `shadow-2`，避免大面积散影。
 
-### 1.6 间距（8pt 网格）
+### 1.6 间距（4/8 网格）
 
-`4 · 8 · 12 · 16 · 24 · 32 · 48 · 80`（对应 `s-1`…`s-8`）。组件间间距、卡片内边距、列表行高都取自该刻度。
+间距刻度以各端令牌文件为准（Web `--rent-s-1..8`、App `colors.spacing`、小程序页面内 8rpx 倍数），语义顺序一致：**4 · 8 · 12 · 16 · 24 · 32 · 48 · 80**。组件间间距、卡片内边距、列表行高都从本端刻度中取值，禁止裸写表外数字。
 
 ---
 
@@ -121,7 +121,7 @@
 
 ### 2.4 可访问性
 - 正文文本对比度 ≥ 4.5:1；大号标题 ≥ 3:1。禁用"灰上加灰"（如 `ink-3` 文本放 `muted` 底上作正文）。
-- 正文最小字号 14px（RN 14 / 小程序 28rpx），辅助文本 12px；禁止低于 12px 的正文。
+- 正文最小字号以各端字号令牌为准（Web `--rent-fs-base`、App `colors.fontSize.base`、小程序 `28rpx`），辅助文本不小于 12px；禁止低于 12px 的正文。
 - 图标按钮必须有可读标签（accessibilityLabel / aria-label）或伴随文字。
 - 图标一律用 SVG/矢量图标组件，**禁用 emoji 作图标**。
 - 动效克制动：单次 200–350ms，尊重用户"减弱动态效果"系统设置（reduced motion）。
@@ -141,12 +141,12 @@
 | 次按钮 | 白底 + `border` 描边 + `ink` 文字 |
 | 危险按钮 | `error` 底 + 白字 |
 | 卡片 | 白底 + `border` 1px + `radius-lg`，内边距 16–20 |
-| Badge | `radius-full` 胶囊，状态色 10% 透明度底 + 状态色文字（如 `rgba(22,163,74,0.1)` + #16a34a） |
+| Badge | `radius-full` 胶囊，状态色 10% 透明度底 + 对应 `*-ink` 文字 |
 | 输入框 | 白底 + `border` 1px，聚焦时 `ring` 描边 + 3px `rgba(20,184,166,0.1)` 光环 |
-| 导航高亮 | 文字 `primary` + 底色 `sidebar-active`（Tab/胶囊） |
+| 导航高亮 | 文字 `ink` + 底色 `sidebar-active`（品牌绿在浅青底上仅 2.13:1，不作文字） |
 | 表头/分组底 | `surface-2` |
 | 分割线 | `line` 1px |
-| 空态 | 居中图标（浅色）+ 说明文字用 `ink-2`（`ink-3` 仅限占位/禁用） |
+| 空态 | 居中图标（浅色）+ 说明文字用 `ink-2`（`ink-3` 可作辅助，`ink-4` / `ink-disabled` 仅限占位/禁用） |
 
 ### 3.1 组件选型边界（B 端 / C 端）
 
@@ -205,20 +205,8 @@
 > 存量硬编码热点（待清理）：`tenant/PaymentsScreen.tsx`、`tenant/MaintenanceScreen.tsx`（浅底 `#fff6e6/#e7f6ee/#fdecec/#e6f4fd/#f2f3f5`）、`owner/IncomeScreen.tsx`（`#34d399`）、`admin/AdminReviewScreen.tsx` 与 `employee/CalendarScreen.tsx`（`#8b5cf6` → 应为 `colors.purple` `#7a5cd6`）。`screens/TestScreen.tsx` 为开发沙箱，不参与规范。
 
 ### 5.3 小程序（Taro）
-在 `miniapp/src/app.scss` 的 `page { }` 内定义 CSS 变量：
 
-```scss
-page {
-  --primary: #14b8a6;   --primary-rgb: 20, 184, 166;  --primary-hover: #0d9488;
-  --bg: #fbf9f6;        --card: #ffffff;
-  --ink: #1c2733;       --ink-2: #55606c;            --ink-3: #98a1ab;
-  --line: #ece7df;      --surface-2: #f4f1ec;         --sidebar-active: #d9f2ee;
-  --success: #16a34a;   --warning: #d97706;           --error: #dc2626;  --info: #0ea5e9;
-  --radius-sm: 12rpx;   --radius-md: 20rpx;           --radius-lg: 36rpx;  --radius-xl: 48rpx;
-}
-```
-
-页面 scss 一律引用 `var(--xxx)`；`app.config.ts` 与页面 `*.config.ts` 的导航栏/TabBar 颜色固定为品牌 teal `#14b8a6`。
+`miniapp/src/app.scss` 的 `page { }` 内定义 CSS 变量（`--primary` / `--primary-text` / `--ink-*` / `--*-ink` / `--radius-*` / `--shadow-*` 等），**数值只在该文件维护**，本文与页面 scss 均不重复。页面 scss 一律引用 `var(--xxx)`；`app.config.ts` 与页面 `*.config.ts` 的导航栏/TabBar 颜色固定为品牌 teal `#14b8a6`。
 
 > 存量硬编码热点（待清理）：状态映射表大量直写令牌值（`viewings`/`payments`/`maintenance`/`listings`/`home` 的 `index.tsx`，如 `'#d97706'`），以及 antd/冷灰残留 `#cf1322` `#fff1f0` `#fffbe6` `#fa8c16` `#d46b08` `#999999` `#f5f5f5` `#9ca3af` `#e5e7eb` `#c4c4c4` `#94a3b8` `#8b5cf6`（详见 §4 与 §5.5）。
 
@@ -229,10 +217,10 @@ page {
 
 | # | 问题 | 现状 | 目标 |
 |---|---|---|---|
-| 1 | 圆角阶梯 | Web `6/10/18`；App `6/10/14/18/24`；小程序 `8/16/24/32rpx`(≈4/8/12/16px) | 三端统一到 §1.4 基准 `6/10/18/24` |
+| 1 | 圆角阶梯 | 各端已按自身令牌收敛（Web 6/10/14/20；App 8/12/16/20/24；小程序 12/20/36/48rpx） | 已完成；各端独立，**不追求像素一致**（见 §1.4） |
 | 2 | 中性紫 | Web `#7a5cd6`；App/小程序硬编码 `#8b5cf6` | 统一 `#7a5cd6` |
-| 3 | 冷灰渗漏 | App `#f2f3f5`；小程序 `#999999` `#f5f5f5` `#9ca3af` `#e5e7eb` `#c4c4c4` `#94a3b8` | 统一到 `ink-3` `#98a1ab` / `surface-2` `#f4f1ec` |
+| 3 | 冷灰渗漏 | 各端 `surface-3` / `fieldFill` / `avatar-bg` 已换暖调，`#94a3b8` 收口为 `ink-4` | `ink-3` 作辅助文字；`ink-4` / `ink-disabled` 仅占位与禁用 |
 | 4 | 浅底自造 | App `#fff6e6` `#e7f6ee` `#fdecec` `#e6f4fd` | `rgba(var(--*-rgb), 0.1)` |
-| 5 | Foreground | Web `--rent-foreground: #16202b`；App/小程序 `#1c2733` | 统一 `#1c2733`（或 Web 显式声明为对照色） |
+| 5 | Foreground | 三端均已统一为 `#1c2733` | 已完成 |
 | 6 | 暗色模式 | Web 有完整 `.dark`；App / 小程序均无 | 明确是否需要在移动端支持 |
 | 7 | 渐变禁令 | Web 登录页品牌区、小程序 `admin/accounts` 页头为 teal 渐变 | 裁定"品牌区允许 / 其他禁止"或全部改平色 |

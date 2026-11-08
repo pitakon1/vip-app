@@ -63,12 +63,12 @@
 
 .pub-loc:hover {
   border-color: var(--rent-primary);
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 
 .pub-loc__pin {
   display: inline-flex;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   flex-shrink: 0;
 }
 
@@ -101,11 +101,11 @@
 }
 
 .pub-nav__item:hover {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 
 .pub-nav__item[data-active='true'] {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
   font-weight: 500;
 }
 
@@ -259,7 +259,7 @@
 .pub-listing__price {
   font-size: 17px;
   font-weight: 500;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text); /* UI-01：白底 5.42:1（原 #14b8a6 仅 2.49:1） */
 }
 
 .pub-listing__price-sub {
@@ -385,7 +385,7 @@
 .pub-row__distance {
   font-size: var(--rent-fs-base);
   font-weight: 500;
-  color: var(--rent-primary-hover);
+  color: var(--rent-ink-2); /* UI-02：改中性深灰 6.9:1（原 #2dd4bf 白底约 1.9:1） */
   white-space: nowrap;
 }
 
@@ -562,7 +562,7 @@
 }
 
 .pub-form-msg--ok {
-  color: var(--rent-primary-hover);
+  color: var(--rent-primary-text);
   background: rgba(var(--rent-primary-rgb), 0.1);
 }
 
@@ -582,7 +582,7 @@
 .pub-price-block__main {
   font-size: 26px;
   font-weight: 500;
-  color: var(--rent-primary);
+  color: var(--rent-primary-text); /* 26px 大文本仍需 3:1，#14b8a6 仅 2.49:1 */
 }
 
 .pub-price-block__alt {
@@ -631,7 +631,7 @@
 }
 
 .pub-breadcrumb__link:hover {
-  color: var(--rent-primary);
+  color: var(--rent-primary-text);
 }
 
 .pub-footer {

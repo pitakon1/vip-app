@@ -16,6 +16,6 @@
 /* 幽灵 chip：已选学校时出现的「不限学校」清除项 */
 .pub-chip--ghost {
   background: transparent;
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-text);
+  color: var(--primary-text);
 }

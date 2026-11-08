@@ -64,7 +64,7 @@ export default function LandScreen() {
       mk('select', t('category.landGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.landGridSelect'))),
       mk('rent', t('category.landTabRent'), 'map-outline', colors.info, colors.infoRgb, () => setTab('rent-land')),
       mk('sell', t('category.landTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-land')),
-      mk('all', t('category.allListings'), 'grid-outline', colors.success, colors.successRgb, () => navigation.navigate('PublicListings')),
+      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings')),
       mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
       mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
     ];

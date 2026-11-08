@@ -1,0 +1,67 @@
+{
+  "detail": {
+    "title": {
+      "text": "The River condos",
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "24px",
+      "weight": "600"
+    },
+    "priceMain": {
+      "text": "฿30,000",
+      "color": "rgb(15, 118, 110)",
+      "bg": "rgba(0, 0, 0, 0)",
+      "fs": "26px",
+      "weight": "500"
+    },
+    "gallery": {
+      "text": "",
+      "color": "rgb(28, 39, 51)",
+      "bg": "rgb(244, 241, 236)",
+      "fs": "14px",
+      "weight": "400"
+    },
+    "galleryImages": 3,
+    "mainImage": {
+      "src": "/uploads/properties/demo-sukhumvit-d016/living.jpg",
+      "naturalWidth": 1200,
+      "naturalHeight": 800
+    },
+    "thumbnails": [
+      {
+        "src": "/uploads/properties/demo-sukhumvit-d016/bedroom.jpg",
+        "naturalWidth": 1200
+      },
+      {
+        "src": "/uploads/properties/demo-sukhumvit-d016/kitchen.jpg",
+        "naturalWidth": 1200
+      }
+    ],
+    "empty": false
+  },
+  "webErrors": [],
+  "web-admin-properties.png": {
+    "cardCount": 20,
+    "banner": {
+      "bg": "rgb(240, 236, 229)",
+      "dataPhoto": "false"
+    },
+    "icon": {
+      "opacity": "0.28",
+      "color": "rgb(85, 96, 108)"
+    },
+    "legacyInlineBg": ""
+  },
+  "web-owner-properties.png": {
+    "cardCount": 20,
+    "banner": {
+      "bg": "rgb(240, 236, 229)",
+      "dataPhoto": "false"
+    },
+    "icon": {
+      "opacity": "0.28",
+      "color": "rgb(85, 96, 108)"
+    },
+    "legacyInlineBg": ""
+  }
+}

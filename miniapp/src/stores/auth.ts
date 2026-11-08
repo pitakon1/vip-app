@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import type { User } from '@/types'
+import { REFRESH_TOKEN_KEY } from '@/lib/api'
 
 interface AuthState {
   token: string | null
@@ -33,6 +34,8 @@ const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     Taro.removeStorageSync(TOKEN_KEY)
     Taro.removeStorageSync(USER_KEY)
+    // 刷新令牌同样属于登录凭证，登出必须一并清除，否则同设备换账号会残留。
+    Taro.removeStorageSync(REFRESH_TOKEN_KEY)
     set({ token: null, user: null })
   },
 

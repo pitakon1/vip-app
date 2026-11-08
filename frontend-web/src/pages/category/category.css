@@ -223,7 +223,7 @@
   box-shadow: var(--rent-shadow-1);
 }
 .cat-banner__title { font-size: 17px; font-weight: 700; color: var(--rent-primary-foreground); }
-.cat-banner__sub { font-size: var(--rent-fs-sm); color: rgba(255, 255, 255, 0.82); margin-top: var(--rent-s-1); }
+.cat-banner__sub { font-size: var(--rent-fs-sm); color: rgba(11, 47, 43, 0.78); margin-top: var(--rent-s-1); }
 .cat-banner__btn {
   padding: 10px 20px;
   border: none;

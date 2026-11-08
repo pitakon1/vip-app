@@ -20,7 +20,7 @@ export const CARD_META: Record<
 > = {
   cleaning: { badgeType: 'primary', iconBg: 'rgba(20, 184, 166, 0.12)', iconColor: 'var(--rent-primary)' },
   ac_cleaning: { badgeType: 'info', iconBg: 'rgba(14,165,233,0.12)', iconColor: 'var(--state-info)' },
-  wifi_install: { badgeType: 'success', iconBg: 'rgba(22,163,74,0.12)', iconColor: 'var(--state-success)' },
+  wifi_install: { badgeType: 'primary', iconBg: 'rgba(20,184,166,0.12)', iconColor: 'var(--rent-primary-text)' },
   utility_payment: { badgeType: 'warning', iconBg: 'rgba(217,119,6,0.12)', iconColor: 'var(--state-warning)' },
 }
 export const DEFAULT_CARD_META = {

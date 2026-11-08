@@ -3474,6 +3474,7 @@ const en: import('./zh').Translation = {
     thReceivable: "Receivable (฿)",
     thReceived: "Received (฿)",
     thDiff: "Difference (฿)",
+    thAmount: "Amount (฿)",
     csvReceivable: "Receivable",
     csvReceived: "Received",
     csvDiff: "Difference",

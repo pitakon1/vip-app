@@ -5,10 +5,11 @@ import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { message } from 'antd'
 import api from '@/lib/api'
+import DataState from '@/components/DataState'
+import { errorKind, errorText } from '@/lib/errorText'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import { formatMoney } from '@/lib/money'
-import { chartTheme } from '@/lib/chartTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import { makePropertyTypeLabel, toItems } from './tenantPropertyDetail/utils'
@@ -48,14 +49,20 @@ interface Notification {
   [key: string]: any
 }
 
-const GRADIENTS = chartTheme.palette
-
-const gradientFor = (seed: string) => {
-  let h = 0
-  for (let i = 0; i < (seed || 'x').length; i++) {
-    h = (h * 31 + (seed || 'x').charCodeAt(i)) >>> 0
+// 缺封面暖灰占位上的低对比户型剪影（与首页/公开列表同一套路径）
+const typeIconPath = (pt: string): string => {
+  switch (pt) {
+    case 'villa':
+    case 'house':
+      return 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'
+    case 'shop':
+    case 'commercial':
+      return 'M3 9l1-5h16l1 5M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M9 21v-6h6v6'
+    case 'office':
+      return 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18M2 22h20'
+    default: // apartment / condo
+      return 'M3 21h18M5 21V7l8-4v18M19 21V11l-6-4'
   }
-  return GRADIENTS[h % GRADIENTS.length]
 }
 
 const formatRent = (v: any, cur?: string) => formatMoney(Number(v || 0), cur)
@@ -96,8 +103,8 @@ const OwnerAssetCard = () => {
     enabled: isOwner,
     queryFn: async () => {
       const [propertiesRes, incomeRes] = await Promise.all([
-        api.get('/owners/me/properties').catch(() => ({ data: [] })),
-        api.get('/owners/me/income').catch(() => ({ data: {} })),
+        api.get('/owners/me/properties'),
+        api.get('/owners/me/income'),
       ])
       const pPayload = propertiesRes.data?.data ?? propertiesRes.data
       const iPayload = incomeRes.data?.data ?? incomeRes.data
@@ -126,6 +133,26 @@ const OwnerAssetCard = () => {
   })
 
   if (!isOwner) return null
+
+  // INT-07/FE-03：接口失败不再吞成「0 套房产」，显式错误态 + 重试
+  if (q.isError && !q.data) {
+    return (
+      <section className="rent-section">
+        <div className="rent-card">
+          <div className="rent-card__header">
+            <h3 className="rent-card__title">{t('ownerDashboard.assetOverview')}</h3>
+          </div>
+          <div className="rent-card__body">
+            <DataState
+              error={errorText(q.error, t('common.loadFailed'))}
+              errorKind={errorKind(q.error)}
+              onRetry={() => q.refetch()}
+            />
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   const properties = q.data?.properties ?? []
   const income = q.data?.income ?? { total_income: 0, monthly_income: 0, pending_amount: 0 }
@@ -261,10 +288,12 @@ const TenantDashboard = () => {
     queryKey: ['tenant-dashboard', 'home', uid],
     cacheKey: `tenant-dashboard:home:${uid}`,
     queryFn: async () => {
+      // 推荐流失败不吞成空数组：否则 401/403/500 会统一显示为「暂无数据」。
+      // 通知属于非关键区块，失败时降级为空列表，不拖垮整块推荐。
       const [featuredRes, rentRes, saleRes, notifRes] = await Promise.all([
-        api.get('/public/listings', { params: { listing_type: 'rent', is_featured: true, sort: 'latest', page_size: 6 } }).catch(() => null),
-        api.get('/public/listings', { params: { listing_type: 'rent', sort: 'latest', page_size: 6 } }).catch(() => null),
-        api.get('/public/listings', { params: { listing_type: 'sell', sort: 'latest', page_size: 6 } }).catch(() => null),
+        api.get('/public/listings', { params: { listing_type: 'rent', is_featured: true, sort: 'latest', page_size: 6 } }),
+        api.get('/public/listings', { params: { listing_type: 'rent', sort: 'latest', page_size: 6 } }),
+        api.get('/public/listings', { params: { listing_type: 'sell', sort: 'latest', page_size: 6 } }),
         api.get('/notifications/me').catch(() => ({ data: { items: [] } })),
       ])
       const toProps = (res: any): PropertyItem[] =>
@@ -295,6 +324,9 @@ const TenantDashboard = () => {
   const commItems = useMemo(() => saleItems.slice(0, 3), [saleItems])
   const notifications = homeQ.data?.notifications ?? []
   const loading = homeQ.isPending && !homeQ.data
+  // 首屏推荐流尚未就绪（加载中 / 失败）时，不再逐个区块渲染「暂无数据」，
+  // 由下方统一状态块给出明确的加载/失败/重试语义。
+  const homeBlocked = loading || (homeQ.isError && !homeQ.data)
 
   // 搜索走服务端：关键词只匹配公开接口的全量数据，而不是本地某一页
   const [searchKw, setSearchKw] = useState('')
@@ -420,7 +452,10 @@ const TenantDashboard = () => {
         onClick={() => navigate(`/tenant/properties/${item.id}`)}
         style={{ cursor: 'pointer' }}
       >
-        <div className="rv17-prop__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
+        <div className="rv17-prop__img" data-photo="false">
+          <svg className="rv17-prop__img-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d={typeIconPath(String(item.property_type || ''))} />
+          </svg>
           <span className="rent-pill rv17-prop__badge">{tag}</span>
           <button
             className="rv17-prop__fav"
@@ -467,7 +502,7 @@ const TenantDashboard = () => {
         onClick={() => navigate(`/tenant/properties/${item.id}`)}
         style={{ cursor: 'pointer' }}
       >
-        <div className="rv17-comm__img" style={{ background: gradientFor(String(item.id || item.room_number || '')) }}>
+        <div className="rv17-comm__img" data-photo="false">
           <svg className="rv17-comm__img-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
           <span className="rent-pill rv17-comm__badge">{t('tenantDashboard.forSale')}</span>
         </div>
@@ -529,14 +564,25 @@ const TenantDashboard = () => {
             <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
-            {searchResults.map((it) => renderPropCard(it, biz))}
-            {searchResults.length === 0 && <div className="rent-empty">{t('common.noData')}</div>}
+            {searchQ.isError && !searchQ.data ? (
+              <DataState
+                error={errorText(searchQ.error, t('common.loadFailed'))}
+                errorKind={errorKind(searchQ.error)}
+                retryText={t('common.retry')}
+                onRetry={() => searchQ.refetch()}
+              />
+            ) : (
+              <>
+                {searchResults.map((it) => renderPropCard(it, biz))}
+                {searchResults.length === 0 && !searchQ.isPending && <div className="rent-empty">{t('common.noData')}</div>}
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* ===== 主题模块：精选房源（租房） ===== */}
-      {!keyword.trim() && biz === 'rent' && (
+      {!keyword.trim() && biz === 'rent' && !homeBlocked && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.featured')}</h2>
@@ -550,7 +596,7 @@ const TenantDashboard = () => {
       )}
 
       {/* ===== 主题模块：新上房源（租房） ===== */}
-      {!keyword.trim() && biz === 'rent' && (
+      {!keyword.trim() && biz === 'rent' && !homeBlocked && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('browse.newArrivals')}</h2>
@@ -564,7 +610,7 @@ const TenantDashboard = () => {
       )}
 
       {/* ===== 主题模块：买房推荐楼盘（买房） ===== */}
-      {!keyword.trim() && biz === 'buy' && (
+      {!keyword.trim() && biz === 'buy' && !homeBlocked && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('tenantDashboard.buyRecommend')}</h2>
@@ -578,7 +624,7 @@ const TenantDashboard = () => {
       )}
 
       {/* ===== 主题模块：热门二手房（买房） ===== */}
-      {!keyword.trim() && biz === 'buy' && (
+      {!keyword.trim() && biz === 'buy' && !homeBlocked && (
         <div className="rv17-sec">
           <div className="rv17-sec__head">
             <h2 className="rv17-sec__title">{t('tenantDashboard.hotResaleOrders')}</h2>
@@ -591,7 +637,17 @@ const TenantDashboard = () => {
         </div>
       )}
 
-      {loading && <div className="rent-empty">{t('common.loading')}…</div>}
+      {/* 推荐流统一五态：加载 / 失败（含无权限、服务异常）/ 空，失败时可重试 */}
+      {homeQ.isError && !homeQ.data ? (
+        <DataState
+          error={errorText(homeQ.error, t('common.loadFailed'))}
+          errorKind={errorKind(homeQ.error)}
+          retryText={t('common.retry')}
+          onRetry={() => homeQ.refetch()}
+        />
+      ) : loading ? (
+        <DataState loading loadingText={t('common.loading')} skeletonRows={4} />
+      ) : null}
 
       {/* ===== 最近动态 ===== */}
       <section className="rent-section">

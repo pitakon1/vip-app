@@ -3477,6 +3477,7 @@ const zh = {
     thReceivable: "应收 (฿)",
     thReceived: "实收 (฿)",
     thDiff: "差额 (฿)",
+    thAmount: "金额 (฿)",
     csvReceivable: "应收",
     csvReceived: "实收",
     csvDiff: "差额",

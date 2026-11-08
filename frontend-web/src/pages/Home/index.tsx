@@ -6,6 +6,8 @@ import { BankOutlined, CoffeeOutlined, ContainerOutlined, EnvironmentOutlined, H
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { optionalNumber } from '@/lib/displayValue'
+import { errorKind, errorText } from '@/lib/errorText'
+import DataState from '@/components/DataState'
 import useAuthStore from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
@@ -108,16 +110,14 @@ const Home = () => {
     queryKey: ['home-featured', cityKey || 'all'],
     cacheKey: `home:featured:${cityKey || 'all'}`,
     queryFn: async () => {
-      try {
-        const res = await api.get('/public/listings', {
-          params: { page_size: SHOWCASE_PAGE_SIZE, city: cityKey || undefined },
-        })
-        const payload = res.data?.data ?? res.data
-        const items = payload?.items
-        return Array.isArray(items) ? items.slice(0, 8) : []
-      } catch {
-        return []
-      }
+      // 不吞异常：吞掉会把 401/403/500 都渲染成「暂无房源」，用户无法区分
+      // 「真没数据」与「接口挂了」。失败交给下方 DataState 的错误态 + 重试。
+      const res = await api.get('/public/listings', {
+        params: { page_size: SHOWCASE_PAGE_SIZE, city: cityKey || undefined },
+      })
+      const payload = res.data?.data ?? res.data
+      const items = payload?.items
+      return Array.isArray(items) ? items.slice(0, 8) : []
     },
   })
   const props = q.data ?? []
@@ -269,7 +269,20 @@ const Home = () => {
             </button>
           </div>
           <div className="rent-prop-grid">
-            {props.length === 0 ? (
+            {q.isError && !q.data ? (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <DataState
+                  error={errorText(q.error, t('common.loadFailed'))}
+                  errorKind={errorKind(q.error)}
+                  retryText={t('common.retry')}
+                  onRetry={() => q.refetch()}
+                />
+              </div>
+            ) : q.isPending && !q.data ? (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <DataState loading loadingText={t('common.loading')} skeletonRows={3} />
+              </div>
+            ) : props.length === 0 ? (
               <div className="rent-empty" style={{ gridColumn: '1 / -1' }}>
                 {t('common.noData')}
               </div>

@@ -248,10 +248,10 @@
   .loan-input {
     display: flex;
     align-items: center;
-    height: 80rpx;
+    height: 88rpx;
     padding: 0 24rpx;
-    border-radius: var(--radius-md);
-    border: 2rpx solid var(--line);
+    border-radius: var(--radius-lg);
+    border: 1rpx solid var(--line);
     background-color: var(--card);
 
     .loan-input__field {

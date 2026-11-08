@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import LazyImage from '@/components/LazyImage'
 import { formatMoney } from '@/lib/money'
 import { optionalNumber } from '@/lib/displayValue'
-import { STATUS_CLASS, TYPE_ICON_PATH, bannerColorFor, formatTotal } from './constants'
+import { STATUS_CLASS, TYPE_ICON_PATH, formatTotal } from './constants'
 
 /**
  * 房源卡片（对齐原型 rent-prop-search-card）。
@@ -40,7 +40,6 @@ export default function PropertyCard({
   const baths = optionalNumber(item.bathrooms)
   const size = optionalNumber(item.size_sqm)
   const price = optionalNumber(item.price ?? item.monthly_rent)
-  const seed = String(item.id || item.room_number || '')
   const cover = typeof item.cover === 'string' ? item.cover : ''
 
   // 卡面只保留价格一个强调色：其余 tag 一律中性
@@ -56,9 +55,8 @@ export default function PropertyCard({
       <div
         className="rent-prop-search-card__banner"
         data-photo={cover ? 'true' : 'false'}
-        style={{ background: cover ? undefined : bannerColorFor(seed) }}
       >
-        {/* 有实拍图就用图（贝壳式「图在前」），没有才回退到色块 + 户型图标 */}
+        {/* 有实拍图就用图（贝壳式「图在前」），没有才回退暖灰占位 + 户型剪影 */}
         {cover ? <LazyImage className="rent-prop-search-card__cover" src={cover} alt={title} /> : null}
         <button
           className="rent-fav-btn"

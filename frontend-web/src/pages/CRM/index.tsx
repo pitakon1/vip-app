@@ -98,7 +98,6 @@ const CRM = () => {
             page={list.queryParams.page}
             pageSize={list.queryParams.pageSize}
             total={list.total}
-            itemCount={list.displayData.length}
             onPrev={list.goPrevPage}
             onNext={list.goNextPage}
           />

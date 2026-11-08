@@ -19,7 +19,8 @@ const RecordsTable = ({ loading, records, weekdays, statusLabelMap }: RecordsTab
     <div className="rent-card">
       <div className="rent-card__header">
         <h3 className="rent-card__title">{t('attendance.recordsTitle')}</h3>
-        <a href="#" className="rent-btn rent-btn--ghost rent-btn--sm">{t('attendance.viewAll')}</a>
+        {/* 原「查看全部」是 href="#" 死入口：员工端没有独立的考勤明细页
+            （/attendance-manage 仅管理员可进），故移除假控件。 */}
       </div>
       <div className="rent-card__body" style={{ padding: 0 }}>
         <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>

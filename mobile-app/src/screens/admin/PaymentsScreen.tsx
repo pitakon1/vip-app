@@ -1,4 +1,4 @@
-﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 收付款管理（管理端）
  * 原型：admin-mobile-payments.html
@@ -86,7 +86,7 @@ const CHANNEL_META: Record<string, { label?: string; labelKey?: string; icon: ke
   promptpay: { label: 'PromptPay', icon: 'qr-code-outline', color: colors.primary, rgb: colors.primaryRgb },
   stripe: { label: 'Stripe', icon: 'card-outline', color: colors.info, rgb: colors.infoRgb },
   bank_transfer: { labelKey: 'admPay.chBank', icon: 'business-outline', color: colors.ink2, rgb: colors.primaryRgb },
-  wechat: { labelKey: 'pay.channelWechat', icon: 'chatbubble-ellipses-outline', color: colors.success, rgb: colors.successRgb },
+  wechat: { labelKey: 'pay.channelWechat', icon: 'chatbubble-ellipses-outline', color: colors.wechatGreen, rgb: colors.wechatGreenRgb },
   alipay: { labelKey: 'admPay.chAlipay', icon: 'wallet-outline', color: colors.info, rgb: colors.infoRgb },
   wise: { label: 'Wise', icon: 'swap-horizontal-outline', color: colors.warning, rgb: colors.warningRgb },
   paypal: { label: 'PayPal', icon: 'logo-paypal', color: colors.info, rgb: colors.infoRgb },

@@ -158,7 +158,7 @@ export default function AdminHomeScreen() {
   const risks = [
     {
       key: 'overdue',
-      tone: colors.error,
+      tone: colors.errorInk,
       toneRgb: colors.errorRgb,
       icon: 'cash-outline' as IoniconName,
       title: '欠租与逾期',
@@ -170,7 +170,7 @@ export default function AdminHomeScreen() {
     },
     {
       key: 'vacancy',
-      tone: colors.info,
+      tone: colors.infoInk,
       toneRgb: colors.infoRgb,
       icon: 'bar-chart-outline' as IoniconName,
       title: '空置率',
@@ -199,28 +199,32 @@ export default function AdminHomeScreen() {
       label: '本月营收',
       value: fmtMoney(summary.monthly_revenue),
       badge: momRevenue === null ? '' : `${momRevenue >= 0 ? '+' : ''}${momRevenue.toFixed(1)}%`,
-      tone: momRevenue !== null && momRevenue < 0 ? colors.error : colors.success,
+      tone: momRevenue !== null && momRevenue < 0 ? colors.errorInk : colors.primaryText,
+      toneRgb: momRevenue !== null && momRevenue < 0 ? colors.errorRgb : colors.primaryRgb,
     },
     {
       key: 'occupancy',
       label: '出租率',
       value: `${num(summary.occupancy_rate)}%`,
       badge: `空置 ${vacant} 套`,
-      tone: colors.warning,
+      tone: colors.warningInk,
+      toneRgb: colors.warningRgb,
     },
     {
       key: 'leases',
       label: '在租合同',
       value: `${num(summary.rented)}`,
       badge: `+${newLeasesThisMonth} 本月`,
-      tone: colors.success,
+      tone: colors.primaryText,
+      toneRgb: colors.primaryRgb,
     },
     {
       key: 'staff',
       label: '员工数',
       value: `${employeeCount}`,
       badge: `+${newHiresThisMonth} 本月`,
-      tone: colors.success,
+      tone: colors.primaryText,
+      toneRgb: colors.primaryRgb,
     },
   ];
 
@@ -233,7 +237,7 @@ export default function AdminHomeScreen() {
           <Text style={styles.heroSub}>系统管理权限 · 全局数据概览</Text>
         </View>
         <View style={styles.heroBadge}>
-          <Ionicons name="shield" size={14} color="#fff" />
+          <Ionicons name="shield" size={14} color={colors.primaryForeground} />
           <Text style={styles.heroBadgeText}>ADMIN</Text>
         </View>
       </View>
@@ -250,7 +254,7 @@ export default function AdminHomeScreen() {
             <Ionicons
               name={t.icon}
               size={18}
-              color={tab === t.key ? '#fff' : colors.ink2}
+              color={tab === t.key ? colors.primaryForeground : colors.ink2}
             />
             <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
           </TouchableOpacity>
@@ -323,17 +327,34 @@ export default function AdminHomeScreen() {
               <Text style={styles.sectionHint}>实时汇总</Text>
             </View>
             <View style={styles.statRow}>
-              {statCards.map((s) => (
-                <View key={s.key} style={[styles.statCard, isTablet && styles.statCardWide]}>
-                  <Text style={styles.statLabel}>{s.label}</Text>
-                  <Text style={styles.statNum} numberOfLines={1}>{s.value}</Text>
-                  {!!s.badge && (
-                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(s.tone === colors.error ? colors.errorRgb : s.tone === colors.warning ? colors.warningRgb : colors.successRgb, 0.12) }]}>
-                      <Text style={[styles.statBadgeText, { color: s.tone }]}>{s.badge}</Text>
-                    </View>
-                  )}
-                </View>
-              ))}
+              {statCards.map((s) => {
+                const isPrimary = s.key === 'revenue';
+                return (
+                  <View
+                    key={s.key}
+                    style={[styles.statCard, isPrimary && styles.statCardPrimary, isTablet && styles.statCardWide]}
+                  >
+                    <Text style={[styles.statLabel, isPrimary && styles.statLabelPrimary]}>{s.label}</Text>
+                    <Text style={[styles.statNum, isPrimary && styles.statNumPrimary]} numberOfLines={1}>
+                      {s.value}
+                    </Text>
+                    {!!s.badge && (
+                      <View
+                        style={[
+                          styles.statBadge,
+                          isPrimary
+                            ? styles.statBadgePrimary
+                            : { backgroundColor: colors.alpha(s.toneRgb, 0.12) },
+                        ]}
+                      >
+                        <Text style={[styles.statBadgeText, isPrimary ? styles.statBadgeTextPrimary : { color: s.tone }]}>
+                          {s.badge}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
 
             {/* 经营趋势 · 收入（近 7 个月营收） */}
@@ -347,8 +368,8 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   {momRevenue !== null && (
-                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(momRevenue < 0 ? colors.errorRgb : colors.successRgb, 0.12) }]}>
-                      <Text style={[styles.statBadgeText, { color: momRevenue < 0 ? colors.error : colors.success }]}>
+                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(momRevenue < 0 ? colors.errorRgb : colors.primaryRgb, 0.12) }]}>
+                      <Text style={[styles.statBadgeText, { color: momRevenue < 0 ? colors.errorInk : colors.primaryText }]}>
                         {momRevenue >= 0 ? '+' : ''}
                         {momRevenue.toFixed(1)}%
                       </Text>
@@ -384,8 +405,8 @@ export default function AdminHomeScreen() {
             )}
             {recentPayments.map((p: any) => (
               <View key={p.id} style={styles.activityItem}>
-                <View style={[styles.activityIcon, { backgroundColor: colors.alpha(colors.successRgb, 0.12) }]}>
-                  <Ionicons name="cash-outline" size={16} color={colors.success} />
+                <View style={[styles.activityIcon, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
+                  <Ionicons name="cash-outline" size={16} color={colors.primaryText} />
                 </View>
                 <View style={styles.activityBody}>
                   <Text style={styles.activityTitle} numberOfLines={1}>
@@ -416,15 +437,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: colors.spacing.lg,
     paddingTop: 48,
     paddingBottom: 16,
     backgroundColor: colors.background,
   },
   heroLeft: { flex: 1 },
   heroTitle: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: colors.fontSize.xl,
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     letterSpacing: -0.3,
     marginBottom: 4,
@@ -443,7 +464,7 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     fontSize: colors.fontSize.xs,
     lineHeight: colors.lineHeight.tight,
-    fontWeight: '800',
+    fontWeight: colors.fontWeight.bold,
     color: colors.primaryForeground,
     letterSpacing: 0.5,
   },
@@ -476,11 +497,11 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   tabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
-  tabLabelActive: { color: '#fff', fontWeight: '700' },
+  tabLabelActive: { color: colors.primaryForeground, fontWeight: '700' },
 
   /* ===== 主体 ===== */
   body: { flex: 1 },
-  bodyContent: { paddingHorizontal: 20, paddingBottom: 32 },
+  bodyContent: { paddingHorizontal: colors.spacing.lg, paddingBottom: 32 },
   loadingWrap: { paddingVertical: 32, alignItems: 'center' },
 
   /* ===== 核心数据卡（3列渐变） ===== */
@@ -543,10 +564,12 @@ const styles = StyleSheet.create({
     ...colors.shadow.sm,
   },
   statCardWide: { flexBasis: '23%' },
+  statCardPrimary: { backgroundColor: colors.primary, ...colors.shadow.primary },
   statLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+  statLabelPrimary: { color: colors.primaryForeground },
   statNum: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: colors.fontSize.xl,
+    fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     letterSpacing: -0.3,
     marginTop: 4,
@@ -560,6 +583,9 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
   },
   statBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
+  statNumPrimary: { color: colors.primaryForeground },
+  statBadgePrimary: { backgroundColor: 'rgba(255,255,255,0.18)' },
+  statBadgeTextPrimary: { color: colors.primaryForeground },
 
   /* ===== 最近动态 ===== */
   activityItem: {
@@ -582,7 +608,7 @@ const styles = StyleSheet.create({
   activityBody: { flex: 1, minWidth: 0 },
   activityTitle: { fontSize: 14, fontWeight: '600', color: colors.ink, marginBottom: 3 },
   activitySub: { fontSize: 12, color: colors.ink3 },
-  activityAmount: { fontSize: 14, fontWeight: '700', color: colors.success, fontVariant: ['tabular-nums'] },
+  activityAmount: { fontSize: 14, fontWeight: '700', color: colors.successInk, fontVariant: ['tabular-nums'] },
 
   /* ===== 营收大卡 ===== */
   revenueCard: {
@@ -645,7 +671,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
 
   /* ===== 风险预警（数字 + 占比条） ===== */
@@ -658,7 +684,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.surface,
-    borderRadius: colors.radius.xl,
+    borderRadius: colors.radius.lg,
     padding: 14,
     ...colors.shadow.sm,
   },
@@ -672,7 +698,7 @@ const styles = StyleSheet.create({
   riskBody: { flex: 1, minWidth: 0 },
   riskTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   riskTitle: { fontSize: 14, fontWeight: '700', color: colors.ink, flex: 1 },
-  riskValue: { fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  riskValue: { fontSize: 16, fontWeight: colors.fontWeight.bold, fontVariant: ['tabular-nums'] },
   riskUnit: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   riskDesc: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   riskTrack: {
@@ -684,7 +710,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   riskBar: { height: 5, borderRadius: colors.radius.full },
-  riskCta: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  riskCta: { fontSize: 12, color: colors.primaryText, fontWeight: '600' },
 
   /* ===== 待办汇总 ===== */
   todoRow: { flexDirection: 'row', gap: 8 },

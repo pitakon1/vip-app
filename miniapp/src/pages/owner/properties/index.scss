@@ -54,8 +54,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: var(--shadow-sm);
-      transition: all 0.15s ease;
+      transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
       &--hover {
         transform: scale(0.96);
@@ -179,7 +179,6 @@
     padding: 20rpx;
     background: var(--card);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
     box-sizing: border-box;
 
     &__group {
@@ -284,7 +283,8 @@
     border-radius: var(--radius-full);
     background: var(--primary);
     box-shadow: var(--shadow-sm);
-    transition: all 0.15s ease;
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
     &--hover {
       background: var(--primary-hover);
@@ -601,7 +601,8 @@
   border-radius: var(--radius-full);
   background: var(--card);
   border: 1rpx solid var(--line);
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
   &--active {
     background: var(--primary);
@@ -717,7 +718,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
   &--hover {
     opacity: 0.8;
@@ -738,7 +740,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
+  box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 
   &--hover {
     background: var(--primary-hover);
