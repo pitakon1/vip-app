@@ -45,6 +45,15 @@ class Payment(TimestampMixin, table=True):
     receipt_no: Optional[str] = Field(
         default=None, max_length=32, index=True, description="对外收款单编号"
     )
+    # 归属合作公司（多 partner 共用同一套数据时的行级隔离字段）。
+    # 推导优先级见 `app.services.payment_partner.resolve_payment_partner`：
+    #   租约经办 agent → 租约业主 → 收款方 payee → 付款方 payer →
+    #   房源业主 → 房源录入人；全部无法判定时留空。
+    # 留空表示「平台自营 / 历史无法判定」：仅管理员、平台员工以及该单的 payer/payee
+    # 本人可见——**不会因为为空就直接拒绝**（否则会打挂无法回填的存量数据）。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )
     lease_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="leases.id", index=True
     )

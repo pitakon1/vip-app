@@ -8,6 +8,8 @@ from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 from .security import decode_access_token
 from ..db import get_session
+from ..models.employee import Employee
+from ..models.lead import Lead
 from ..models.lease import Lease
 from ..models.owner import Owner
 from ..models.property import Property
@@ -280,6 +282,111 @@ def can_view_property(session: Session, user: User, prop) -> bool:
     return False
 
 
+def _partner_member_user_ids(
+    session: Session, partner_id: Optional[uuid.UUID]
+) -> list:
+    """同属一个合作公司的有效账号 id（供单条可见性判定使用）。"""
+    if not partner_id:
+        return []
+    return list(
+        session.exec(
+            select(User.id).where(
+                User.partner_id == partner_id,
+                User.deleted_at.is_(None),
+            )
+        ).all()
+    )
+
+
+def _partner_scoped_staff(user: User) -> bool:
+    """员工是否需要按合作公司收窄：挂了 partner 的 agent/employee。
+
+    管理员与未挂合作公司的平台员工（客服、运营等）保持历史全量——
+    平台侧跨 partner 查询是既有职责，不在此处做白名单特批。
+    """
+    return user.role in STAFF_ROLES and user.role != UserRole.admin and user.partner_id is not None
+
+
+def owner_visibility_conditions(session: Session, user: User) -> list:
+    """业主档案可见性 → 查询条件（与租约/房源/合同同一口径）。
+
+    - 管理员：全量；
+    - 挂了合作公司的 agent/employee：仅「本 partner 员工录入的房源」所属业主，
+      以及业主账号本身挂在本 partner 的档案；
+    - 未挂合作公司的平台员工：沿用历史全量（内部作业需要跨 partner 检索）；
+    - 其余角色：不可见（接口本身也限 `require_employee`）。
+
+    业主档案本身没有 partner 字段，归属由「谁管着他的房源」推导；因此刚注册、
+    还没有任何房源的业主，需要在管理员/平台侧指派后才能进入 partner 员工的选择器。
+    """
+    if user.role == UserRole.admin:
+        return []
+    if user.role in STAFF_ROLES:
+        if user.partner_id is None:
+            return []
+        member_users = select(User.id).where(
+            User.partner_id == user.partner_id,
+            User.deleted_at.is_(None),
+        )
+        managed_owner_ids = select(Property.owner_id).where(
+            Property.created_by.in_(member_users),
+            Property.deleted_at.is_(None),
+        )
+        return [
+            or_(
+                Owner.id.in_(managed_owner_ids),
+                Owner.user_id.in_(member_users),
+            )
+        ]
+    return [false()]
+
+
+def lead_visibility_conditions(session: Session, user: User) -> list:
+    """线索可见性 → 查询条件（与租约/房源/合同同一口径）。
+
+    - 管理员：全量；
+    - 挂了合作公司的 agent/employee：仅派给本 partner 员工档案的线索；
+    - 未挂合作公司的平台员工（客服等）：沿用历史全量；
+    - 其余角色：不可见（接口本身也限内部员工）。
+
+    线索没有 partner/created_by 字段，归属由「派给谁」推导：未指派（
+    `assigned_to` 为空）的线索只对管理员/平台员工可见，指派给 partner 员工后
+    才进入该 partner 的列表——这是收窄后需要知晓的流转影响。
+    """
+    if user.role == UserRole.admin:
+        return []
+    if user.role in STAFF_ROLES:
+        if user.partner_id is None:
+            return []
+        member_users = select(User.id).where(
+            User.partner_id == user.partner_id,
+            User.deleted_at.is_(None),
+        )
+        member_employees = select(Employee.id).where(
+            Employee.user_id.in_(member_users),
+            Employee.deleted_at.is_(None),
+        )
+        return [Lead.assigned_to.in_(member_employees)]
+    return [false()]
+
+
+def can_view_lead(session: Session, user: User, lead) -> bool:
+    """单条线索的可见性判定（与 `lead_visibility_conditions` 同一口径）。"""
+    if user.role == UserRole.admin:
+        return True
+    if user.role not in STAFF_ROLES:
+        return False
+    if user.partner_id is None:
+        return True
+    if not lead.assigned_to:
+        return False
+    employee = session.get(Employee, lead.assigned_to)
+    if employee is None or employee.deleted_at or not employee.user_id:
+        return False
+    assignee = session.get(User, employee.user_id)
+    return assignee is not None and _same_id(assignee.partner_id, user.partner_id)
+
+
 def party_belongs_to_user(party: ContractParty, user: User) -> bool:
     """签署方是否归属于该登录用户：user_id 命中，或邮箱命中（大小写不敏感）。
 
@@ -305,10 +412,45 @@ def _party_match_clause(user: User):
     )
 
 
+def _partner_scoped_contract_conditions(
+    session: Session, partner_id: uuid.UUID
+) -> list:
+    """挂了合作公司的员工可见合同条件：本人公司建单 / 本人公司经办租约 / 本人公司作为签署方。
+
+    合同正文含双方证件号，归属不能只看「是不是员工」；这三个关联能覆盖
+    agent 建单、引擎按租约生成、以及合作公司账号作为签署方的场景。
+    """
+    member_users = select(User.id).where(
+        User.partner_id == partner_id,
+        User.deleted_at.is_(None),
+    )
+    member_employees = select(Employee.id).where(
+        Employee.user_id.in_(member_users),
+        Employee.deleted_at.is_(None),
+    )
+    partner_leases = select(Lease.id).where(
+        Lease.agent_id.in_(member_employees),
+        Lease.deleted_at.is_(None),
+    )
+    return [
+        or_(
+            Contract.created_by.in_(member_users),
+            Contract.lease_id.in_(partner_leases),
+            Contract.id.in_(
+                select(ContractParty.contract_id).where(
+                    ContractParty.user_id.in_(member_users)
+                )
+            ),
+        )
+    ]
+
+
 def contract_visibility_conditions(session: Session, user: User) -> list:
     """合同可见性 → 查询条件（与租约/房源同一口径）。
 
-    - 员工（admin/agent/employee）：全量，内部作业需要跨业主查阅；
+    - 管理员：全量；
+    - 挂了合作公司的 agent/employee：仅本 partner 建单 / 经办租约 / 作为签署方的合同；
+    - 未挂合作公司的平台员工：沿用历史全量（平台内部跨 partner 查阅是既有职责）；
     - 业主 / 租客：仅「本人作为签署方」或「挂在本人租约下」的合同；
     - 其余角色：不可见。
 
@@ -317,6 +459,8 @@ def contract_visibility_conditions(session: Session, user: User) -> list:
     必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
     """
     if user.role in STAFF_ROLES:
+        if _partner_scoped_staff(user):
+            return _partner_scoped_contract_conditions(session, user.partner_id)
         return []
     if user.role not in (UserRole.owner, UserRole.tenant):
         return [false()]
@@ -332,7 +476,35 @@ def contract_visibility_conditions(session: Session, user: User) -> list:
 def can_view_contract(session: Session, user: User, contract: Contract) -> bool:
     """单份合同的可见性判定（与 `contract_visibility_conditions` 同一口径）。"""
     if user.role in STAFF_ROLES:
-        return True
+        if not _partner_scoped_staff(user):
+            return True
+        member_ids = _partner_member_user_ids(session, user.partner_id)
+        if not member_ids:
+            return False
+        # 1) 本 partner 员工建单
+        if contract.created_by is not None and any(
+            _same_id(contract.created_by, i) for i in member_ids
+        ):
+            return True
+        # 2) 本 partner 员工经办租约下的合同
+        if contract.lease_id:
+            lease = session.get(Lease, contract.lease_id)
+            if lease is not None and lease.agent_id:
+                employee = session.get(Employee, lease.agent_id)
+                if (
+                    employee is not None
+                    and not employee.deleted_at
+                    and any(_same_id(employee.user_id, i) for i in member_ids)
+                ):
+                    return True
+        # 3) 本 partner 账号作为签署方
+        party = session.exec(
+            select(ContractParty).where(
+                ContractParty.contract_id == contract.id,
+                ContractParty.user_id.in_(member_ids),
+            )
+        ).first()
+        return party is not None
     if user.role not in (UserRole.owner, UserRole.tenant):
         return False
 

@@ -43,6 +43,11 @@ class Lease(TimestampMixin, table=True):
     deposit_amount: float
     deposit_status: str = Field(default="held")  # held/refunded/forfeited
     status: LeaseStatus = Field(default=LeaseStatus.pending, index=True)
+    # 实际退房/终止日期：退房接口由前端填写（缺省为操作时间），押金结算也会写入。
+    # 此前只改 status、不记录日期，退房时间只能靠 updated_at 推断，历史追溯会失真。
+    terminated_at: Optional[datetime] = Field(
+        default=None, description="实际退房/终止日期"
+    )
     contract_url: Optional[str] = None  # 合同文件 URL
     contract_hash: Optional[str] = None  # SHA-256 哈希
     special_terms: Optional[str] = None

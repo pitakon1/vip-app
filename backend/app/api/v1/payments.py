@@ -59,6 +59,11 @@ from app.models import (
 )
 from app.providers.payment.base import PaymentChannel
 from app.providers.payment.service import payment_service, UnmatchedWebhookError
+from app.services.payment_partner import (
+    can_view_payment,
+    payment_visibility_conditions,
+    resolve_payment_partner,
+)
 from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/payments", tags=["payments"])
@@ -231,10 +236,15 @@ class PaymentStatusResponse(BaseModel):
 
 
 def _can_manage(user: User, payment: Payment) -> bool:
-    """当前用户是否为支付单的付款方 / 收款方 / 管理端。"""
-    if user.id == payment.payer_id or user.id == payment.payee_id:
-        return True
-    return user.role in (UserRole.admin, UserRole.agent, UserRole.employee)
+    """当前用户能否访问该支付单（与列表过滤同一口径）。
+
+    规则集中在 `app.services.payment_partner.can_view_payment`：
+    管理员全量；agent/employee 按所属 partner 收窄（未挂 partner 的平台员工保持
+    全量）；partner_admin 按所属 partner；业主/租客仅本人 payer/payee 命中的账单。
+    支付单 `partner_id` 为空（平台自营/历史无法判定）时，当事人与平台侧仍可读，
+    不做直接拒绝，避免存量数据整体 403。
+    """
+    return can_view_payment(user, payment)
 
 
 def _get_payment_or_404(payment_id: uuid.UUID, session: Session) -> Payment:
@@ -300,10 +310,8 @@ def payments_summary(
     状态口径复用 core.payments.payment_bucket，与对账导出一致。
     """
     conditions = [Payment.deleted_at.is_(None)]
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        conditions.append(
-            (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
-        )
+    # 与列表/详情同一口径，避免汇总数字与能看到的分页对不上
+    conditions.extend(payment_visibility_conditions(session, user))
     if payment_type:
         conditions.append(Payment.payment_type == payment_type)
     if channel:
@@ -368,12 +376,13 @@ def list_payments(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """收付款列表（分页），管理端可见全部，其他角色仅见与自己相关的。"""
+    """收付款列表（分页）。可见范围与详情/收据/发票共用同一口径：
+
+    管理员全量；agent/employee 与 partner_admin 按所属合作公司收窄（未挂合作公司
+    的平台员工保持全量）；业主/租客仅本人 payer/payee 命中的账单。
+    """
     conditions = [Payment.deleted_at.is_(None)]
-    if user.role not in (UserRole.admin, UserRole.agent, UserRole.employee):
-        conditions.append(
-            (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
-        )
+    conditions.extend(payment_visibility_conditions(session, user))
     if status:
         if status == "overdue":
             # 派生状态：待收且已过缴费截止日。这是 SQL 侧筛选（只算 pending），
@@ -475,6 +484,15 @@ def create_payment(
                 )
 
     data = req.model_dump()
+    # 归属合作公司由服务端推导，**不接受客户端传值**（否则可伪造归属绕开隔离）。
+    # 推导规则见 `app.services.payment_partner.resolve_payment_partner`。
+    data["partner_id"] = resolve_payment_partner(
+        session,
+        payer_id=req.payer_id,
+        payee_id=req.payee_id,
+        lease_id=req.lease_id,
+        property_id=req.property_id,
+    )
     if not data.get("idempotency_key"):
         data["idempotency_key"] = str(uuid.uuid4())
 
@@ -572,7 +590,9 @@ def upload_payment_proof(
         payment = session.get(Payment, payment_id)
         if payment is None or payment.deleted_at:
             raise HTTPException(status_code=404, detail="Payment not found")
-        if payment.payer_id != user.id and user.role not in (UserRole.admin, UserRole.staff):
+        # 与详情/收据同一口径（此前这里引用了不存在的 UserRole.staff，
+        # 非付款方上传会直接 AttributeError 500，且员工不受 partner 收窄）
+        if payment.payer_id != user.id and not _can_manage(user, payment):
             raise HTTPException(status_code=403, detail="Not allowed to upload proof for this payment")
         if payment.status in (PaymentStatus.succeeded, PaymentStatus.refunded):
             raise HTTPException(status_code=409, detail="Payment already settled")
@@ -592,6 +612,15 @@ def upload_payment_proof(
             payment.lease_id = lease_id
         if property_id and payment.property_id is None:
             payment.property_id = property_id
+        # 挂上租约/房源后补齐归属（历史 NULL 单也能被正确收窄）
+        if payment.partner_id is None:
+            payment.partner_id = resolve_payment_partner(
+                session,
+                payer_id=payment.payer_id,
+                payee_id=payment.payee_id,
+                lease_id=payment.lease_id,
+                property_id=payment.property_id,
+            )
         # 已提交凭证：移出「待缴」口径，等待财务核销
         payment.status = PaymentStatus.processing
         session.add(payment)
@@ -616,6 +645,13 @@ def upload_payment_proof(
 
     payment = Payment(
         receipt_no=next_no(session, "SK"),
+        partner_id=resolve_payment_partner(
+            session,
+            payer_id=user.id,
+            payee_id=payee_id,
+            lease_id=lease_id,
+            property_id=property_id,
+        ),
         payer_id=user.id,
         payee_id=payee_id,
         lease_id=lease_id,
@@ -1002,7 +1038,14 @@ def confirm_payment(
     适用于「租客上传银行转账凭证后，后台人工核销到账」的场景。确认后写
     核销字段，便于财务对账留痕。
     """
-    payment = _get_payment_or_404(payment_id, session)
+    # 行锁读取：两个管理员并发点「确认到账」时，后到的事务必须等前者提交后
+    # 重新看到 succeeded，否则会重复触发到账通知/业务事件（PostgreSQL 生效，
+    # SQLite 单写者天然串行）。
+    payment = session.exec(
+        select(Payment).where(Payment.id == payment_id).with_for_update()
+    ).first()
+    if not payment or payment.deleted_at:
+        raise HTTPException(status_code=404, detail="Payment not found")
     if payment.status not in (PaymentStatus.pending, PaymentStatus.processing):
         raise HTTPException(
             status_code=400,

@@ -9,7 +9,14 @@ from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import STAFF_ROLES, get_current_user, require_agent, require_employee
+from app.core.auth import (
+    STAFF_ROLES,
+    can_view_lead,
+    get_current_user,
+    lead_visibility_conditions,
+    require_agent,
+    require_employee,
+)
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import Employee, Lead, LeadStage, User, UserRole
@@ -77,13 +84,17 @@ def list_leads(
 ):
     """线索列表（分页，可按 stage 筛选、按关键词搜索姓名/电话/邮箱/社交账号）。
 
-    `mine=true`：非 admin 只看派给自己员工档案的线索（员工端 CRM 必须带）；
-    admin 仍看全量。非 admin 传他人的 `assigned_to` 直接 403，防止枚举他人客户。
+    `mine=true`：非 admin 只看派给自己员工档案的线索（员工端 CRM 必须带）。
+    非 admin 默认按所属合作公司收窄（见 `lead_visibility_conditions`），
+    不再依赖 `mine=true`；管理员与未挂合作公司的平台员工仍看全量。
+    非 admin 传他人的 `assigned_to` 直接 403，防止枚举他人客户。
     """
     # 线索含 phone/email/wechat/line 等客户联系方式，仅内部员工/经纪可见
     if user.role not in STAFF_ROLES:
         raise HTTPException(status_code=403, detail="Access denied. Staff only")
     conditions = [Lead.deleted_at.is_(None)]
+    # 多 partner 共用库：默认按合作公司收窄（未挂 partner 的平台员工不加条件）
+    conditions.extend(lead_visibility_conditions(session, user))
     # 非 admin 的归属边界：只能看/筛自己的员工档案
     emp = None
     if user.role != UserRole.admin:
@@ -176,6 +187,9 @@ def get_lead(
         raise HTTPException(status_code=403, detail="Access denied. Staff only")
     lead = session.get(Lead, lead_id)
     if not lead or lead.deleted_at:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    # 归属校验：跨 partner 读详情返回 404（不暴露「存在但你没权限」）
+    if not can_view_lead(session, user, lead):
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
 

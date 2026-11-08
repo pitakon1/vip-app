@@ -445,6 +445,8 @@ class PaymentService:
         session.add(
             Payment(
                 receipt_no=next_no(session, "SK"),
+                # 退款单继承原单的合作公司归属，否则退款记录会对原 partner 不可见
+                partner_id=payment.partner_id,
                 lease_id=payment.lease_id,
                 property_id=payment.property_id,
                 payer_id=payment.payer_id,

@@ -77,8 +77,10 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
     },
     # 单据编号：对外可引用的稳定编号（历史 NULL 行由 backfill_serial_numbers 回填）
     "contracts": {"contract_no": "varchar(32)"},
-    "leases": {"lease_no": "varchar(32)"},
-    "payments": {"receipt_no": "varchar(32)"},
+    # terminated_at：退房日期（terminate 接口接收前端填写值，押金结算同步写入）
+    "leases": {"lease_no": "varchar(32)", "terminated_at": "ts"},
+    # partner_id：多合作公司共用一套库时的支付单行级隔离字段
+    "payments": {"receipt_no": "varchar(32)", "partner_id": "uuid"},
     # 佣金规则：按合作公司（Partner）差异化定价
     "commission_rules": {
         "partner_id": "uuid",
@@ -93,7 +95,7 @@ _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "employees": ["department_id"],
     "contracts": ["contract_no"],
     "leases": ["lease_no"],
-    "payments": ["receipt_no"],
+    "payments": ["receipt_no", "partner_id"],
     "commission_rules": ["partner_id"],
 }
 

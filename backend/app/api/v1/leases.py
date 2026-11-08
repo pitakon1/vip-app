@@ -5,13 +5,14 @@ from datetime import date as date_type, datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import false, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import (
     can_view_lease,
+    can_view_property,
     get_current_user,
     lease_visibility_conditions,
     require_agent,
@@ -39,6 +40,7 @@ from app.models import (
     UserRole,
 )
 from app.core.security import get_password_hash
+from app.services.payment_partner import resolve_payment_partner
 from app.services.pricing import compute_deposit_amount
 from app.services.serial_number import next_no
 
@@ -210,6 +212,19 @@ class DepositSettlement(BaseModel):
     notes: Optional[str] = None
 
 
+class LeaseTerminate(BaseModel):
+    """退房请求：`terminateDate` 为前端填写的实际退房日期（缺省时后端取操作时间）。
+
+    前端三端都用 camelCase 传 `terminateDate`，而 FastAPI 默认不转换请求体键名，
+    若字段只叫 `terminate_date`，用户填的日期会被静默忽略、落库成操作时间。
+    这里用 alias 兼容前端既有取值，同时允许 snake_case（populate_by_name）。
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    terminate_date: Optional[datetime] = Field(default=None, alias="terminateDate")
+
+
 class LeaseRead(BaseModel):
     """租约返回结构：在租约全量字段基础上补房源 / 租客显示名。
 
@@ -237,6 +252,7 @@ class LeaseRead(BaseModel):
     deposit_amount: float
     deposit_status: str
     status: LeaseStatus
+    terminated_at: Optional[datetime] = None
     contract_url: Optional[str] = None
     contract_hash: Optional[str] = None
     special_terms: Optional[str] = None
@@ -289,6 +305,18 @@ def _with_display_names(session: Session, leases: List[Lease]) -> List[LeaseRead
             )
         )
     return items
+
+
+def _ensure_lease_visible(session: Session, user: User, lease: Lease) -> None:
+    """写操作前的可见性守卫：与 GET 详情同一口径。
+
+    此前 PATCH / terminate / deposit-settlement 只校验角色，不校验数据范围，
+    出现了「详情读不到（404）、但同一个 id 能改/能退」的越权：agent 默认
+    data-scope=self，却能操作其他经纪人的租约。不可见时同样返回 404，
+    避免用 403 暴露该 id 是否存在。
+    """
+    if not can_view_lease(session, user, lease):
+        raise HTTPException(status_code=404, detail="Lease not found")
 
 
 MAX_BATCH_PROPERTY_IDS = 50
@@ -499,6 +527,9 @@ def create_lease(
     prop = session.get(Property, req.property_id)
     if prop is None or prop.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Property not found")
+    # 签约也受房源可见范围约束：agent 不能替别人的房源签租约（同 404 口径）
+    if not can_view_property(session, user, prop):
+        raise HTTPException(status_code=404, detail="Property not found")
 
     # 入参防御：租金必须为正、押金不可为负、合同期必须合法
     if req.monthly_rent <= 0:
@@ -631,6 +662,7 @@ def update_lease(
     lease = session.get(Lease, lease_id)
     if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
+    _ensure_lease_visible(session, user, lease)
     update_data = req.model_dump(exclude_unset=True)
     ensure_version(lease, update_data.pop("version", None), "租约")
     # 状态变更走白名单：终态不可复活，生效态不可与同房源其他生效租约并存
@@ -664,9 +696,9 @@ def update_lease(
 
 
 def _can_renew(session: Session, user: User, lease: Lease) -> bool:
-    """续约权限：admin / agent 可直接续约；owner 物主与租约本人（租客）也可续约。"""
+    """续约权限：admin / agent 在数据范围内可续约；owner 物主与租约本人（租客）也可续约。"""
     if user.role in (UserRole.admin, UserRole.agent):
-        return True
+        return can_view_lease(session, user, lease)
     if user.role == UserRole.owner:
         owner = session.exec(select(Owner).where(Owner.user_id == user.id)).first()
         return bool(owner and owner.id == lease.owner_id)
@@ -764,15 +796,24 @@ def renew_lease(
 @router.post("/{lease_id}/terminate")
 def terminate_lease(
     lease_id: uuid.UUID,
+    req: Optional[LeaseTerminate] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
 ):
-    """退房，发布 lease.terminated 事件。"""
+    """退房，发布 lease.terminated 事件。
+
+    `terminateDate` 由前端填写（缺省时取服务端操作时间）并落库到
+    `lease.terminated_at`；此前端点不接收 body，用户填的退房日期直接丢弃。
+    """
     lease = session.get(Lease, lease_id)
     if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
+    _ensure_lease_visible(session, user, lease)
 
     lease.status = LeaseStatus.terminated
+    lease.terminated_at = (
+        req.terminate_date if req and req.terminate_date else datetime.utcnow()
+    )
     session.add(lease)
 
     # 同步更新房源状态为空置
@@ -789,6 +830,7 @@ def terminate_lease(
         {
             "property_id": str(lease.property_id),
             "tenant_id": str(lease.tenant_id),
+            "terminated_at": lease.terminated_at.isoformat(),
             "terminated_by": str(user.id),
         },
     )
@@ -812,6 +854,7 @@ def deposit_settlement(
     lease = session.get(Lease, lease_id)
     if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
+    _ensure_lease_visible(session, user, lease)
 
     # 幂等守卫：押金已结算过的租约不允许重复结算，
     # 否则 idempotency_key=deposit-return-{lease.id} 撞唯一约束 500
@@ -870,6 +913,10 @@ def deposit_settlement(
     # 落库：押金支出纪录（Refund 属性），并更新租约为已终止、房源空置
     lease.deposit_status = "returned" if net >= 0 else "forfeited"
     lease.status = LeaseStatus.terminated
+    # 结算请求里的退房日期同样落库（此前只进结算快照，租约本身没有记录）；
+    # 若 terminate 接口已写入过实际退房日，以先写入的为准，不被结算覆盖。
+    if lease.terminated_at is None:
+        lease.terminated_at = req.termination_date
     session.add(lease)
     if net > 0:
         # payer_id 外键指向 users.id，而 lease.owner_id 指向 owners.id：
@@ -883,6 +930,13 @@ def deposit_settlement(
         session.add(
             Payment(
                 receipt_no=next_no(session, "SK"),
+                # 押金退还也属于该租约经办公司的账，按租约推导归属
+                partner_id=resolve_payment_partner(
+                    session,
+                    payer_id=owner.user_id,
+                    lease_id=lease.id,
+                    property_id=lease.property_id,
+                ),
                 lease_id=lease.id,
                 property_id=lease.property_id,
                 payer_id=owner.user_id,

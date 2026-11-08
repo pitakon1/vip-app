@@ -10,7 +10,11 @@ from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import get_current_user, require_employee
+from app.core.auth import (
+    get_current_user,
+    owner_visibility_conditions,
+    require_employee,
+)
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import is_past_due
 from app.models import (
@@ -563,6 +567,9 @@ def list_owners(
     不该对任意登录用户开放。`keyword` 支持姓名/手机/邮箱模糊匹配。
     """
     conditions = [Owner.deleted_at.is_(None)]
+    # 多 partner 共用库：挂了合作公司的员工只能检索本 partner 管理的业主。
+    # 口径见 `owner_visibility_conditions`（管理员与平台员工仍为全量）。
+    conditions.extend(owner_visibility_conditions(session, user))
     if keyword and keyword.strip():
         kw = f"%{keyword.strip()}%"
         conditions.append(
