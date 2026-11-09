@@ -85,7 +85,7 @@ export default function PublicCommunitiesScreen() {
 
   return (
     <View style={styles.container}>
-      <BeikeHeader title={t('pub.communitiesTitle')} />
+      <BeikeHeader title={t('pub.communitiesTitle')} hideHome />
       <View style={styles.header}>
         <Text style={styles.hint}>{t('pub.communitiesHint')}</Text>
         <TextInput

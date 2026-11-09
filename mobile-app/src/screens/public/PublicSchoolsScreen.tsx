@@ -131,7 +131,7 @@ export default function PublicSchoolsScreen() {
 
   return (
     <View style={styles.container}>
-      <BeikeHeader title={t('pub.schoolsTitle')} />
+      <BeikeHeader title={t('pub.schoolsTitle')} hideHome />
       <Text style={styles.hint}>{t('pub.schoolsHint')}</Text>
 
       {/* 与房源列表对齐：一张卡内「搜索行 + 单行筛选栏 + 顶部下拉面板」 */}

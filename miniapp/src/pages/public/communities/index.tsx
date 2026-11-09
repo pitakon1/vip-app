@@ -12,8 +12,7 @@ import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
-import BottomNav from '@/components/BottomNav'
-import StatusTop from '@/components/StatusTop'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
@@ -93,11 +92,10 @@ export default function PublicCommunitiesPage() {
   })
 
   return (
-    <View className='pub-page'>
-      <StatusTop />
+    <View className='pub-page pub-page--no-nav'>
+      <ShellHeader title={t('pub.communitiesTitle')} showHome={false} />
       <View className='pub-inner'>
         <View className='pub-head'>
-          <Text className='pub-head__title'>{t('pub.communitiesTitle')}</Text>
           <Text className='pub-head__hint'>
             {t('pub.communitiesHint')}
           </Text>
@@ -195,8 +193,6 @@ export default function PublicCommunitiesPage() {
           </>
         )}
       </View>
-
-      <BottomNav role='guest' active='communities' />
     </View>
   )
 }

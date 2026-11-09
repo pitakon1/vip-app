@@ -58,7 +58,7 @@ export default function PublicCommunityDetailPage() {
   if (loading) {
     return (
       <View className='pub-page pub-page--detail'>
-        <ShellHeader title={t('pub.communityListings')} />
+        <ShellHeader title={t('pub.communityListings')} showHome={false} />
         <View className='pub-inner'>
           <StateBlock loading text={t('pub.loading')} />
         </View>
@@ -69,7 +69,7 @@ export default function PublicCommunityDetailPage() {
   if (!project) {
     return (
       <View className='pub-page pub-page--detail'>
-        <ShellHeader title={t('pub.communityListings')} />
+        <ShellHeader title={t('pub.communityListings')} showHome={false} />
         <View className='pub-inner'>
           <StateBlock empty text={t('pub.communityNotFound')} />
         </View>
@@ -103,7 +103,7 @@ export default function PublicCommunityDetailPage() {
 
   return (
     <View className='pub-page pub-page--detail'>
-      <ShellHeader title={t('pub.communityListings')} />
+      <ShellHeader title={t('pub.communityListings')} showHome={false} />
       {project.cover ? (
         <Image className='pub-cover' src={project.cover} mode='aspectFill' />
       ) : null}

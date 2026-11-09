@@ -25,6 +25,8 @@
     align-items: center;
     justify-content: space-between;
     padding-left: 24rpx;
+    /* 右侧给微信胶囊（••• ◉）让位；内联 paddingRight 在部分机型/基础库不生效，改用固定 rpx */
+    padding-right: 240rpx;
   }
 
   &__btn {
@@ -68,6 +70,8 @@
     height: 96rpx;
     line-height: 96rpx;
     box-sizing: border-box;
+    /* 两侧留出圆钮宽度，长标题在按钮之间省略 */
+    padding: 0 108rpx;
     text-align: center;
     font-size: 32rpx;
     font-weight: 600;

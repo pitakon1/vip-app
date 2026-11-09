@@ -39,16 +39,12 @@ const ROLE_HOME: Record<string, string> = {
 
 export default function ShellHeader({ title, showBack = true, showHome = true, homePath }: Props) {
   const { t } = useI18n()
-  const { statusBarH, capsuleReserve } = useMemo(() => {
-    const info = Taro.getSystemInfoSync()
-    let reserve = 96
+  const statusBarH = useMemo(() => {
     try {
-      const rect = Taro.getMenuButtonBoundingClientRect()
-      if (rect?.left) reserve = Math.max(info.windowWidth - rect.left + 8, 76)
+      return Taro.getSystemInfoSync().statusBarHeight || 20
     } catch {
-      // 低版本基础库不支持胶囊位置查询时退回保守留白
+      return 20
     }
-    return { statusBarH: info.statusBarHeight || 20, capsuleReserve: reserve }
   }, [])
 
   const goHome = () => {
@@ -75,7 +71,7 @@ export default function ShellHeader({ title, showBack = true, showHome = true, h
 
   return (
     <View className='shell-header' style={{ paddingTop: `${statusBarH}px` }}>
-      <View className='shell-header__bar' style={{ paddingRight: `${capsuleReserve}px` }}>
+      <View className='shell-header__bar'>
         {showBack ? (
           <View className='shell-header__btn' hoverClass='shell-header__btn--hover' onClick={goBack}>
             <View className='shell-header__chev' />
@@ -95,14 +91,7 @@ export default function ShellHeader({ title, showBack = true, showHome = true, h
           <View className='shell-header__spacer' />
         )}
       </View>
-      {title ? (
-        <Text
-          className='shell-header__title'
-          style={{ paddingLeft: '50px', paddingRight: `${capsuleReserve}px` }}
-        >
-          {title}
-        </Text>
-      ) : null}
+      {title ? <Text className='shell-header__title'>{title}</Text> : null}
     </View>
   )
 }

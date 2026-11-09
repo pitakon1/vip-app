@@ -59,7 +59,7 @@ export default function PublicSchoolDetailPage() {
   if (loading) {
     return (
       <View className='pub-page pub-page--detail'>
-        <ShellHeader title={t('pub.schoolsTitle')} />
+        <ShellHeader title={t('pub.schoolsTitle')} showHome={false} />
         <View className='pub-inner'>
           <StateBlock loading text={t('pub.loading')} />
         </View>
@@ -70,7 +70,7 @@ export default function PublicSchoolDetailPage() {
   if (!school) {
     return (
       <View className='pub-page pub-page--detail'>
-        <ShellHeader title={t('pub.schoolsTitle')} />
+        <ShellHeader title={t('pub.schoolsTitle')} showHome={false} />
         <View className='pub-inner'>
           <StateBlock empty text={t('pub.schoolNotFound')} />
         </View>
@@ -83,7 +83,7 @@ export default function PublicSchoolDetailPage() {
 
   return (
     <View className='pub-page pub-page--detail'>
-      <ShellHeader title={t('pub.schoolsTitle')} />
+      <ShellHeader title={t('pub.schoolsTitle')} showHome={false} />
       {photos.length > 0 ? (
         <Image className='pub-cover' src={photos[0]} mode='aspectFill' />
       ) : null}

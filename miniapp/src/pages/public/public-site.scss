@@ -16,6 +16,11 @@
   padding-bottom: 48rpx;
 }
 
+/* 学校/小区等二级页：顶部是自绘返回栏，不再有底部 Tab，收紧底部留白 */
+.pub-page--no-nav {
+  padding-bottom: 48rpx;
+}
+
 .pub-inner {
   padding: 24rpx;
 }

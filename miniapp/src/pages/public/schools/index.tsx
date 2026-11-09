@@ -17,8 +17,7 @@ import {
   curriculumLabel
 } from '@/lib/publicSite'
 import { useI18n } from '@/i18n'
-import BottomNav from '@/components/BottomNav'
-import StatusTop from '@/components/StatusTop'
+import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
@@ -76,11 +75,10 @@ export default function PublicSchoolsPage() {
   }, [fetchPage])
 
   return (
-    <View className='pub-page'>
-      <StatusTop />
+    <View className='pub-page pub-page--no-nav'>
+      <ShellHeader title={t('pub.schoolsTitle')} showHome={false} />
       <View className='pub-inner'>
         <View className='pub-head'>
-          <Text className='pub-head__title'>{t('pub.schoolsTitle')}</Text>
           <Text className='pub-head__hint'>
             {t('pub.schoolsHint')}
           </Text>
@@ -200,8 +198,6 @@ export default function PublicSchoolsPage() {
           </>
         )}
       </View>
-
-      <BottomNav role='guest' active='schools' />
     </View>
   )
 }
