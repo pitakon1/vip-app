@@ -11,14 +11,16 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import (
-    get_current_user,
     owner_visibility_conditions,
     require_employee,
+    require_owner,
 )
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import is_past_due
 from app.models import (
     Document,
+    Lease,
+    LeaseStatus,
     Listing,
     ListingStatus,
     Owner,
@@ -129,7 +131,7 @@ def _get_owner_or_none(session: Session, user: User) -> Optional[Owner]:
 @router.get("/me/properties", response_model=List[Property])
 def get_my_properties(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
     school_id: Optional[uuid.UUID] = None,
     school_radius_km: float = 3.0,
 ):
@@ -144,13 +146,31 @@ def get_my_properties(
             Owner.deleted_at.is_(None),
         )
     ).first()
-    conditions = [Property.deleted_at.is_(None)]
+    conditions = []
     if owner:
         conditions.append(Property.owner_id == owner.id)
     elif user.role != UserRole.admin:
         # 放宽 guard 后非 admin 也可能调用本接口：未建档时必须显式置空，
         # 否则「没有 owner 条件」会退化成返回全平台房源（越权）。
         conditions.append(false())
+    # 生效租约关联的房源即使已软删也不能从业主资产里凭空消失：否则业主首页
+    # 「已出租」会算成 0，而租约页仍有生效租约，两处口径互相矛盾。这里把
+    # 「未删除」与「已软删但仍有生效租约」的房源一并纳入，并把状态校正为 rented。
+    active_lease_property_ids = set(
+        session.exec(
+            select(Lease.property_id).where(
+                Lease.status == LeaseStatus.active,
+                Lease.deleted_at.is_(None),
+            )
+        ).all()
+    )
+    if active_lease_property_ids:
+        conditions.append(
+            Property.deleted_at.is_(None)
+            | Property.id.in_(active_lease_property_ids)
+        )
+    else:
+        conditions.append(Property.deleted_at.is_(None))
     # 按学校找房（复用 /properties 的空间筛选逻辑，与 C 端口径对齐）
     if school_id:
         school = session.get(School, school_id)
@@ -184,13 +204,18 @@ def get_my_properties(
     properties = session.exec(
         stmt.order_by(Property.created_at.desc())
     ).all()
+    # 出租状态以「生效租约」为唯一口径（与租约页一致）：房源字段可能是历史
+    # 脏数据（如软删前仍是 vacant），这里只对内存对象校正，不写库。
+    for prop in properties:
+        if prop.id in active_lease_property_ids:
+            prop.status = PropertyStatus.rented
     return properties
 
 
 @router.get("/me/documents", response_model=List[Document])
 def get_my_documents(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
 ):
     """业主的文档列表（合同、收据、税务发票等）；未建档返回空列表。"""
     owner = _get_owner_or_none(session, user)
@@ -207,7 +232,7 @@ def get_my_documents(
 @router.get("/me/income", response_model=OwnerIncomeOut)
 def get_my_income(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
 ):
     """租金收入汇总 + 待收/逾期闭环。
 
@@ -344,7 +369,7 @@ def _my_properties(session: Session, owner: Owner) -> list:
 @router.get("/me/marketing", response_model=MarketingOut)
 def get_marketing(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
 ):
     """房源营销推广：空置房源一览并生成分享链接（链接由前端拼装）。"""
     owner = _get_owner_or_none(session, user)
@@ -399,7 +424,7 @@ def get_marketing(
 @router.get("/me/pricing-suggestion", response_model=PricingSuggestionOut)
 def get_pricing_suggestion(
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
 ):
     """自动定价建议：取同项目/同户型的在租与在售房源月租中位数作为比对基准。"""
     owner = _get_owner_or_none(session, user)
@@ -463,7 +488,7 @@ def get_pricing_suggestion(
 def get_annual_financial_summary(
     year: int | None = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_owner),
 ):
     """年度财务汇总：按月份统计已收租金/其他收入/逾期，形成房东年度对账导出数据。"""
     if not year:

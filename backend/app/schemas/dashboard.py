@@ -19,7 +19,13 @@ class DashboardSummaryOut(BaseModel):
     rented: int
     maintenance: int
     expiring_leases: int
+    # 生效租约笔数（含关联房源已软删的租约）：与 active_lease_revenue 同源，
+    # 避免「在租合同 0 / 在租合同营收 55,000」矛盾。
+    active_leases: int = 0
+    # 7 天内到期的 pending 笔数（沿用原语义，勿与待收款混淆）
     upcoming_payments: int
+    # 全部未结清账单（pending + processing）笔数：首页「待收款」使用此字段
+    outstanding_payments: int = 0
     monthly_revenue: float
     active_lease_revenue: float
     occupancy_rate: float

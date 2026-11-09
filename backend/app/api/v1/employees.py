@@ -513,7 +513,21 @@ def get_employee_workbench(
         )
     ).first()
     if not employee:
-        raise HTTPException(status_code=404, detail="Employee profile not found")
+        # 管理员可能没有 Employee 档案。此前直接 404，导致管理员打开员工工作台整页失败；
+        # 这里给管理员返回结构完整的空工作台（其余角色仍由 require_employee 拦截）。
+        if str(getattr(user.role, "value", user.role)) != "admin":
+            raise HTTPException(status_code=403, detail="Employee profile required")
+        return {
+            "summary": {
+                "lease_count": 0,
+                "pending_receivable": 0,
+                "overdue_receivable": 0,
+                "open_maintenance": 0,
+                "avg_resolve_hours": 0,
+            },
+            "follow_up_leases": [],
+            "receivables": {"pending": [], "overdue": []},
+        }
 
     leases = session.exec(
         select(Lease).where(

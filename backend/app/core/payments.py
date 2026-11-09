@@ -15,10 +15,31 @@ from datetime import datetime
 
 from app.models import Payment, PaymentStatus
 
+# 「待缴」口径：processing（已上传凭证/渠道处理中）仍是未结清账单，必须计入待缴；
+# failed 表示扣款失败但账单仍欠费，同样计入。succeeded/refunded/expired/disputed
+# 属于已结清或已关闭，不再计入待缴。
+UNPAID_PAYMENT_STATUSES = (
+    PaymentStatus.pending,
+    PaymentStatus.processing,
+    PaymentStatus.failed,
+)
+
 
 def is_past_due(payment: Payment, now: datetime) -> bool:
     """是否已过缴费截止日（due_date 为空的单不算逾期）。"""
     return bool(payment.due_date and payment.due_date < now)
+
+
+def bill_bucket(payment: Payment, now: datetime) -> str:
+    """单笔账单对租客/业主的展示分桶：received / pending / overdue / closed。
+
+    逾期只看 `due_date`，与列表筛选、待缴合计、逾期笔数共用这一处口径。
+    """
+    if payment.status == PaymentStatus.succeeded:
+        return "received"
+    if payment.status in UNPAID_PAYMENT_STATUSES:
+        return "overdue" if is_past_due(payment, now) else "pending"
+    return "closed"
 
 
 def payment_bucket(payment: Payment, now: datetime) -> str:

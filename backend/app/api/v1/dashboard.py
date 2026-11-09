@@ -118,19 +118,60 @@ def get_summary(
     if cached is not None:
         return cached
 
-    # ---- 房源状态：total / vacant / rented / maintenance 合并为一次条件聚合 ----
+    # ---- 房源状态：只统计「在库」（未软删）房源，软删房源不进空置率 ----
+    # 在租判定以「存在生效租约」为准，而不是 Property.status：房源状态字段经常
+    # 没随租约回写，会出现「在租合同 2 / 在租合同营收 55,000 / 已出租 0」的矛盾。
+    # 软删房源虽不计入空置/在租，但其生效租约仍保留在 active_leases 里，
+    # 保证「在租合同」与「在租合同营收」不断链。
+    leased_property_ids = select(Lease.property_id).where(
+        Lease.deleted_at.is_(None),
+        Lease.status == LeaseStatus.active,
+        Lease.property_id.is_not(None),
+    )
     prop_row = session.exec(
         select(
             func.count(Property.id),
-            func.sum(case((Property.status == PropertyStatus.vacant, 1), else_=0)),
-            func.sum(case((Property.status == PropertyStatus.rented, 1), else_=0)),
-            func.sum(case((Property.status == PropertyStatus.maintenance, 1), else_=0)),
+            func.sum(
+                case(
+                    (
+                        (Property.status == PropertyStatus.vacant)
+                        & (Property.id.not_in(leased_property_ids)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            func.sum(
+                case(
+                    (
+                        (Property.status == PropertyStatus.maintenance)
+                        & (Property.id.not_in(leased_property_ids)),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
+            func.sum(case((Property.id.in_(leased_property_ids), 1), else_=0)),
         ).where(Property.deleted_at.is_(None))
     ).one()
     total = int(prop_row[0] or 0)
     vacant = int(prop_row[1] or 0)
-    rented = int(prop_row[2] or 0)
-    maintenance = int(prop_row[3] or 0)
+    maintenance = int(prop_row[2] or 0)
+    rented = int(prop_row[3] or 0)
+
+    # 软删房源：不再计入空置统计，但仍在租的必须计入「在租」与总数，
+    # 否则会出现「空置率 100%（3/3）却在租合同 2 条 / 在租收入 55,000」的矛盾。
+    deleted_leased = int(
+        session.exec(
+            select(func.count(Property.id)).where(
+                Property.deleted_at.is_not(None),
+                Property.id.in_(leased_property_ids),
+            )
+        ).one()
+        or 0
+    )
+    total += deleted_leased
+    rented += deleted_leased
 
     now = datetime.utcnow()
     thirty_days_later = now + timedelta(days=30)
@@ -158,10 +199,12 @@ def get_summary(
                 ),
                 0,
             ),
+            func.sum(case((Lease.status == LeaseStatus.active, 1), else_=0)),
         ).where(Lease.deleted_at.is_(None))
     ).one()
     expiring_leases = int(lease_row[0] or 0)
     active_lease_revenue = lease_row[1] or 0
+    active_leases = int(lease_row[2] or 0)
 
     seven_days_later = now + timedelta(days=7)
 
@@ -201,10 +244,25 @@ def get_summary(
                 ),
                 0,
             ),
+            # 「待收款」笔数：全部未结清账单（pending + processing），不限日期。
+            # 此前只算「7 天内到期且 pending」，processing 与已逾期单都不计入，
+            # 于是首页出现「欠租 35,000 / 逾期占比 37% / 待收款 0 笔」的自相矛盾。
+            func.sum(
+                case(
+                    (
+                        Payment.status.in_(
+                            (PaymentStatus.pending, PaymentStatus.processing)
+                        ),
+                        1,
+                    ),
+                    else_=0,
+                )
+            ),
         ).where(Payment.deleted_at.is_(None))
     ).one()
     upcoming_payments = int(payment_row[0] or 0)
     monthly_revenue = payment_row[1] or 0
+    outstanding_payments = int(payment_row[2] or 0)
 
     # 入住率
     occupancy_rate = round(rented / total * 100, 1) if total > 0 else 0
@@ -240,7 +298,9 @@ def get_summary(
         "rented": rented,
         "maintenance": maintenance,
         "expiring_leases": expiring_leases,
+        "active_leases": active_leases,
         "upcoming_payments": upcoming_payments,
+        "outstanding_payments": outstanding_payments,
         "monthly_revenue": float(monthly_revenue),
         "active_lease_revenue": float(active_lease_revenue),
         "occupancy_rate": occupancy_rate,

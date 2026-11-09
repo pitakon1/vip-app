@@ -32,6 +32,7 @@ from app.models import (
     Property,
     PropertyStatus,
     Lease,
+    LeaseStatus,
     Listing,
     ListingStatus,
     ListingType,
@@ -259,6 +260,27 @@ def _role_value(user: User) -> str:
     return user.role.value if hasattr(user.role, "value") else str(user.role)
 
 
+# C 端（租客）只应看到对外展示所需字段：以下为内部台账字段，
+# 含归属账号、创建人、软删标记、扩展元数据与去重键，不应下发到租客端。
+# 员工 / 管理员 / 业主端依赖这些字段，故仅对 tenant 生效。
+_C_END_HIDDEN_FIELDS = (
+    "owner_id",
+    "owner_name",
+    "created_by",
+    "creator_name",
+    "deleted_at",
+    "metadata_",
+    "dedupe_key",
+)
+
+
+def _trim_for_tenant(user: User, payload: dict) -> dict:
+    """租客读取房源时裁剪内部字段（返回副本，避免污染详情缓存）。"""
+    if _role_value(user) != UserRole.tenant.value:
+        return payload
+    return {k: v for k, v in payload.items() if k not in _C_END_HIDDEN_FIELDS}
+
+
 def _tenant_name(tenant: Optional[Tenant], users: dict) -> Optional[str]:
     """租客档案 → 展示名（档案或账号缺失时返回 None，不抛异常）。"""
     if not tenant or not tenant.user_id:
@@ -343,7 +365,7 @@ def _keyword_conditions(terms: List[str]) -> list:
     return conditions
 
 
-@router.get("", response_model=PropertyListOut)
+@router.get("", response_model=PropertyListOut, response_model_exclude_unset=True)
 def list_properties(
     pagination: PaginationParams = Depends(),
     status: Optional[PropertyStatus] = None,
@@ -433,20 +455,21 @@ def list_properties(
 ):
     """房源列表（分页；支持关键词 / 区域同义词 / 价格区间 / 面积 / 房型 / 排序 / 小区 / 学校半径）。"""
     keyword = (q or "").strip()
-    # 区域/地铁这类「一组同义词命中任一即可」的搜索走 keywords，并与 q 合并去重
-    terms = [keyword] if keyword else []
-    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
-    terms = list(dict.fromkeys(terms))[:20]
+    # 语义拆分：q 是用户主动搜索词（独立 AND，不能被区域同义词稀释）；
+    # keywords 是区域/地铁等系统下推的同义词组（组内 OR，整体作为一条 AND 限定）。
+    q_terms: List[str] = [keyword] if keyword else []
+    kw_terms: List[str] = [k.strip() for k in (keywords or []) if k and k.strip()]
+    kw_terms = list(dict.fromkeys(kw_terms))[:20]
     # 先定下「实际生效的排序」再拼缓存键，否则 sort 缺省与 sort=relevance
     # 会各自缓存一份完全相同的结果
-    sort = resolve_sort(sort, terms, allowed=_PROPERTY_SORTS)
+    sort = resolve_sort(sort, q_terms, allowed=_PROPERTY_SORTS)
     cache_key = (
         f"cache:properties:list:{pagination.page}:{pagination.page_size}:"
         f"{status.value if status else ''}:{'|'.join(property_type or [])}:{is_new_development}:"
         f"{project_id or ''}:{listing_type.value if listing_type else ''}:{lat}:{lng}:{owner_id or ''}:"
         f"{school_id or ''}:{school_radius_km}:"
         f"{country or ''}:{province or ''}:{city or ''}:{district or ''}:{subway or ''}:"
-        f"{'|'.join(terms)}:{price_min}:{price_max}:{unit_price_min}:{unit_price_max}:"
+        f"{'|'.join(q_terms)}::{'|'.join(kw_terms)}:{price_min}:{price_max}:{unit_price_min}:{unit_price_max}:"
         f"{deposit_months_min}:{deposit_months_max}:{available_before}:"
         f"{completion_year_min}:{completion_year_max}:"
         f"{area_min}:{area_max}:"
@@ -481,9 +504,14 @@ def list_properties(
         .correlate(Property)
         .scalar_subquery()
     )
-    term_conditions = _keyword_conditions(terms)
-    if term_conditions:
-        conditions.append(or_(*term_conditions))
+    # q 与 keywords 各自作为独立 AND 条件：q 命中房源/楼盘字段，
+    # keywords 组内 OR 只限定区域范围，不能用区域词稀释用户主动搜索。
+    for terms in (q_terms, kw_terms):
+        if not terms:
+            continue
+        term_conditions = _keyword_conditions(terms)
+        if term_conditions:
+            conditions.append(or_(*term_conditions))
     if status:
         # status 过滤单独保存：分页查询用它，status_counts 需要「不含 status 维度」
         # 的全状态分布（否则选「已出租」时另外两个状态的计数会变成 0）。
@@ -646,14 +674,20 @@ def list_properties(
         if province:
             conditions.append(Project.province == province)
         if city:
-            conditions.append(Project.city == city)
+            # city 允许传「城市 slug」（bangkok / chiang-mai），与 projects.city 的
+            # 展示名（Bangkok / Chiang Mai）大小写、连字符不敏感地对齐：
+            # 三端区域选择器里的 cityKey 可以直接下推，不必各自维护英文名映射。
+            city_norm = city.strip().replace("-", " ").lower()
+            conditions.append(
+                func.lower(func.replace(Project.city, "-", " ")) == city_norm
+            )
         if district:
             conditions.append(Project.district == district)
         if subway:
             conditions.append(Project.nearest_subway == subway)
 
     # 排序：默认最新；价格/面积排序时把空值排到最后，避免 NULL 干扰浏览
-    score = relevance_score(terms) if sort == "relevance" else None
+    score = relevance_score(q_terms) if sort == "relevance" else None
     if sort == "distance":
         if lat is not None and lng is not None:
             # 房源本身没有坐标，一律取所属项目（projects.lat/lng）。经度差按 cos(lat)
@@ -756,7 +790,7 @@ def list_properties(
         else {}
     )
     result.items = [
-        {
+        _trim_for_tenant(user, {
             **p.model_dump(),
             "project_name": project_meta.get(p.project_id, {}).get("name"),
             # 房源本身无坐标，C 端「附近」排序与距离展示都取所属项目坐标
@@ -769,7 +803,7 @@ def list_properties(
                 else "rent" if (p.monthly_rent or 0) > 0
                 else None
             ),
-        }
+        })
         for p in result.items
     ]
     out = PropertyListOut(
@@ -949,9 +983,9 @@ def list_property_map_points(
     这个鉴权版本留给后台/内部场景，不删。已在契约工具 INTENTIONAL_ORPHANS 登记。
     """
     keyword = (q or "").strip()
-    terms = [keyword] if keyword else []
-    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
-    terms = list(dict.fromkeys(terms))[:20]
+    q_terms: List[str] = [keyword] if keyword else []
+    kw_terms: List[str] = [k.strip() for k in (keywords or []) if k and k.strip()]
+    kw_terms = list(dict.fromkeys(kw_terms))[:20]
 
     conditions = [
         Property.deleted_at.is_(None),
@@ -963,9 +997,13 @@ def list_property_map_points(
         Project.lat.is_not(None),
         Project.lng.is_not(None),
     ]
-    term_conditions = _keyword_conditions(terms)
+    term_conditions = _keyword_conditions(q_terms)
     if term_conditions:
         conditions.append(or_(*term_conditions))
+    if kw_terms:
+        kw_conditions = _keyword_conditions(kw_terms)
+        if kw_conditions:
+            conditions.append(or_(*kw_conditions))
     if status:
         conditions.append(Property.status == status)
     if city:
@@ -1005,7 +1043,7 @@ def list_property_map_points(
     ]
 
 
-@router.get("/{property_id}", response_model=PropertyDetail)
+@router.get("/{property_id}", response_model=PropertyDetail, response_model_exclude_unset=True)
 def get_property(
     property_id: uuid.UUID,
     session: Session = Depends(get_session),
@@ -1026,7 +1064,7 @@ def get_property(
     if cached is not None:
         if not can_view_property(session, user, cached):
             raise HTTPException(status_code=404, detail="Property not found")
-        return cached
+        return _trim_for_tenant(user, cached)
 
     creator = aliased(User)
     row = session.exec(
@@ -1050,7 +1088,7 @@ def get_property(
     data["owner_name"] = owner_user.full_name if owner_user else None
     data["creator_name"] = creator_user.full_name if creator_user else None
     set_cache(cache_key, data, ttl=60)
-    return data
+    return _trim_for_tenant(user, data)
 
 
 @router.patch("/{property_id}")
@@ -1095,6 +1133,20 @@ def delete_property(
     if not prop or prop.deleted_at:
         raise HTTPException(status_code=404, detail="Property not found")
     _ensure_owner_access(user, prop, session)
+    # 有生效租约时禁止软删：否则租约仍是 active、房源却查不到，租客无法报修，
+    # 业主首页「已出租」也和租约页对不上。需要删除时应先走租约终止流程。
+    active_lease = session.exec(
+        select(Lease.id).where(
+            Lease.property_id == prop.id,
+            Lease.status == LeaseStatus.active,
+            Lease.deleted_at.is_(None),
+        )
+    ).first()
+    if active_lease:
+        raise HTTPException(
+            status_code=409,
+            detail="该房源存在生效租约，请先终止租约后再删除",
+        )
     prop.deleted_at = datetime.utcnow()
     session.add(prop)
     session.commit()

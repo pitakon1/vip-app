@@ -257,8 +257,8 @@ class PublicListingDetail(PublicListingCard):
     lng: Optional[float] = None
     project: Optional[PublicProjectBrief] = None
     nearby_schools: List[PublicNearbySchool] = []
+    # 只给对外联络方式（按登录态打码），不含委托方式/佣金等内部口径。
     broker: Optional[PublicBrokerCard] = None
-    mandate_type: Optional[str] = None
 
 
 class PublicSchoolCard(BaseModel):
@@ -648,6 +648,46 @@ def _listings_base_stmt():
     )
 
 
+def _listing_keyword_conditions(
+    q: Optional[str], keywords: Optional[List[str]]
+) -> Tuple[List[Any], List[str]]:
+    """拆开「用户主动搜索词」与「系统区域同义词」两种语义。
+
+    - `q`：用户在搜索框输入的内容，必须独立作为 AND 条件参与筛选；否则会被
+      定位城市带上的几十个城区词稀释——输入不存在的词也能命中任意城区房源。
+    - `keywords`：前端按定位城市/已选区域下推的同义词组，组内 OR（任一命中），
+      整体只作为一条 AND 条件限定区域范围。
+
+    返回 (筛选条件列表, 用于相关性排序的用户搜索词)。
+    """
+    q_terms = [t.strip() for t in [q] if t and t.strip()]
+    q_terms = [t for t in q_terms if len(t) >= 2]
+    kw_terms = [k.strip() for k in (keywords or []) if k and k.strip()]
+    kw_terms = [t for t in kw_terms if len(t) >= 2]
+    # 同义词组上限 100：定位城市会带上该城全部城区关键词（曼谷约 90 个）。
+    kw_terms = list(dict.fromkeys(kw_terms))[:100]
+
+    conditions: List[Any] = []
+    for terms in (q_terms, kw_terms):
+        if not terms:
+            continue
+        conditions.append(
+            or_(
+                *[
+                    Property.room_number.ilike(f"%{term}%")
+                    | Property.address.ilike(f"%{term}%")
+                    | Property.building.ilike(f"%{term}%")
+                    | Project.name.ilike(f"%{term}%")
+                    | Project.address.ilike(f"%{term}%")
+                    | Project.district.ilike(f"%{term}%")
+                    | Project.city.ilike(f"%{term}%")
+                    for term in terms
+                ]
+            )
+        )
+    return conditions, q_terms
+
+
 def _nearby_schools(
     session: Session, lat: Optional[float], lng: Optional[float], limit: int = 6
 ) -> List[PublicNearbySchool]:
@@ -781,29 +821,9 @@ def list_public_map_points(
         conditions.append(Project.lat.between(min_lat, max_lat))
         conditions.append(Project.lng.between(min_lng, max_lng))
 
-    terms = [q.strip()] if q and q.strip() else []
-    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
-    # 单字符关键词（如 "a"）近乎全量命中，丢弃；全部丢弃则按无关键词处理
-    terms = [t for t in terms if len(t) >= 2]
-    # 同义词组上限：定位城市会把「该城所有城区」的关键词一次带上来，曼谷约 90 个。
-    # 原来截断到 20 会砍掉后半段的城区（如 Bang Rak / Charoenkrung），导致按城市
-    # 看房时整页为 0；这里放宽到 100，保证城市作用域的关键词完整参与 OR 匹配。
-    terms = list(dict.fromkeys(terms))[:100]
-    # 同义词组「任一命中」：所有关键词合并为一个 OR 组（与 /properties 口径一致）
-    if terms:
-        conditions.append(
-            or_(
-                *[
-                    Property.room_number.ilike(f"%{term}%")
-                    | Property.address.ilike(f"%{term}%")
-                    | Property.building.ilike(f"%{term}%")
-                    | Project.name.ilike(f"%{term}%")
-                    | Project.district.ilike(f"%{term}%")
-                    | Project.city.ilike(f"%{term}%")
-                    for term in terms
-                ]
-            )
-        )
+    # 关键词：用户搜索词 q 独立 AND，城市/区域同义词组 OR 后作为另一条 AND
+    keyword_conditions, _q_terms = _listing_keyword_conditions(q, keywords)
+    conditions.extend(keyword_conditions)
     # 价格口径与列表一致：租比月租、售比挂牌价
     price_column = _price_expr(listing_type)
     if price_min is not None:
@@ -921,7 +941,9 @@ def list_public_listings(
     school_id: Optional[uuid.UUID] = Query(
         None, description="按学校找房：该校半径内房源（空间筛选，非标签筛选）"
     ),
-    school_radius_km: float = Query(3.0, gt=0, le=20, description="学校半径，默认 3km"),
+    school_radius_km: Optional[float] = Query(
+        None, gt=0, le=20, description="学校半径 km；需与 school_id 一起使用，缺省按 3km"
+    ),
     lat: Optional[float] = Query(
         None, ge=-90, le=90, description="附近排序：用户纬度（与 lng、sort=distance 一起使用）"
     ),
@@ -948,6 +970,19 @@ def list_public_listings(
     `latest`，因此不会被这条默认口径意外改变行为。`sort=distance` 传用户
     `lat`/`lng` 时按距离升序；按学校找房时以学校坐标为原点；两者都没有则退回最新。
     """
+    # 「静默忽略」改为显式报错：distance 排序缺依赖参数时不再假装成功，
+    # 前端也能在联调阶段立刻发现少传了坐标 / 学校。
+    if sort == "distance" and school_id is None and lat is None and lng is None:
+        raise HTTPException(
+            status_code=422,
+            detail="排序 distance 需要提供 lat/lng，或与 school_id 一起使用",
+        )
+    if school_radius_km is not None and school_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="school_radius_km 需要与 school_id 一起使用",
+        )
+    radius_km = school_radius_km if school_radius_km is not None else 3.0
     # 列表不含按身份变化的字段，可公开缓存；详情接口不可（见模块顶部说明）。
     response.headers["Cache-Control"] = "public, max-age=60"
     base = _listings_base_stmt()
@@ -1075,33 +1110,13 @@ def list_public_listings(
     if bedrooms_max is not None:
         conditions.append(Property.bedrooms <= bedrooms_max)
 
-    # 关键词：房源自身字段或所属楼盘字段任一命中；同义词组「任一命中」——
-    # 所有关键词合并为一个 OR 组（与 /properties 口径一致）。
-    # 单字符关键词（如 "a"）近乎全量命中，丢弃；全部丢弃则按无关键词处理
-    terms = [q.strip()] if q and q.strip() else []
-    terms += [k.strip() for k in (keywords or []) if k and k.strip()]
-    terms = [t for t in terms if len(t) >= 2]
-    # 同义词组上限放宽到 100：定位城市会带上该城全部城区的关键词（曼谷约 90 个），
-    # 截断成 20 会丢掉后半段城区，按城市看房时地图与列表都会变空。
-    terms = list(dict.fromkeys(terms))[:100]
-    if terms:
-        conditions.append(
-            or_(
-                *[
-                    Property.room_number.ilike(f"%{term}%")
-                    | Property.address.ilike(f"%{term}%")
-                    | Property.building.ilike(f"%{term}%")
-                    | Project.name.ilike(f"%{term}%")
-                    | Project.address.ilike(f"%{term}%")
-                    | Project.district.ilike(f"%{term}%")
-                    | Project.city.ilike(f"%{term}%")
-                    for term in terms
-                ]
-            )
-        )
+    # 关键词：用户搜索词 q 独立 AND（不被区域同义词稀释），
+    # 城市/区域同义词组组内 OR 后作为另一条 AND 限定范围。
+    keyword_conditions, q_terms = _listing_keyword_conditions(q, keywords)
+    conditions.extend(keyword_conditions)
 
     # 排序
-    sort = resolve_sort(sort, terms, allowed=_LISTING_SORTS)
+    sort = resolve_sort(sort, q_terms, allowed=_LISTING_SORTS)
     if sort == "price_asc":
         order_by = [price_column.asc()]
     elif sort == "price_desc":
@@ -1122,8 +1137,8 @@ def list_public_listings(
         else:
             order_by = [Listing.created_at.desc()]
     elif sort == "relevance":
-        # 相关性只在「有关键词」时才有意义；terms 为空时退化为最新
-        score = relevance_score(terms)
+        # 相关性只在「用户主动搜索」时才有意义；没有 q 时退化为最新
+        score = relevance_score(q_terms)
         order_by = [score.desc()] if score is not None else []
         order_by.append(Listing.created_at.desc())
     else:
@@ -1142,7 +1157,7 @@ def list_public_listings(
             )
 
         lat_min, lat_max, lng_min, lng_max = lat_lng_bounds(
-            school.lat, school.lng, school_radius_km
+            school.lat, school.lng, radius_km
         )
         stmt = (
             base.where(
@@ -1162,7 +1177,7 @@ def list_public_listings(
         within: List[Tuple[float, Listing, Property, Project]] = []
         for listing, prop, project in rows:
             distance = haversine_km(school.lat, school.lng, project.lat, project.lng)
-            if distance <= school_radius_km:
+            if distance <= radius_km:
                 within.append((distance, listing, prop, project))
 
         # 学区场景下「相关性」无意义（用户的心智是「离学校多近」），
@@ -1281,7 +1296,6 @@ def get_public_listing(
         project=_project_brief(project, developer),
         nearby_schools=_nearby_schools(session, lat, lng),
         broker=broker,
-        mandate_type=_enum_value(listing.mandate_type),
     )
 
 

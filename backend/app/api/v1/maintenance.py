@@ -18,6 +18,7 @@ from app.models import (
     Conversation,
     Employee,
     Lease,
+    LeaseStatus,
     MaintenanceTicket,
     Owner,
     Property,
@@ -293,7 +294,7 @@ def create_maintenance_ticket(
     """
     data = req.model_dump(exclude_unset=True)
     prop = session.get(Property, req.property_id)
-    if not prop or prop.deleted_at:
+    if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     if user.role == UserRole.tenant:
         tenant = session.exec(
@@ -304,6 +305,28 @@ def create_maintenance_ticket(
         ).first()
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant profile not found")
+        if prop.deleted_at:
+            # 房源已软删但租约仍生效：不让引用断链，仍允许持有该房源生效租约的
+            # 租客报修（否则租约页能看到、租客却提交不了）。没有生效租约则视为
+            # 无权访问该房源，与未删除时同口径返回 404。
+            active_lease = (
+                session.get(Lease, req.lease_id) if req.lease_id else None
+            ) or session.exec(
+                select(Lease).where(
+                    Lease.tenant_id == tenant.id,
+                    Lease.property_id == prop.id,
+                    Lease.status == LeaseStatus.active,
+                    Lease.deleted_at.is_(None),
+                )
+            ).first()
+            if (
+                not active_lease
+                or active_lease.tenant_id != tenant.id
+                or active_lease.property_id != prop.id
+                or active_lease.status != LeaseStatus.active
+                or active_lease.deleted_at is not None
+            ):
+                raise HTTPException(status_code=404, detail="Property not found")
         data["tenant_id"] = tenant.id
         # 租客提交强制绑定房源业主，且租约必须属于该租客，防止把工单挂到他人名下
         data["owner_id"] = prop.owner_id
@@ -316,6 +339,11 @@ def create_maintenance_ticket(
                     status_code=403,
                     detail="Lease does not belong to current tenant",
                 )
+            if lease.property_id != prop.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Lease does not belong to this property",
+                )
     elif user.role == UserRole.owner:
         owner = session.exec(
             select(Owner).where(
@@ -325,6 +353,8 @@ def create_maintenance_ticket(
         ).first()
         if not owner:
             raise HTTPException(status_code=404, detail="Owner profile not found")
+        if prop.deleted_at and prop.owner_id != owner.id:
+            raise HTTPException(status_code=404, detail="Property not found")
         data["owner_id"] = owner.id
         data.pop("tenant_id", None)
     if not data.get("owner_id"):

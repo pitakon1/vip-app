@@ -39,7 +39,11 @@ from app.core.auth import (
 )
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.core.payments import payment_bucket
+from app.core.payments import (
+    UNPAID_PAYMENT_STATUSES,
+    bill_bucket,
+    payment_bucket,
+)
 from app.core.csv_export import csv_response
 from app.core.uploads import (
     detect_document_mime,
@@ -139,10 +143,16 @@ class ReconcileRequest(BaseModel):
 
 
 class MyPaymentsResponse(BaseModel):
-    """我的付款记录响应（items 为 Payment 实例列表）。"""
+    """我的付款记录响应。
 
-    items: Optional[List[Payment]] = None
+    `bucket` 为按 `due_date` 推导的展示分桶（received/pending/overdue/closed）；
+    `summary` 与 items 同源计算，前端「列表 / 待缴合计 / 逾期笔数」直接复用，
+    避免各端各自手写状态判断导致口径漂移。
+    """
+
+    items: Optional[List[dict]] = None
     total: Optional[int] = None
+    summary: Optional[dict] = None
     model_config = ConfigDict(extra="allow")
 
 
@@ -245,6 +255,29 @@ def _can_manage(user: User, payment: Payment) -> bool:
     不做直接拒绝，避免存量数据整体 403。
     """
     return can_view_payment(user, payment)
+
+
+# 员工侧（含合作公司管理员）可以代客发起/取消支付、代传凭证；
+# 业主/租客只能操作「自己该付」的账单，收款方（payee）无权发起付款动作。
+_STAFF_ROLES = (
+    UserRole.admin,
+    UserRole.agent,
+    UserRole.employee,
+    UserRole.partner_admin,
+)
+
+
+def _assert_payer_action(user: User, payment: Payment) -> None:
+    """付款类动作的归属校验：非员工必须是该账单的付款方。
+
+    `/payments/me` 对业主收窄为 payee 之后，业主能看到租客的应收账单，
+    但这只是「看」，不能点「去支付」。此前 pay/cancel/proof 全走 `_can_manage`，
+    payee 业主可以替租客发起支付，属于越权。
+    """
+    if user.role in _STAFF_ROLES:
+        return
+    if payment.payer_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the payer can pay this bill")
 
 
 def _get_payment_or_404(payment_id: uuid.UUID, session: Session) -> Payment:
@@ -365,7 +398,11 @@ def payments_summary(
 def list_payments(
     pagination: PaginationParams = Depends(),
     status: Optional[str] = Query(
-        None, description="状态筛选；overdue 为派生状态（pending 且已过截止日）"
+        None,
+        description=(
+            "状态筛选；overdue 为派生状态（未结清账单 pending/processing 且 "
+            "due_date 已过），与工作台「欠租与逾期」同一口径"
+        ),
     ),
     payment_type: Optional[PaymentType] = None,
     lease_id: Optional[uuid.UUID] = None,
@@ -385,11 +422,13 @@ def list_payments(
     conditions.extend(payment_visibility_conditions(session, user))
     if status:
         if status == "overdue":
-            # 派生状态：待收且已过缴费截止日。这是 SQL 侧筛选（只算 pending），
-            # 与 core.payments.payment_bucket 的"逾期"口径（含 failed / 非 refunded）
-            # 不同，属既有行为，勿强行对齐。
+            # 派生状态：未结清（pending + processing）且已过缴费截止日。
+            # 与 dashboard 的 `_OUTSTANDING` / `is_overdue` 完全同源：processing
+            # 的账单同样可能逾期，只看 pending 会把工作台显示的欠租在列表里漏掉。
             conditions.append(
-                (Payment.status == PaymentStatus.pending)
+                Payment.status.in_(
+                    (PaymentStatus.pending, PaymentStatus.processing)
+                )
                 & (Payment.due_date.is_not(None))
                 & (Payment.due_date < datetime.utcnow())
             )
@@ -417,12 +456,11 @@ def list_payments(
     if keyword:
         kw = keyword.strip()
         # 按付款方/收款方姓名模糊搜索（租约/合同暂无合同号字段，仅支持人名）
-        matched_user_ids = {
-            r[0]
-            for r in session.exec(
-                select(User.id).where(User.full_name.contains(kw))
-            ).all()
-        }
+        # 注意：select(User.id) 在 SQLModel 下返回的是标量 UUID，不是 Row，
+        # 这里必须直接对结果取值；按 r[0] 取值会抛 TypeError 导致 500。
+        matched_user_ids = set(
+            session.exec(select(User.id).where(User.full_name.contains(kw))).all()
+        )
         if matched_user_ids:
             conditions.append(
                 (Payment.payer_id.in_(matched_user_ids))
@@ -532,23 +570,69 @@ def list_my_payments(
 ):
     """当前用户相关的付款记录（可按 payment_type 过滤，分页返回）。
 
+    按角色收窄：租客只看自己应付的（payer），业主只看自己应收的（payee）；
+    管理/员工侧保留双向可见（需要同时看到本人经手的收付款）。
+    这样业主不会在「我的收益」里看到本应由租客支付的账单并点「去支付」。
+
     `total` 为真实总笔数（而非当前页条数），供前端展示完整的分页信息。
+    `bucket` 与 `summary` 均按 `due_date` 同源推导：processing 计入待缴，
+    已过截止日的未结清账单计入逾期。
     """
-    conditions = [
-        (Payment.payer_id == user.id) | (Payment.payee_id == user.id),
-        Payment.deleted_at.is_(None),
-    ]
+    if user.role == UserRole.tenant:
+        party_condition = Payment.payer_id == user.id
+    elif user.role == UserRole.owner:
+        party_condition = Payment.payee_id == user.id
+    else:
+        party_condition = (Payment.payer_id == user.id) | (Payment.payee_id == user.id)
+
+    conditions = [party_condition, Payment.deleted_at.is_(None)]
     if payment_type:
         conditions.append(Payment.payment_type == payment_type)
-    total = session.exec(select(func.count(Payment.id)).where(*conditions)).one()
-    payments = session.exec(
+
+    now = datetime.utcnow()
+    # 汇总必须覆盖全部匹配账单（不受分页/limit 影响），与列表同一份数据算出来
+    all_payments = session.exec(
         select(Payment)
         .where(*conditions)
         .order_by(Payment.created_at.desc(), Payment.id)
-        .offset(offset)
-        .limit(limit)
     ).all()
-    return {"items": payments, "total": total}
+    items = [
+        {**p.model_dump(), "bucket": bill_bucket(p, now)}
+        for p in all_payments[offset : offset + limit]
+    ]
+    summary = {
+        "currency": next((p.currency for p in all_payments if p.currency), "THB"),
+        "total_count": len(all_payments),
+        "unpaid_count": 0,
+        "unpaid_amount": 0.0,
+        "pending_count": 0,
+        "pending_amount": 0.0,
+        "overdue_count": 0,
+        "overdue_amount": 0.0,
+        "received_count": 0,
+        "received_amount": 0.0,
+    }
+    for p in all_payments:
+        bucket = bill_bucket(p, now)
+        amount = float(p.amount or 0)
+        if bucket == "pending":
+            summary["pending_count"] += 1
+            summary["pending_amount"] += amount
+            summary["unpaid_count"] += 1
+            summary["unpaid_amount"] += amount
+        elif bucket == "overdue":
+            summary["overdue_count"] += 1
+            summary["overdue_amount"] += amount
+            summary["unpaid_count"] += 1
+            summary["unpaid_amount"] += amount
+        elif bucket == "received":
+            summary["received_count"] += 1
+            summary["received_amount"] += amount
+    return {
+        "items": items,
+        "total": len(all_payments),
+        "summary": summary,
+    }
 
 
 @router.post("/upload")
@@ -592,8 +676,9 @@ def upload_payment_proof(
             raise HTTPException(status_code=404, detail="Payment not found")
         # 与详情/收据同一口径（此前这里引用了不存在的 UserRole.staff，
         # 非付款方上传会直接 AttributeError 500，且员工不受 partner 收窄）
-        if payment.payer_id != user.id and not _can_manage(user, payment):
+        if not _can_manage(user, payment):
             raise HTTPException(status_code=403, detail="Not allowed to upload proof for this payment")
+        _assert_payer_action(user, payment)
         if payment.status in (PaymentStatus.succeeded, PaymentStatus.refunded):
             raise HTTPException(status_code=409, detail="Payment already settled")
         if abs(float(payment.amount) - float(amount)) > 0.01:
@@ -949,6 +1034,7 @@ def pay_payment(
     payment = _get_payment_or_404(payment_id, session)
     if not _can_manage(user, payment):
         raise HTTPException(status_code=403, detail="Access denied")
+    _assert_payer_action(user, payment)
 
     # 已终态的支付单不可再发起
     if payment.status in (
@@ -982,6 +1068,7 @@ def cancel_payment(
     payment = _get_payment_or_404(payment_id, session)
     if not _can_manage(user, payment):
         raise HTTPException(status_code=403, detail="Access denied")
+    _assert_payer_action(user, payment)
     if payment.status not in (PaymentStatus.pending, PaymentStatus.processing):
         raise HTTPException(
             status_code=400,
@@ -1009,6 +1096,7 @@ def submit_payment_proof(
     payment = _get_payment_or_404(payment_id, session)
     if not _can_manage(user, payment):
         raise HTTPException(status_code=403, detail="Access denied")
+    _assert_payer_action(user, payment)
 
     payment.receipt_url = _validate_receipt_url(req.receipt_url)
     if req.channel:

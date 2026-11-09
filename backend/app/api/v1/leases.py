@@ -312,11 +312,12 @@ def _ensure_lease_visible(session: Session, user: User, lease: Lease) -> None:
 
     此前 PATCH / terminate / deposit-settlement 只校验角色，不校验数据范围，
     出现了「详情读不到（404）、但同一个 id 能改/能退」的越权：agent 默认
-    data-scope=self，却能操作其他经纪人的租约。不可见时同样返回 404，
-    避免用 403 暴露该 id 是否存在。
+    data-scope=self，却能操作其他经纪人的租约。
+    这里租约已按 id 取到（存在性已知），不可见属于明确的越权，返回 403，
+    与「id 不存在」的 404 区分开。
     """
     if not can_view_lease(session, user, lease):
-        raise HTTPException(status_code=404, detail="Lease not found")
+        raise HTTPException(status_code=403, detail="No permission to access this lease")
 
 
 MAX_BATCH_PROPERTY_IDS = 50
@@ -629,14 +630,16 @@ def get_lease(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """获取租约详情（仅本人/本人房源可见；员工不受限）。
+    """获取租约详情（仅本人 / 本人房源 / 归属员工可见；管理员全量）。
 
-    不可见时返回 404 而非 403：403 会暴露「这条租约确实存在」，
-    等于给出可枚举的 id 探测面。
+    越权与不存在明确区分：id 不存在或已删除 → 404；存在但当前账号无权
+    （如另一个租客、非归属经纪）→ 403。
     """
     lease = session.get(Lease, lease_id)
-    if not lease or lease.deleted_at or not can_view_lease(session, user, lease):
+    if not lease or lease.deleted_at:
         raise HTTPException(status_code=404, detail="Lease not found")
+    if not can_view_lease(session, user, lease):
+        raise HTTPException(status_code=403, detail="No permission to access this lease")
     return lease
 
 
