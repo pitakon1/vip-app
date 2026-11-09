@@ -27,8 +27,8 @@ interface RowEntry {
   url?: string
 }
 
-// C 端（业主+租客）统一「常用功能」宫格：全部入口放进同一个宫格，对所有用户完全一致；
-// 业主与租客功能一致——不做能力门槛，登录后即可进入任意入口。
+// C 端（业主+租客）统一「常用功能」宫格：数据源共用，渲染时按能力过滤（见 cGrid）；
+// 租客/游客不再看到业主专属入口。
 const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
   // 业主入口（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
   { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home' },
@@ -194,10 +194,15 @@ export default function ProfilePage() {
   }>({})
 
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  const authRole = useAuthStore((state) => state.user?.role)
+  const isOwnerRole = authRole === 'owner'
   const { data: leaseList, refresh } = useSwrCache<any[]>({
-    key: `profile:leases:${uid}`,
+    key: `profile:leases:${isOwnerRole ? 'owner' : 'mine'}:${uid}`,
     fetcher: async () => {
-      const res = await leasesApi.mine()
+      // 业主不能走租客 /leases/me，改走 /leases（后端按 owner 收窄）
+      const res = isOwnerRole
+        ? await leasesApi.list({ page: 1, page_size: 20 })
+        : await leasesApi.mine()
       return pickList<any>(res)
     },
   })
@@ -220,6 +225,8 @@ export default function ProfilePage() {
       }
       if (currentRole === 'owner') {
         loadAppInfo()
+        // 业主租约走 /leases；刷新后「我的租约」摘要才有数据
+        refresh()
       }
     }
   })
@@ -699,8 +706,30 @@ export default function ProfilePage() {
   const isStaff = role === 'agent' || role === 'employee'
   /** C 端（业主/租客，含未登录兜底）：与员工/管理端分开，统一「我的」页面结构 */
   const isC = !isAdmin && !isStaff
-  /** 统一常用功能宫格：对所有人完全一致，不按角色隐藏；点开无能力的项给提示 */
-  const cGrid = C_GRID
+  /**
+   * 常用功能宫格按能力过滤：
+   *  - 业主专属（房源管理 / 收益明细）→ 仅 owner 角色
+   *  - 租客专属（交易订单 / 服务工单 / 增值服务）→ 仅有生效租约或 tenant 角色
+   *  - 双方共用（我的租约 / 缴费中心 / 合同 / 文档）→ 业主或租客
+   *  - 关注 / 历史 / 降价提醒 → 登录用户均可；游客只保留这三项
+   * 游客（!user）不再看到业主专属入口。
+   */
+  const canManageProperty = isOwner
+  /**
+   * 租客能力判定只看「本人身份 + 本人租约」。
+   * 业主的 `/leases` 返回的是名下房源的在租租约（不是业主自己承租的租约），
+   * 若据此判定会让业主看到「交易订单 / 服务工单 / 增值服务」等租客专属入口。
+   */
+  const isActiveTenant = !isOwner && !isAdmin && !isStaff && (isTenant || !!lease)
+  const cGrid = C_GRID.filter((e) => {
+    if (!user) return ['favorites', 'history', 'priceAlerts'].includes(e.key)
+    if (e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty
+    if (e.key === 'myDeals' || e.key === 'maintenance' || e.key === 'services') return isActiveTenant
+    if (e.key === 'myLeases' || e.key === 'payments' || e.key === 'documents' || e.key === 'myContracts') {
+      return canManageProperty || isActiveTenant
+    }
+    return true
+  })
   /** 租客 / 管理端 / 业主端 / 员工端 / 访客皆有「我的」页，底部导航对齐原型 */
   const hasBottomNav = !user || isTenant || isAdmin || isOwner || isStaff
 

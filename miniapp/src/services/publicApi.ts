@@ -409,6 +409,12 @@ export const publicApi = {
    */
   listings: (params?: PublicListingQuery) => {
     const { keywords, property_type, amenity, ...rest } = params ?? {}
+    // 小程序 wx.request 会把 undefined/null 序列化成字符串 "undefined"/"null"，
+    // 后端 Pydantic 校验 `listing_type` 枚举与 `price_min` 数值时直接 422，
+    // 表现为「房源列表永远加载失败、共 0 套」。公开查询里这些「未填」的键必须剔除。
+    const clean = Object.fromEntries(
+      Object.entries(rest).filter(([, v]) => v !== undefined && v !== null && v !== '')
+    )
     const query = (
       [
         ['keywords', keywords],
@@ -425,7 +431,7 @@ export const publicApi = {
     return request<any>({
       url: `${PUBLIC}/listings${query ? `?${query}` : ''}`,
       method: 'GET',
-      data: rest
+      data: clean
     })
   },
   /** 公开房源详情 */

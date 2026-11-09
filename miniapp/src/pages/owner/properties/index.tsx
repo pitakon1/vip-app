@@ -896,9 +896,15 @@ export default function OwnerPropertiesPage() {
                   <Text className='op-card__addr-text'>{item.address || t('prop.noAddress')}</Text>
                 </View>
                 <View className='op-card__meta'>
-                  <Text className='op-card__meta-item'>{(item.size_sqm ?? item.area) || 0}㎡</Text>
-                  <Text className='op-card__meta-item'>{t('prop.bedroomUnit', { n: item.bedrooms || 0 })}</Text>
-                  <Text className='op-card__meta-item'>{t('prop.bathroomUnit', { n: item.bathrooms || 0 })}</Text>
+                  {(item.size_sqm ?? item.area) != null && (
+                    <Text className='op-card__meta-item'>{item.size_sqm ?? item.area}㎡</Text>
+                  )}
+                  {item.bedrooms != null && (
+                    <Text className='op-card__meta-item'>{t('prop.bedroomUnit', { n: item.bedrooms })}</Text>
+                  )}
+                  {item.bathrooms != null && (
+                    <Text className='op-card__meta-item'>{t('prop.bathroomUnit', { n: item.bathrooms })}</Text>
+                  )}
                 </View>
                 <View className='op-card__price-row'>
                   <Text className='op-card__price'>

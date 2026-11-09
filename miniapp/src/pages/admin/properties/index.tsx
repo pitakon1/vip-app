@@ -162,6 +162,8 @@ export default function AdminPropertiesPage() {
   const [regionOpen, setRegionOpen] = useState(false)
   const [areaCountry, setAreaCountry] = useState<string>(AREA_GROUPS[0].country)
   const [areaDrill, setAreaDrill] = useState<string>('') // 已下钻的省市 cityKey，空 = 停在省市列表
+  // 城市级筛选（只选了省市、未选城区时也下发服务端 city）
+  const [citySel, setCitySel] = useState<string>('')
 
   // 城区扁平表：key 沿用「省市:城区」复合键（不同省市下存在同名城区，如 laguna），
   // 仅用于按选中项反查关键词与展示文案。
@@ -182,8 +184,11 @@ export default function AdminPropertiesPage() {
     [areaDrill]
   )
   const regionLabel = useMemo(
-    () => allDistricts.find((d) => d.key === region)?.label || t('prop.regionAny'),
-    [region, allDistricts, t]
+    () =>
+      allDistricts.find((d) => d.key === region)?.label ||
+      (citySel ? AREA_GROUPS.find((g) => g.cityKey === citySel)?.cityLabel : '') ||
+      t('prop.regionAny'),
+    [region, citySel, allDistricts, t]
   )
   const filteredSchools = schoolKw.trim()
     ? schools.filter((s) =>
@@ -206,7 +211,7 @@ export default function AdminPropertiesPage() {
   const buildParams = (over: Partial<{
     status: string; q: string; bedrooms: string; priceRange: string;
     priceCustomMin: string; priceCustomMax: string; areaRange: string;
-    areaCustomMin: string; areaCustomMax: string; region: string;
+    areaCustomMin: string; areaCustomMax: string; region: string; citySel: string;
     hasVideo: boolean; sort: string; schoolId: string; schoolKm: number
   }> = {}, pg: number = 1) => {
     const p: Record<string, any> = { page: pg, page_size: PAGE_SIZE, sort: 'latest' }
@@ -220,6 +225,7 @@ export default function AdminPropertiesPage() {
     const acMin = over.areaCustomMin ?? areaCustomMin
     const acMax = over.areaCustomMax ?? areaCustomMax
     const rg = over.region ?? region
+    const cs = over.citySel ?? citySel
     const hv = over.hasVideo ?? hasVideo
     const so = over.sort ?? sort
     const sid = over.schoolId ?? schoolId
@@ -263,6 +269,9 @@ export default function AdminPropertiesPage() {
     if (rg) {
       const node = allDistricts.find((d) => d.key === rg)
       if (node && node.kws.length) p.keywords = node.kws
+    } else if (cs) {
+      // 只选到省市：下推 city，由服务端按 projects.city 过滤（slug 大小写/连字符不敏感）
+      p.city = cs
     }
     // 只看带视频
     if (hv) p.has_video = true
@@ -363,9 +372,16 @@ export default function AdminPropertiesPage() {
   }
   const pickRegion = (key: string | null) => {
     setRegion(key || '')
-    // 清空区域时一并清掉下钻状态，下次打开回到省市列表
-    if (!key) setAreaDrill('')
-    fetchList({ region: key || '' })
+    // 清空区域时一并清掉下钻/城市状态，下次打开回到省市列表
+    if (!key) { setAreaDrill(''); setCitySel('') }
+    fetchList({ region: key || '', citySel: key ? citySel : '' })
+  }
+  // 选中省市：立即下发城市级筛选，同时下钻展示城区
+  const pickCity = (key: string) => {
+    setAreaDrill(key)
+    setCitySel(key)
+    setRegion('')
+    fetchList({ citySel: key, region: '' })
   }
   const toggleSchool = (school: PublicSchool) => {
     if (schoolId === school.id) {
@@ -448,7 +464,7 @@ export default function AdminPropertiesPage() {
       : (priceRange ? (PRICE_OPTIONS.find((o) => o.key === priceRange)?.label || 'prop.priceAny') : 'pub.filterPrice'))
   }
   const activeSet: Record<string, boolean> = {
-    region: !!region,
+    region: !!(region || citySel),
     sort: !!sort,
     price: !!(priceRange || priceCustomMin || priceCustomMax),
     more: !!(status || bedrooms !== '' || schoolId || areaRange || areaCustomMin || areaCustomMax || hasVideo)
@@ -496,7 +512,11 @@ export default function AdminPropertiesPage() {
               className={`pb-tab ${openTab === tb.key ? 'pb-tab--open' : ''} ${tb.active ? 'pb-tab--active' : ''}`}
               onClick={() => {
                 if (openTab === tb.key) { setOpenTab(null); return }
-                if (tb.key === 'region') { setRegionOpen(true); setAreaDrill('') }
+                if (tb.key === 'region') {
+                  setRegionOpen(true)
+                  // 回显：已选城区 → 定位到其所属省市；只选了城市 → 定位到该城市
+                  setAreaDrill(region ? region.split(':')[0] : citySel)
+                }
                 setOpenTab(tb.key)
               }}
             >
@@ -665,7 +685,16 @@ export default function AdminPropertiesPage() {
                       <View
                         key={c}
                         className={`pb-region__line ${areaCountry === c ? 'pb-region__line--active' : ''}`}
-                        onClick={() => { setAreaCountry(c); setAreaDrill('') }}
+                        onClick={() => {
+                          setAreaCountry(c)
+                          setAreaDrill('')
+                          // 切国家清掉旧城市/城区筛选，避免旧条件继续生效
+                          if (citySel || region) {
+                            setCitySel('')
+                            setRegion('')
+                            fetchList({ citySel: '', region: '' })
+                          }
+                        }}
                       >
                         <Text>{c}</Text>
                       </View>
@@ -679,7 +708,15 @@ export default function AdminPropertiesPage() {
                           <Text className='pb-region__title'>{activeAreaGroup.cityLabel}</Text>
                         </View>
                         <View className='pb-panel__chips'>
-                          <View className={`pb-opt ${region === '' ? 'pb-opt--active' : ''}`} onClick={() => pickRegion(null)}>
+                          <View
+                            className={`pb-opt ${region === '' && citySel === activeAreaGroup.cityKey ? 'pb-opt--active' : ''}`}
+                            onClick={() => {
+                              // 城市内选「不限」= 保留城市级筛选，只清城区
+                              setRegion('')
+                              setCitySel(activeAreaGroup.cityKey)
+                              fetchList({ region: '', citySel: activeAreaGroup.cityKey })
+                            }}
+                          >
                             <Text>{t('pub.filterAny')}</Text>
                           </View>
                           {activeAreaGroup.children.map((d) => (
@@ -701,7 +738,7 @@ export default function AdminPropertiesPage() {
                             <View
                               key={g.cityKey}
                               className={`pb-opt ${areaDrill === g.cityKey ? 'pb-opt--active' : ''}`}
-                              onClick={() => setAreaDrill(g.cityKey)}
+                              onClick={() => pickCity(g.cityKey)}
                             >
                               <Text>{g.cityLabel}</Text>
                             </View>
@@ -770,9 +807,15 @@ export default function AdminPropertiesPage() {
                 <Text className='ap-card__addr-text'>{item.address || t('prop.noAddress')}</Text>
               </View>
               <View className='ap-card__meta'>
-                <Text className='ap-card__meta-item'>{item.size_sqm || 0}㎡</Text>
-                <Text className='ap-card__meta-item'>{t('prop.bedroomUnit', { n: item.bedrooms || 0 })}</Text>
-                <Text className='ap-card__meta-item'>{t('prop.bathroomUnit', { n: item.bathrooms || 0 })}</Text>
+                {item.size_sqm != null && (
+                  <Text className='ap-card__meta-item'>{item.size_sqm}㎡</Text>
+                )}
+                {item.bedrooms != null && (
+                  <Text className='ap-card__meta-item'>{t('prop.bedroomUnit', { n: item.bedrooms })}</Text>
+                )}
+                {item.bathrooms != null && (
+                  <Text className='ap-card__meta-item'>{t('prop.bathroomUnit', { n: item.bathrooms })}</Text>
+                )}
               </View>
               <View className='ap-card__price-row'>
                 <Text className='ap-card__price'>

@@ -128,6 +128,8 @@ export const leasesApi = {
 
 export const paymentsApi = {
   mine: () => request({ url: '/payments/me', method: 'GET' }),
+  // 全局汇总（不受分页/筛选影响），管理端收款大卡使用
+  summary: (params?: any) => request({ url: '/payments/summary', method: 'GET', data: params }),
   // 手动记账 / 确认到账（管理端写操作）
   create: (data: any) => request({ url: '/payments', method: 'POST', data }),
   get: (id: string) => request({ url: `/payments/${id}`, method: 'GET' }),

@@ -37,7 +37,14 @@ export default {
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',
     'pages/profile/index',
-    'pages/attendance/index'
+    'pages/attendance/index',
+    // 租客低频页：租约详情 / 交易订单 / 我的合同
+    // 注意：主包已有大量 pages/tenant/* 页面，微信不允许「分包 root」与主包页面路径重叠
+    // （报错：pages/tenant/home/index 不应该在 subPackages 中），故这几页留在主包。
+    'pages/tenant/leases/detail',
+    'pages/tenant/deals/index',
+    'pages/tenant/deals/detail',
+    'pages/tenant/my-contracts/index'
   ],
   subPackages: [
     // 业主低频页：房源管理 / 收益 / 委托挂牌 / 房源详情 + 首页转发页（兼容历史分享路径）
@@ -64,11 +71,6 @@ export default {
     {
       root: 'pages/chat',
       pages: ['list/index', 'detail/index']
-    },
-    // 租客低频：租约详情 / 交易订单 / 我的合同
-    {
-      root: 'pages/tenant',
-      pages: ['leases/detail', 'deals/index', 'deals/detail', 'my-contracts/index']
     }
   ],
   window: {

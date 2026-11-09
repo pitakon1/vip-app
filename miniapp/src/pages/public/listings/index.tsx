@@ -409,7 +409,8 @@ export default function PublicListingsPage() {
           </View>
         ) : null}
 
-        <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>
+        {/* 加载失败时不要显示「共 0 套」，否则会把请求失败伪装成空数据 */}
+        {!loadError && <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>}
 
         {loading ? (
           <StateBlock loading text={t('pub.loading')} />

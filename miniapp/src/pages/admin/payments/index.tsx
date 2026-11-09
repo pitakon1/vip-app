@@ -1,5 +1,5 @@
 import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { dashboardApi, paymentsApi } from '@/services/api'
@@ -93,9 +93,11 @@ const PAGE_SIZE = LIST_PAGE_SIZE
 
 const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-')
 
-// 逾期判定：待收且已过缴费截止日
+// 逾期判定：未结清（pending / processing）且已过缴费截止日，与后端 overdue 派生状态同源
 const isOverdue = (p: PaymentItem) =>
-  p.status === 'pending' && !!p.due_date && new Date(p.due_date).getTime() < Date.now()
+  (p.status === 'pending' || p.status === 'processing') &&
+  !!p.due_date &&
+  new Date(p.due_date).getTime() < Date.now()
 
 export default function AdminPaymentsPage() {
   const { t } = useI18n()
@@ -110,6 +112,13 @@ export default function AdminPaymentsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   // 付款人姓名：仅 /dashboard/recent-payments 附带，按 id 合并展示
   const [payerMap, setPayerMap] = useState<Record<string, string>>({})
+  // 收入汇总：来自 /payments/summary（服务端全量聚合，不受分页与状态筛选影响）
+  const [summary, setSummary] = useState({
+    monthIncome: 0,
+    received: 0,
+    pending: 0,
+    rate: 0
+  })
 
   // 手动记账弹层
   const [showCreate, setShowCreate] = useState(false)
@@ -163,6 +172,7 @@ export default function AdminPaymentsPage() {
       closeCreate()
       fetchList()
       fetchPayerNames()
+      fetchSummary()
     } catch (e: any) {
       Taro.showToast({ title:errorText(e, t('pay.recordFailed')), icon: 'none' })
     } finally {
@@ -183,6 +193,7 @@ export default function AdminPaymentsPage() {
       setConfirmTarget(null)
       fetchList()
       fetchPayerNames()
+      fetchSummary()
     } catch (e: any) {
       Taro.showToast({ title:errorText(e, t('pay.confirmFailed')), icon: 'none' })
     }
@@ -207,29 +218,32 @@ export default function AdminPaymentsPage() {
       if (opt) onPick(opt)
     }).catch(() => {})
 
-  const fetchList = useCallback(async (pg: number = 1, append: boolean = false) => {
+  const fetchList = useCallback(async (pg: number = 1, append: boolean = false, status: string = filter) => {
     if (append && loadingMore) return
     if (!append) { setLoading(true); setLoadError(false); setHasMore(true) }
     else setLoadingMore(true)
     try {
+      const params: Record<string, unknown> = { page: pg, page_size: PAGE_SIZE }
+      // 状态筛选交给服务端（overdue 为后端派生状态），保证分页后仍正确
+      if (status) params.status = status
       const res: any = await request({
         url: '/payments',
         method: 'GET',
-        data: { page: pg, page_size: PAGE_SIZE }
+        data: params
       })
       const d = res?.data ?? res
       const items: PaymentItem[] = Array.isArray(d) ? d : d?.items || []
-      const t = Number(d?.total ?? items.length)
+      const total = Number(d?.total ?? items.length)
       if (append) {
         setList((prev) => [...prev, ...items])
       } else {
         setList(items)
       }
-      setTotal(t)
+      setTotal(total)
       setPage(pg)
       // 刷新第 1 页时闭包里的 list.length 是上一批数据，不能拿来判断"还有下一页"
       const loadedCount = append ? list.length + items.length : items.length
-      setHasMore(loadedCount < t)
+      setHasMore(loadedCount < total)
     } catch (error) {
       console.error('[AdminPayments] 获取收款列表失败', error)
       if (!append) {
@@ -240,7 +254,31 @@ export default function AdminPaymentsPage() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [loadingMore, list.length, t])
+  }, [filter, loadingMore, list.length, t])
+
+  const fetchSummary = async () => {
+    try {
+      const now = new Date()
+      const y = now.getFullYear()
+      const m = now.getMonth() + 1
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const monthStart = `${y}-${pad(m)}-01`
+      const monthEnd = `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`
+      const [allRes, monthRes]: any[] = await Promise.all([
+        paymentsApi.summary(),
+        paymentsApi.summary({ date_from: monthStart, date_to: monthEnd })
+      ])
+      const all = allRes?.data ?? allRes
+      const mon = monthRes?.data ?? monthRes
+      const received = Number(all?.received_amount || 0)
+      // 未结清 = 未逾期待收 + 已逾期（与后端 bucket 同源）
+      const pending = Number(all?.pending_amount || 0) + Number(all?.overdue_amount || 0)
+      const rate = received + pending > 0 ? Math.round((received / (received + pending)) * 100) : 0
+      setSummary({ monthIncome: Number(mon?.received_amount || 0), received, pending, rate })
+    } catch (error) {
+      console.error('[AdminPayments] 获取收入汇总失败', error)
+    }
+  }
 
   useReachBottom(() => {
     if (hasMore && !loading && !loadingMore) fetchList(page + 1, true)
@@ -264,33 +302,11 @@ export default function AdminPaymentsPage() {
   useDidShow(() => {
     fetchList()
     fetchPayerNames()
+    fetchSummary()
   })
 
-  const visible = useMemo(() => {
-    if (!filter) return list
-    if (filter === 'overdue') return list.filter(isOverdue)
-    return list.filter((p) => p.status === filter)
-  }, [list, filter])
-
-  // 收入汇总：按已加载收款单实时计算
-  const summary = useMemo(() => {
-    const now = new Date()
-    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    let monthIncome = 0
-    let received = 0
-    let pending = 0
-    list.forEach((p) => {
-      const amount = Number(p.amount || 0)
-      if (p.status === 'succeeded') {
-        received += amount
-        if (String(p.paid_at || '').startsWith(monthPrefix)) monthIncome += amount
-      } else if (p.status === 'pending' || p.status === 'processing') {
-        pending += amount
-      }
-    })
-    const rate = received + pending > 0 ? Math.round((received / (received + pending)) * 100) : 0
-    return { monthIncome, received, pending, rate }
-  }, [list])
+  // 列表已由服务端按状态筛选，前端不再二次过滤
+  const visible = list
 
   const currency = list[0]?.currency || 'THB'
 
@@ -338,7 +354,10 @@ export default function AdminPaymentsPage() {
             <View
               key={f.key || 'all'}
               className={`apay-chip ${filter === f.key ? 'apay-chip--active' : ''}`}
-              onClick={() => setFilter(f.key)}
+              onClick={() => {
+                setFilter(f.key)
+                fetchList(1, false, f.key)
+              }}
             >
               <Text className='apay-chip__text'>{t(f.label)}</Text>
             </View>
@@ -348,7 +367,7 @@ export default function AdminPaymentsPage() {
         <View className='apay-section-head'>
           <Text className='apay-section-head__title'>{t('pay.txRecords')}</Text>
           <View className='apay-section-head__right'>
-            <Text className='apay-section-head__count'>{t('pay.countUnit', { n: visible.length })}</Text>
+            <Text className='apay-section-head__count'>{t('pay.countUnit', { n: total })}</Text>
             <View className='apay-addbox' onClick={openCreate}>
               <Text className='apay-addbox__text'>{t('pay.manualAdd')}</Text>
             </View>
@@ -388,7 +407,7 @@ export default function AdminPaymentsPage() {
           }
           const overdue = isOverdue(p)
           const payerName =
-            payerMap[String(p.id)] || t('pay.payerWithId', { id: String(p.payer_id || '').slice(0, 8) })
+            payerMap[String(p.id)] || t('pay.payerUnknown')
           return (
             <View key={p.id} className='apay-item'>
               <View className='apay-item__row'>

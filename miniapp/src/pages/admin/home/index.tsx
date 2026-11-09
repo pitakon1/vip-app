@@ -103,14 +103,11 @@ export default function AdminHomePage() {
           setCounts((c) => ({ ...c, reconDiff: Number(count || 0) }))
         })
         .catch(() => markFailed('recon')),
-      // 欠租：待收且已过缴费截止日
-      request({ url: '/payments', method: 'GET', data: { page: 1, page_size: OPTION_PAGE_SIZE, status: 'pending' } })
+      // 欠租：后端 overdue 派生状态（未结清且 due_date 已过），与列表/对账同源
+      request({ url: '/payments', method: 'GET', data: { page: 1, page_size: OPTION_PAGE_SIZE, status: 'overdue' } })
         .then((r: any) => {
           const d = r?.data ?? r
-          const items: any[] = Array.isArray(d) ? d : d?.items || []
-          const overdue = items.filter(
-            (p) => p.due_date && new Date(p.due_date).getTime() < Date.now()
-          ).length
+          const overdue = Number(d?.total ?? (Array.isArray(d) ? d.length : d?.items?.length ?? 0))
           setCounts((c) => ({ ...c, overdue }))
         })
         .catch(() => markFailed('recon'))
@@ -156,7 +153,8 @@ export default function AdminHomePage() {
         title: tr('home.overdueTitle'),
         desc: tr('home.overdueDesc', {
           p: Math.round(ratio(overdueAmt, totalBilling) * 100),
-          n: num(summary?.upcoming_payments)
+          // 待收款笔数：未结清（pending + processing，含逾期）与欠租金额同源
+          n: num(summary?.outstanding_payments ?? summary?.upcoming_payments)
         }),
         value: failedSet.has('recon') ? DASH : fmtMoney(overdueAmt),
         url: '/pages/admin/payments/index',
@@ -221,7 +219,9 @@ export default function AdminHomePage() {
     {
       key: 'upcoming',
       label: 'home.todoUpcoming',
-      value: failedSet.has('summary') ? DASH : Number(summary?.upcoming_payments || 0),
+      value: failedSet.has('summary')
+        ? DASH
+        : Number(summary?.outstanding_payments ?? summary?.upcoming_payments ?? 0),
       url: '/pages/admin/payments/index'
     }
   ]

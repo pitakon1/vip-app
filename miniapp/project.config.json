@@ -24,7 +24,11 @@
     "useMultiFrameRuntime": true,
     "useApiHook": true,
     "useApiHostProcess": true,
-    "babelSetting": { "ignore": [], "disablePlugins": [], "outputPath": "" },
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
     "enableEngineNative": false,
     "useIsolateContext": true,
     "userConfirmedBundleSwitch": false,
@@ -38,5 +42,6 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.3.4",
-  "condition": {}
+  "condition": {},
+  "isGameTourist": false
 }

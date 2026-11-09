@@ -45,12 +45,18 @@ export default function TenantLeasesPage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  const role = useAuthStore((state) => state.user?.role)
   const LEASE_STATUS = buildLeaseStatus(t)
 
+  // 业主不能用租客接口 /leases/me（只按 tenant_id 查，业主永远为空）；
+  // 业主改走 /leases，由后端按 owner 收窄到本人名下房源的租约。
+  const isOwner = role === 'owner'
   const { data, loading, error, refresh } = useSwrCache<any[]>({
-    key: `tenant:leases:${uid}`,
+    key: `tenant:leases:${isOwner ? 'owner' : 'mine'}:${uid}`,
     fetcher: async () => {
-      const res: any = await leasesApi.mine()
+      const res: any = isOwner
+        ? await leasesApi.list({ page: 1, page_size: 50 })
+        : await leasesApi.mine()
       const payload = res?.data ?? res
       return Array.isArray(payload) ? payload : payload?.items ?? []
     },

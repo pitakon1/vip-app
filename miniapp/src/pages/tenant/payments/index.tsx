@@ -9,6 +9,7 @@ import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import ShellHeader from '@/components/ShellHeader'
 import { useI18n } from '@/i18n'
+import { billBucket, canPayBill, isOverdue, isUnpaid } from '@/utils/payment'
 
 interface Payment {
   id: string
@@ -84,6 +85,9 @@ export default function TenantPaymentsPage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
+  // 业主走 /payments/me 时后端只返回其作为收款方（payee）的账单，
+  // 业主不能付款（后端 pay/cancel 对非员工/租客 403），页面必须是纯只读。
+  const isOwner = useAuthStore((state) => state.user?.role) === 'owner'
 
   const { data, setData, loading, error, refresh } = useSwrCache<Payment[]>({
     key: `tenant:payments:${uid}`,
@@ -105,10 +109,12 @@ export default function TenantPaymentsPage() {
     void refresh()
   })
 
-  const pending = payments.filter((p) => p.status === 'pending')
-  // 统计口径对齐 App：已支付（后端枚举 succeeded）/ 待支付（pending）
-  const isPaid = (p: Payment) => p.status === 'succeeded'
-  const paidCount = payments.filter(isPaid).length
+  // 口径与后端 /payments/me 的 summary 同源：未结清 = pending/processing/failed，
+  // 逾期只看 due_date；succeeded 才是已缴。
+  const pending = payments.filter(isUnpaid)
+  const overdue = pending.filter(isOverdue)
+  const payable = isOwner ? [] : pending.filter(canPayBill)
+  const paidCount = payments.filter((p) => billBucket(p) === 'received').length
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB'
 
@@ -194,27 +200,41 @@ export default function TenantPaymentsPage() {
       <View className='page-container'>
         {pending.length > 0 && (
           <View className='pay-banner'>
-            <Text className='pay-banner-label'>{t('tpay.monthRent')}</Text>
+            <Text className='pay-banner-label'>{isOwner ? t('tpay.monthReceivable') : t('tpay.monthRent')}</Text>
             <Text className='pay-banner-amount'>{formatMoney(dueTotal, currency)}</Text>
             <View className='pay-banner-badges'>
-              <Text className='pay-banner-badge'>{t('tpay.stPending')}</Text>
+              <Text className='pay-banner-badge'>{isOwner ? t('tpay.receivable') : t('tpay.stPending')}</Text>
+              {overdue.length > 0 && (
+                <Text className='pay-banner-badge'>{t('pay.filterOverdue')}</Text>
+              )}
             </View>
-            <View className='pay-banner-actions'>
-              <View className='pay-banner-btn pay-banner-btn--ghost' onClick={() => handlePay(pending[0])}>
-                <Text className='pay-banner-btn-text'>{t('tpay.payNowCount', { n: pending.length })}</Text>
+            {payable.length > 0 && (
+              <View className='pay-banner-actions'>
+                <View
+                  className='pay-banner-btn pay-banner-btn--ghost'
+                  onClick={() => handlePay(payable[0])}
+                >
+                  <Text className='pay-banner-btn-text'>
+                    {t('tpay.payNowCount', { n: payable.length })}
+                  </Text>
+                </View>
               </View>
-            </View>
+            )}
           </View>
         )}
 
         <View className='stat-row'>
           <View className='stat-item'>
-            <Text className='stat-label'>{t('tpay.stSucceeded')}</Text>
+            <Text className='stat-label'>{isOwner ? t('tpay.receivedShort') : t('tpay.stSucceeded')}</Text>
             <Text className='stat-value'>{t('common.countBi', { n: paidCount })}</Text>
           </View>
           <View className='stat-item'>
-            <Text className='stat-label'>{t('tpay.stPending')}</Text>
+            <Text className='stat-label'>{isOwner ? t('tpay.receivable') : t('tpay.stPending')}</Text>
             <Text className='stat-value'>{t('common.countBi', { n: pending.length })}</Text>
+          </View>
+          <View className='stat-item'>
+            <Text className='stat-label'>{t('pay.filterOverdue')}</Text>
+            <Text className='stat-value'>{t('common.countBi', { n: overdue.length })}</Text>
           </View>
         </View>
 
@@ -244,8 +264,10 @@ export default function TenantPaymentsPage() {
             <View className='pay-card'>
               {payments.map((pay) => {
                 const statusInfo = STATUS_MAP[pay.status || 'pending'] || STATUS_MAP.pending
-                const isPending = pay.status === 'pending'
-                const isSucceeded = pay.status === 'succeeded'
+                const bucket = billBucket(pay)
+                const isPending = !isOwner && canPayBill(pay)
+                const isSucceeded = bucket === 'received'
+                const isOverdueItem = bucket === 'overdue'
                 return (
                   <View key={pay.id} className='pay-item'>
                     <View className='pay-item-main'>
@@ -255,8 +277,18 @@ export default function TenantPaymentsPage() {
                           {formatMoney(pay.amount, pay.currency)}
                         </Text>
                       </View>
-                      <Text className={`badge pay-item-badge ${STATUS_BADGE[pay.status || 'pending'] || ''}`}>
-                        {statusInfo.text}
+                      <Text
+                        className={`badge pay-item-badge ${
+                          isOverdueItem
+                            ? 'badge--error'
+                            : STATUS_BADGE[pay.status || 'pending'] || ''
+                        }`}
+                      >
+                        {isOverdueItem
+                          ? t('pay.filterOverdue')
+                          : isOwner && bucket === 'pending'
+                          ? t('tpay.receivable')
+                          : statusInfo.text}
                       </Text>
                     </View>
                     {!!pay.description && (

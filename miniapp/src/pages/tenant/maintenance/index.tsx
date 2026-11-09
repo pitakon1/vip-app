@@ -135,13 +135,16 @@ export default function TenantMaintenancePage() {
     }
   }
 
-  const { data: tickets, setData: setTickets, loading, error, refresh } = useSwrCache<MaintenanceTicket[]>({
+  const { data: ticketData, setData: setTickets, loading, error, refresh } = useSwrCache<MaintenanceTicket[]>({
     key: `tenant:maintenance:${uid}`,
     fetcher: async () => {
       const res = await maintenanceApi.list()
       return pickList(res)
     },
   })
+  // useSwrCache 首帧返回 null（无缓存时），直接读 tickets.length 会抛
+  // TypeError: Cannot read properties of null (reading 'length')，整页白屏且不请求。
+  const tickets = ticketData ?? []
 
   // 报修要落到具体房源（后端 property_id 必填）：取生效中的租约
   const [activeLease, setActiveLease] = useState<{ property_id?: string } | null>(null)
