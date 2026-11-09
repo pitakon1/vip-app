@@ -21,6 +21,7 @@ import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { useI18n, LANG_LABELS } from '@/i18n';
 import { authApi, chatApi, companyApi } from '@/services/api';
+import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { clearCache } from '@/lib/cache';
 import type { UserRole } from '@/types';
 
@@ -114,8 +115,8 @@ const cmpVersion = (a: string, b: string) => {
 // 取不到就留空、由调用处不渲染，不再回落到写死的 'v2.4.1'——那个值与后端版本
 // 及 app.json 的 0.1.0 都不符，等于对外报一个不存在的版本号。
 
-// C 端（业主+租客）统一「常用功能」宫格：把业主与租客的全部入口放进同一个宫格。
-// 宫格对所有人完全一致，不按角色隐藏、不做能力门槛——登录即可进入任意入口。
+// C 端（业主+租客）统一「常用功能」宫格：业主与租客入口共用一个数据源，
+// 渲染时按能力过滤（见下方 cFuncs），避免租客/游客看到业主专属入口。
 const C_FUNC_GRID: FuncEntry[] = [
   // 业主能力项（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
   { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'OwnerProperties' },
@@ -154,6 +155,9 @@ export default function ProfileScreen() {
     isAdmin || user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin';
   // 合作公司管理员：本公司管理入口
   const isPartnerAdmin = user?.role === 'partner_admin';
+  // 能力探测：业主/租客入口按真实能力（名下房源 / 生效租约）显示，
+  // 不再对租客和游客露出「房源管理」「收益明细」等业主专属项。
+  const { canManageProperty, isActiveTenant } = useUserCapabilities();
 
   // 管理端「系统设置 / 业务设置」两区块的真实值。
   // 此前时区写死 'UTC+8'、通知写死 '邮件 · 短信 · 推送'、提醒天数写死 '7/30 天前'，
@@ -585,8 +589,29 @@ export default function ProfileScreen() {
     user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin'
       ? FUNC_BY_ROLE[user.role] ?? []
       : [];
-  // C 端统一宫格：所有人显示全部入口（不按角色隐藏），登录即可进入任意入口
-  const cFuncs = C_FUNC_GRID;
+  // C 端宫格按能力过滤：
+  //  - 业主专属（房源管理 / 收益明细）→ 仅名下有房或 owner 角色
+  //  - 租客专属（我的订单 / 报修 / 增值服务）→ 仅有生效租约或 tenant 角色
+  //  - 双方共用（我的租约 / 缴费中心 / 合同 / 文档）→ 业主或租客均可
+  //  - 收藏 / 浏览历史 / 降价提醒 → 登录用户均可（游客点击会先引导登录）
+  // 游客（未登录）不具备任何 C 端能力，业主入口不再露出。
+  const cFuncs = React.useMemo(
+    () =>
+      isGuest
+        ? C_FUNC_GRID.filter((e) => ['favorites', 'history', 'priceAlerts'].includes(e.key))
+        : C_FUNC_GRID.filter((e) => {
+            if (e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty;
+            if (e.key === 'myLeases') return canManageProperty || isActiveTenant;
+            if (e.key === 'myDeals' || e.key === 'maintenance' || e.key === 'services') {
+              return isActiveTenant;
+            }
+            if (e.key === 'payments' || e.key === 'myContracts' || e.key === 'documents') {
+              return canManageProperty || isActiveTenant;
+            }
+            return true;
+          }),
+    [isGuest, canManageProperty, isActiveTenant],
+  );
 
   // 统一设置行渲染（C 端「我的」为基准样式）：图标盒 + 文案 + 真实值 + 箭头。
   // 业主/租客、员工、管理员三种变体共用同一套行结构，避免各角色样式分叉。

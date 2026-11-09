@@ -1478,6 +1478,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'adm.psFilterSort': '排序',
     // 缴费中心（tenant/PaymentsScreen）
     'pay.ownerDue': '待缴',
+    'pay.ownerReceivable': '待收',
+    'pay.overdueCount': '逾期 {n} 笔',
     'pay.ownerPaid': '已缴',
     'pay.ownerOverdue': '逾期',
     'pay.ownerDisputed': '争议',
@@ -1859,6 +1861,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'login.selectCountryCode': '选择国家码',
     'login.backToMethods': '返回方式选择',
     'login.failedTitle': '登录失败',
+    'login.invalidCredentials': '邮箱或密码错误',
     'login.badResponse': '登录响应格式异常',
     // 扫码支付（PaymentSheet）
     'pay.amountLabel': '待支付金额',
@@ -3744,6 +3747,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'adm.psSchoolSelected': 'School selected',
     'adm.psFilterSort': 'Sort',
     'pay.ownerDue': 'Due',
+    'pay.ownerReceivable': 'Receivable',
+    'pay.overdueCount': '{n} overdue',
     'pay.ownerPaid': 'Paid',
     'pay.ownerOverdue': 'Overdue',
     'pay.ownerDisputed': 'Disputed',
@@ -4121,6 +4126,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'login.selectCountryCode': 'Select country code',
     'login.backToMethods': 'Back to sign-in methods',
     'login.failedTitle': 'Sign-in failed',
+    'login.invalidCredentials': 'Incorrect email or password',
     'login.badResponse': 'Unexpected sign-in response',
     // Scan to pay (PaymentSheet)
     'pay.amountLabel': 'Amount due',
@@ -6071,6 +6077,8 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'adm.psSchoolSelected': 'เลือกโรงเรียนแล้ว',
     'adm.psFilterSort': 'จัดเรียง',
     'pay.ownerDue': 'ค้างชำระ',
+    'pay.ownerReceivable': 'รอรับชำระ',
+    'pay.overdueCount': 'เกินกำหนด {n} รายการ',
     'pay.ownerPaid': 'ชำระแล้ว',
     'pay.ownerOverdue': 'เกินกำหนด',
     'pay.ownerDisputed': 'มีข้อโต้แย้ง',
@@ -6447,6 +6455,7 @@ export const messages: Record<AppLang, Record<string, string>> = {
     'login.selectCountryCode': 'เลือกรหัสประเทศ',
     'login.backToMethods': 'กลับไปเลือกวิธีเข้าสู่ระบบ',
     'login.failedTitle': 'เข้าสู่ระบบไม่สำเร็จ',
+    'login.invalidCredentials': 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
     'login.badResponse': 'รูปแบบการตอบกลับการเข้าสู่ระบบผิดปกติ',
     // สแกนเพื่อชำระเงิน (PaymentSheet)
     'pay.amountLabel': 'ยอดที่ต้องชำระ',

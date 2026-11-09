@@ -348,7 +348,12 @@ export function BannerCard({
           {sub}
         </Text>
       </View>
-      <TouchableOpacity style={styles.bannerBtn} activeOpacity={0.8} onPress={onPress}>
+      <TouchableOpacity
+        style={styles.bannerBtn}
+        activeOpacity={0.8}
+        hitSlop={{ top: 7, bottom: 7, left: 6, right: 6 }}
+        onPress={onPress}
+      >
         <Text style={styles.bannerBtnText}>{actionLabel}</Text>
       </TouchableOpacity>
     </View>

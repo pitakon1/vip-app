@@ -20,7 +20,7 @@ import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import PaymentSheet from '@/components/PaymentSheet';
-import { resolvePayment } from '@/utils/payment';
+import { billBucket, canPayBill, isOverdue, isUnpaid, resolvePayment } from '@/utils/payment';
 import { useI18n } from '@/i18n';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { useQueryClient } from '@tanstack/react-query';
@@ -92,11 +92,19 @@ const ownerStatusMap: Record<string, { key: string; group: OwnerGroup; color: st
   disputed: { key: 'pay.ownerDisputed', group: 'overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
 };
 
-const ownerGroupOf = (status?: string): OwnerGroup => ownerStatusMap[status ?? '']?.group ?? 'due';
+// 业主分组：逾期以 due_date 判定（不是把 failed/expired 一律当逾期），
+// 未结清且已过截止日 → overdue；已结清 → paid；其余 → due（待收）。
+const ownerGroupOf = (p: Payment): OwnerGroup => {
+  const bucket = billBucket(p);
+  if (bucket === 'received') return 'paid';
+  if (bucket === 'overdue') return 'overdue';
+  if (bucket === 'pending') return 'due';
+  return 'paid';
+};
 
 const ownerFilters = (t: TFunc): { key: 'all' | OwnerGroup; label: string }[] => [
   { key: 'all', label: t('common.all') },
-  { key: 'due', label: t('pay.ownerDue') },
+  { key: 'due', label: t('pay.ownerReceivable') },
   { key: 'paid', label: t('pay.ownerPaid') },
   { key: 'overdue', label: t('pay.ownerOverdue') },
 ];
@@ -237,16 +245,19 @@ function TenantPaymentsView() {
     [queryClient, uid],
   );
 
-  const pending = payments.filter((p) => p.status === 'pending');
+  // 待缴口径：pending + processing（+ failed），逾期只看 due_date；
+  // 列表、待缴合计、逾期笔数全部走 utils/payment 的同一分桶。
+  const pending = payments.filter(isUnpaid);
+  const overdue = pending.filter(isOverdue);
   const paidCount = payments.filter(isPaid).length;
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB';
 
   const segData = useMemo(() => {
-    if (seg === 'pending') return payments.filter((p) => p.status === 'pending');
+    if (seg === 'pending') return pending;
     if (seg === 'paid') return payments.filter(isPaid);
     return payments;
-  }, [payments, seg]);
+  }, [payments, pending, seg]);
   const segTotal = segData.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const segMeta =
     seg === 'pending' ? { text: t('pay.status.pending'), color: colors.warning }
@@ -359,7 +370,9 @@ function TenantPaymentsView() {
     return <View style={styles.center}><LoadingState label={t('pay.loadingBills')} /></View>;
   }
 
-  const bannerTarget = monthRent ?? pending[0];
+  // 只有 pending/failed 且未过最终态才能发起支付；processing 已提交，重复点会 409
+  const payable = pending.filter(canPayBill);
+  const bannerTarget = monthRent && canPayBill(monthRent) ? monthRent : payable[0];
   const bannerPaying = !!bannerTarget && payingId === bannerTarget.id;
 
   return (
@@ -370,8 +383,11 @@ function TenantPaymentsView() {
           {pending.length > 0 && <View style={styles.bannerBadge}><Text style={styles.bannerBadgeText}>{t('pay.status.pending')}</Text></View>}
         </View>
         <Text style={styles.bannerAmount}>{formatMoney(heroAmount, currency)}</Text>
-        <Text style={styles.bannerSub}>{t('pay.pendingBadgeCount', { n: pending.length })}</Text>
-        {pending.length > 0 && (
+        <Text style={styles.bannerSub}>
+          {t('pay.pendingBadgeCount', { n: pending.length })}
+          {overdue.length > 0 ? ` · ${t('pay.overdueCount', { n: overdue.length })}` : ''}
+        </Text>
+        {!!bannerTarget && (
           <Animated.View style={{ transform: [{ scale: bannerScale }] }}>
             <TouchableOpacity
               style={[styles.bannerBtn, bannerPaying && styles.payBtnDisabled]}
@@ -392,6 +408,7 @@ function TenantPaymentsView() {
       <View style={styles.statRow}>
         <View style={styles.stat}><Text style={styles.statLabel}>{t('pay.status.succeeded')}</Text><Text style={styles.statValue}>{t('pay.countN', { n: paidCount })}</Text></View>
         <View style={styles.stat}><Text style={styles.statLabel}>{t('pay.status.pending')}</Text><Text style={[styles.statValue, pending.length > 0 && { color: colors.warning }]}>{t('pay.countN', { n: pending.length })}</Text></View>
+        <View style={styles.stat}><Text style={styles.statLabel}>{t('pay.ownerOverdue')}</Text><Text style={[styles.statValue, overdue.length > 0 && { color: colors.error }]}>{t('pay.countN', { n: overdue.length })}</Text></View>
       </View>
       <View style={styles.segBar}>
         {SEG_TABS.map((s) => (
@@ -408,9 +425,13 @@ function TenantPaymentsView() {
         data={segData}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const meta = tenantStatusMeta[item.status ?? 'pending'] ?? tenantStatusMeta.pending;
+          // 逾期徽标以 due_date 为准，而不是 status：processing 的过期账单同样显示逾期
+          const overdueItem = billBucket(item) === 'overdue';
+          const meta = overdueItem
+            ? { key: 'pay.ownerOverdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) }
+            : tenantStatusMeta[item.status ?? 'pending'] ?? tenantStatusMeta.pending;
           const typeLabel = typeLabelText(t, item.payment_type) || item.payment_type || t('pay.bill');
-          const isPending = item.status === 'pending';
+          const isPending = canPayBill(item);
           const isSucceeded = item.status === 'succeeded';
           return (
             <View style={styles.card}>
@@ -477,11 +498,9 @@ function TenantPaymentsView() {
 function OwnerPaymentsView() {
   const { t } = useI18n();
   const OWNER_FILTERS = useMemo(() => ownerFilters(t), [t]);
-  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
   const [filter, setFilter] = useState<'all' | OwnerGroup>('all');
-  const [payQr, setPayQr] = useState<{ qr: string; amount: number; currency?: string; channelLabel?: string } | null>(null);
 
   const q = useCachedQuery<Payment[]>({
     queryKey: PAYMENTS_KEY(uid),
@@ -499,23 +518,15 @@ function OwnerPaymentsView() {
     void q.refetch({ cancelRefetch: false });
   }, [q]);
 
-  const markProcessing = useCallback(
-    (id: string) => {
-      queryClient.setQueryData<Payment[]>(PAYMENTS_KEY(uid), (old) =>
-        (old ?? []).map((p) => (p.id === id ? { ...p, status: 'processing' } : p)),
-      );
-    },
-    [queryClient, uid],
-  );
-
   const ccy = payments[0]?.currency || 'THB';
 
-  const dueTotal = payments.filter((p) => ownerGroupOf(p.status) !== 'paid').reduce((s, p) => s + Number(p.amount || 0), 0);
+  // 业主应收 = 所有未结清（pending + overdue），与租客侧同一套 billBucket
+  const dueTotal = payments.filter(isUnpaid).reduce((s, p) => s + Number(p.amount || 0), 0);
 
   const monthPaid = useMemo(() => {
     const now = new Date();
     return payments
-      .filter((p) => ownerGroupOf(p.status) === 'paid' && !!p.paid_at)
+      .filter((p) => billBucket(p) === 'received' && !!p.paid_at)
       .filter((p) => { const d = new Date(String(p.paid_at)); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); })
       .reduce((s, p) => s + Number(p.amount || 0), 0);
   }, [payments]);
@@ -523,40 +534,13 @@ function OwnerPaymentsView() {
   const utilityTotal = payments.filter((p) => p.payment_type === 'utility').reduce((s, p) => s + Number(p.amount || 0), 0);
 
   const filtered = useMemo(() => {
-    const base = filter === 'all' ? payments : payments.filter((p) => ownerGroupOf(p.status) === filter);
-    const unpaid = base.filter((p) => ownerGroupOf(p.status) !== 'paid');
-    const paid = base.filter((p) => ownerGroupOf(p.status) === 'paid');
+    const base = filter === 'all' ? payments : payments.filter((p) => ownerGroupOf(p) === filter);
+    const unpaid = base.filter((p) => billBucket(p) !== 'received' && billBucket(p) !== 'closed');
+    const paid = base.filter((p) => billBucket(p) === 'received' || billBucket(p) === 'closed');
     unpaid.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '') || Number(b.amount || 0) - Number(a.amount || 0));
     paid.sort((a, b) => (b.paid_at || b.due_date || '').localeCompare(a.paid_at || a.due_date || ''));
     return [...unpaid, ...paid];
   }, [payments, filter]);
-
-  const channelFor = (c?: string) => (c === 'CNY' ? 'wechat' : c === 'USD' ? 'stripe' : 'promptpay');
-  const channelLabelFor = (c?: string) =>
-    c === 'CNY' ? t('pay.channelWechat') : c === 'USD' ? t('pay.channelStripe') : 'PromptPay';
-
-  const handlePay = async (item: Payment) => {
-    try {
-      const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
-      const data = res?.data ?? res;
-      markProcessing(item.id);
-      const resolution = resolvePayment(data);
-      if (resolution.kind === 'url') {
-        await WebBrowser.openBrowserAsync(resolution.url);
-      } else if (resolution.kind === 'qr') {
-        setPayQr({
-          qr: resolution.qr,
-          amount: Number(item.amount || 0),
-          currency: item.currency,
-          channelLabel: channelLabelFor(item.currency),
-        });
-      } else {
-        notify(t('pay.submittedTitle'), t('pay.submittedMsg'));
-      }
-    } catch (err: any) {
-      notify(t('pay.status.failed'),errorText(err, t('prop.retryLater')));
-    }
-  };
 
   if (loading) {
     return <View style={styles.center}><LoadingState label={t('pay.loadingBillsOwner')} /></View>;
@@ -568,8 +552,11 @@ function OwnerPaymentsView() {
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const meta = ownerStatusMap[item.status ?? ''] ?? ownerStatusMap.pending;
-          const group = ownerGroupOf(item.status);
+          const group = ownerGroupOf(item);
+          const meta =
+            group === 'overdue'
+              ? { key: 'pay.ownerOverdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) }
+              : ownerStatusMap[item.status ?? ''] ?? ownerStatusMap.pending;
           const icon = typeIcons[item.payment_type ?? ''] ?? 'receipt-outline';
           const label = typeLabelText(t, item.payment_type) || item.payment_type || t('pay.bill');
           return (
@@ -589,10 +576,13 @@ function OwnerPaymentsView() {
                 {group === 'paid' ? (
                   <View style={[styles.btn, styles.btnSecondary]}><Ionicons name="checkmark" size={14} color={colors.ink3} /><Text style={[styles.btnText, { color: colors.ink3 }]}>{t('pay.settled')}</Text></View>
                 ) : (
-                  <TouchableOpacity style={[styles.btn, group === 'overdue' ? styles.btnDanger : styles.btnPrimary]} activeOpacity={0.85} onPress={() => handlePay(item)}>
-                    <Ionicons name={group === 'overdue' ? 'alert-circle-outline' : 'card-outline'} size={14} color={colors.primaryForeground} />
-                    <Text style={[styles.btnText, { color: colors.primaryForeground }]}>{group === 'overdue' ? t('pay.topUp') : t('pay.goPay')}</Text>
-                  </TouchableOpacity>
+                  // 业主是收款方，只能查看应收状态，不能走付款动作（付款归租客）
+                  <View style={[styles.btn, group === 'overdue' ? styles.btnSecondary : styles.btnSecondary]}>
+                    <Ionicons name={group === 'overdue' ? 'alert-circle-outline' : 'time-outline'} size={14} color={group === 'overdue' ? colors.error : colors.ink3} />
+                    <Text style={[styles.btnText, { color: group === 'overdue' ? colors.error : colors.ink3 }]}>
+                      {group === 'overdue' ? t('pay.ownerOverdue') : t('pay.ownerReceivable')}
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -603,7 +593,7 @@ function OwnerPaymentsView() {
         ListHeaderComponent={
           <View>
             <View style={styles.heroCard}>
-              <Text style={styles.heroLabel}>{t('pay.status.pending')}</Text>
+              <Text style={styles.heroLabel}>{t('pay.ownerReceivable')}</Text>
               <Text style={styles.heroAmount}>{formatMoney(dueTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
@@ -629,15 +619,6 @@ function OwnerPaymentsView() {
         }
         ListEmptyComponent={<EmptyState icon="documents-outline" title={t('empty.bills')} sub={t('pay.emptyOwnerSub')} />}
       />
-
-      <PaymentSheet
-        visible={!!payQr}
-        qr={payQr?.qr ?? ''}
-        amount={payQr?.amount}
-        currency={payQr?.currency}
-        channelLabel={payQr?.channelLabel}
-        onClose={() => setPayQr(null)}
-      />
     </View>
   );
 }
@@ -653,7 +634,7 @@ const styles = StyleSheet.create({
   bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bannerBadge: { backgroundColor: colors.alpha('255,255,255', 0.2), borderRadius: colors.radius.full, paddingHorizontal: 8, paddingVertical: 2 },
   bannerBadgeText: { color: colors.primaryForeground, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
-  bannerAmount: { color: colors.primaryForeground, fontSize: 28, fontWeight: '700', marginTop: 4 },
+  bannerAmount: { color: colors.primaryForeground, fontSize: colors.fontSize['2xl'], fontWeight: '700', marginTop: 4 },
   bannerSub: { color: colors.alpha('255,255,255', 0.85), fontSize: 12, marginTop: 2 },
   bannerBtn: { alignSelf: 'flex-start', marginTop: 12, backgroundColor: colors.surface, paddingHorizontal: 18, paddingVertical: 8, borderRadius: colors.radius.full },
   bannerBtnText: { color: colors.primary, fontSize: 14, fontWeight: '700' },
@@ -709,7 +690,7 @@ const styles = StyleSheet.create({
   /* 业主 hero / chips */
   heroCard: { marginHorizontal: 12, marginTop: 12, marginBottom: 12, padding: 16, borderRadius: colors.radius.xl, backgroundColor: colors.primary, ...colors.shadow.primary },
   heroLabel: { fontSize: 14, color: colors.alpha('255, 255, 255', 0.8) },
-  heroAmount: { fontSize: 28, fontWeight: '800', color: colors.primaryForeground, marginTop: 4, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
+  heroAmount: { fontSize: colors.fontSize['2xl'], fontWeight: '800', color: colors.primaryForeground, marginTop: 4, letterSpacing: -0.4, fontVariant: ['tabular-nums'] },
   heroDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.alpha('255, 255, 255', 0.25), marginVertical: 12 },
   heroStats: { flexDirection: 'row', justifyContent: 'space-between' },
   heroStatRight: { alignItems: 'flex-end' },

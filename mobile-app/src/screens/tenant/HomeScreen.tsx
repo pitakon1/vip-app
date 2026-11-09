@@ -996,7 +996,7 @@ export default function HomeScreen() {
             accessibilityLabel={t(it.labelKey)}
           >
             <View style={styles.goldNavIcon}>
-              <Ionicons name={it.icon} size={22} color={colors.primary} />
+              <Ionicons name={it.icon} size={22} color={colors.primaryText} />
             </View>
             <Text style={styles.goldNavLabel} numberOfLines={1}>
               {t(it.labelKey)}
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     gap: colors.spacing.xs,
     marginBottom: colors.spacing.sm,
   },
-  locationText: { flex: 1, fontSize: 13, fontWeight: '500', color: colors.ink2 },
+  locationText: { flex: 1, fontSize: colors.fontSize.sm, fontWeight: '500', color: colors.ink2 },
 
   /* 区块标题 */
   sectionHead: {
@@ -1084,8 +1084,8 @@ const styles = StyleSheet.create({
     marginBottom: colors.spacing.sm,
     paddingHorizontal: colors.spacing.xs,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
-  linkText: { fontSize: 13, color: colors.primaryText, fontWeight: '600' },
+  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.3 },
+  linkText: { fontSize: colors.fontSize.sm, color: colors.primaryText, fontWeight: '600' },
 
   /* 房源 rail */
   rail: { gap: colors.spacing.md, paddingBottom: colors.spacing.sm },
@@ -1116,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   propBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   propBody: { padding: colors.spacing.md },
-  propName: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  propName: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.ink },
   propAddr: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   propTags: { flexDirection: 'row', gap: colors.spacing.xs, marginTop: colors.spacing.sm },
   propTag: {
@@ -1150,8 +1150,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actBody: { flex: 1, marginLeft: colors.spacing.md },
-  actTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  actSub: { fontSize: 13, color: colors.ink2, marginTop: 2 },
+  actTitle: { fontSize: colors.fontSize.base, fontWeight: '600', color: colors.ink },
+  actSub: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 2 },
   actBadge: {
     paddingHorizontal: colors.spacing.sm,
     paddingVertical: 3,

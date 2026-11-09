@@ -353,13 +353,21 @@ export default function PublicListingsScreen() {
       {typeActive ? (
         <View style={styles.activeRow}>
           {biz !== 'all' ? (
-            <TouchableOpacity style={styles.activeChip} onPress={() => setBiz('all')}>
+            <TouchableOpacity
+              style={styles.activeChip}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              onPress={() => setBiz('all')}
+            >
               <Text style={styles.activeChipText}>{bizLabel}</Text>
               <Text style={styles.activeChipX}>×</Text>
             </TouchableOpacity>
           ) : null}
           {typeClass ? (
-            <TouchableOpacity style={styles.activeChip} onPress={() => setTypeClass('')}>
+            <TouchableOpacity
+              style={styles.activeChip}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              onPress={() => setTypeClass('')}
+            >
               <Text style={styles.activeChipText}>{typeClassLabel}</Text>
               <Text style={styles.activeChipX}>×</Text>
             </TouchableOpacity>
@@ -738,9 +746,8 @@ const styles = StyleSheet.create({
   activeChipText: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '600' },
   activeChipX: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700' },
   chip: {
-     minHeight: 44,
+     minHeight: colors.touch.min,
      maxWidth: 200,
-    height: 34,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -751,7 +758,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
-  chipGhost: { height: 34, justifyContent: 'center', paddingHorizontal: 6 },
+  chipGhost: { minHeight: colors.touch.min, justifyContent: 'center', paddingHorizontal: 6 },
   chipGhostText: { fontSize: colors.fontSize.sm, color: colors.primary },
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 10, marginBottom: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -770,7 +777,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 16, marginBottom: 8 },
   radiusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   radiusChip: {
-    height: 34,
+    minHeight: colors.touch.min,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,

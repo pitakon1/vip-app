@@ -34,6 +34,20 @@ export function formatMoney(
 /** 历史别名：等价于 formatMoney，保留以兼容既有调用点。 */
 export const fmtMoney = formatMoney;
 
+/**
+ * 单价（金额/㎡）统一出口，与 Web `lib/money.ts` 的 `formatUnitPrice` 同口径：
+ * 固定两位小数 + `/㎡` 后缀，避免 `฿692.308 THB/㎡` 这类三位小数、币种重复的写法。
+ */
+export function formatUnitPrice(
+  value?: number | string | null,
+  currency?: string | null,
+): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return '—';
+  return `${formatMoney(Number(num.toFixed(2)), currency)}/㎡`;
+}
+
 /** 日期：'short' 取 YYYY-MM-DD，'minute' 取到分钟（T→空格）；空值回退 '—'。 */
 export function fmtDate(value?: string | null, style: 'short' | 'minute' = 'short'): string {
   if (!value) return '—';

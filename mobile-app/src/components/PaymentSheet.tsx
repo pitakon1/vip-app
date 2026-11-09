@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: 'center', marginBottom: colors.spacing.lg },
   amountLabel: { fontSize: colors.fontSize.sm, color: colors.ink3 },
   amount: {
-    fontSize: 28,
+    fontSize: colors.fontSize['2xl'],
     fontWeight: colors.fontWeight.bold,
     color: colors.ink,
     marginTop: 4,

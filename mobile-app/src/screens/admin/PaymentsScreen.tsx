@@ -47,12 +47,14 @@ interface PaymentRow {
   description?: string | null;
 }
 
-type ChipKey = 'all' | 'succeeded' | 'pending' | 'expired' | 'refunded';
+// 逾期是派生状态（未结清 + due_date 已过），不是 PaymentStatus.expired；
+// 选项必须发 status=overdue 才能和工作台「欠租与逾期」对上。
+type ChipKey = 'all' | 'succeeded' | 'pending' | 'overdue' | 'refunded';
 const chips = (t: TFunc): { key: ChipKey; label: string }[] => [
   { key: 'all', label: t('common.all') },
   { key: 'succeeded', label: t('admPay.chipSucceeded') },
   { key: 'pending', label: t('admPay.chipPending') },
-  { key: 'expired', label: t('pay.ownerOverdue') },
+  { key: 'overdue', label: t('pay.ownerOverdue') },
   { key: 'refunded', label: t('pay.status.refunded') },
 ];
 
@@ -405,11 +407,18 @@ export default function AdminPaymentsScreen() {
         <EmptyState icon="card-outline" title={t('admPay.emptyTitle')} sub={t('admPay.emptySub')} />
       ) : (
         payments.map((p) => {
-          const meta = STATUS_META[p.status ?? ''] ?? {
-            label: p.status || t('common.unknown'),
-            color: colors.ink2,
-            rgb: colors.primaryRgb,
-          };
+          // 逾期以 due_date 为准：processing 的过期账单也展示「逾期」而不是「处理中」
+          const overdueRow =
+            !!p.due_date &&
+            ['pending', 'processing'].includes(String(p.status ?? '')) &&
+            new Date(p.due_date).getTime() < Date.now();
+          const meta = overdueRow
+            ? STATUS_META.expired
+            : STATUS_META[p.status ?? ''] ?? {
+                label: p.status || t('common.unknown'),
+                color: colors.ink2,
+                rgb: colors.primaryRgb,
+              };
           const channelKey = (p.channel ?? '').toLowerCase();
           const channelMeta = CHANNEL_META[channelKey] ?? {
             label: p.channel || t('admPay.unknownChannel'),
@@ -716,7 +725,7 @@ const styles = StyleSheet.create({
   incomeLeft: { flex: 1 },
   incomeLabel: { fontSize: 13, color: colors.alpha('255, 255, 255', 0.8), marginBottom: 6 },
   incomeNum: {
-    fontSize: 28,
+    fontSize: colors.fontSize['2xl'],
     fontWeight: '800',
     color: colors.primaryForeground,
     letterSpacing: -0.5,

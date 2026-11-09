@@ -2130,13 +2130,11 @@ export default function ListingsFeed({
                   onAction={() => onFiltersChange(clearAllPatch)}
                 />
               ) : (
-                <>
-                  <Ionicons name="home-outline" size={44} color={colors.ink3} />
-                  <Text style={styles.empty}>{t('empty.listings')}</Text>
-                  <Text style={styles.emptySub}>
-                    {isSaleBiz ? t('list.emptySale') : t('empty.listingsSub')}
-                  </Text>
-                </>
+                <EmptyState
+                  icon="home-outline"
+                  title={t('empty.listings')}
+                  sub={isSaleBiz ? t('list.emptySale') : t('empty.listingsSub')}
+                />
               )}
             </View>
           )
@@ -2175,7 +2173,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   // 城市文案最长可能是泰语，限宽 + 单行省略，避免把左侧标题挤到换行
-  heroCityText: { fontSize: 13, fontWeight: '600', color: colors.primary, maxWidth: 120 },
+  heroCityText: { fontSize: colors.fontSize.sm, fontWeight: '600', color: colors.primary, maxWidth: 120 },
   heroCard: {
     marginHorizontal: 12,
     marginTop: -15,
@@ -2217,7 +2215,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: colors.touch.min,
     paddingVertical: 6,
-    fontSize: 15,
+    fontSize: colors.fontSize.base,
     color: colors.text,
   },
   heroSearchSplit: { width: 1, height: 20, backgroundColor: colors.border },
@@ -2250,7 +2248,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroPrimaryText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
+  heroPrimaryText: { fontSize: colors.fontSize.base, fontWeight: '700', color: colors.primaryForeground },
   heroMapBtn: {
     flex: 1,
     minHeight: 46,
@@ -2283,7 +2281,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  recentChipText: { fontSize: 13, color: colors.ink2 },
+  recentChipText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   filterGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2319,7 +2317,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.primary,
   },
   filterTabLabel: {
-    fontSize: 13,
+    fontSize: colors.fontSize.sm,
     color: colors.ink2,
     fontWeight: '500',
     maxWidth: 92,
@@ -2363,7 +2361,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
-  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
+  dropEmpty: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingVertical: 12 },
   dropGroupTitle: {
     fontSize: 12,
     color: colors.ink2,
@@ -2396,10 +2394,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingBottom: 4,
   },
-  priceCustomPrefix: { fontSize: 13, color: colors.ink2, marginRight: 4 },
+  priceCustomPrefix: { fontSize: colors.fontSize.sm, color: colors.ink2, marginRight: 4 },
   priceCustomField: { flex: 1, fontSize: 14, color: colors.text, padding: 4 },
   priceCustomUnit: { fontSize: 12, color: colors.ink2 },
-  priceCustomDivider: { fontSize: 13, color: colors.ink2 },
+  priceCustomDivider: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   panelActions: {
     flexDirection: 'row',
     gap: 12,
@@ -2415,7 +2413,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.surface2,
   },
-  resetText: { fontSize: 15, color: colors.ink, fontWeight: '500' },
+  resetText: { fontSize: colors.fontSize.base, color: colors.ink, fontWeight: '500' },
   confirmBtn: {
     flex: 1,
     height: 44,
@@ -2424,7 +2422,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.primary,
   },
-  confirmText: { fontSize: 15, color: colors.primaryForeground, fontWeight: '600' },
+  confirmText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600' },
   // ---------- 贝壳式三栏筛选面板 ----------
   keSheet: {
     flexDirection: 'row',
@@ -2511,7 +2509,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
-  filterText: { fontSize: 13, color: colors.ink2 },
+  filterText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
   filterTextActive: { color: colors.primary, fontWeight: '600' },
   list: { paddingHorizontal: 12, paddingBottom: 16, gap: 12 },
   card: {
@@ -2553,7 +2551,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   info: { flex: 1, padding: 10, justifyContent: 'space-between' },
-  title: { fontSize: 15, color: colors.text, fontWeight: '600' },
+  title: { fontSize: colors.fontSize.base, color: colors.text, fontWeight: '600' },
   address: { fontSize: 12, color: colors.ink2, marginTop: 3 },
   tagRow: { flexDirection: 'row', gap: 6, marginTop: 5 },
   tag: {
@@ -2614,8 +2612,6 @@ const styles = StyleSheet.create({
   chipsReset: { paddingHorizontal: 6, paddingVertical: 5 },
   chipsResetText: { fontSize: 12, color: colors.ink2, fontWeight: '600' },
   emptyBox: { alignItems: 'center', paddingTop: 48 },
-  empty: { fontSize: 15, color: colors.ink2 },
-  emptySub: { fontSize: 12, color: colors.ink2, marginTop: 4 },
   loadMore: {
     alignItems: 'center',
     justifyContent: 'center',

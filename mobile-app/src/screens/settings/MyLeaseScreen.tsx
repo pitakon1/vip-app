@@ -44,11 +44,17 @@ export default function MyLeaseScreen() {
   const user = useAuthStore((s) => s.user);
   const [refreshing, setRefreshing] = useState(false);
 
+  // 业主不能用租客接口 /leases/me（该方法只按 tenant_id 查询，业主持有房源
+  // 不是租客，永远返回空）。业主改走 /leases，由后端 owner_visibility 收窄到
+  // 本人名下房源的租约；租客仍用 /leases/me 看自己承租的租约。
+  const isOwner = user?.role === 'owner';
   const q = useCachedQuery<any[]>({
-    queryKey: ['leases', 'mine', user?.id ?? 'anon'],
-    cacheKey: `leases:mine:${user?.id ?? 'anon'}`,
+    queryKey: ['leases', isOwner ? 'owner' : 'mine', user?.id ?? 'anon'],
+    cacheKey: `leases:${isOwner ? 'owner' : 'mine'}:${user?.id ?? 'anon'}`,
     queryFn: async () => {
-      const res: any = await leasesApi.mine();
+      const res: any = isOwner
+        ? await leasesApi.list({ page: 1, page_size: 50 })
+        : await leasesApi.mine();
       const payload = res?.data;
       return Array.isArray(payload) ? payload : payload?.items ?? [];
     },

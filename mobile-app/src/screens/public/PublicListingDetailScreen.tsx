@@ -42,7 +42,7 @@ import {
   convertFromThb,
   type TFunction,
 } from '@/lib/publicSite';
-import { fmtMoney } from '@/utils/format';
+import { formatUnitPrice, fmtMoney } from '@/utils/format';
 import { notify } from '@/utils/feedback';
 import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
@@ -391,8 +391,8 @@ export default function PublicListingDetailScreen() {
           ) : null}
           {price && data.size_sqm ? (
             <Text style={styles.priceSub}>
-              ≈ {t('pub.unitPrice')} {fmtMoney(price / data.size_sqm, data.currency || 'THB')} {t('pub.perSqm')}
-              {' · '}≈ {fmtMoney(convertFromThb(price / data.size_sqm), 'CNY')}/㎡
+              ≈ {t('pub.unitPrice')} {formatUnitPrice(price / data.size_sqm, data.currency || 'THB')}
+              {' · '}≈ {formatUnitPrice(convertFromThb(price / data.size_sqm), 'CNY')}
             </Text>
           ) : null}
 

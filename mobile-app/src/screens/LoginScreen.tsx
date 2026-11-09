@@ -20,7 +20,7 @@ import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import { refreshTokenStorage, tokenStorage } from '@/lib/storage';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
-import { notifyError } from '@/utils/feedback';
+import { notify, notifyError } from '@/utils/feedback';
 import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
 import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
@@ -126,6 +126,13 @@ export default function LoginScreen() {
       useAuthStore.setState({ user, token, isAuthenticated: true });
     } catch (err: any) {
       setLoading(false);
+      // 登录接口的 400/401 表示凭证错误，而不是「登录态过期」：
+      // errorText 对 401 的统一文案是「登录已过期，请重新登录」，用在登录页会误导用户。
+      const status = err?.response?.status;
+      if (method === 'email' && (status === 400 || status === 401)) {
+        notify(t('login.failedTitle'), t('login.invalidCredentials'));
+        return;
+      }
       notifyError(t('login.failedTitle'), err);
     }
   };

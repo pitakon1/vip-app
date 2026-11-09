@@ -28,6 +28,7 @@ import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi, ownersApi, listingApi, paymentsApi } from '@/services/api';
 import { fmtMoney as money } from '@/utils/format';
+import { isOverdue, isUnpaid } from '@/utils/payment';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
@@ -78,6 +79,12 @@ interface HomePayload {
   annual: AnnualSummary | null;
   listings: Listing[];
   payments: any[];
+  paymentSummary?: {
+    unpaid_count?: number;
+    unpaid_amount?: number;
+    overdue_count?: number;
+    overdue_amount?: number;
+  } | null;
 }
 
 export default function HomeScreen() {
@@ -110,6 +117,11 @@ export default function HomeScreen() {
         annual: sumRes.status === 'fulfilled' ? ((sumRes.value?.data as AnnualSummary) ?? null) : null,
         listings: pick<Listing>(listRes),
         payments: pick<any>(payRes),
+        // /payments/me 新增 summary：待收/逾期与租客端、管理端同一口径
+        paymentSummary:
+          payRes.status === 'fulfilled'
+            ? ((payRes.value?.data as any)?.summary ?? null)
+            : null,
       };
     },
   });
@@ -122,11 +134,14 @@ export default function HomeScreen() {
   const listings = user?.id
     ? rows.filter((r) => String(r.publisher_user_id) === String(user.id))
     : rows;
-  // 待缴账单：payments 中未结清（pending/processing）合计与笔数
+  // 待收账单：后端 summary 优先（与租客/管理端口径同源），缺省时用本地分桶兜底
   const pays = payload?.payments ?? [];
-  const due = pays.filter((p) => !['succeeded', 'refunded'].includes(String(p.status || '')));
-  const dueCount = due.length;
-  const dueTotal = due.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const paySummary = payload?.paymentSummary;
+  const due = pays.filter(isUnpaid);
+  const overdue = due.filter(isOverdue);
+  const dueCount = Number(paySummary?.unpaid_count ?? due.length);
+  const dueTotal = Number(paySummary?.unpaid_amount ?? due.reduce((s, p) => s + Number(p.amount || 0), 0));
+  const overdueCount = Number(paySummary?.overdue_count ?? overdue.length);
 
   const loading = q.isPending && !q.data;
   const refreshing = q.isRefetching;
@@ -444,9 +459,10 @@ export default function HomeScreen() {
                   <Ionicons name="receipt-outline" size={17} color={colors.error} />
                 </View>
                 <View style={styles.alertBody}>
-                  <Text style={styles.alertTitle}>待缴账单</Text>
+                  <Text style={styles.alertTitle}>待收账单</Text>
                   <Text style={styles.alertDesc}>
-                    {dueCount} 笔待缴 · 共 {money(dueTotal, currency)}
+                    {dueCount} 笔待收 · 共 {money(dueTotal, currency)}
+                    {overdueCount > 0 ? ` · 逾期 ${overdueCount} 笔` : ''}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.ink3} />

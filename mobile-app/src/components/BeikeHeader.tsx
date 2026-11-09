@@ -150,7 +150,12 @@ export default function BeikeHeader({
     <View style={[styles.bar, { paddingTop: insets.top }]}>
       <View style={styles.barInner}>
         {hideBack ? <View style={styles.sideSlot} /> : (
-          <TouchableOpacity style={styles.circleBtn} activeOpacity={0.7} onPress={handleBack}>
+          <TouchableOpacity
+            style={styles.circleBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            onPress={handleBack}
+          >
             <Svg width={20} height={20} viewBox="0 0 24 24">
               <Path
                 d="M14.5 5l-7 7 7 7"
@@ -168,7 +173,12 @@ export default function BeikeHeader({
         </Text>
         <View style={styles.sideSlot}>
           {!hideHome && (
-            <TouchableOpacity style={styles.circleBtn} activeOpacity={0.7} onPress={handleHome}>
+            <TouchableOpacity
+              style={styles.circleBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              onPress={handleHome}
+            >
               <HomeIcon size={18} />
             </TouchableOpacity>
           )}

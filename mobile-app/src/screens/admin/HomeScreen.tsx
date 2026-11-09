@@ -164,7 +164,9 @@ export default function AdminHomeScreen() {
       title: '欠租与逾期',
       value: fmtMoney(overdue),
       unit: '',
-      desc: `逾期占比 ${Math.round(ratio(overdue, totalBilling) * 100)}% · 待收款 ${num(summary.upcoming_payments)} 笔`,
+      // 待收款 = 全部未结清账单（pending+processing），与欠租金额同一口径；
+      // upcoming_payments 只算 7 天内 pending，会导致「欠租 3.5 万 / 待收款 0 笔」
+      desc: `逾期占比 ${Math.round(ratio(overdue, totalBilling) * 100)}% · 待收款 ${num(summary.outstanding_payments ?? summary.upcoming_payments)} 笔`,
       bar: ratio(overdue, totalBilling),
       onPress: () => navigation.navigate('AdminPayments'),
     },
@@ -213,7 +215,9 @@ export default function AdminHomeScreen() {
     {
       key: 'leases',
       label: '在租合同',
-      value: `${num(summary.rented)}`,
+      // 用生效租约笔数，而不是房源 status=rented 的数量：软删房源上的生效租约
+      // 仍产生营收（active_lease_revenue），用 rented 会出现「0 合同但营收 5.5 万」
+      value: `${num(summary.active_leases ?? summary.rented)}`,
       badge: `+${newLeasesThisMonth} 本月`,
       tone: colors.primaryText,
       toneRgb: colors.primaryRgb,

@@ -168,6 +168,8 @@ export default function AdminPropertiesScreen() {
   // 位置筛选（对齐租客端「区域 | 地铁」）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
   const [districtSel, setDistrictSel] = useState<string | null>(null);
+  // 城市级筛选（cityKey）：选中省市但未选城区时也下发服务端，避免「点曼谷无请求」
+  const [citySel, setCitySel] = useState<string | null>(null);
   // 区域面板：国家 → 省市 → 城区 三级下钻。左栏只列国家，右栏默认是该国家的省市列表，
   // 点某个省市后右栏才换成它的城区 chips（顶部「返回」回到省市列表）。
   // 此前国家与省市平铺在同一列里，用户要在混杂的长列表中找城市。
@@ -220,10 +222,15 @@ export default function AdminPropertiesScreen() {
           page: targetPage,
           page_size: PAGE_SIZE,
         };
-        if (sort === 'latest') params.sort = 'latest';
+        // 排序必须下发到服务端：只在前端对已加载页重排会导致分页后顺序错误
+        // （第 2 页的房源不会参与第 1 页的排序），后端支持 latest/price_asc/
+        // price_desc/area_desc。
+        if (sort !== 'default') params.sort = sort;
         if (kw.trim()) params.q = kw.trim();
         if (status) params.status = status;
         if (activeLocationKw.length) params.keywords = activeLocationKw;
+        // 只选了城市、没选城区时，用 cityKey 下发服务端城市级筛选
+        else if (citySel) params.city = citySel;
 
         // C 端维度：学校 + 半径（空间筛选，与 C 端找房口径一致）
         if (schoolId) {
@@ -274,14 +281,8 @@ export default function AdminPropertiesScreen() {
         const res = await propertiesApi.list(params);
         const d = (res as any)?.data ?? {};
         const list = (Array.isArray(d) ? d : d.items ?? []) as PropertyItem[];
-        // latest 由后端排序；价格/面积排序后端可能不支持，客户端对已加载 items 兜底
-        setItems((prev) => {
-          const next = targetPage === 1 ? list : [...prev, ...list];
-          if (sort === 'price_asc') next.sort((a, b) => (a.monthly_rent ?? 0) - (b.monthly_rent ?? 0));
-          else if (sort === 'price_desc') next.sort((a, b) => (b.monthly_rent ?? 0) - (a.monthly_rent ?? 0));
-          else if (sort === 'area_desc') next.sort((a, b) => (b.size_sqm ?? 0) - (a.size_sqm ?? 0));
-          return next;
-        });
+        // 排序完全由后端按全量结果计算，前端只负责追加分页，避免跨页顺序错乱
+        setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
         setTotal(typeof d.total === 'number' ? d.total : list.length);
         setTotalPages(typeof d.total_pages === 'number' ? d.total_pages : 1);
         setPage(targetPage);
@@ -304,7 +305,7 @@ export default function AdminPropertiesScreen() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw, PRICE_OPTIONS, AREA_OPTIONS],
+    [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw, citySel, PRICE_OPTIONS, AREA_OPTIONS],
   );
 
   useEffect(() => {
@@ -318,7 +319,7 @@ export default function AdminPropertiesScreen() {
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw]);
+  }, [keyword, status, bedrooms, priceRange, priceCustomMin, priceCustomMax, areaRange, areaCustomMin, areaCustomMax, sort, schoolId, schoolKm, activeLocationKw, citySel]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -454,13 +455,19 @@ export default function AdminPropertiesScreen() {
   const pickAreaCountry = (country: string) => {
     setAreaCountry(country);
     setAreaDrill('');
+    // 切国家时清掉已选城市/城区，避免旧城市筛选继续生效
+    setCitySel(null);
+    setDistrictSel(null);
   };
 
   // 打开区域面板时回显：已选城区则直接下钻到它所在的省市，否则停在省市列表，
   // 用户不必再从长列表里找回已选城市
   const echoAreaDrill = () => {
-    if (!districtSel) return;
-    const g = AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel));
+    const g = districtSel
+      ? AREA_GROUPS.find((x) => x.children.some((d) => d.key === districtSel))
+      : citySel
+        ? AREA_GROUPS.find((x) => x.cityKey === citySel)
+        : undefined;
     if (g) {
       setAreaCountry(g.country);
       setAreaDrill(g.cityKey);
@@ -486,7 +493,7 @@ export default function AdminPropertiesScreen() {
   }, [schools, schoolKw]);
 
   // ---- 链家式单行筛选栏（对齐租客端 ListingsScreen）：区域 / 价格 / 更多 / 排序 四个等宽 Tab ----
-  const tabRegionActive = !!(districtSel || metroSel.length);
+  const tabRegionActive = !!(districtSel || citySel || metroSel.length);
   const tabPriceActive = !!priceRange;
   const tabMoreActive = !!(status || bedrooms !== '' || areaRange || schoolId);
   const tabSortActive = sort !== 'default';
@@ -521,6 +528,7 @@ export default function AdminPropertiesScreen() {
   // 区域面板：重置 / 确定
   const resetRegion = () => {
     setDistrictSel(null);
+    setCitySel(null);
     setAreaDrill('');
     setMetroSel([]);
     setMetroDraft([]);
@@ -880,7 +888,13 @@ export default function AdminPropertiesScreen() {
                                 key={g.cityKey}
                                 style={[styles.optChip, areaDrill === g.cityKey && styles.optChipActive]}
                                 activeOpacity={0.7}
-                                onPress={() => setAreaDrill(g.cityKey)}
+                                onPress={() => {
+                                  // 选中城市即下发城市级筛选（服务端 city），
+                                  // 同时下钻展示该城市城区供进一步收窄
+                                  setAreaDrill(g.cityKey);
+                                  setCitySel(g.cityKey);
+                                  setDistrictSel(null);
+                                }}
                               >
                                 <Text style={[styles.optChipText, areaDrill === g.cityKey && styles.optChipTextActive]}>
                                   {g.cityLabel}
@@ -1188,8 +1202,8 @@ export default function AdminPropertiesScreen() {
         <ListState
           error={loadError}
           empty={items.length === 0}
-          filtered={!!(keyword || activeLocationKw.length)}
-          emptyTitle={keyword || activeLocationKw.length ? t('adm.psEmptyFilterTitle') : t('adm.psEmptyTitle')}
+          filtered={!!(keyword || activeLocationKw.length || citySel)}
+          emptyTitle={keyword || activeLocationKw.length || citySel ? t('adm.psEmptyFilterTitle') : t('adm.psEmptyTitle')}
           emptySub={keyword || activeLocationKw.length ? t('adm.psEmptyFilterSub') : t('adm.psEmptySub')}
           retryLabel={t('retry')}
           onRetry={() => {
