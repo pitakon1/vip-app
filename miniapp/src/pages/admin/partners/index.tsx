@@ -347,9 +347,7 @@ export default function AdminPartnersPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='pn-state'>
-            <Text className='pn-state__text'>{t('partner.empty')}</Text>
-          </View>
+          <StateBlock empty icon='storefront' text={t('partner.empty')} />
         )}
 
         {visible.map((p) => {

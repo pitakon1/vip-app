@@ -15,6 +15,7 @@ import {
   chatCustomer
 } from '@/lib/crmShared'
 import StateBlock from '@/components/StateBlock'
+import StatusTop from '@/components/StatusTop'
 import { useI18n } from '@/i18n'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
@@ -183,6 +184,8 @@ export default function AdminCrmPage() {
 
   return (
     <View className='crm-page'>
+      <StatusTop />
+      <View className='crm-body'>
       {/* 搜索栏 */}
       <View className='crm-search'>
         <Input
@@ -260,13 +263,12 @@ export default function AdminCrmPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='crm-state'>
-            <View className='icon-svg' style={iconStyle('user', 72)} />
-            <Text className='crm-state__text'>{t('crm.empty')}</Text>
-            <Text className='crm-state__desc'>
-              {query || stage ? t('crm.emptyFiltered') : t('crm.emptyNone')}
-            </Text>
-          </View>
+          <StateBlock
+            empty
+            filtered={Boolean(keyword || stage)}
+            icon='user'
+            text={keyword || stage ? t('crm.emptyFiltered') : t('crm.emptyNone')}
+          />
         )}
 
         {visible.map((l) => {
@@ -337,6 +339,7 @@ export default function AdminCrmPage() {
           )
         })}
       </ScrollView>
+      </View>
 
       {/* 新建/编辑线索弹层 */}
       {showSheet && (

@@ -1,243 +1,255 @@
 /* =========================================================
-   登录页 — 微信一键登录为主 · 手机号+验证码兜底
+   登录页 — 对齐贝壳小程序：纯白底、居中品牌、两个通栏按钮、底部协议
+   快捷登录与手机号登录是同一页面的两个状态，协议区常驻底部。
    ========================================================= */
 
 .login-page {
   min-height: 100vh;
-  background: var(--bg);
-  padding: 0 24rpx 60rpx;
+  padding: 0 48rpx;
+  box-sizing: border-box;
+  background: #ffffff;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
-/* 顶部 Logo / 标题区 */
-.login-header {
-  padding-top: 96rpx;
-  padding-bottom: 56rpx;
-  text-align: center;
+/* ===================== 快捷登录 ===================== */
+.login-quick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.login-title {
-  display: block;
-  font-size: 48rpx;
-  font-weight: 700;
-  color: var(--ink);
-  margin-bottom: 12rpx;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+.login-brand {
+  padding-top: 200rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.login-subtitle {
-  display: block;
-  font-size: 28rpx;
-  color: var(--ink-2);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-}
-
-/* 微信一键登录按钮（主 CTA，品牌绿） */
-.login-page .wx-login-btn {
-  width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
+.login-brand__logo {
+  width: 132rpx;
+  height: 132rpx;
+  border-radius: 30rpx;
+  background: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 32rpx;
-  font-weight: 700;
-  border-radius: var(--radius-lg);
-  border: none;
-  box-shadow: var(--shadow-primary);
-  transition: background-color 0.15s ease, transform 0.15s ease;
-  letter-spacing: 0.02em;
+  box-shadow: 0 12rpx 28rpx -12rpx rgba(var(--primary-rgb), 0.55);
 }
 
-.login-page .wx-login-btn::after {
-  border: none;
+.login-brand__logo-text {
+  font-size: 64rpx;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
 }
 
-.login-page .wx-login-btn:active {
-  background: var(--primary-hover);
-  transform: scale(0.98);
-}
-
-.login-page .wx-login-btn[disabled] {
-  opacity: 0.6;
-  transform: none;
-}
-
-.wx-icon {
-  background: var(--wechat);
-  color: #fff;
-  font-size: 22rpx !important;
-  font-weight: 600;
-  width: 52rpx;
-  height: 52rpx;
-  line-height: 52rpx;
-  text-align: center;
-  border-radius: 12rpx;
-  margin-right: 16rpx;
-  display: inline-block;
-}
-
-/* 已登录用户：快捷绑定微信手机号 */
-.bind-phone-block {
+.login-brand__name {
   margin-top: 28rpx;
-  text-align: center;
-}
-
-.bind-phone-tip {
-  display: block;
-  font-size: 24rpx;
-  color: var(--ink-3);
-  margin-bottom: 16rpx;
-}
-
-.login-page .bind-phone-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--wechat);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: 600;
-  border-radius: var(--radius-lg);
-  border: none;
-}
-
-.login-page .bind-phone-btn::after {
-  border: none;
-}
-
-/* 分割线 */
-.divider {
-  display: flex;
-  align-items: center;
-  margin: 44rpx 0 32rpx;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1rpx;
-  background: var(--line);
-}
-
-.divider-text {
-  margin: 0 24rpx;
-  font-size: 24rpx;
-  color: var(--ink-3);
-}
-
-/* 兜底折叠区 */
-.fallback {
-  background-color: var(--card);
-  border-radius: var(--radius-lg);
-  padding: 32rpx 36rpx 40rpx;
-  border: 1rpx solid var(--line);
-}
-
-.fallback-tabs {
-  display: flex;
-  margin-bottom: 28rpx;
-  border-bottom: 1rpx solid var(--line);
-}
-
-.fallback-tab {
-  flex: 1;
-  text-align: center;
-  font-size: 28rpx;
-  color: var(--ink-3);
-  padding: 0 0 20rpx;
-  position: relative;
-  font-weight: 600;
-}
-
-.fallback-tab.active {
-  color: var(--primary-text);
-}
-
-.fallback-tab.active::after {
-  content: '';
-  position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: -1rpx;
-  height: 4rpx;
-  background: var(--primary-text);
-  border-radius: 4rpx;
-}
-
-.form-item {
-  margin-bottom: 28rpx;
-}
-
-.form-label {
-  display: block;
-  font-size: 26rpx;
-  color: var(--ink);
-  margin-bottom: 12rpx;
-  font-weight: 600;
+  font-size: 60rpx;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--primary);
   letter-spacing: 0.01em;
 }
 
-.form-input {
-  width: 100%;
-  height: 88rpx;
-  border: 1rpx solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 0 24rpx;
-  font-size: 28rpx;
-  box-sizing: border-box;
-  background: var(--card);
-  color: var(--ink);
-}
-
-.otp-row {
-  display: flex;
-  align-items: center;
-}
-
-.otp-input {
-  flex: 1;
-  margin-right: 16rpx;
-}
-
-.login-page .otp-btn {
-  width: 200rpx;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: var(--surface-2);
-  color: var(--primary-text);
+.login-brand__slogan {
+  margin-top: 14rpx;
   font-size: 26rpx;
-  font-weight: 600;
-  border-radius: var(--radius-lg);
-  border: 1rpx solid var(--line);
-  margin: 0;
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
 }
 
-.login-page .otp-btn::after {
+.login-actions {
+  margin-top: 140rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 主按钮：实心品牌色 */
+.login-page .btn-solid {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  margin: 0;
+  padding: 0;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+  border-radius: 16rpx;
+}
+
+.login-page .btn-solid::after {
   border: none;
 }
 
-.login-page .otp-btn[disabled] {
+.login-page .btn-solid[disabled] {
+  opacity: 0.6;
+}
+
+/* 次按钮：白底细描边 */
+.login-page .btn-outline {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  margin: 28rpx 0 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  color: var(--primary);
+  font-size: 30rpx;
+  font-weight: 600;
+  border: 1rpx solid rgba(var(--primary-rgb), 0.45);
+  border-radius: 16rpx;
+}
+
+.login-page .btn-outline::after {
+  border: none;
+}
+
+.btn-outline__text {
+  color: var(--primary);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+/* 手机轮廓小图标（纯 CSS，避免引入图片资源） */
+.phone-icon {
+  position: relative;
+  width: 22rpx;
+  height: 34rpx;
+  margin-right: 12rpx;
+  box-sizing: border-box;
+  border: 3rpx solid currentColor;
+  border-radius: 6rpx;
+  color: var(--primary);
+}
+
+.phone-icon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3rpx;
+  width: 8rpx;
+  height: 2rpx;
+  margin-left: -4rpx;
+  background: currentColor;
+}
+
+/* 已登录时的绑定手机号入口 */
+.login-page .btn-text {
+  margin: 26rpx 0 0;
+  padding: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.login-page .btn-text::after {
+  border: none;
+}
+
+.login-skip {
+  margin-top: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-skip__text {
+  font-size: 26rpx;
   color: var(--ink-3);
 }
 
-/* 注册身份角色选择 */
+.login-skip__chev {
+  width: 12rpx;
+  height: 12rpx;
+  margin-left: 10rpx;
+  border-top: 2rpx solid var(--ink-3);
+  border-right: 2rpx solid var(--ink-3);
+  transform: rotate(45deg);
+}
+
+/* ===================== 手机号登录 ===================== */
+.login-phone {
+  flex: 1;
+  padding-top: 64rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-phone__title {
+  font-size: 48rpx;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.login-phone__tabs {
+  margin-top: 40rpx;
+  display: flex;
+}
+
+.login-phone__tab {
+  margin-right: 48rpx;
+  padding-bottom: 10rpx;
+  font-size: 28rpx;
+  color: var(--ink-3);
+  border-bottom: 4rpx solid transparent;
+}
+
+.login-phone__tab.active {
+  color: var(--ink);
+  font-weight: 700;
+  border-bottom-color: var(--primary);
+}
+
+/* 下划线输入行（贝壳式，无输入框边框） */
+.field {
+  display: flex;
+  align-items: center;
+  height: 104rpx;
+  margin-top: 8rpx;
+  border-bottom: 1rpx solid var(--line);
+}
+
+.field__input {
+  flex: 1;
+  height: 104rpx;
+  font-size: 30rpx;
+  color: var(--ink);
+}
+
+.field__action {
+  flex-shrink: 0;
+  margin-left: 24rpx;
+  font-size: 26rpx;
+  color: var(--ink-3);
+}
+
+.field__action.is-disabled {
+  opacity: 0.6;
+}
+
+/* 注册身份角色 */
 .role-row {
+  margin-top: 32rpx;
   display: flex;
   flex-wrap: wrap;
   gap: 16rpx;
 }
 
 .role-chip {
-  padding: 14rpx 24rpx;
+  padding: 12rpx 24rpx;
   font-size: 26rpx;
   color: var(--ink-3);
-  background: var(--surface-2);
+  background: var(--bg);
   border: 1rpx solid var(--line);
   border-radius: 999rpx;
 }
@@ -249,32 +261,72 @@
   font-weight: 600;
 }
 
-/* 登录/提交按钮 */
-.login-page .login-btn {
-  width: 100%;
-  height: 92rpx;
-  line-height: 92rpx;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 32rpx;
-  font-weight: 700;
-  border-radius: var(--radius-lg);
-  margin-top: 8rpx;
-  border: none;
+.login-page .btn-solid--form {
+  margin-top: 64rpx;
 }
 
-.login-page .login-btn[disabled] {
-  opacity: 0.6;
+.login-page .btn-solid--form.is-disabled {
+  background: rgba(var(--primary-rgb), 0.38);
+  color: rgba(255, 255, 255, 0.92);
 }
 
-/* 底部提示 */
-.login-tip {
+.login-back {
   margin-top: 36rpx;
   text-align: center;
 }
 
-.tip-text {
-  font-size: 24rpx;
+.login-back__text {
+  font-size: 26rpx;
+  color: var(--primary);
+}
+
+/* ===================== 底部协议 ===================== */
+.agreement {
+  margin-top: auto;
+  padding: 48rpx 0 calc(32rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: flex-start;
+}
+
+.agreement__box {
+  position: relative;
+  flex-shrink: 0;
+  width: 28rpx;
+  height: 28rpx;
+  margin: 4rpx 12rpx 0 0;
+  border: 1rpx solid #c9c9c9;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.agreement__box.is-checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.agreement__tick {
+  display: none;
+  position: absolute;
+  left: 9rpx;
+  top: 3rpx;
+  width: 6rpx;
+  height: 12rpx;
+  border-right: 3rpx solid #ffffff;
+  border-bottom: 3rpx solid #ffffff;
+  transform: rotate(45deg);
+}
+
+.agreement__box.is-checked .agreement__tick {
+  display: block;
+}
+
+.agreement__text {
+  flex: 1;
+  font-size: 22rpx;
+  line-height: 1.7;
   color: var(--ink-3);
-  line-height: 1.6;
+}
+
+.agreement__link {
+  color: var(--primary);
 }

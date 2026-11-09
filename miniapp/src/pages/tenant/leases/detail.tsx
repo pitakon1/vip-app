@@ -6,6 +6,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './detail.scss'
 
 const fmtDate = (x?: string) => (x ? String(x).slice(0, 10) : '—')
@@ -73,9 +74,7 @@ export default function TenantLeaseDetailPage() {
       <View className='tenant-lease-detail-page'>
         <ShellHeader title={t('nav.leaseDetail')} />
         <View className='page-container'>
-          <View className='empty-tip'>
-            <Text>{t('tenantLease.notFound')}</Text>
-          </View>
+          <StateBlock empty text={t('tenantLease.notFound')} icon='home' />
         </View>
       </View>
     )

@@ -20,6 +20,7 @@ import {
 import PublicListingItem from '@/components/PublicListingItem'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -57,18 +58,22 @@ export default function PublicSchoolDetailPage() {
 
   if (loading) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.schoolsTitle')} />
-        <View className='pub-loading'>{t('pub.loading')}</View>
+        <View className='pub-inner'>
+          <StateBlock loading text={t('pub.loading')} />
+        </View>
       </View>
     )
   }
 
   if (!school) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.schoolsTitle')} />
-        <View className='pub-empty'>{t('pub.schoolNotFound')}</View>
+        <View className='pub-inner'>
+          <StateBlock empty text={t('pub.schoolNotFound')} />
+        </View>
       </View>
     )
   }
@@ -77,7 +82,7 @@ export default function PublicSchoolDetailPage() {
   const listings = school.nearby_listings ?? []
 
   return (
-    <View className='pub-page'>
+    <View className='pub-page pub-page--detail'>
       <ShellHeader title={t('pub.schoolsTitle')} />
       {photos.length > 0 ? (
         <Image className='pub-cover' src={photos[0]} mode='aspectFill' />
@@ -171,7 +176,7 @@ export default function PublicSchoolDetailPage() {
         <Text className='pub-section__title'>{t('pub.nearbyListings')}</Text>
         <Text className='pub-section__hint'>{t('pub.nearbyListingsHint')}</Text>
         {listings.length === 0 ? (
-          <View className='pub-empty'>{t('pub.nearbyListingsEmpty')}</View>
+          <StateBlock empty text={t('pub.nearbyListingsEmpty')} />
         ) : (
           listings.map((item) => <PublicListingItem key={item.id} item={item} />)
         )}

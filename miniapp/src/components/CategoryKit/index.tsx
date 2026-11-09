@@ -95,11 +95,19 @@ export function CategoryTopBar({
   homePath?: string
 }) {
   const { t } = useI18n()
-  const statusBarH = useMemo(() => {
+  const { statusBarH, capsuleReserve } = useMemo(() => {
     try {
-      return Taro.getSystemInfoSync().statusBarHeight || 20
+      const info = Taro.getSystemInfoSync()
+      let reserve = 96
+      try {
+        const rect = Taro.getMenuButtonBoundingClientRect()
+        if (rect?.left) reserve = Math.max(info.windowWidth - rect.left + 8, 76)
+      } catch {
+        // 低版本基础库拿不到胶囊位置，退回保守留白
+      }
+      return { statusBarH: info.statusBarHeight || 20, capsuleReserve: reserve }
     } catch {
-      return 20
+      return { statusBarH: 20, capsuleReserve: 96 }
     }
   }, [])
 
@@ -115,7 +123,7 @@ export function CategoryTopBar({
 
   return (
     <View className='ck-top' style={{ paddingTop: `${statusBarH}px` }}>
-      <View className='ck-top__row'>
+      <View className='ck-top__row' style={{ paddingRight: `${capsuleReserve}px` }}>
         <View className='ck-top__back' hoverClass='ck-hover' onClick={goBack}>
           <View className='icon-svg' style={iconStyle('back', 40)} />
         </View>

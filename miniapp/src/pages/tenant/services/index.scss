@@ -21,7 +21,8 @@
     .svc-hero-label {
       display: block;
       font-size: 24rpx;
-      color: rgba(255, 255, 255, 0.85);
+      color: var(--primary-foreground);
+      opacity: 0.8;
     }
 
     .svc-hero-title {
@@ -41,7 +42,8 @@
 
       .pay-tip-label {
         font-size: 24rpx;
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--primary-foreground);
+        opacity: 0.8;
         display: block;
         margin-bottom: 8rpx;
       }
@@ -62,7 +64,7 @@
 
   .section-title {
     font-size: 32rpx;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--ink);
     margin: 24rpx 0 16rpx;
   }
@@ -79,7 +81,8 @@
       background-color: var(--card);
       border-radius: var(--radius-lg);
       padding: 24rpx;
-      margin-bottom: 16rpx;
+      margin-bottom: 24rpx;
+      box-shadow: var(--shadow-card);
 
       .service-info {
         margin-bottom: 16rpx;
@@ -102,9 +105,9 @@
 
         .service-price {
           display: block;
-          font-size: 36rpx;
+          font-size: 40rpx;
           font-weight: 700;
-          color: var(--error);
+          color: var(--error-ink);
         }
       }
 
@@ -115,12 +118,13 @@
 
         .pay-btn {
           width: 200rpx;
-          height: 72rpx;
-          line-height: 72rpx;
+          height: 88rpx;
+          line-height: 88rpx;
           background-color: var(--primary);
           color: var(--primary-foreground);
           font-size: 28rpx;
-          border-radius: var(--radius-sm);
+          font-weight: 600;
+          border-radius: var(--radius-lg);
           padding: 0;
         }
       }
@@ -138,7 +142,8 @@
       background-color: var(--card);
       border-radius: var(--radius-lg);
       padding: 24rpx;
-      margin-bottom: 16rpx;
+      margin-bottom: 24rpx;
+      box-shadow: var(--shadow-card);
 
       .order-icon {
         flex-shrink: 0;

@@ -13,6 +13,7 @@ import { iconStyle } from '@/utils/icons'
 import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
 import { TYPE_MAP, notifCategory, notifTitle, pickList, type NotifRow } from '@/lib/homeShared'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import { useLocationStore } from '@/stores/location'
 import { useI18n } from '@/i18n'
 import PropertyRail from '@/components/PropertyRail'
@@ -196,6 +197,7 @@ export default function TenantHomePage() {
 
   return (
     <View className='tenant-home-page'>
+      <StatusTop />
       <View className='page-container'>
         <View className='rv-hero'>
           <View className='rv-hero__loc' onClick={handlePickCity}>
@@ -203,6 +205,7 @@ export default function TenantHomePage() {
             <Text className='rv-hero__loc-arrow'>▾</Text>
           </View>
           <View className='rv-hero__search'>
+            <View className='rv-hero__search-icon icon-svg' style={iconStyle('search', 32)} />
             <Input
               className='rv-hero__search-input'
               value={keyword}
@@ -211,12 +214,12 @@ export default function TenantHomePage() {
               onConfirm={handleSearch}
             />
             <View className='rv-hero__search-btn' onClick={handleSearch}>
-              <Text className='rv-hero__search-btn-text'>搜索</Text>
+              <Text className='rv-hero__search-btn-text'>›</Text>
             </View>
           </View>
         </View>
 
-        {/* 黄金导航栏：7 个「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口（无渐变）。
+        {/* 黄金导航栏：7 个「浅灰底圆角磁贴 + 图标 + 深色标签」入口（对齐 App，无渐变）。
             每项跳各自独立的「贝壳式分类页」（模块/卡片口径各自差异化），
             不再共用找房列表页换参数。 */}
         <View className='gold-nav'>
@@ -319,10 +322,7 @@ export default function TenantHomePage() {
             <StateBlock loading text='加载中...' />
           )}
           {!loading && feedItems.length === 0 && (
-            <View className='empty-state'>
-              <View className='empty-state__icon icon-svg' style={iconStyle('megaphone', 80)} />
-              <Text>暂无动态</Text>
-            </View>
+            <StateBlock empty icon='megaphone' text='暂无动态' />
           )}
           {feedItems.map((n) => {
             const category = notifCategory(n)

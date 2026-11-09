@@ -8,6 +8,7 @@ import { request } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -109,10 +110,7 @@ export default function AdminPropertyDetailPage() {
     return (
       <View className='apd-page'>
         <ShellHeader title={t('nav.propertyDetail')} />
-        <View className='apd-state'>
-          <View className='icon-svg' style={iconStyle('home', 72)} />
-          <Text className='apd-state__text'>{id ? t('prop.notFoundDeleted') : t('prop.missingParam')}</Text>
-        </View>
+        <StateBlock empty icon='home' text={id ? t('prop.notFoundDeleted') : t('prop.missingParam')} />
         <BottomNav role='admin' active='properties' />
       </View>
     )

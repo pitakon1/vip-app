@@ -293,13 +293,12 @@ export default function AdminLeasesPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='ale-state'>
-            <View className='icon-svg' style={iconStyle('doc', 72)} />
-            <Text className='ale-state__text'>{t('lease.empty')}</Text>
-            <Text className='ale-state__desc'>
-              {query || filter ? t('lease.emptyFiltered') : t('lease.emptyNone')}
-            </Text>
-          </View>
+          <StateBlock
+            empty
+            filtered={Boolean(query || filter)}
+            icon='doc'
+            text={query || filter ? t('lease.emptyFiltered') : t('lease.emptyNone')}
+          />
         )}
 
         {visible.map((l) => {

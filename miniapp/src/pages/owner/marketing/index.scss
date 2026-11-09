@@ -566,3 +566,65 @@
   /* 底部固定导航占位，避免内容被遮挡 */
   padding-bottom: 160rpx;
 }
+
+/* ===== 对齐 App：卡片阴影 / 金额字号 / 标题层级 ===== */
+.owner-marketing-page {
+  .page-container {
+    padding: 24rpx 32rpx;
+  }
+
+  .page-title {
+    font-weight: 700;
+  }
+
+  .page-subtitle {
+    font-size: 28rpx;
+  }
+
+  .stats-grid {
+    .stat-card {
+      border: none;
+      border-radius: 32rpx;
+      box-shadow: var(--shadow-card);
+    }
+
+    .stat-num {
+      font-weight: 700;
+    }
+
+    .stat-label {
+      font-size: 24rpx;
+    }
+  }
+
+  .card-item {
+    border: none;
+    border-radius: 40rpx;
+    box-shadow: var(--shadow-card);
+
+    &--list {
+      padding: 8rpx 32rpx;
+    }
+  }
+
+  .section-title--plain {
+    font-size: 40rpx;
+    font-weight: 700;
+  }
+
+  .price-row__main {
+    font-size: 40rpx;
+    font-weight: 700;
+    color: var(--primary-text);
+  }
+
+  .est-box__value {
+    font-size: 40rpx;
+    font-weight: 700;
+    color: var(--primary-text);
+  }
+
+  .pick {
+    border-radius: 32rpx;
+  }
+}

@@ -9,6 +9,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import { useI18n } from '@/i18n'
 import { errorText } from '@/lib/errorText'
@@ -354,9 +355,8 @@ export default function TenantPropertyDetailPage() {
     return (
       <View className='tenant-property-detail-page'>
         <ShellHeader title={t('prop.detailTitle')} />
-        <View className='empty-state'>
-          <View className='empty-state__icon icon-svg' style={iconStyle('home', 80)} />
-          <Text>{t('pub.listingNotFound')}</Text>
+        <View className='page-container'>
+          <StateBlock empty text={t('pub.listingNotFound')} icon='home' />
         </View>
       </View>
     )
@@ -548,9 +548,7 @@ export default function TenantPropertyDetailPage() {
                 ))}
               </View>
             ) : (
-              <View className='empty-state'>
-                <Text>{t('tpd.noHighlights')}</Text>
-              </View>
+              <StateBlock empty text={t('tpd.noHighlights')} />
             )}
           </View>
 
@@ -571,9 +569,7 @@ export default function TenantPropertyDetailPage() {
                 ))}
               </View>
             ) : (
-              <View className='empty-state'>
-                <Text>{t('tpd.noPois')}</Text>
-              </View>
+              <StateBlock empty text={t('tpd.noPois')} />
             )}
           </View>
         </View>

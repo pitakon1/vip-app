@@ -13,6 +13,7 @@ import Taro from '@tarojs/taro'
 import { iconStyle } from '@/utils/icons'
 import { fmtMoney as formatRent } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
+import StatusTop from '@/components/StatusTop'
 import type { MetroLine } from '@/data/locationMetro'
 import type { DistrictOptionNode } from '@/lib/categoryShared'
 import { AREA_TIERS_5, PRICE_TIERS } from '@/constants/filters'
@@ -1046,7 +1047,10 @@ export default function ListingsFeed(props: ListingsFeedProps) {
   )
 
   return (
-    <View className='page-container'>
+    <>
+      {/* Tab 页用自定义导航：状态栏区域与 hero 色块同色，避免顶部出现白条 */}
+      <StatusTop background='var(--primary-soft)' />
+      <View className='page-container'>
       {/* ===== 顶部头部区：浅 teal 实底 + 大标题 + 城市定位（对齐参考图顶部，给卡片留出呼吸间距） ===== */}
       <View className='hero-band'>
         <View className='hero-band__row'>
@@ -1290,6 +1294,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
           </View>
         )}
       </ScrollView>
-    </View>
+      </View>
+    </>
   )
 }

@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { leadsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import {
   PAGE_SIZE,
   computeLeadStats,
@@ -140,6 +141,7 @@ export default function EmployeeCrmPage() {
 
   return (
     <View className='crm-page'>
+      <StatusTop />
       {/* 搜索栏 */}
       <View className='crm-search'>
         <Input
@@ -212,13 +214,10 @@ export default function EmployeeCrmPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='crm-state'>
-            <View className='icon-svg' style={iconStyle('user', 72)} />
-            <Text className='crm-state__text'>{t('crm.empty')}</Text>
-            <Text className='crm-state__desc'>
-              {query || stage ? t('crm.emptyFiltered') : t('crm.empEmptyDesc')}
-            </Text>
-          </View>
+          <StateBlock
+            empty
+            text={`${t('crm.empty')} · ${query || stage ? t('crm.emptyFiltered') : t('crm.empEmptyDesc')}`}
+          />
         )}
 
         {visible.map((l) => {

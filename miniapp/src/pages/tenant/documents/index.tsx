@@ -250,10 +250,7 @@ export default function TenantDocumentsPage() {
             />
           )}
           {!loading && !error && visibleDocs.length === 0 && (
-            <View className='empty-state'>
-              <View className='empty-state__icon icon-svg' style={iconStyle('doc', 80)} />
-              <Text>{t('tenantDocs.empty')}</Text>
-            </View>
+            <StateBlock empty text={t('tenantDocs.empty')} />
           )}
           {visibleDocs.map((doc) => (
             <View key={doc.id} className='document-card'>

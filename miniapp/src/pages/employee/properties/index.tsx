@@ -12,6 +12,7 @@ import { errorText } from '@/lib/errorText'
 import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 interface Property {
@@ -741,22 +742,16 @@ export default function EmployeePropertiesPage() {
         </View>
 
         {loading && listings.length === 0 ? (
-          <View className='p-state p-state--loading'>
-            <View className='p-state__spinner' />
-            <Text className='p-state__title'>{t('prop.loadingList')}</Text>
-          </View>
+          <StateBlock loading text={t('prop.loadingList')} />
         ) : error ? (
-          <View className='p-state'>
-            <Text className='p-state__title'>{t('common.loadFailed')}</Text>
-            <View className='p-retry' onClick={() => fetchList()}>
-              <Text className='p-retry__text'>{t('common.tapRetry')}</Text>
-            </View>
-          </View>
+          <StateBlock
+            error
+            text={t('common.loadFailed')}
+            retryText={t('common.tapRetry')}
+            onRetry={() => fetchList()}
+          />
         ) : listings.length === 0 ? (
-          <View className='p-state'>
-            <Text className='p-state__title'>{t('prop.empty')}</Text>
-            <Text className='p-state__desc'>{t('prop.emptyFiltered')}</Text>
-          </View>
+          <StateBlock empty text={`${t('prop.empty')} · ${t('prop.emptyFiltered')}`} />
         ) : (
           listings.map((it) => {
             const st = getStatus(it.status)

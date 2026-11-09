@@ -6,6 +6,7 @@ import { projectsApi } from '@/services/api'
 import './index.scss'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { errorText } from '@/lib/errorText'
 
 // 产权类型（对齐后端 Project.Tenure 枚举）
@@ -109,9 +110,7 @@ export default function NewProjectPage() {
     return (
       <View className='np-page'>
         <ShellHeader title={t('nav.newProject')} />
-        <View className='np-state'>
-          <Text className='np-state__text'>{t('np.adminOnlyHint')}</Text>
-        </View>
+        <StateBlock empty icon='briefcase' text={t('np.adminOnlyHint')} />
       </View>
     )
   }

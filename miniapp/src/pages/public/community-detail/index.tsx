@@ -17,6 +17,7 @@ import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import PublicListingItem from '@/components/PublicListingItem'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 /** 空值不渲染该行；数字转字符串。 */
@@ -56,18 +57,22 @@ export default function PublicCommunityDetailPage() {
 
   if (loading) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.communityListings')} />
-        <View className='pub-loading'>{t('pub.loading')}</View>
+        <View className='pub-inner'>
+          <StateBlock loading text={t('pub.loading')} />
+        </View>
       </View>
     )
   }
 
   if (!project) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.communityListings')} />
-        <View className='pub-empty'>{t('pub.communityNotFound')}</View>
+        <View className='pub-inner'>
+          <StateBlock empty text={t('pub.communityNotFound')} />
+        </View>
       </View>
     )
   }
@@ -97,7 +102,7 @@ export default function PublicCommunityDetailPage() {
   ]
 
   return (
-    <View className='pub-page'>
+    <View className='pub-page pub-page--detail'>
       <ShellHeader title={t('pub.communityListings')} />
       {project.cover ? (
         <Image className='pub-cover' src={project.cover} mode='aspectFill' />
@@ -139,7 +144,7 @@ export default function PublicCommunityDetailPage() {
         <Text className='pub-section__title'>{t('pub.communityListings')}</Text>
         <Text className='pub-section__hint'>{t('pub.communityListingsHint')}</Text>
         {listings.length === 0 ? (
-          <View className='pub-empty'>{t('pub.communityListingsEmpty')}</View>
+          <StateBlock empty text={t('pub.communityListingsEmpty')} />
         ) : (
           listings.map((item) => <PublicListingItem key={item.id} item={item} />)
         )}

@@ -403,9 +403,7 @@ export default function PartnerMembersPage() {
 
           <ScrollView scrollY className='pm-list'>
             {members.length === 0 && !loading && (
-              <View className='pm-state'>
-                <Text className='pm-state__text'>{t('member.empty')}</Text>
-              </View>
+              <StateBlock empty icon='user' text={t('member.empty')} />
             )}
             {members.map((m) => {
               const inactive = m.is_active === false

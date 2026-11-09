@@ -8,6 +8,7 @@ import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import { useI18n } from '@/i18n'
 
@@ -335,19 +336,15 @@ export default function OwnerPropertyDetailPage() {
     <View className='owner-property-detail-page'>
       <ShellHeader title={t('nav.propertyDetail')} />
       <View className='page-container'>
-        {loading && !property && (
-          <View className='empty-state'>
-            <Text>{t('common.loading')}</Text>
-          </View>
-        )}
+        {loading && !property && <StateBlock loading text={t('common.loading')} />}
 
         {!loading && error && !property && (
-          <View className='empty-state'>
-            <Text>{t('opd.loadFailedRetry')}</Text>
-            <View className='retry-btn' onClick={() => refresh(true)} hoverClass='retry-btn--hover'>
-              <Text>{t('opd.reload')}</Text>
-            </View>
-          </View>
+          <StateBlock
+            error
+            text={t('opd.loadFailedRetry')}
+            retryText={t('opd.reload')}
+            onRetry={() => refresh(true)}
+          />
         )}
 
         {!!property && (

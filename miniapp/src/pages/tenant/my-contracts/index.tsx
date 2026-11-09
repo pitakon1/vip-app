@@ -1074,7 +1074,7 @@ export default function MyContractsPage() {
         /* ===== 列表 ===== */
         <View>
           <View className='mc-head'>
-            <Text className='mc-head__title'>{t('contract.my')}</Text>
+            {/* 标题已由 ShellHeader 渲染，这里只保留说明，避免标题重复并与返回按钮重叠 */}
             <Text className='mc-head__desc'>{t('contract.myEmptyHint')}</Text>
           </View>
           {!loading && loadError && list.length > 0 && (
@@ -1093,11 +1093,11 @@ export default function MyContractsPage() {
               onRetry={() => void load()}
             />
           ) : list.length === 0 ? (
-            <View className='mc-state'>
-              <View className='icon-svg' style={iconStyle('doc', 72)} />
-              <Text className='mc-state__text'>{t('contract.empty')}</Text>
-              <Text className='mc-state__desc'>{t('contract.myEmptyHint')}</Text>
-            </View>
+            <StateBlock
+              empty
+              text={`${t('contract.empty')} · ${t('contract.myEmptyHint')}`}
+              icon='doc'
+            />
           ) : (
             list.map((c: any) => (
               <View key={c.id} className='mc-card' onClick={() => openDetail(c.id)}>

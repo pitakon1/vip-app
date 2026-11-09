@@ -27,7 +27,7 @@
   }
 
   &__back-icon {
-    font-size: 36rpx;
+    font-size: 32rpx;
     color: var(--ink);
     line-height: 1;
   }
@@ -58,13 +58,13 @@
 .pe-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 24rpx;
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 12rpx;
@@ -86,7 +86,7 @@
 
   &__label {
     font-size: 28rpx;
-    color: var(--ink);
+    color: var(--ink-2);
     width: 168rpx;
     flex-shrink: 0;
   }
@@ -102,9 +102,10 @@
 .pe-input {
   height: 88rpx;
   padding: 0 24rpx;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
-  font-size: 28rpx;
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: 32rpx;
   color: var(--ink);
   width: 100%;
   box-sizing: border-box;
@@ -114,8 +115,9 @@
 .pe-picker {
   height: 88rpx;
   padding: 0 24rpx;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   gap: 12rpx;
@@ -124,12 +126,12 @@
   box-sizing: border-box;
 
   &__text {
-    font-size: 28rpx;
+    font-size: 32rpx;
     color: var(--ink);
   }
 
   &__arrow {
-    font-size: 20rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
   }
 }
@@ -138,9 +140,10 @@
   width: 100%;
   min-height: 200rpx;
   padding: 20rpx;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
-  font-size: 28rpx;
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-md);
+  font-size: 32rpx;
   color: var(--ink);
   line-height: 1.5;
   box-sizing: border-box;
@@ -187,7 +190,7 @@
 }
 
 .pe-add-btn {
-  height: 80rpx;
+  height: 88rpx;
   border: 2rpx dashed var(--line);
   border-radius: var(--radius-md);
   display: flex;
@@ -212,9 +215,9 @@
   align-items: center;
   justify-content: center;
   background: var(--primary);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-primary);
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--primary-foreground);
   line-height: 88rpx;

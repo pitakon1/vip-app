@@ -1,28 +1,34 @@
-/* C 端房源详情：通用样式取自共用样式表，这里只补「预约看房」快捷时间的方块样式 */
+/* C 端房源详情：通用样式取自共用样式表，这里只补「预约看房」快捷时间样式 */
 @import '../public-site.scss';
 
-/* 快捷看房时间：方块样式（小圆角 + 浅灰底 + 选中描边），不用胶囊 */
+/* 详情页主价格：App 为 26px/800，这里按令牌放大到 52rpx */
+.pub-card .pub-listing__price {
+  margin-top: 16rpx;
+  font-size: 52rpx;
+}
+
+/* 快捷看房时间：与筛选 chip 同一套选中态 */
 .view-times {
   display: flex;
   flex-wrap: wrap;
-  gap: 14rpx;
+  gap: 16rpx;
 }
 
 .view-time {
   display: inline-flex;
   align-items: center;
-  height: 64rpx;
-  padding: 0 26rpx;
-  border-radius: var(--radius-md);
-  border: 1rpx solid transparent;
-  background: var(--surface-2);
-  font-size: 25rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--line);
+  background: var(--card);
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
 .view-time--on {
-  border-color: var(--primary-text);
-  background: var(--sidebar-active);
-  color: var(--primary-text);
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-weight: 600;
 }

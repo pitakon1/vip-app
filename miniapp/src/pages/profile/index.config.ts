@@ -1,1 +1,6 @@
-export default { navigationBarTitleText: '我的' }
+export default {
+  navigationStyle: 'custom',
+  navigationBarTitleText: '我的',
+  navigationBarBackgroundColor: '#ffffff',
+  navigationBarTextStyle: 'black',
+}

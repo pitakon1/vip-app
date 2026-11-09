@@ -10,6 +10,7 @@ import { View, Text, Input, ScrollView } from '@tarojs/components'
 import { useLocationStore, LOCATION_GROUPS } from '@/stores/location'
 import { iconStyle } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -55,7 +56,9 @@ export default function LocationPage() {
       {/* 顶部搜索 */}
       <View className='loc-search'>
         <View className='loc-search__box'>
-          <Text className='loc-search__icon'>⌕</Text>
+          <View className='loc-search__icon'>
+            <View className='icon-svg' style={iconStyle('search', 32)} />
+          </View>
           <Input
             className='loc-search__input'
             value={query}
@@ -77,9 +80,7 @@ export default function LocationPage() {
         <ScrollView className='loc-results' scrollY>
           <Text className='loc-result-title'>搜索结果</Text>
           {searchEmpty ? (
-            <View className='loc-empty'>
-              <Text>未找到匹配的城市</Text>
-            </View>
+            <StateBlock empty text='未找到匹配的城市' />
           ) : (
             results.map((c) => {
               const active = selection.cityKey === c.cityKey
@@ -183,9 +184,7 @@ export default function LocationPage() {
                 )
               })
             ) : (
-              <View className='loc-empty'>
-                <Text>该国家暂无可选城市</Text>
-              </View>
+              <StateBlock empty text='该国家暂无可选城市' />
             )}
           </View>
         </ScrollView>

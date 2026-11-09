@@ -38,10 +38,23 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('tenant')
-  const [showFallback, setShowFallback] = useState(false)
+  const [showFallback, setShowFallback] = useState(router.params?.mode === 'register')
+  // 协议勾选：与贝壳一致，未勾选不允许发起登录
+  const [agreed, setAgreed] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
   const [otpCountdown, setOtpCountdown] = useState(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const ensureAgreed = () => {
+    if (agreed) return true
+    Taro.showToast({ title: t('auth.agreementRequired'), icon: 'none' })
+    return false
+  }
+
+  // 「暂不登录」：和贝壳一样直接以访客身份逛房源
+  const handleSkip = () => {
+    Taro.reLaunch({ url: '/pages/public/listings/index' })
+  }
 
   useEffect(() => {
     return () => {
@@ -84,6 +97,7 @@ export default function LoginPage() {
 
   // ============ 微信一键授权登录 ============
   const handleWxLogin = async () => {
+    if (!ensureAgreed()) return
     setWxLoading(true)
     Taro.showLoading({ title: t('auth.loggingIn'), mask: true })
     try {
@@ -160,6 +174,7 @@ export default function LoginPage() {
   }
 
   const submitOtp = async () => {
+    if (!ensureAgreed()) return
     if (!/^1\d{10}$/.test(phone)) {
       Taro.showToast({ title: t('auth.phoneInvalid'), icon: 'none' })
       return
@@ -204,111 +219,113 @@ export default function LoginPage() {
 
   return (
     <View className='login-page'>
-      <View className='login-header'>
-        <Text className='login-title'>VIP Rental</Text>
-        <Text className='login-subtitle'>{t('auth.subtitle')}</Text>
-      </View>
+      {/* 快捷登录态：参考贝壳 —— 纯白首屏，居中品牌 + 两个按钮 + 底部协议 */}
+      {!showFallback ? (
+        <View className='login-quick'>
+          <View className='login-brand'>
+            <View className='login-brand__logo'>
+              <Text className='login-brand__logo-text'>V</Text>
+            </View>
+            <Text className='login-brand__name'>VIP Rental</Text>
+            <Text className='login-brand__slogan'>{t('auth.slogan')}</Text>
+          </View>
 
-      {/* 微信一键登录为主 */}
-      <Button
-        className='wx-login-btn'
-        loading={wxLoading}
-        disabled={wxLoading}
-        onClick={handleWxLogin}
-      >
-        <Text className='wx-icon'>{t('auth.wechat')}</Text>
-        <Text>{t('auth.wxLogin')}</Text>
-      </Button>
+          <View className='login-actions'>
+            <Button
+              className='btn-solid'
+              loading={wxLoading}
+              disabled={wxLoading}
+              onClick={handleWxLogin}
+            >
+              {t('auth.wxLogin')}
+            </Button>
 
-      {/* 已登录用户可主动绑定微信手机号 */}
-      {token ? (
-        <View className='bind-phone-block'>
-          <Text className='bind-phone-tip'>{t('auth.quickBindTip')}</Text>
-          <Button
-            className='bind-phone-btn'
-            openType='getPhoneNumber'
-            loading={bindLoading}
-            disabled={bindLoading}
-            onGetPhoneNumber={handleWxBindPhone}
-          >
-            {t('auth.bindPhone')}
-          </Button>
+            <Button className='btn-outline' onClick={() => setShowFallback(true)}>
+              <View className='phone-icon' />
+              <Text className='btn-outline__text'>{t('auth.phoneLogin')}</Text>
+            </Button>
+
+            {token ? (
+              <Button
+                className='btn-text'
+                openType='getPhoneNumber'
+                loading={bindLoading}
+                disabled={bindLoading}
+                onGetPhoneNumber={handleWxBindPhone}
+              >
+                {t('auth.bindPhone')}
+              </Button>
+            ) : null}
+
+            <View className='login-skip' onClick={handleSkip}>
+              <Text className='login-skip__text'>{t('auth.skipLogin')}</Text>
+              <View className='login-skip__chev' />
+            </View>
+          </View>
         </View>
-      ) : null}
-
-      <View className='divider'>
-        <View className='divider-line' />
-        <Text className='divider-text'>{t('auth.otherMethods')}</Text>
-        <View className='divider-line' />
-      </View>
-
-      {/* 手机号 + 验证码 兜底 */}
-      <View className='fallback'>
-        <View className='fallback-tabs'>
-          <Text
-            className={`fallback-tab ${mode === 'login' ? 'active' : ''}`}
-            onClick={() => switchMode('login')}
-          >
-            {t('auth.phoneLogin')}
+      ) : (
+        /* 手机号态：左对齐大标题 + 下划线输入框 + 通栏按钮 */
+        <View className='login-phone'>
+          <Text className='login-phone__title'>
+            {mode === 'register' ? t('auth.phoneRegister') : t('auth.phoneLogin')}
           </Text>
-          <Text
-            className={`fallback-tab ${mode === 'register' ? 'active' : ''}`}
-            onClick={() => switchMode('register')}
-          >
-            {t('auth.phoneRegister')}
-          </Text>
-        </View>
 
-        <View className='form-item'>
-          <Text className='form-label'>{t('auth.phoneLabel')}</Text>
-          <Input
-            className='form-input'
-            type='number'
-            maxlength={11}
-            placeholder={t('auth.phonePlaceholder')}
-            value={phone}
-            onInput={(e) => setPhone(e.detail.value)}
-          />
-        </View>
+          <View className='login-phone__tabs'>
+            <Text
+              className={`login-phone__tab ${mode === 'login' ? 'active' : ''}`}
+              onClick={() => switchMode('login')}
+            >
+              {t('auth.phoneLogin')}
+            </Text>
+            <Text
+              className={`login-phone__tab ${mode === 'register' ? 'active' : ''}`}
+              onClick={() => switchMode('register')}
+            >
+              {t('auth.phoneRegister')}
+            </Text>
+          </View>
 
-        {mode === 'register' ? (
-          <View className='form-item'>
-            <Text className='form-label'>{t('auth.nameLabel')}</Text>
+          <View className='field'>
             <Input
-              className='form-input'
-              type='text'
-              placeholder={t('auth.namePlaceholder')}
-              value={fullName}
-              onInput={(e) => setFullName(e.detail.value)}
+              className='field__input'
+              type='number'
+              maxlength={11}
+              placeholder={t('auth.phonePlaceholder')}
+              value={phone}
+              onInput={(e) => setPhone(e.detail.value)}
             />
           </View>
-        ) : null}
 
-        <View className='form-item'>
-          <Text className='form-label'>{t('auth.otpLabel')}</Text>
-          <View className='otp-row'>
+          {mode === 'register' ? (
+            <View className='field'>
+              <Input
+                className='field__input'
+                type='text'
+                placeholder={t('auth.namePlaceholder')}
+                value={fullName}
+                onInput={(e) => setFullName(e.detail.value)}
+              />
+            </View>
+          ) : null}
+
+          <View className='field'>
             <Input
-              className='form-input otp-input'
+              className='field__input'
               type='number'
               maxlength={6}
               placeholder={t('auth.otpPlaceholder')}
               value={otp}
               onInput={(e) => setOtp(e.detail.value)}
             />
-            <Button
-              className='otp-btn'
-              loading={otpLoading}
-              disabled={otpLoading || otpCountdown > 0}
-              onClick={handleSendOtp}
+            <Text
+              className={`field__action ${otpCountdown > 0 || otpLoading ? 'is-disabled' : ''}`}
+              onClick={otpCountdown > 0 || otpLoading ? undefined : handleSendOtp}
             >
               {otpCountdown > 0 ? `${otpCountdown}s` : t('auth.getOtp')}
-            </Button>
+            </Text>
           </View>
-        </View>
 
-        {mode === 'register' ? (
-          <View className='form-item'>
-            <Text className='form-label'>{t('auth.roleLabel')}</Text>
+          {mode === 'register' ? (
             <View className='role-row'>
               {REGISTER_ROLES.map((r) => (
                 <Text
@@ -320,22 +337,35 @@ export default function LoginPage() {
                 </Text>
               ))}
             </View>
+          ) : null}
+
+          <Button
+            className={`btn-solid btn-solid--form ${!phone || !otp ? 'is-disabled' : ''}`}
+            loading={wxLoading}
+            disabled={wxLoading}
+            onClick={submitOtp}
+          >
+            {mode === 'register' ? t('auth.registerAndLogin') : t('auth.loginBtn')}
+          </Button>
+
+          <View className='login-back' onClick={() => setShowFallback(false)}>
+            <Text className='login-back__text'>{t('auth.wxLogin')}</Text>
           </View>
-        ) : null}
+        </View>
+      )}
 
-        <Button
-          className='login-btn'
-          type='primary'
-          loading={wxLoading}
-          disabled={wxLoading}
-          onClick={submitOtp}
+      {/* 底部协议：未勾选不允许登录（与贝壳一致） */}
+      <View className='agreement'>
+        <View
+          className={`agreement__box ${agreed ? 'is-checked' : ''}`}
+          onClick={() => setAgreed((v) => !v)}
         >
-          {mode === 'register' ? t('auth.registerAndLogin') : t('auth.loginBtn')}
-        </Button>
-      </View>
-
-      <View className='login-tip'>
-        <Text className='tip-text'>{t('auth.tip')}</Text>
+          <View className='agreement__tick' />
+        </View>
+        <Text className='agreement__text' onClick={() => setAgreed((v) => !v)}>
+          {t('auth.agreementPrefix')}
+          <Text className='agreement__link'>{t('auth.agreementTerms')}</Text>
+        </Text>
       </View>
     </View>
   )

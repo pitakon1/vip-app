@@ -573,3 +573,100 @@
     }
   }
 }
+
+/* ===== 对齐 App：卡片阴影 / 金额字号 / 状态徽章 ===== */
+.owner-property-detail-page {
+  .page-container {
+    padding: 24rpx 32rpx;
+  }
+
+  .info-card {
+    border: none;
+    border-radius: 32rpx;
+    box-shadow: var(--shadow-card);
+
+    &__name {
+      font-size: 32rpx;
+      font-weight: 700;
+    }
+
+    &__badge {
+      padding: 4rpx 12rpx;
+      font-size: 24rpx;
+
+      &--rented {
+        background: rgba(var(--success-rgb), 0.12);
+        color: var(--success-ink);
+      }
+
+      &--vacant {
+        background: rgba(var(--warning-rgb), 0.12);
+        color: var(--warning-ink);
+      }
+
+      &--renewing {
+        background: rgba(var(--info-rgb), 0.12);
+        color: var(--info-ink);
+      }
+
+      &--maintenance {
+        background: rgba(var(--error-rgb), 0.12);
+        color: var(--error-ink);
+      }
+    }
+
+    &__rent {
+      font-size: 40rpx;
+      font-weight: 700;
+      color: var(--ink);
+    }
+  }
+
+  .card {
+    border-radius: 32rpx;
+    box-shadow: var(--shadow-card);
+
+    &--list {
+      padding: 8rpx 32rpx;
+    }
+  }
+
+  .metric__value {
+    font-size: 32rpx;
+    font-weight: 700;
+
+    &--lg {
+      font-size: 40rpx;
+      font-weight: 700;
+    }
+
+    &--success {
+      color: var(--success-ink);
+    }
+  }
+
+  .status-bar__value--warning {
+    color: var(--warning-ink);
+  }
+
+  .flow-row {
+    &__title {
+      font-size: 32rpx;
+      font-weight: 700;
+    }
+
+    &__desc {
+      font-size: 28rpx;
+      color: var(--ink-2);
+    }
+
+    &__amount {
+      font-size: 40rpx;
+      font-weight: 700;
+
+      &--success {
+        color: var(--success-ink);
+      }
+    }
+  }
+}

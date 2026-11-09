@@ -4,6 +4,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { chatApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -71,6 +72,7 @@ export default function ChatListPage() {
 
   return (
     <View className='chat-list-page'>
+      <StatusTop />
       <View className='page-container'>
         {loading && conversations.length === 0 && (
           <StateBlock loading text={t('common.loading')} />
@@ -86,25 +88,27 @@ export default function ChatListPage() {
         {!loading && !loadError && conversations.length === 0 && (
           <StateBlock empty text={t('chat.noConversations')} />
         )}
-        <View className='conversation-list'>
-          {conversations.map((c) => (
-            <View
-              key={c.id}
-              className='conversation-card'
-              onClick={() => openConversation(c.id)}
-            >
-              <View className='avatar'>
-                <Text className='avatar-text'>
-                  {(c.peer_name || c.title || '?').charAt(0)}
+        {conversations.length > 0 && (
+          <View className='conversation-list'>
+            {conversations.map((c) => (
+              <View
+                key={c.id}
+                className='conversation-card'
+                onClick={() => openConversation(c.id)}
+              >
+                <View className='avatar'>
+                  <Text className='avatar-text'>
+                    {(c.peer_name || c.title || '?').charAt(0)}
+                  </Text>
+                </View>
+                <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
+                <Text className='conv-time'>
+                  {formatTime(c.created_at || c.updated_at)}
                 </Text>
               </View>
-              <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
-              <Text className='conv-time'>
-                {formatTime(c.created_at || c.updated_at)}
-              </Text>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </View>
 
       <BottomNav role='tenant' active='messages' />

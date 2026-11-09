@@ -18,7 +18,7 @@
   position: relative;
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
 
   &__value {
@@ -52,25 +52,25 @@
 
   &__input {
     flex: 1;
-    height: 80rpx;
+    height: 88rpx;
     padding: 0 28rpx;
     background: var(--card);
     border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
-    font-size: 28rpx;
+    font-size: 32rpx;
     color: var(--ink);
     box-sizing: border-box;
   }
 
   &__btn {
     flex-shrink: 0;
-    height: 80rpx;
+    height: 88rpx;
     padding: 0 32rpx;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--primary);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-primary);
   }
 
@@ -91,8 +91,8 @@
 
 .ac-chip {
   flex-shrink: 0;
-  height: 60rpx;
-  padding: 0 28rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
   margin-right: 16rpx;
   display: inline-flex;
   align-items: center;
@@ -102,17 +102,17 @@
   border-radius: var(--radius-full);
 
   &--active {
-    background: rgba(var(--primary-rgb), 0.1);
+    background: var(--primary);
     border-color: var(--primary);
   }
 
   &--active .ac-chip__text {
-    color: var(--primary);
+    color: var(--primary-foreground);
     font-weight: 600;
   }
 
   &__text {
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
   }
 }
@@ -140,7 +140,7 @@
 .ac-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
@@ -164,7 +164,7 @@
   }
 
   &__name {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -173,14 +173,14 @@
   }
 
   &__code {
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     font-variant-numeric: tabular-nums;
   }
 
   &__position {
     display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
     margin-bottom: 12rpx;
   }
@@ -231,16 +231,16 @@
   }
 
   &__perf-value {
-    font-size: 28rpx;
+    font-size: 32rpx;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--primary-text);
     font-variant-numeric: tabular-nums;
   }
 
   &__perf-tip {
     display: block;
     margin-top: 8rpx;
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
   }
 
@@ -257,44 +257,44 @@
 
 /* 账号操作按钮 */
 .ac-act {
-  height: 56rpx;
+  height: 72rpx;
   padding: 0 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26rpx;
-  border-radius: var(--radius-full);
+  font-size: 28rpx;
+  border-radius: var(--radius-md);
 
   &--role {
-    color: var(--primary);
+    color: var(--primary-text);
     background: rgba(var(--primary-rgb), 0.1);
   }
 
   &--del {
-    color: var(--error);
-    background: rgba(255, 77, 79, 0.08);
+    color: var(--error-ink);
+    background: rgba(var(--error-rgb), 0.08);
   }
 }
 
 /* 来源/归属标签 */
 .ac-company-tag {
   flex-shrink: 0;
-  height: 40rpx;
+  height: 48rpx;
   padding: 0 16rpx;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
 
   &--platform {
-    color: var(--info);
+    color: var(--info-ink);
     background: rgba(var(--info-rgb), 0.1);
   }
 
   &--partner {
-    color: var(--primary);
+    color: var(--primary-text);
     background: rgba(var(--primary-rgb), 0.1);
   }
 }
@@ -317,16 +317,16 @@
   }
 
   &--primary { background: rgba(var(--primary-rgb), 0.12); }
-  &--primary .ac-avatar__text { color: var(--primary); }
+  &--primary .ac-avatar__text { color: var(--primary-text); }
 
   &--info { background: rgba(var(--info-rgb), 0.12); }
-  &--info .ac-avatar__text { color: var(--info); }
+  &--info .ac-avatar__text { color: var(--info-ink); }
 
   &--success { background: rgba(var(--success-rgb), 0.12); }
-  &--success .ac-avatar__text { color: var(--success); }
+  &--success .ac-avatar__text { color: var(--success-ink); }
 
   &--warning { background: rgba(var(--warning-rgb), 0.12); }
-  &--warning .ac-avatar__text { color: var(--warning); }
+  &--warning .ac-avatar__text { color: var(--warning-ink); }
 
   &--neutral { background: var(--surface-2); }
   &--neutral .ac-avatar__text { color: var(--ink-3); }

@@ -11,7 +11,7 @@ import { iconStyle } from '@/utils/icons'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { AREA_TIERS_5, PRICE_TIERS, SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
 import BottomNav from '@/components/BottomNav'
-import ShellHeader from '@/components/ShellHeader'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
@@ -486,7 +486,7 @@ export default function AdminPropertiesPage() {
 
   return (
     <View className='ap-page'>
-      <ShellHeader title={t('nav.properties')} />
+      <StatusTop />
       {/* 搜索 + 筛选区（对齐浏览页：pb-search-wrap > pb-search / pb-filters / pb-panel） */}
       <View className='pb-search-wrap'>
         <View className='pb-search'>
@@ -766,7 +766,9 @@ export default function AdminPropertiesPage() {
 
       <View className='ap-section-head'>
         <Text className='ap-section-head__title'>{t('prop.listTitle')}</Text>
-        <Text className='ap-section-head__count'>{t('prop.countUnit', { n: list.length })}</Text>
+        {/* 口径以服务端 total 为准：list.length 只是已加载的第一页条数，
+            直接拿它显示「共 N 套」会和上方的总房源统计互相矛盾。 */}
+        <Text className='ap-section-head__count'>{t('prop.countUnit', { n: total || list.length })}</Text>
       </View>
 
       <ScrollView scrollY className='ap-list'>
@@ -774,13 +776,12 @@ export default function AdminPropertiesPage() {
           <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && list.length === 0 && (
-          <View className='ap-state'>
-            <View className='icon-svg' style={iconStyle('home', 72)} />
-            <Text className='ap-state__text'>{t('prop.empty')}</Text>
-            <Text className='ap-state__desc'>
-              {query || status ? t('prop.emptyFiltered') : t('prop.emptyNone')}
-            </Text>
-          </View>
+          <StateBlock
+            empty
+            filtered={Boolean(query || status)}
+            icon='home'
+            text={query || status ? t('prop.emptyFiltered') : t('prop.emptyNone')}
+          />
         )}
 
         {list.map((item) => (

@@ -10,69 +10,67 @@
   background-color: var(--bg);
   /* 预留固定底部导航高度，避免内容被遮挡 */
   padding-bottom: 160rpx;
-  /* 局部例外：租客首页 Hero 保留白字（主色面上的品牌展示区） */
-  --home-hero-ink: #ffffff;
 }
 
 .tenant-home-page .page-container {
-  padding: 24rpx;
+  padding: 24rpx 32rpx;
 }
 
 /* ===== Hero：城市定位 + 搜索 ===== */
 .rv-hero {
-  position: relative;
-  padding: 32rpx 28rpx 32rpx;
-  border-radius: var(--radius-xl);
-  background: var(--primary);
-  overflow: hidden;
   margin-bottom: 24rpx;
-  box-shadow: var(--shadow-primary);
 }
 
+/* 定位行：与 App 一致 44rpx 高 */
 .rv-hero__loc {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8rpx;
-  margin-bottom: 22rpx;
+  height: 44rpx;
+  margin-bottom: 20rpx;
 }
 
 .rv-hero__loc-text {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: var(--home-hero-ink);
-  letter-spacing: -0.01em;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .rv-hero__loc-arrow {
-  font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 20rpx;
+  color: var(--ink-3);
 }
 
+/* 搜索：白底胶囊（内左 32rpx）+ 右侧 68rpx 主色圆钮 */
 .rv-hero__search {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
+  height: 88rpx;
+  padding: 4rpx 4rpx 4rpx 32rpx;
   background-color: var(--card);
   border-radius: var(--radius-full);
-  padding: 8rpx 8rpx 8rpx 28rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
+}
+
+.rv-hero__search-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-right: 16rpx;
 }
 
 .rv-hero__search-input {
   flex: 1;
-  height: 64rpx;
+  height: 80rpx;
   font-size: 28rpx;
   color: var(--ink);
 }
 
 .rv-hero__search-btn {
   flex-shrink: 0;
-  height: 64rpx;
-  padding: 0 36rpx;
-  border-radius: var(--radius-full);
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
   background-color: var(--primary);
   display: flex;
   align-items: center;
@@ -84,9 +82,10 @@
 }
 
 .rv-hero__search-btn-text {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--home-hero-ink);
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primary-foreground);
 }
 
 /* ===== 业务 Tab：租房 / 买房（对齐参考图的「纯文字 Tab」范式 ——
@@ -106,7 +105,7 @@
 }
 
 .rv-tab-text {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 500;
   color: var(--ink-2);
 }
@@ -134,26 +133,29 @@
 }
 
 .gold-nav__icon {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: var(--radius-lg);
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 32rpx;
+  background-color: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* 淡底取语义色的 10% 透明度（与 app.scss 的 .badge--* 同一取色方式，不硬编码色值） */
-.gold-nav__icon--rent { background-color: rgba(var(--primary-rgb), 0.1); }
-.gold-nav__icon--new { background-color: rgba(var(--warning-rgb), 0.1); }
-.gold-nav__icon--resale { background-color: rgba(var(--info-rgb), 0.1); }
-.gold-nav__icon--shop { background-color: rgba(var(--error-rgb), 0.1); }
-.gold-nav__icon--factory { background-color: rgba(var(--primary-rgb), 0.1); }
-.gold-nav__icon--hotel { background-color: rgba(var(--info-rgb), 0.1); }
-.gold-nav__icon--land { background-color: rgba(var(--warning-rgb), 0.1); }
+/* 图标底统一浅灰（对齐 App 磁贴），不再按业务着色 */
+.gold-nav__icon--rent,
+.gold-nav__icon--new,
+.gold-nav__icon--resale,
+.gold-nav__icon--shop,
+.gold-nav__icon--factory,
+.gold-nav__icon--hotel,
+.gold-nav__icon--land {
+  background-color: var(--surface-2);
+}
 
 .gold-nav__label {
   margin-top: 12rpx;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: var(--ink);
   text-align: center;
 }
@@ -165,7 +167,7 @@
   padding: 28rpx 32rpx;
   border-radius: var(--radius-lg);
   background-color: var(--card);
-  border: 1rpx solid var(--line);
+  box-shadow: var(--shadow-card);
   margin-bottom: 24rpx;
 }
 
@@ -189,7 +191,7 @@
 }
 
 .browse-banner__title {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--ink);
 }
@@ -220,16 +222,16 @@
 }
 
 .rv-sec__title {
-  font-size: 34rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
 
 .rv-sec__more {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--primary-text);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .rv-rail {
@@ -244,11 +246,11 @@
 }
 
 .rv-prop {
-  width: 480rpx;
+  width: 420rpx;
   flex-shrink: 0;
   background-color: var(--card);
   border-radius: var(--radius-lg);
-  border: 1rpx solid var(--line);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -258,7 +260,7 @@
 
 .rv-prop__img {
   position: relative;
-  height: 200rpx;
+  height: 220rpx;
   /* 缺封面：暖灰底，不按房源生成高饱和色块 */
   background-color: var(--surface-3);
   display: flex;
@@ -271,15 +273,17 @@
   opacity: 0.35;
 }
 
+/* 类型徽章：中性浅底 + 描边（不再用主色实底） */
 .rv-prop__badge {
   position: absolute;
   left: 16rpx;
   top: 16rpx;
   font-size: 24rpx;
-  color: var(--primary-text);
+  color: var(--ink-2);
   background-color: var(--card);
-  border-radius: var(--radius-full);
-  padding: 4rpx 16rpx;
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 4rpx 12rpx;
 }
 
 /* 卡片右上角收藏按钮（对齐原型 .rv17-prop__fav） */
@@ -306,8 +310,8 @@
 
 .rv-prop__name {
   display: block;
-  font-size: 30rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 700;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -349,7 +353,7 @@
 }
 
 .rv-prop__price {
-  font-size: 32rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--primary-text);
 }
@@ -370,7 +374,7 @@
 
 .rv-block-title {
   display: block;
-  font-size: 34rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
@@ -384,16 +388,16 @@
 }
 
 .rv-block-link {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--primary-text);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ===== 最近动态 ===== */
 .feed-card {
   background-color: var(--card);
   border-radius: var(--radius-lg);
-  border: 1rpx solid var(--line);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   margin-bottom: 28rpx;
 }
@@ -401,7 +405,7 @@
 .feed-item {
   display: flex;
   align-items: flex-start;
-  padding: 26rpx 28rpx;
+  padding: 24rpx 32rpx;
   border-bottom: 1rpx solid var(--line);
 }
 
@@ -426,7 +430,7 @@
 }
 
 .feed-title {
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
@@ -435,7 +439,7 @@
 }
 
 .feed-desc {
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
   margin-top: 6rpx;
   line-height: 1.5;
@@ -445,7 +449,7 @@
   flex-shrink: 0;
   margin-left: 16rpx;
   font-size: 24rpx;
-  font-weight: 500;
+  font-weight: 600;
   border-radius: var(--radius-full);
   padding: 6rpx 16rpx;
 }
@@ -456,24 +460,13 @@
   border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 28rpx;
-  border: 1rpx solid var(--line);
-  position: relative;
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-}
-
-.translate-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6rpx;
-  background: var(--primary);
 }
 
 .translate-title {
   display: block;
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: var(--ink);
   margin-bottom: 10rpx;
@@ -557,7 +550,7 @@
   height: 92rpx;
   padding: 0 24rpx;
   background: var(--card);
-  border: 1rpx solid var(--line);
+  box-shadow: var(--shadow-card);
   border-radius: var(--radius-lg);
 }
 

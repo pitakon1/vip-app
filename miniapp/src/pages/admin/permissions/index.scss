@@ -17,8 +17,8 @@
 
 .pm-role {
   flex-shrink: 0;
-  height: 64rpx;
-  padding: 0 30rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
   margin-right: 16rpx;
   display: inline-flex;
   align-items: center;
@@ -28,17 +28,17 @@
   border-radius: var(--radius-full);
 
   &--active {
-    background: rgba(var(--primary-rgb), 0.1);
+    background: var(--primary);
     border-color: var(--primary);
   }
 
   &--active .pm-role__text {
-    color: var(--primary);
+    color: var(--primary-foreground);
     font-weight: 700;
   }
 
   &__text {
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
   }
 }
@@ -60,24 +60,27 @@
 }
 
 .pm-quick__item {
-  padding: 8rpx 20rpx;
+  min-height: 64rpx;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 24rpx;
   border-radius: var(--radius-full);
   background: var(--card);
   border: 1rpx solid var(--line);
 
   &--on {
-    background: rgba(var(--primary-rgb), 0.1);
+    background: var(--primary);
     border-color: var(--primary);
   }
 
   &--on .pm-quick__text {
-    color: var(--primary);
+    color: var(--primary-foreground);
     font-weight: 600;
   }
 }
 
 .pm-quick__text {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: var(--ink-3);
 }
 
@@ -85,13 +88,13 @@
 .pm-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 12rpx;
@@ -102,11 +105,13 @@
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
+  min-height: 88rpx;
   padding: 16rpx 0;
+  box-sizing: border-box;
 
   &__box {
-    width: 36rpx;
-    height: 36rpx;
+    width: 40rpx;
+    height: 40rpx;
     margin-top: 4rpx;
     flex-shrink: 0;
     border: 2rpx solid var(--line);
@@ -122,7 +127,7 @@
   }
 
   &__tick {
-    font-size: 22rpx;
+    font-size: 24rpx;
     line-height: 1;
     color: var(--primary-foreground);
   }
@@ -134,13 +139,13 @@
 
   &__name {
     display: block;
-    font-size: 27rpx;
+    font-size: 28rpx;
     color: var(--ink);
   }
 
   &__desc {
     display: block;
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     margin-top: 4rpx;
   }
@@ -173,12 +178,12 @@
 }
 
 .pm-save-btn {
-  height: 84rpx;
+  height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--primary);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-primary);
 
   &--disabled {
@@ -186,7 +191,7 @@
   }
 
   &__text {
-    font-size: 28rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--primary-foreground);
   }

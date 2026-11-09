@@ -1,1 +1,5 @@
-export default { navigationBarTitleText: '关于我们' }
+export default {
+  navigationBarTitleText: '关于我们',
+  navigationBarBackgroundColor: '#ffffff',
+  navigationBarTextStyle: 'black',
+}

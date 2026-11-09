@@ -1,14 +1,13 @@
 import { useEffect } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
 export default function IndexPage() {
   const { t } = useI18n()
-  const token = useAuthStore((state) => state.token)
-  const user = useAuthStore((state) => state.user)
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
 
   useEffect(() => {
@@ -36,13 +35,12 @@ export default function IndexPage() {
       // 有 token 但角色未知，跳转到我的页面
       Taro.redirectTo({ url: '/pages/profile/index' })
     }
-  }, [token, user, loadFromStorage])
+    // 只执行一次：loadFromStorage 会写入新的 user 对象，若把它订阅到依赖里会触发无限重渲染。
+  }, [loadFromStorage])
 
   return (
     <View className='index-page'>
-      <View className='loading-wrapper'>
-        <Text className='loading-text'>{t('pub.loading')}</Text>
-      </View>
+      <StateBlock loading text={t('pub.loading')} />
     </View>
   )
 }

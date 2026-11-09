@@ -18,6 +18,7 @@ import {
 } from '@/lib/publicSite'
 import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
@@ -76,6 +77,7 @@ export default function PublicSchoolsPage() {
 
   return (
     <View className='pub-page'>
+      <StatusTop />
       <View className='pub-inner'>
         <View className='pub-head'>
           <Text className='pub-head__title'>{t('pub.schoolsTitle')}</Text>

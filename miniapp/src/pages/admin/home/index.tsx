@@ -6,6 +6,7 @@ import { dashboardApi, leasesApi, employeesApi } from '@/services/api'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -242,7 +243,17 @@ export default function AdminHomePage() {
 
   return (
     <View className='adm-home'>
+      <StatusTop />
       <ScrollView scrollY className='adm-scroll'>
+        {/* 顶部欢迎区（对齐 App 管理端 Home 的 hero） */}
+        <View className='adm-hero'>
+          <View className='adm-hero__left'>
+            <Text className='adm-hero__title'>{tr('home.adminTitle')}</Text>
+            <Text className='adm-hero__sub'>{tr('home.adminSub')}</Text>
+          </View>
+          <View className='adm-hero__badge'>ADMIN</View>
+        </View>
+
         {/* 部分区块加载失败时给出明确提示，避免把接口故障读成「经营为零」 */}
         {failedParts.length > 0 && !loading && (
           <View className='adm-alert' onClick={fetchAll}>

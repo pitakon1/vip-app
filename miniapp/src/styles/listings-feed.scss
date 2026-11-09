@@ -22,10 +22,16 @@
     display: flex;
     align-items: center;
     gap: 16rpx;
+    /* 给微信右上角胶囊（••• ◉）让位，避免城市胶囊被遮住 */
+    padding-right: 220rpx;
   }
 
   .hero-band__title {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     font-size: 38rpx;
     line-height: 52rpx;
     font-weight: 700;

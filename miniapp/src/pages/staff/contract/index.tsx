@@ -5,6 +5,7 @@ import { contractsApi, signAssetsApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
 
@@ -710,7 +711,7 @@ export default function StaffContractPage() {
     <View className='ct-page'>
       <ShellHeader title={t('nav.contract')} />
       {loading && !contract ? (
-        <View className='ct-state'><Text className='ct-state__text'>{t('pub.loading')}</Text></View>
+        <StateBlock loading text={t('pub.loading')} />
       ) : (
         <View className='ct-wrap'>
           <ScrollView scrollY className='ct-scroll'>

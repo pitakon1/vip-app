@@ -28,6 +28,7 @@ import { useI18n } from '@/i18n'
 import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 export default function PublicListingDetailPage() {
@@ -94,18 +95,22 @@ export default function PublicListingDetailPage() {
 
   if (loading) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.listing')} />
-        <View className='pub-loading'>{t('pub.loading')}</View>
+        <View className='pub-inner'>
+          <StateBlock loading text={t('pub.loading')} />
+        </View>
       </View>
     )
   }
 
   if (!data) {
     return (
-      <View className='pub-page'>
+      <View className='pub-page pub-page--detail'>
         <ShellHeader title={t('pub.listing')} />
-        <View className='pub-empty'>{t('pub.listingNotFound')}</View>
+        <View className='pub-inner'>
+          <StateBlock empty text={t('pub.listingNotFound')} />
+        </View>
       </View>
     )
   }
@@ -206,7 +211,7 @@ export default function PublicListingDetailPage() {
   }
 
   return (
-    <View className='pub-page'>
+    <View className='pub-page pub-page--detail'>
       <ShellHeader title={t('pub.listing')} />
       {/* 相册：横滑翻页 */}
       {photos.length > 0 ? (
@@ -227,9 +232,7 @@ export default function PublicListingDetailPage() {
             <Text className='pub-card__title'>{data.project_name || data.room_number || t('pub.listingItem')}</Text>
             {data.listing_type ? (
               <View
-                className={`badge ${
-                  isSell ? 'badge--neutral' : 'badge--primary'
-                }`}
+                className='badge badge--neutral'
                 style={{ marginLeft: '16rpx' }}
               >
                 <Text>{listingTypeLabel(data.listing_type)}</Text>

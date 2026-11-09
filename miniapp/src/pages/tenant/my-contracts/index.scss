@@ -12,12 +12,6 @@
   gap: 8rpx;
   margin-bottom: 20rpx;
 
-  &__title {
-    font-size: 36rpx;
-    font-weight: 700;
-    color: var(--ink);
-  }
-
   &__desc {
     font-size: 24rpx;
     color: var(--ink-3);
@@ -27,9 +21,9 @@
 .mc-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
 
   &__top {
     display: flex;
@@ -41,7 +35,7 @@
 
   &__title {
     flex: 1;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -125,22 +119,22 @@
 
   &--primary {
     background: rgba(var(--primary-rgb), 0.12);
-    color: var(--primary);
+    color: var(--primary-text);
   }
 
   &--warning {
     background: rgba(var(--warning-rgb), 0.14);
-    color: var(--warning);
+    color: var(--warning-ink);
   }
 
   &--success {
     background: rgba(var(--success-rgb), 0.14);
-    color: var(--success);
+    color: var(--success-ink);
   }
 
   &--error {
     background: rgba(var(--error-rgb), 0.1);
-    color: var(--error);
+    color: var(--error-ink);
   }
 }
 
@@ -151,7 +145,7 @@
   }
 
   &__section-title {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 16rpx;
@@ -188,7 +182,7 @@
 
   &__self {
     font-size: 20rpx;
-    color: var(--success);
+    color: var(--success-ink);
     background: rgba(var(--success-rgb), 0.14);
     padding: 2rpx 12rpx;
     border-radius: var(--radius-full);
@@ -314,7 +308,7 @@
 
 .mc-footer__decline {
   margin-bottom: 0;
-  height: 72rpx;
+  height: 88rpx;
 }
 
 .mc-footer__decline.mc-btn--disabled {
@@ -401,7 +395,7 @@
   &__type {
     font-size: 24rpx;
     font-weight: 600;
-    color: var(--primary);
+    color: var(--primary-text);
     background: rgba(var(--primary-rgb), 0.12);
     padding: 2rpx 14rpx;
     border-radius: var(--radius-full);
@@ -523,7 +517,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 60rpx;
+  height: 88rpx;
   padding: 0 28rpx;
   border-radius: var(--radius-full);
 
@@ -588,7 +582,7 @@
 .mc-date-text {
   font-size: 44rpx;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* ===== 签署意愿验证 / 签名库 ===== */
@@ -658,13 +652,13 @@
 .mc-config {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 16rpx;
@@ -684,7 +678,7 @@
     color: var(--ink-3);
     margin-top: 8rpx;
 
-    &--warn { color: var(--warning); }
+    &--warn { color: var(--warning-ink); }
   }
 
   &__row {
@@ -721,7 +715,7 @@
 
   &__item {
     flex: 1;
-    height: 64rpx;
+    height: 88rpx;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -731,7 +725,7 @@
   }
 
   &__text { font-size: 26rpx; color: var(--ink-2); }
-  &__text--active { color: var(--primary); font-weight: 700; }
+  &__text--active { color: var(--primary-text); font-weight: 700; }
 }
 
 .mc-assets__empty {
@@ -830,7 +824,7 @@
     background: var(--card);
   }
 
-  &__hit-page { font-size: 26rpx; font-weight: 600; color: var(--primary); }
+  &__hit-page { font-size: 26rpx; font-weight: 600; color: var(--primary-text); }
 }
 
 /* ===== 签署方托盘（单屏签署台） ===== */
@@ -840,9 +834,9 @@
   z-index: 8;
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 20rpx 24rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
 
   &__head {
     display: flex;
@@ -867,7 +861,6 @@
     gap: 16rpx;
   }
 }
-
 .mc-tray-item {
   position: relative;
   flex: 1;
@@ -932,7 +925,7 @@
 
   &__hint {
     font-size: 20rpx;
-    color: var(--primary);
+    color: var(--primary-text);
   }
 
   &__hint--tap {
@@ -956,7 +949,7 @@
   }
 
   &__btn {
-    height: 52rpx;
+    height: 88rpx;
     padding: 0 20rpx;
   }
 }
@@ -1040,7 +1033,7 @@
   &__label {
     font-size: 20rpx;
     line-height: 1.1;
-    color: var(--primary);
+    color: var(--primary-text);
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -1056,7 +1049,7 @@
   padding: 20rpx 24rpx;
   margin-top: 12rpx;
   border: 1rpx solid var(--line);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--card);
 
   &__label {
@@ -1093,7 +1086,7 @@
 .mc-doc {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 460rpx;
 

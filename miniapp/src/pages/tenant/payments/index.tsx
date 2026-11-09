@@ -4,7 +4,6 @@ import useAuthStore from '@/stores/auth'
 import { paymentsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
-import { iconStyle } from '@/utils/icons'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 import ShellHeader from '@/components/ShellHeader'
@@ -37,12 +36,12 @@ const buildTypeMap = (
 const buildStatusMap = (
   t: (k: string, p?: Record<string, string | number>) => string
 ): Record<string, { text: string; color: string }> => ({
-  pending: { text: t('tpay.stPending'), color: 'var(--warning)' },
-  processing: { text: t('pay.stProcessing'), color: 'var(--primary)' },
-  succeeded: { text: t('tpay.stSucceeded'), color: 'var(--success)' },
-  failed: { text: t('tpay.stFailed'), color: 'var(--error)' },
-  refunded: { text: t('pay.stRefunded'), color: 'var(--info)' },
-  disputed: { text: t('tpay.stDisputed'), color: 'var(--error)' },
+  pending: { text: t('tpay.stPending'), color: 'var(--warning-ink)' },
+  processing: { text: t('pay.stProcessing'), color: 'var(--primary-text)' },
+  succeeded: { text: t('tpay.stSucceeded'), color: 'var(--success-ink)' },
+  failed: { text: t('tpay.stFailed'), color: 'var(--error-ink)' },
+  refunded: { text: t('pay.stRefunded'), color: 'var(--info-ink)' },
+  disputed: { text: t('tpay.stDisputed'), color: 'var(--error-ink)' },
   expired: { text: t('pay.stExpired'), color: 'var(--ink-3)' }
 })
 
@@ -255,10 +254,7 @@ export default function TenantPaymentsPage() {
             />
           )}
           {!loading && !error && payments.length === 0 && (
-            <View className='empty-state'>
-              <View className='empty-state__icon icon-svg' style={iconStyle('money', 80)} />
-              <Text>{t('tpay.noBills')}</Text>
-            </View>
+            <StateBlock empty text={t('tpay.noBills')} icon='money' />
           )}
           {payments.length > 0 && (
             <View className='pay-card'>

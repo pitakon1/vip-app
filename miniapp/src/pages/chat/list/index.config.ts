@@ -1,1 +1,7 @@
-export default { navigationBarTitleText: '即时聊天', enablePullDownRefresh: true }
+export default {
+  navigationStyle: 'custom',
+  navigationBarTitleText: '即时聊天',
+  navigationBarBackgroundColor: '#ffffff',
+  navigationBarTextStyle: 'black',
+  enablePullDownRefresh: true
+}

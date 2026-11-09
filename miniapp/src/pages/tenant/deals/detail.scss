@@ -20,8 +20,8 @@
     background-color: var(--card);
     border-radius: var(--radius-xl);
     padding: 32rpx;
-    margin-bottom: 28rpx;
-    box-shadow: var(--shadow-sm);
+    margin-bottom: 24rpx;
+    box-shadow: var(--shadow-card);
   }
 
   /* 金额卡 */
@@ -54,27 +54,27 @@
 
     &--success {
       background: rgba(var(--success-rgb), 0.1);
-      color: var(--success);
+      color: var(--success-ink);
     }
 
     &--warning {
       background: rgba(var(--warning-rgb), 0.1);
-      color: var(--warning);
+      color: var(--warning-ink);
     }
 
     &--primary {
       background: rgba(var(--primary-rgb), 0.1);
-      color: var(--primary);
+      color: var(--primary-text);
     }
 
     &--info {
       background: rgba(var(--info-rgb), 0.1);
-      color: var(--info);
+      color: var(--info-ink);
     }
 
     &--error {
       background: rgba(var(--error-rgb), 0.1);
-      color: var(--error);
+      color: var(--error-ink);
     }
 
     &--neutral {
@@ -85,8 +85,8 @@
 
   .deal-price {
     display: block;
-    font-size: 56rpx;
-    font-weight: 800;
+    font-size: 48rpx;
+    font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.02em;
     line-height: 1.2;
@@ -96,7 +96,7 @@
 
   .deal-notes {
     display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
     margin-top: 16rpx;
     line-height: 1.6;
@@ -105,8 +105,8 @@
   /* 交易节点 */
   .section-label {
     display: block;
-    font-size: 26rpx;
-    font-weight: 600;
+    font-size: 28rpx;
+    font-weight: 700;
     color: var(--ink);
     margin-bottom: 8rpx;
   }
@@ -115,6 +115,7 @@
     display: flex;
     align-items: center;
     gap: 20rpx;
+    min-height: 88rpx;
     padding: 22rpx 0;
     border-top: 1rpx solid var(--line);
   }

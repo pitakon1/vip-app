@@ -1,5 +1,6 @@
 export default {
   navigationBarTitleText: '登录',
-  navigationBarBackgroundColor: '#14b8a6',
-  navigationBarTextStyle: 'white'
+  // 与贝壳一致：纯白导航，不额外加色块
+  navigationBarBackgroundColor: '#ffffff',
+  navigationBarTextStyle: 'black'
 }

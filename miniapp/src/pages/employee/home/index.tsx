@@ -6,6 +6,8 @@ import useAuthStore from '@/stores/auth'
 import { employeesApi, leadsApi, viewingsApi, performanceApi } from '@/services/api'
 import { fmtMoney } from '@/utils/format'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
@@ -225,6 +227,7 @@ export default function EmployeeHomePage() {
 
   return (
     <View className='emp-home'>
+      <StatusTop />
       {/* 今日概览卡 */}
       <View className='emp-hero'>
         <View className='emp-hero__main'>
@@ -277,15 +280,9 @@ export default function EmployeeHomePage() {
 
           <View className='emp-wb'>
             {loading && todayList.length === 0 ? (
-              <View className='emp-state emp-state--loading'>
-                <View className='emp-state__spinner' />
-                <Text className='emp-state__title'>{t('common.loading')}</Text>
-              </View>
+              <StateBlock loading text={t('common.loading')} />
             ) : todayList.length === 0 ? (
-              <View className='emp-state'>
-                <Text className='emp-state__title'>{t('home.noViewingsToday')}</Text>
-                <Text className='emp-state__desc'>{t('home.viewingsHint')}</Text>
-              </View>
+              <StateBlock empty text={`${t('home.noViewingsToday')} · ${t('home.viewingsHint')}`} />
             ) : (
               todayList.map((item, idx) => {
                 const st = getVStatus(item.status)
@@ -336,15 +333,9 @@ export default function EmployeeHomePage() {
 
           <View className='emp-card emp-card--flush'>
             {loading && leads.length === 0 ? (
-              <View className='emp-state emp-state--loading'>
-                <View className='emp-state__spinner' />
-                <Text className='emp-state__title'>{t('common.loading')}</Text>
-              </View>
+              <StateBlock loading text={t('common.loading')} />
             ) : leads.length === 0 ? (
-              <View className='emp-state'>
-                <Text className='emp-state__title'>{t('home.noLeads')}</Text>
-                <Text className='emp-state__desc'>{t('home.leadsHint')}</Text>
-              </View>
+              <StateBlock empty text={`${t('home.noLeads')} · ${t('home.leadsHint')}`} />
             ) : (
               leads.slice(0, 4).map((lead) => {
                 const st = getStage(lead.stage)

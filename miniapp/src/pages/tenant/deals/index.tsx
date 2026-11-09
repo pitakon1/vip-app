@@ -85,9 +85,7 @@ export default function TenantDealsPage() {
             />
           )}
           {!loading && !error && deals.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('deals.empty')}</Text>
-            </View>
+            <StateBlock empty text={t('deals.empty')} icon='clipboard' />
           )}
           {deals.map((d, idx) => {
             const meta = DEAL_STATUS[String(d?.status ?? '')] ?? DEAL_STATUS.drafted

@@ -25,7 +25,7 @@
   }
 
   &__month {
-    font-size: 36rpx;
+    font-size: 40rpx;
     font-weight: 700;
     color: var(--ink);
   }
@@ -66,7 +66,7 @@
   margin: 24rpx 24rpx 16rpx;
   padding: 28rpx 32rpx;
   border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  background: var(--primary);
   box-shadow: var(--shadow-primary);
 
   &__left {
@@ -90,10 +90,10 @@
   }
 
   &__avatar {
-    width: 68rpx;
-    height: 68rpx;
+    width: 72rpx;
+    height: 72rpx;
     border-radius: 50%;
-    background: rgba(var(--primary-foreground-rgb), 0.22);
+    background: rgba(var(--primary-foreground-rgb), 0.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -102,7 +102,7 @@
 
   &__avatar-text {
     font-size: 28rpx;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--primary-foreground);
   }
 }
@@ -112,10 +112,10 @@
   margin: 0 24rpx 24rpx;
   padding: 0 24rpx 8rpx;
   background: var(--card);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   border: 1rpx solid var(--line);
   border-left: 6rpx solid var(--primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 
   &__head {
     display: flex;
@@ -137,18 +137,18 @@
   }
 
   &__warn {
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
-    color: var(--warning);
+    color: var(--warning-ink);
     background: rgba(var(--warning-rgb), 0.1);
     border-radius: var(--radius-full);
     padding: 4rpx 18rpx;
   }
 
   &__date {
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
-    color: var(--primary);
+    color: var(--primary-text);
     background: rgba(var(--primary-rgb), 0.1);
     border-radius: var(--radius-full);
     padding: 4rpx 18rpx;
@@ -176,7 +176,7 @@
     flex-shrink: 0;
 
     &-text {
-      font-size: 26rpx;
+      font-size: 24rpx;
       font-weight: 700;
     }
   }
@@ -193,7 +193,7 @@
   }
 
   &__title {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -204,7 +204,7 @@
 
   &__badge {
     flex-shrink: 0;
-    font-size: 20rpx;
+    font-size: 24rpx;
     font-weight: 600;
     border-radius: var(--radius-full);
     padding: 2rpx 16rpx;
@@ -228,8 +228,8 @@
   margin: 0 24rpx 24rpx;
   background: var(--card);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 
   &__head {
@@ -241,7 +241,7 @@
   }
 
   &__title {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
   }
@@ -254,7 +254,10 @@
   padding: 4rpx;
 
   &__tab {
-    padding: 8rpx 24rpx;
+    min-height: 68rpx;
+    padding: 0 24rpx;
+    display: flex;
+    align-items: center;
     border-radius: var(--radius-full);
 
     &--active {
@@ -318,7 +321,7 @@
   }
 
   &__label {
-    font-size: 20rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
   }
 }
@@ -330,7 +333,7 @@
   &__day {
     flex: 1;
     text-align: center;
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
     color: var(--ink-3);
     padding: 8rpx 0;
@@ -357,7 +360,7 @@
   }
 
   &__num {
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 500;
     color: var(--ink);
 
@@ -367,13 +370,13 @@
     }
 
     &--selected {
-      color: var(--primary);
+      color: var(--primary-text);
       font-weight: 700;
     }
 
     &--today {
-      color: var(--primary);
-      font-weight: 800;
+      color: var(--primary-text);
+      font-weight: 700;
     }
   }
 
@@ -399,8 +402,8 @@
   margin-top: 12rpx;
 
   &__title {
-    font-size: 28rpx;
-    font-weight: 700;
+    font-size: 32rpx;
+    font-weight: 600;
     color: var(--ink);
   }
 
@@ -431,7 +434,7 @@
 
   &__tag {
     flex-shrink: 0;
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
     border-radius: var(--radius-full);
     padding: 4rpx 18rpx;
@@ -444,7 +447,7 @@
 
   &__title {
     display: block;
-    font-size: 28rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -485,10 +488,10 @@
   }
 
   &__badge {
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
-    color: var(--info, #0ea5e9);
-    background: rgba(14, 165, 233, 0.12);
+    color: var(--info-ink);
+    background: rgba(var(--info-rgb), 0.12);
     border-radius: var(--radius-full);
     padding: 4rpx 18rpx;
   }
@@ -501,8 +504,8 @@
   margin: 0 24rpx 24rpx;
   background: var(--card);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 
   &__cell {
@@ -519,27 +522,27 @@
 
   &__value {
     font-size: 40rpx;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.02em;
     line-height: 1.1;
   }
 
   &__unit {
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 500;
     color: var(--ink-3);
   }
 
   &__label {
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     font-weight: 500;
     margin-top: 8rpx;
   }
 
   &__sub {
-    font-size: 20rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     text-align: center;
     margin-top: 4rpx;
@@ -552,7 +555,8 @@
   padding: 0 24rpx;
   background: var(--card);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .cal-simple-row {
@@ -571,7 +575,7 @@
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     overflow: hidden;
@@ -592,7 +596,7 @@
   &__badge {
     flex-shrink: 0;
     margin-left: 16rpx;
-    font-size: 22rpx;
+    font-size: 24rpx;
     font-weight: 600;
     color: var(--ink-2);
     background: var(--surface-2);
@@ -601,7 +605,7 @@
 
     &--warn {
       background: rgba(var(--error-rgb), 0.1);
-      color: var(--error);
+      color: var(--error-ink);
     }
   }
 }
@@ -691,7 +695,7 @@
 
   &__title {
     display: block;
-    font-size: 34rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     text-align: center;
@@ -710,7 +714,7 @@
 
   &__label {
     display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 600;
     color: var(--ink-2);
     margin-bottom: 12rpx;
@@ -718,10 +722,11 @@
 
   &__input {
     height: 88rpx;
-    background: var(--surface-2);
-    border-radius: var(--radius-lg);
+    background: var(--card);
+    border: 1rpx solid var(--line);
+    border-radius: var(--radius-md);
     padding: 0 24rpx;
-    font-size: 28rpx;
+    font-size: 32rpx;
     color: var(--ink);
     box-sizing: border-box;
   }
@@ -740,17 +745,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-md);
   padding: 0 24rpx;
 
   &__text {
-    font-size: 28rpx;
+    font-size: 32rpx;
     color: var(--ink);
   }
 
   &__arrow {
-    font-size: 20rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     margin-left: 12rpx;
   }
@@ -764,9 +770,9 @@
 
 .cal-modal-btn {
   flex: 1;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 0;
   line-height: 88rpx;
   height: 88rpx;

@@ -863,11 +863,11 @@ export default function OwnerPropertiesPage() {
           />
         )}
         {!loading && !error && filtered.length === 0 && (
-          <View className='op-state'>
-            <View className='icon-svg' style={iconStyle('home', 72)} />
-            <Text className='op-state__text'>{t('prop.empty')}</Text>
-            <Text className='op-state__desc'>{query || status || bedrooms || priceRange || areaRange ? t('prop.emptyFiltered') : t('op.emptyCreate')}</Text>
-          </View>
+          <StateBlock
+            empty
+            filtered={!!(query || status || bedrooms || priceRange || areaRange)}
+            text={query || status || bedrooms || priceRange || areaRange ? t('prop.emptyFiltered') : t('prop.empty')}
+          />
         )}
 
         {filtered.map((item) => {

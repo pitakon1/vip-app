@@ -1,7 +1,7 @@
 /**
- * C 端房源卡片（学校详情 / 小区详情共用）。
+ * C 端房源卡片（找房列表 / 学校详情 / 小区详情共用）—— 对齐 App PublicListingRow。
  *
- * 只渲染 C 端该看的信息：封面、房号/地址、租金或挂牌价、面积户型，以及
+ * 只渲染 C 端该看的信息：封面、房号/地址、租金或挂牌价、面积户型、标签行，以及
  * 「距 XX 学校 约 N 公里」的学区回显。
  *
  * **不要在这里渲染任何分佣配置**（佣金比例、佣金月数、客源/房源分成、独家与否）。
@@ -26,6 +26,26 @@ export default function PublicListingItem({ item }: Props) {
   const cover = coverOf(item)
   const isSell = item.listing_type === 'sell'
   const price = item.price ?? (isSell ? item.asking_price : item.monthly_rent)
+  const title = item.project_name || item.room_number || item.address || t('pub.listingItem')
+  // 房号 + 地址合并为一行，减少文本层级（与 App 一致）
+  const subline = [
+    item.project_name && item.room_number ? item.room_number : null,
+    item.address
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const facts = [
+    item.bedrooms != null ? `${item.bedrooms} BED` : null,
+    item.bathrooms != null ? `${item.bathrooms} BATH` : null,
+    item.size_sqm != null ? `${item.size_sqm} ${t('pub.sqm')}` : null
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const tags = [
+    item.owner_direct ? t('category.tagOwnerDirect') : null,
+    item.is_featured ? t('category.tagFeatured') : null,
+    item.vr_url ? t('category.tagVr') : null
+  ].filter(Boolean) as string[]
 
   return (
     <View
@@ -41,26 +61,26 @@ export default function PublicListingItem({ item }: Props) {
           </View>
         )}
         {item.listing_type ? (
-          <View className={`pub-listing__type${isSell ? ' pub-listing__type--sell' : ''}`}>
+          <View className='pub-listing__type'>
             <Text>{listingTypeLabel(item.listing_type)}</Text>
           </View>
         ) : null}
       </View>
 
       <View className='pub-listing__body'>
-        <Text className='pub-listing__title'>
-          {item.project_name || item.room_number || t('pub.listingItem')}
-        </Text>
-        {item.room_number && item.project_name ? (
-          <Text className='pub-listing__unit'>{item.room_number}</Text>
-        ) : null}
-        {item.address ? <Text className='pub-listing__addr'>{item.address}</Text> : null}
+        <Text className='pub-listing__title'>{title}</Text>
+        {subline ? <Text className='pub-listing__addr'>{subline}</Text> : null}
+        {facts ? <Text className='pub-listing__facts'>{facts}</Text> : null}
 
-        <View className='pub-listing__facts'>
-          {item.bedrooms != null ? <Text>{item.bedrooms} BED</Text> : null}
-          {item.bathrooms != null ? <Text>{item.bathrooms} BATH</Text> : null}
-          {item.size_sqm != null ? <Text>{item.size_sqm} {t('pub.sqm')}</Text> : null}
-        </View>
+        {tags.length ? (
+          <View className='pub-listing__tags'>
+            {tags.map((tag) => (
+              <Text key={tag} className='pub-listing__tag'>
+                {tag}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         <Text className='pub-listing__price'>
           {fmtMoney(price, item.currency || 'THB')}

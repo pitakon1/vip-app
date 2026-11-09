@@ -364,13 +364,12 @@ export default function AdminEmployeesPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='ac-state'>
-            <View className='icon-svg' style={iconStyle('user', 72)} />
-            <Text className='ac-state__text'>{t('acc.empty')}</Text>
-            <Text className='ac-state__desc'>
-              {query || filter ? t('acc.tryOtherFilter') : t('acc.emptySearch')}
-            </Text>
-          </View>
+          <StateBlock
+            empty
+            filtered={Boolean(query || filter)}
+            icon='user'
+            text={query || filter ? t('acc.tryOtherFilter') : t('acc.empty')}
+          />
         )}
 
         {visible.map((e, index) => {

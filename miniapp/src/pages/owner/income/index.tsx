@@ -234,9 +234,11 @@ export default function OwnerIncomePage() {
             <StateBlock loading text={t('common.loading')} />
           )}
           {!loading && !error && filtered.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{income.records.length === 0 ? t('ownerIncome.noRecords') : t('ownerIncome.noFiltered')}</Text>
-            </View>
+            <StateBlock
+              empty
+              filtered={income.records.length > 0}
+              text={income.records.length === 0 ? t('ownerIncome.noRecords') : t('ownerIncome.noFiltered')}
+            />
           )}
           {!loading && error && income.records.length === 0 && (
             <StateBlock

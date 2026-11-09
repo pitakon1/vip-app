@@ -30,6 +30,7 @@ import { coverOf, listingTypeLabel, loadRates } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
 import './index.scss'
@@ -199,6 +200,7 @@ export default function PublicListingsPage() {
 
   return (
     <View className='pub-page'>
+      <StatusTop />
       <View className='pub-inner'>
         <View className='pub-head'>
           <Text className='pub-head__title'>{t('pub.listingsTitle')}</Text>
@@ -470,9 +472,13 @@ export default function PublicListingsPage() {
                     ) : null}
 
                     <View className='pub-listing__facts'>
-                      {item.bedrooms != null ? <Text>{item.bedrooms} BED</Text> : null}
-                      {item.bathrooms != null ? <Text>{item.bathrooms} BATH</Text> : null}
-                      {item.size_sqm != null ? <Text>{item.size_sqm} {t('pub.sqm')}</Text> : null}
+                      {[
+                        item.bedrooms != null ? `${item.bedrooms} BED` : '',
+                        item.bathrooms != null ? `${item.bathrooms} BATH` : '',
+                        item.size_sqm != null ? `${item.size_sqm} ${t('pub.sqm')}` : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </View>
 
                     <Text className='pub-listing__price'>

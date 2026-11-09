@@ -1,9 +1,8 @@
 /**
  * 通用空态 / 错误态 / 加载态块。
  *
- * 页面里散落大量内联的「加载中…／暂无…」文本，样式与语义各不相同。此组件把三种
- * 形态收敛到一处：`loading` 渲染转圈 + 文案，`error` 渲染错误标记 + 重试入口，
- * `empty` 渲染可选图标 + 文案，三者都走设计令牌。`text` 由调用方传入（通常已走 i18n），
+ * 对齐 App components/EmptyState：44px 圆形描边图标 + 16px/600 标题 +
+ * 主色胶囊按钮（重试 / 清空筛选）。`text` 由调用方传入（通常已走 i18n），
  * 组件本身不内置文案。
  */
 import { View, Text } from '@tarojs/components'
@@ -21,7 +20,7 @@ interface Props {
   filtered?: boolean
   /** 文案（通常由调用方走 i18n 传入） */
   text?: string
-  /** 空态图标（缺省不显示图标） */
+  /** 空态图标（缺省用通用文档图标，与 App 默认 file-tray 语义一致） */
   icon?: IconKey
   onRetry?: () => void
   retryText?: string
@@ -52,7 +51,9 @@ export default function StateBlock({ loading, error, empty, filtered, text, icon
   if (!empty) return null
   return (
     <View className='state-block' data-filtered={filtered ? 'true' : 'false'}>
-      {icon ? <View className='state-block__icon icon-svg' style={iconStyle(icon, 80)} /> : null}
+      <View className='state-block__icon'>
+        <View className='icon-svg' style={iconStyle(icon ?? (filtered ? 'search' : 'doc'), 40)} />
+      </View>
       {text ? <Text className='state-block__text'>{text}</Text> : null}
     </View>
   )

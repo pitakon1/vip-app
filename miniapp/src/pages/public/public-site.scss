@@ -11,6 +11,11 @@
   padding-bottom: 152rpx;
 }
 
+/* 详情页无底部导航，底部留白收紧到 App 的 content 内边距 */
+.pub-page--detail {
+  padding-bottom: 48rpx;
+}
+
 .pub-inner {
   padding: 24rpx;
 }
@@ -21,7 +26,7 @@
 }
 
 .pub-head__title {
-  font-size: 44rpx;
+  font-size: 48rpx;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
@@ -29,49 +34,48 @@
 
 .pub-head__hint {
   display: block;
-  margin-top: 10rpx;
-  font-size: 24rpx;
+  margin-top: 8rpx;
+  font-size: 28rpx;
   line-height: 1.6;
   color: var(--ink-3);
 }
 
-/* ===== 搜索框 ===== */
+/* ===== 搜索框（App 触控高 44 / 字号 16）===== */
 .pub-search {
   margin-top: 20rpx;
-  height: 80rpx;
+  height: 88rpx;
   background: var(--surface-2);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-full);
   padding: 0 32rpx;
-  font-size: 28rpx;
+  font-size: 32rpx;
   color: var(--ink);
 }
 
-/* ===== 分段控件（租 / 售）===== */
+/* ===== 分段控件（租 / 售）：与筛选 chip 同一套选中态 ===== */
 .pub-segment {
   display: flex;
   margin-top: 20rpx;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   padding: 6rpx;
 }
 
 .pub-segment__item {
   flex: 1;
-  height: 64rpx;
+  height: 76rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
-  font-size: 27rpx;
+  border-radius: var(--radius-full);
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
 .pub-segment__item--on {
-  background: var(--card);
-  color: var(--ink);
-  font-weight: 700;
-  box-shadow: var(--shadow-sm);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
 }
 
 /* ===== 横滑筛选 chip ===== */
@@ -88,23 +92,23 @@
   color: var(--ink-2);
 }
 
+/* ===== 筛选 chip（对齐 App PublicFilterChip：高 44、全圆角、选中主色底深墨字）===== */
 .pub-chip {
   display: inline-flex;
   align-items: center;
-  height: 60rpx;
-  padding: 0 26rpx;
-  margin-right: 14rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
+  margin-right: 16rpx;
   border-radius: var(--radius-full);
   border: 1rpx solid var(--line);
-  font-size: 25rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
-/* 选中态统一为「浅底 + 主色边框 + 主色文字」，与 Web / App 三端一致 */
 .pub-chip--on {
-  background: var(--sidebar-active);
-  border-color: var(--primary-text);
-  color: var(--primary-text);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
   font-weight: 600;
 }
 
@@ -137,7 +141,7 @@
 .pub-filter__tab {
   flex: 0 0 auto;
   min-width: 132rpx;
-  height: 76rpx;
+  min-height: 88rpx;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -176,8 +180,8 @@
 .pub-filter__panel {
   margin-top: 12rpx;
   background: var(--card);
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  /* 筛选展开面板属于浮层，保留投影（静态卡才降级为 1rpx 描边） */
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  /* 筛选展开面板属于浮层，保留投影（静态卡才降级为柔和投影） */
   box-shadow: var(--shadow-md);
   overflow: hidden;
 }
@@ -220,8 +224,8 @@
 }
 
 .pub-loc-tab {
-  height: 60rpx;
-  padding: 0 28rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -311,12 +315,12 @@
 
 .pub-range__input {
   flex: 1;
-  height: 72rpx;
+  height: 88rpx;
   background: var(--surface-2);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-md);
-  padding: 0 20rpx;
-  font-size: 26rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
   color: var(--ink);
 }
 
@@ -334,25 +338,25 @@
 .pub-count {
   display: block;
   margin: 24rpx 0 16rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
 }
 
-/* ===== 房源卡片 ===== */
+/* ===== 房源卡片（对齐 App PublicListingRow：白底、radius 16、gap 12、柔和投影）===== */
 .pub-listing {
   display: flex;
-  gap: 22rpx;
+  gap: 24rpx;
   background: var(--card);
   border-radius: var(--radius-lg);
   padding: 24rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 24rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .pub-listing__media {
   position: relative;
-  width: 200rpx;
-  height: 176rpx;
+  width: 216rpx;
+  height: 192rpx;
   border-radius: var(--radius-md);
   overflow: hidden;
   flex-shrink: 0;
@@ -374,20 +378,23 @@
   color: var(--ink-3);
 }
 
+/* 类型徽章：App 统一中性徽章（浅底 + 深中性字 + 描边），不再用主色实心块 */
 .pub-listing__type {
   position: absolute;
-  left: 10rpx;
-  top: 10rpx;
-  padding: 4rpx 14rpx;
+  left: 12rpx;
+  top: 12rpx;
+  padding: 4rpx 16rpx;
   border-radius: var(--radius-full);
   font-size: 24rpx;
   font-weight: 600;
-  color: #fff;
-  background: var(--primary-text);
+  color: #3f4a54;
+  background: #f7f5f1;
+  border: 1rpx solid var(--line);
 }
 
 .pub-listing__type--sell {
-  background: var(--ink-2);
+  color: #3f4a54;
+  background: #f7f5f1;
 }
 
 .pub-listing__body {
@@ -399,8 +406,8 @@
 }
 
 .pub-listing__title {
-  font-size: 30rpx;
-  font-weight: 700;
+  font-size: 32rpx;
+  font-weight: 600;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -411,7 +418,7 @@
 .pub-listing__addr {
   display: block;
   margin-top: 6rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -419,23 +426,39 @@
 }
 
 .pub-listing__facts {
-  display: flex;
-  gap: 18rpx;
-  margin-top: 10rpx;
+  display: block;
+  margin-top: 8rpx;
   font-size: 24rpx;
-  color: var(--ink-2);
+  color: var(--ink-3);
+}
+
+/* 房源标签行（房东直租 / 优选 / VR），对齐 App tagRow */
+.pub-listing__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.pub-listing__tag {
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--line);
+  background: var(--surface-2);
+  font-size: 24rpx;
+  color: var(--ink-3);
 }
 
 .pub-listing__price {
-  margin-top: 10rpx;
-  font-size: 36rpx;
+  margin-top: 12rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--primary-text);
 }
 
 .pub-listing__price-sub {
   margin-left: 8rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   font-weight: 400;
   color: var(--ink-3);
 }
@@ -453,9 +476,9 @@
   align-items: center;
   background: var(--card);
   border-radius: var(--radius-lg);
-  padding: 28rpx;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .pub-row__main {
@@ -464,7 +487,7 @@
 }
 
 .pub-row__title {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: var(--ink);
 }
@@ -472,7 +495,7 @@
 .pub-row__sub {
   display: block;
   margin-top: 8rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -482,14 +505,14 @@
 .pub-row__action {
   flex-shrink: 0;
   margin-left: 16rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--primary-text);
 }
 
 .pub-row__distance {
   flex-shrink: 0;
   margin-left: 16rpx;
-  font-size: 26rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--primary-text);
 }
@@ -498,7 +521,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10rpx;
-  margin-top: 14rpx;
+  margin-top: 12rpx;
+}
+
+/* 详情页品牌徽章：App 用 sidebar-active 浅底 + 主色字 */
+.pub-badges .badge--primary {
+  background: var(--sidebar-active);
+  color: var(--primary-text);
 }
 
 /* ===== 小区卡片（大图）===== */
@@ -506,19 +535,19 @@
   background: var(--card);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  margin-bottom: 20rpx;
-  box-shadow: var(--shadow-sm);
+  margin-bottom: 24rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .pub-project__cover {
   width: 100%;
-  height: 280rpx;
+  height: 300rpx;
   background: var(--surface-2);
 }
 
 .pub-project__nophoto {
   width: 100%;
-  height: 280rpx;
+  height: 300rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -528,7 +557,7 @@
 }
 
 .pub-project__body {
-  padding: 28rpx;
+  padding: 32rpx;
 }
 
 .pub-project__name {
@@ -540,14 +569,15 @@
 .pub-project__sub {
   display: block;
   margin-top: 8rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
 .pub-project__price {
   display: block;
   margin-top: 14rpx;
-  font-size: 27rpx;
+  font-size: 32rpx;
+  font-weight: 600;
   color: var(--ink);
 }
 
@@ -557,11 +587,11 @@
   border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 24rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 }
 
 .pub-card__title {
-  font-size: 36rpx;
+  font-size: 48rpx;
   font-weight: 700;
   color: var(--ink);
 }
@@ -569,12 +599,12 @@
 .pub-card__sub {
   display: block;
   margin-top: 10rpx;
-  font-size: 25rpx;
+  font-size: 32rpx;
   color: var(--ink-2);
 }
 
 .pub-section__title {
-  font-size: 34rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--ink);
   margin-bottom: 10rpx;
@@ -583,7 +613,7 @@
 .pub-section__hint {
   display: block;
   margin-bottom: 20rpx;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
 }
 
@@ -610,7 +640,7 @@
 .pub-kv__item {
   display: flex;
   align-items: flex-start;
-  padding: 12rpx 0;
+  padding: 16rpx 0;
   border-bottom: 1rpx solid var(--line);
 }
 
@@ -621,13 +651,13 @@
 .pub-kv__k {
   width: 190rpx;
   flex-shrink: 0;
-  font-size: 25rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
 }
 
 .pub-kv__v {
   flex: 1;
-  font-size: 27rpx;
+  font-size: 32rpx;
   color: var(--ink);
   word-break: break-all;
 }
@@ -640,7 +670,7 @@
 .pub-link {
   display: block;
   margin-top: 18rpx;
-  font-size: 27rpx;
+  font-size: 32rpx;
   font-weight: 600;
   color: var(--primary-text);
 }
@@ -648,8 +678,8 @@
 .pub-desc {
   display: block;
   margin-top: 16rpx;
-  font-size: 26rpx;
-  line-height: 1.75;
+  font-size: 32rpx;
+  line-height: 1.6;
   color: var(--ink-2);
   white-space: pre-wrap;
 }
@@ -657,8 +687,15 @@
 .pub-empty {
   padding: 100rpx 24rpx;
   text-align: center;
-  font-size: 27rpx;
+  font-size: 32rpx;
   color: var(--ink-3);
+}
+
+/* 下拉筛选面板内空间有限，空提示收紧 */
+.pub-filter__scroll .pub-empty,
+.pub-filter__pad .pub-empty {
+  padding: 48rpx 16rpx;
+  font-size: 28rpx;
 }
 
 /* 提交中态：按住不响应，视觉上压暗，避免重复提交留资 */
@@ -667,16 +704,36 @@
 }
 
 .pub-loading {
-  padding: 80rpx 24rpx;
-  text-align: center;
-  font-size: 27rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx 24rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
+}
+
+/* 列表底部加载：小号转圈 + 文案，对齐 App 的 ActivityIndicator */
+.pub-loading::before {
+  content: '';
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 12rpx;
+  border: 4rpx solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: pub-loading-spin 0.8s linear infinite;
+}
+
+@keyframes pub-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .pub-footer-note {
   padding: 32rpx 24rpx 24rpx;
   text-align: center;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
 }
 
@@ -685,7 +742,7 @@
   display: block;
   margin-top: 22rpx;
   margin-bottom: 10rpx;
-  font-size: 25rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
@@ -716,7 +773,7 @@
 .pub-inquiry__msg {
   display: block;
   margin-top: 20rpx;
-  font-size: 25rpx;
+  font-size: 28rpx;
 }
 
 .pub-inquiry__msg--ok {
@@ -735,8 +792,18 @@
 .pub-sheet__row {
   display: flex;
   align-items: center;
-  padding: 24rpx 12rpx;
+  padding: 20rpx 0;
   border-bottom: 1rpx solid var(--line);
+}
+
+/* 详情页学校行：App 为 16/600 + 14 ink3 */
+.pub-sheet__row .pub-row__title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.pub-sheet__row .pub-row__sub {
+  color: var(--ink-3);
 }
 
 .pub-sheet__row--on {
@@ -772,7 +839,7 @@
 
 .pub-guest__sub {
   margin-top: 14rpx;
-  font-size: 25rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
   text-align: center;
   line-height: 1.6;

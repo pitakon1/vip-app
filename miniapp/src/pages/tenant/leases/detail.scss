@@ -20,8 +20,8 @@
     background-color: var(--card);
     border-radius: var(--radius-xl);
     padding: 32rpx;
-    margin-bottom: 28rpx;
-    box-shadow: var(--shadow-sm);
+    margin-bottom: 24rpx;
+    box-shadow: var(--shadow-card);
   }
 
   /* 租期卡 */
@@ -34,7 +34,7 @@
   .lease-title {
     flex: 1;
     min-width: 0;
-    font-size: 34rpx;
+    font-size: 40rpx;
     font-weight: 700;
     color: var(--ink);
     overflow: hidden;
@@ -51,12 +51,12 @@
 
     &--success {
       background: rgba(var(--success-rgb), 0.1);
-      color: var(--success);
+      color: var(--success-ink);
     }
 
     &--warning {
       background: rgba(var(--warning-rgb), 0.1);
-      color: var(--warning);
+      color: var(--warning-ink);
     }
 
     &--neutral {
@@ -66,7 +66,7 @@
 
     &--error {
       background: rgba(var(--error-rgb), 0.1);
-      color: var(--error);
+      color: var(--error-ink);
     }
   }
 
@@ -108,7 +108,7 @@
     &__remain {
       font-size: 24rpx;
       font-weight: 700;
-      color: var(--primary);
+      color: var(--primary-text);
     }
   }
 
@@ -122,8 +122,8 @@
   /* 明细 */
   .section-label {
     display: block;
-    font-size: 26rpx;
-    font-weight: 600;
+    font-size: 28rpx;
+    font-weight: 700;
     color: var(--ink);
     margin-bottom: 8rpx;
   }
@@ -133,6 +133,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 20rpx;
+    min-height: 88rpx;
     padding: 22rpx 0;
     border-top: 1rpx solid var(--line);
 
@@ -154,7 +155,7 @@
     font-variant-numeric: tabular-nums;
 
     &--link {
-      color: var(--primary);
+      color: var(--primary-text);
     }
 
     &--wrap {

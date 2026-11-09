@@ -7,6 +7,7 @@ import { employeesApi, performanceApi, commissionsApi, leasesApi, propertiesApi,
 import './index.scss'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 
 interface RankItem {
   id: string
@@ -405,19 +406,13 @@ export default function EmployeePerformancePage() {
 
         {view === 'agents' ? (
           agents.length === 0 ? (
-            <View className='perf-state'>
-              <Text className='perf-state__title'>{t('perf.noAgents')}</Text>
-              <Text className='perf-state__desc'>{t('perf.noAgentsDesc')}</Text>
-            </View>
+            <StateBlock empty text={`${t('perf.noAgents')} · ${t('perf.noAgentsDesc')}`} />
           ) : (
             agents.map((a) => renderAgentCard(a))
           )
         ) : view === 'partners' ? (
           partners.length === 0 ? (
-            <View className='perf-state'>
-              <Text className='perf-state__title'>{t('perf.noPartners')}</Text>
-              <Text className='perf-state__desc'>{t('perf.noPartnersDesc')}</Text>
-            </View>
+            <StateBlock empty text={`${t('perf.noPartners')} · ${t('perf.noPartnersDesc')}`} />
           ) : (
             partners.map((p) => renderPartnerCard(p))
           )
@@ -472,15 +467,9 @@ export default function EmployeePerformancePage() {
               </View>
 
               {loading && detailRows.length === 0 ? (
-                <View className='perf-state perf-state--loading'>
-                  <View className='perf-state__spinner' />
-                  <Text className='perf-state__title'>{t('perf.loading')}</Text>
-                </View>
+                <StateBlock loading text={t('perf.loading')} />
               ) : detailRows.length === 0 ? (
-                <View className='perf-state'>
-                  <Text className='perf-state__title'>{t('perf.noCommissions')}</Text>
-                  <Text className='perf-state__desc'>{t('perf.noCommissionsDesc')}</Text>
-                </View>
+                <StateBlock empty text={`${t('perf.noCommissions')} · ${t('perf.noCommissionsDesc')}`} />
               ) : (
                 detailRows.map((c) => {
                   const st = SETTLE_META[c.status || ''] || {
@@ -547,10 +536,7 @@ export default function EmployeePerformancePage() {
               </View>
 
               {leaderboard.length === 0 ? (
-                <View className='perf-state'>
-                  <Text className='perf-state__title'>{t('perf.noPerfData')}</Text>
-                  <Text className='perf-state__desc'>{t('perf.noPerfDataDesc')}</Text>
-                </View>
+                <StateBlock empty text={`${t('perf.noPerfData')} · ${t('perf.noPerfDataDesc')}`} />
               ) : (
                 leaderboard.map((item, index) => {
                   const rank = index + 1

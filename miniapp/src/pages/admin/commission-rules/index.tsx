@@ -283,7 +283,7 @@ export default function CommissionRulesPage() {
         </View>
       )}
       {loading ? (
-        <View className='cr-state'><Text className='cr-state__text'>{t('pub.loading')}</Text></View>
+        <StateBlock loading />
       ) : loadError && rules.length === 0 ? (
         <StateBlock
           error
@@ -292,7 +292,7 @@ export default function CommissionRulesPage() {
           onRetry={() => void load()}
         />
       ) : rules.length === 0 ? (
-        <View className='cr-state'><Text className='cr-state__text'>{t('comm.empty')}</Text></View>
+        <StateBlock empty icon='doc' text={t('comm.empty')} />
       ) : (
         <View className='cr-list'>
           {rules.map((rule) => (

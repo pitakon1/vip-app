@@ -155,7 +155,7 @@ export default function StaffListingsPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='st-state'><Text className='st-state__text'>{t('staff.empty')}</Text></View>
+          <StateBlock empty text={t('staff.empty')} />
         )}
         {visible.map((l) => {
           const st = getStatus(STATUS_META, l.status)

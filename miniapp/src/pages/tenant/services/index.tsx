@@ -38,10 +38,10 @@ const SERVICE_TYPE_MAP: Record<string, string> = {
 }
 
 const ORDER_STATUS_MAP: Record<string, { text: string; color: string }> = {
-  pending: { text: 'svc.stPending', color: 'var(--warning)' },
-  assigned: { text: 'svc.stAssigned', color: 'var(--info)' },
-  in_progress: { text: 'svc.stInProgress', color: 'var(--primary)' },
-  completed: { text: 'svc.stCompleted', color: 'var(--success)' },
+  pending: { text: 'svc.stPending', color: 'var(--warning-ink)' },
+  assigned: { text: 'svc.stAssigned', color: 'var(--info-ink)' },
+  in_progress: { text: 'svc.stInProgress', color: 'var(--primary-text)' },
+  completed: { text: 'svc.stCompleted', color: 'var(--success-ink)' },
   cancelled: { text: 'svc.stCancelled', color: 'var(--ink-3)' }
 }
 
@@ -82,6 +82,8 @@ export default function TenantServicesPage() {
       return pickList<ServiceOrderRow>(res)
     },
   })
+  // 首帧 data 可能为 null（SWR 尚未返回），直接读 orders.length 会导致白屏崩溃
+  const orderList = orders ?? []
 
   useDidShow(() => {
     loadFromStorage()
@@ -151,9 +153,7 @@ export default function TenantServicesPage() {
 
         <View className='service-list'>
           {services.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('svc.noServices')}</Text>
-            </View>
+            <StateBlock empty text={t('svc.noServices')} icon='clipboard' />
           )}
           {services.map((service) => (
             <View key={service.id} className='service-card'>
@@ -182,10 +182,10 @@ export default function TenantServicesPage() {
         </View>
 
         <ScrollView scrollY className='order-list'>
-          {ordersLoading && orders.length === 0 && (
+          {ordersLoading && orderList.length === 0 && (
             <StateBlock loading text={t('pub.loading')} />
           )}
-          {!ordersLoading && ordersError && orders.length === 0 && (
+          {!ordersLoading && ordersError && orderList.length === 0 && (
             <StateBlock
               error
               text={t('common.loadFailedTapRetry')}
@@ -193,12 +193,10 @@ export default function TenantServicesPage() {
               onRetry={() => refresh(true)}
             />
           )}
-          {!ordersLoading && !ordersError && orders.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('svc.noOrders')}</Text>
-            </View>
+          {!ordersLoading && !ordersError && orderList.length === 0 && (
+            <StateBlock empty text={t('svc.noOrders')} icon='clipboard' />
           )}
-          {orders.map((order) => {
+          {orderList.map((order) => {
             const status = ORDER_STATUS_MAP[order.status || 'pending'] || ORDER_STATUS_MAP.pending
             return (
               <View key={order.id} className='order-card'>

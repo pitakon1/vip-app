@@ -1840,11 +1840,7 @@ export default function AdminContractsPage() {
               onRetry={() => void load()}
             />
           ) : list.length === 0 ? (
-            <View className='ac-state'>
-              <View className='icon-svg' style={iconStyle('doc', 72)} />
-              <Text className='ac-state__text'>{t('contract.empty')}</Text>
-              <Text className='ac-state__desc'>{t('contract.emptyHint')}</Text>
-            </View>
+            <StateBlock empty icon='doc' text={t('contract.emptyHint')} />
           ) : (
             list.map((c: any) => (
               <View key={c.id} className='ac-card' onClick={() => openDetail(c.id)}>

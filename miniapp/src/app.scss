@@ -58,18 +58,20 @@ page {
   /* ---- 品牌色 ---- */
   --wechat: #07c160;
 
-  /* ---- 圆角（对应 6 / 10 / 18 / 24 px，rpx = px × 2）---- */
-  --radius-sm: 12rpx;
-  --radius-md: 20rpx;
-  --radius-lg: 36rpx;
-  --radius-xl: 48rpx;
+  /* ---- 圆角（对齐 App theme.colors.radius：8 / 12 / 16 / 20 / 24 px，rpx = px × 2）---- */
+  --radius-sm: 16rpx;
+  --radius-md: 24rpx;
+  --radius-lg: 32rpx;
+  --radius-xl: 40rpx;
+  --radius-xxl: 48rpx;
   --radius-full: 999rpx;
 
-  /* ---- 阴影（静态卡只用 1rpx 描边式阴影，浮层才用 md/lg 投影）---- */
-  --shadow-sm: 0 0 0 1rpx var(--line);
-  --shadow-md: 0 6rpx 18rpx rgba(28, 39, 51, 0.06);
-  --shadow-lg: 0 10rpx 32rpx rgba(28, 39, 51, 0.09);
-  --shadow-primary: 0 8rpx 24rpx -4rpx rgba(20, 184, 166, 0.35);
+  /* ---- 阴影（对齐 App theme.colors.shadow：卡片用柔和投影，浮层再加一档）---- */
+  --shadow-sm: 0 2rpx 8rpx rgba(28, 39, 51, 0.04);
+  --shadow-card: 0 4rpx 20rpx rgba(28, 39, 51, 0.05);
+  --shadow-md: 0 10rpx 28rpx rgba(28, 39, 51, 0.06);
+  --shadow-lg: 0 20rpx 56rpx rgba(28, 39, 51, 0.09);
+  --shadow-primary: 0 12rpx 28rpx -8rpx rgba(20, 184, 166, 0.3);
 
   background-color: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
@@ -78,7 +80,7 @@ page {
   line-height: 1.5;
 }
 
-view, text {
+view, text, scroll-view {
   box-sizing: border-box;
 }
 
@@ -142,24 +144,24 @@ view, text {
 .mt-16 { margin-top: 16rpx; }
 .mt-24 { margin-top: 24rpx; }
 
-/* 卡片 */
+/* 卡片（对齐 App 通用 Card：白底、radius 20、padding 16、柔和投影） */
 .card {
   background-color: var(--card);
   border-radius: var(--radius-xl);
   padding: 32rpx;
   margin-bottom: 24rpx;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 }
 
-/* 页面容器 */
+/* 页面容器（App 内容区左右 16px） */
 .page-container {
-  padding: 24rpx;
+  padding: 32rpx;
   min-height: 100vh;
 }
 
-/* 区块标题 */
+/* 区块标题（App 20px / 700） */
 .section-title {
-  font-size: 36rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--ink);
   margin-bottom: 24rpx;
@@ -174,25 +176,25 @@ view, text {
 }
 
 .section-header__title {
-  font-size: 34rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
 
 .section-header__more {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--primary-text);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* 按钮 */
+/* 按钮（App 最小触控高度 44px、字号 16px、radius 16） */
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-lg);
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 600;
   height: 88rpx;
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease,
@@ -226,8 +228,8 @@ view, text {
 }
 
 .btn--sm {
-  height: 64rpx;
-  font-size: 26rpx;
+  height: 72rpx;
+  font-size: 28rpx;
   padding: 0 24rpx;
   border-radius: var(--radius-md);
 }
@@ -235,16 +237,16 @@ view, text {
 .btn--lg {
   height: 96rpx;
   font-size: 32rpx;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
 }
 
-/* 徽章/标签 */
+/* 徽章/标签（App 12px / radius full） */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 6rpx 16rpx;
+  padding: 6rpx 20rpx;
   border-radius: var(--radius-full);
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 500;
   line-height: 1.4;
 }
@@ -306,13 +308,13 @@ view, text {
   color: var(--primary-text);
 }
 
-/* 空状态 */
+/* 空状态（结构型空态请优先用 components/StateBlock） */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 120rpx 0;
+  padding: 64rpx 40rpx;
   color: var(--ink-3);
   font-size: 28rpx;
 }
@@ -323,15 +325,15 @@ view, text {
   opacity: 0.4;
 }
 
-/* 输入框 */
+/* 输入框（App 16px / radius 12 / 最小触控 44） */
 .input-field {
   width: 100%;
   height: 88rpx;
   background: var(--card);
   border: 1rpx solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: 0 28rpx;
-  font-size: 30rpx;
+  font-size: 32rpx;
   color: var(--ink);
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;

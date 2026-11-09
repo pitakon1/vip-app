@@ -5,6 +5,7 @@ import { propertiesApi } from '@/services/api'
 import { unwrapUploadResult } from '@/lib/api'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 const STATUS_META: { key: string; label: string }[] = [
@@ -256,9 +257,7 @@ export default function EmployeePropertyEditPage() {
     return (
       <View className='pe-page'>
         <ShellHeader title={t('nav.propertyEdit')} />
-        <View className='pe-state'>
-          <Text className='pe-state__text'>{t('pub.loading')}</Text>
-        </View>
+        <StateBlock loading text={t('pub.loading')} />
       </View>
     )
   }
@@ -267,9 +266,7 @@ export default function EmployeePropertyEditPage() {
     return (
       <View className='pe-page'>
         <ShellHeader title={t('nav.propertyEdit')} />
-        <View className='pe-state'>
-          <Text className='pe-state__text'>{t('prop.notFound')}</Text>
-        </View>
+        <StateBlock empty text={t('prop.notFound')} />
       </View>
     )
   }

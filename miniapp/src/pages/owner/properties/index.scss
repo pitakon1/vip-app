@@ -7,7 +7,7 @@
   padding-bottom: 160rpx;
 
   .page-container {
-    padding: 24rpx;
+    padding: 24rpx 32rpx;
   }
 
   /* 页头 */
@@ -501,6 +501,90 @@
     &__desc {
       font-size: 24rpx;
       color: var(--ink-3);
+    }
+  }
+
+  /* ===== 对齐 App：卡片 / chip / 统计数字 ===== */
+  .page-header__title {
+    font-size: 40rpx;
+    font-weight: 700;
+  }
+
+  .op-chip {
+    height: 88rpx;
+
+    &__text {
+      font-size: 28rpx;
+    }
+
+    &--active {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    &--active .op-chip__text,
+    &--active .op-chip__caret {
+      color: var(--primary-foreground);
+      font-weight: 600;
+    }
+  }
+
+  .op-stat__value {
+    font-size: 40rpx;
+    font-weight: 700;
+  }
+
+  .op-stat__label {
+    font-size: 24rpx;
+  }
+
+  .op-section-head__title {
+    font-size: 40rpx;
+    font-weight: 700;
+  }
+
+  .op-card {
+    border-radius: 32rpx;
+    box-shadow: var(--shadow-card);
+
+    &__banner {
+      height: 192rpx;
+    }
+
+    &__type {
+      background: var(--surface-2);
+      border: 1rpx solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink-2);
+      font-size: 24rpx;
+    }
+
+    /* 状态徽章：浅色语义底 + 加深文字 */
+    &__status {
+      padding: 4rpx 12rpx;
+      border-radius: var(--radius-sm);
+      font-size: 24rpx;
+      font-weight: 600;
+
+      &--vacant {
+        background: rgba(var(--warning-rgb), 0.12);
+        color: var(--warning-ink);
+      }
+
+      &--rented {
+        background: rgba(var(--success-rgb), 0.12);
+        color: var(--success-ink);
+      }
+
+      &--sale {
+        background: rgba(var(--info-rgb), 0.12);
+        color: var(--info-ink);
+      }
+    }
+
+    &__price {
+      font-size: 40rpx;
+      color: var(--primary-text);
     }
   }
 }

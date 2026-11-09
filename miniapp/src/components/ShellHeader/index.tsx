@@ -6,6 +6,8 @@
  *
  * - 返回：栈里有上一页则 `navigateBack`，否则回退到主页。
  * - 返回主页：跳回当前角色首页（无原生 tabBar，沿用 BottomNav 的 redirectTo 语义）。
+ * - 右上角需给微信胶囊（••• ◉）让位：按胶囊真实位置动态留白，避免「返回主页」
+ *   按钮被胶囊压住（对齐 App 的右置主页按钮）。
  */
 import { useMemo } from 'react'
 import { View, Text } from '@tarojs/components'
@@ -37,7 +39,17 @@ const ROLE_HOME: Record<string, string> = {
 
 export default function ShellHeader({ title, showBack = true, showHome = true, homePath }: Props) {
   const { t } = useI18n()
-  const statusBarH = useMemo(() => Taro.getSystemInfoSync().statusBarHeight || 20, [])
+  const { statusBarH, capsuleReserve } = useMemo(() => {
+    const info = Taro.getSystemInfoSync()
+    let reserve = 96
+    try {
+      const rect = Taro.getMenuButtonBoundingClientRect()
+      if (rect?.left) reserve = Math.max(info.windowWidth - rect.left + 8, 76)
+    } catch {
+      // 低版本基础库不支持胶囊位置查询时退回保守留白
+    }
+    return { statusBarH: info.statusBarHeight || 20, capsuleReserve: reserve }
+  }, [])
 
   const goHome = () => {
     if (homePath) {
@@ -63,25 +75,34 @@ export default function ShellHeader({ title, showBack = true, showHome = true, h
 
   return (
     <View className='shell-header' style={{ paddingTop: `${statusBarH}px` }}>
-      {showBack ? (
-        <View className='shell-header__btn' hoverClass='shell-header__btn--hover' onClick={goBack}>
-          <View className='shell-header__chev' />
-        </View>
-      ) : (
-        <View className='shell-header__spacer' />
-      )}
-      {title ? <Text className='shell-header__title'>{title}</Text> : <View className='shell-header__spacer--flex' />}
-      {showHome ? (
-        <View
-          className='shell-header__btn shell-header__btn--home'
-          hoverClass='shell-header__btn--hover'
-          onClick={goHome}
-          aria-label={t('common.goHome')}
-          style={iconStyle('home', 40)}
-        />
-      ) : (
-        <View className='shell-header__spacer' />
-      )}
+      <View className='shell-header__bar' style={{ paddingRight: `${capsuleReserve}px` }}>
+        {showBack ? (
+          <View className='shell-header__btn' hoverClass='shell-header__btn--hover' onClick={goBack}>
+            <View className='shell-header__chev' />
+          </View>
+        ) : (
+          <View className='shell-header__spacer' />
+        )}
+        {showHome ? (
+          <View
+            className='shell-header__btn shell-header__btn--home'
+            hoverClass='shell-header__btn--hover'
+            onClick={goHome}
+            aria-label={t('common.goHome')}
+            style={iconStyle('home', 36)}
+          />
+        ) : (
+          <View className='shell-header__spacer' />
+        )}
+      </View>
+      {title ? (
+        <Text
+          className='shell-header__title'
+          style={{ paddingLeft: '50px', paddingRight: `${capsuleReserve}px` }}
+        >
+          {title}
+        </Text>
+      ) : null}
     </View>
   )
 }

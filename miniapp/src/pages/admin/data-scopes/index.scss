@@ -10,12 +10,13 @@
   background: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 16rpx;
@@ -24,7 +25,7 @@
 
 /* ===== 角色默认范围 ===== */
 .ds-role {
-  padding: 16rpx 0;
+  padding: 18rpx 0;
   border-bottom: 1rpx solid var(--line);
 
   &:last-child {
@@ -40,13 +41,13 @@
   }
 
   &__name {
-    font-size: 27rpx;
+    font-size: 28rpx;
     font-weight: 600;
     color: var(--ink);
   }
 
   &__flag {
-    font-size: 20rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
   }
 }
@@ -58,18 +59,21 @@
 }
 
 .ds-chip {
-  padding: 10rpx 24rpx;
+  min-height: 88rpx;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 32rpx;
   border-radius: var(--radius-full);
   background: var(--bg);
   border: 1rpx solid var(--line);
 
   &--on {
-    background: rgba(var(--primary-rgb), 0.1);
+    background: var(--primary);
     border-color: var(--primary);
   }
 
   &--on .ds-chip__text {
-    color: var(--primary);
+    color: var(--primary-foreground);
     font-weight: 700;
   }
 
@@ -85,8 +89,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
+  min-height: 88rpx;
   padding: 16rpx 0;
   border-bottom: 1rpx solid var(--line);
+  box-sizing: border-box;
 
   &:last-child {
     border-bottom: none;
@@ -100,28 +106,28 @@
 
   &__name {
     display: block;
-    font-size: 27rpx;
+    font-size: 28rpx;
     color: var(--ink);
   }
 
   &__meta {
     display: block;
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     margin-top: 4rpx;
   }
 
   &__clear {
     flex-shrink: 0;
-    font-size: 26rpx;
-    color: #dc2626;
+    font-size: 28rpx;
+    color: var(--error-ink);
     font-weight: 600;
   }
 }
 
 .ds-empty {
   display: block;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
   padding: 12rpx 0;
 }

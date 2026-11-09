@@ -11,6 +11,7 @@ import { getHistory, clearHistory, type BrowseHistoryItem } from '@/utils/browse
 import { photoUrl } from '@/lib/publicSite'
 import { fmtMoney as money } from '@/utils/format'
 import { useI18n } from '@/i18n'
+import StateBlock from '@/components/StateBlock'
 import ShellHeader from '@/components/ShellHeader'
 import './index.scss'
 
@@ -45,9 +46,7 @@ export default function BrowseHistoryPage() {
           </View>
         )}
         {items.length === 0 && (
-          <View className='empty-tip'>
-            <Text>{t('history.empty')}</Text>
-          </View>
+          <StateBlock empty text={t('history.empty')} />
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.cover) || ''

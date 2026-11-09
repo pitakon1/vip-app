@@ -114,7 +114,7 @@ export const listingTypeLabel = (value?: string | null) => pick(LISTING_TYPE, va
 
 /** 供筛选器渲染的枚举 key 表（顺序即展示顺序，与后端枚举一致）；渲染时自行 t() 翻译。 */
 export const STAGE_OPTIONS = [
-  ['', 'pub.all'],
+  ['', 'pub.filterAny'],
   ['kindergarten', 'pub.stage.kindergarten'],
   ['primary', 'pub.stage.primary'],
   ['secondary', 'pub.stage.secondary'],
@@ -124,7 +124,7 @@ export const STAGE_OPTIONS = [
 ] as const
 
 export const CURRICULUM_OPTIONS = [
-  ['', 'pub.all'],
+  ['', 'pub.filterAny'],
   ['ib', 'pub.curriculum.ib'],
   ['american', 'pub.curriculum.american'],
   ['british', 'pub.curriculum.british'],

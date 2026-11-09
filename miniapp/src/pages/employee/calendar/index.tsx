@@ -7,6 +7,7 @@ import { employeesApi, viewingsApi, leasesApi, propertiesApi, calendarEventsApi 
 import './index.scss'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 
 /* =========================================================
    员工端 日历/日程排期（对齐 App CalendarScreen）
@@ -493,15 +494,9 @@ export default function EmployeeCalendarPage() {
             <Text className='cal-follow-card__date'>{dateLabel(today, t)}</Text>
           </View>
           {loading && todayFollowUps.length === 0 ? (
-            <View className='cal-state cal-state--loading'>
-              <View className='cal-state__spinner' />
-              <Text className='cal-state__title'>{t('cal.loading')}</Text>
-            </View>
+            <StateBlock loading text={t('cal.loading')} />
           ) : todayFollowUps.length === 0 ? (
-            <View className='cal-state'>
-              <Text className='cal-state__title'>{t('cal.noFollowUp')}</Text>
-              <Text className='cal-state__desc'>{t('cal.noFollowUpDesc')}</Text>
-            </View>
+            <StateBlock empty text={`${t('cal.noFollowUp')} · ${t('cal.noFollowUpDesc')}`} />
           ) : (
             todayFollowUps.map(renderEventItem)
           )}
@@ -603,16 +598,13 @@ export default function EmployeeCalendarPage() {
                 <Text className='cal-selected-head__count'>{t('cal.countItems', { n: selectedItems.length })}</Text>
               </View>
               {selectedItems.length === 0 ? (
-                <Text className='cal-selected-empty'>{t('cal.noDayEvents')}</Text>
+                <StateBlock empty text={t('cal.noDayEvents')} />
               ) : (
                 selectedItems.map(renderEventItem)
               )}
             </View>
           ) : events.filter((e) => e.date.getFullYear() === currentYear && e.date.getMonth() === currentMonth).length === 0 ? (
-            <View className='cal-state'>
-              <Text className='cal-state__title'>{t('cal.noMonthEvents')}</Text>
-              <Text className='cal-state__desc'>{t('cal.noMonthEventsDesc')}</Text>
-            </View>
+            <StateBlock empty text={`${t('cal.noMonthEvents')} · ${t('cal.noMonthEventsDesc')}`} />
           ) : (
             <View className='cal-body'>
               {events
@@ -656,10 +648,7 @@ export default function EmployeeCalendarPage() {
           ) : null}
         </View>
         {stats.nextExpiries.length === 0 ? (
-          <View className='cal-state cal-state--card'>
-            <Text className='cal-state__title'>{t('cal.noNextExpiry')}</Text>
-            <Text className='cal-state__desc'>{t('cal.noNextExpiryDesc')}</Text>
-          </View>
+          <StateBlock empty text={`${t('cal.noNextExpiry')} · ${t('cal.noNextExpiryDesc')}`} />
         ) : (
           <View className='cal-list-card'>
             {(stats.nextExpiries as unknown as LeaseItem[]).map((l, idx) => {
@@ -686,10 +675,7 @@ export default function EmployeeCalendarPage() {
         {/* 近期带看 */}
         <Text className='cal-section-title'>{t('cal.recentViewings')}</Text>
         {upcomingViewings.length === 0 ? (
-          <View className='cal-state cal-state--card'>
-            <Text className='cal-state__title'>{t('cal.noRecentViewings')}</Text>
-            <Text className='cal-state__desc'>{t('cal.noRecentViewingsDesc')}</Text>
-          </View>
+          <StateBlock empty text={`${t('cal.noRecentViewings')} · ${t('cal.noRecentViewingsDesc')}`} />
         ) : (
           <View className='cal-list-card'>
             {upcomingViewings.map((e, idx) => (

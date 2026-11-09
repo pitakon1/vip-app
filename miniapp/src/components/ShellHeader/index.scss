@@ -1,23 +1,38 @@
 /* =========================================================
-   贝壳风顶部标题栏（ShellHeader）
-   自绘：状态栏安全区 + [返回‹] [居中标题] [返回主页⌂]
+   贝壳风顶部标题栏（ShellHeader）—— 对齐 App components/BeikeHeader
+   白底 + 底部发丝线；内容高 48px；[返回‹] [居中标题] [返回主页⌂]；
+   两侧圆钮 34px、浅墨底、柔和投影。
+   微信自定义导航下右上角固定有胶囊按钮，右侧需按胶囊实际位置留白。
    ========================================================= */
 
 .shell-header {
   position: relative;
-  display: flex;
-  align-items: center;
-  height: 88rpx;
-  padding: 0 24rpx;
-  background: var(--bg);
+  /* 全局 view 为 border-box，这里必须用 content-box：
+     height(96rpx) 只算内容高度，状态栏高度由内联 paddingTop 另行占位，
+     否则 iPhone X 等状态栏 44px 的机型内容区会被压成 0，标题溢出压住正文。 */
+  box-sizing: content-box;
+  height: 96rpx;
+  background: var(--card);
   border-bottom: 1rpx solid var(--line);
 
+  &__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 96rpx;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 24rpx;
+  }
+
   &__btn {
-    width: 64rpx;
-    height: 64rpx;
+    width: 68rpx;
+    height: 68rpx;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.85);
-    box-shadow: 0 4rpx 14rpx rgba(28, 39, 51, 0.12);
+    background: rgba(var(--ink-rgb), 0.06);
+    box-shadow: 0 2rpx 8rpx rgba(28, 39, 51, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -41,11 +56,18 @@
   &__btn--home {
     background-position: center;
     background-repeat: no-repeat;
-    background-size: 40rpx 40rpx;
+    background-size: 36rpx 36rpx;
   }
 
+  /* 绝对居中：不受右侧胶囊留白影响，标题始终在屏幕中线 */
   &__title {
-    flex: 1;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 96rpx;
+    line-height: 96rpx;
+    box-sizing: border-box;
     text-align: center;
     font-size: 32rpx;
     font-weight: 600;
@@ -53,11 +75,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin: 0 16rpx;
+    pointer-events: none;
   }
 
   &__spacer {
-    width: 64rpx;
+    width: 68rpx;
     flex-shrink: 0;
   }
 

@@ -7,6 +7,7 @@ import { fmtMoney } from '@/utils/format'
 import { request } from '@/lib/api'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -312,6 +313,7 @@ export default function AdminPaymentsPage() {
 
   return (
     <View className='apay-page'>
+      <StatusTop />
       <ScrollView scrollY className='apay-scroll'>
         {/* 收入汇总大卡 */}
         <View className='apay-hero'>
@@ -392,11 +394,11 @@ export default function AdminPaymentsPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <View className='apay-state'>
-            <View className='icon-svg' style={iconStyle('card', 72)} />
-            <Text className='apay-state__text'>{t('pay.empty')}</Text>
-            <Text className='apay-state__desc'>{t('pay.emptyDesc')}</Text>
-          </View>
+          <StateBlock
+            empty
+            icon='card'
+            text={filter ? t('pay.emptyDesc') : t('pay.empty')}
+          />
         )}
 
         {visible.map((p) => {

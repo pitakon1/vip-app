@@ -9,7 +9,7 @@
   background: var(--bg);
 }
 
-/* ===== 顶部筛选（方块样式：小圆角 + 浅灰底 + 选中描边）===== */
+/* ===== 顶部筛选（与 C 端筛选 chip 同一套：88rpx、全圆角、选中主色实底）===== */
 .map-filters {
   padding: 20rpx 24rpx 16rpx;
   background: var(--card);
@@ -28,19 +28,19 @@
 .map-chip {
   display: inline-flex;
   align-items: center;
-  height: 64rpx;
-  padding: 0 26rpx;
-  border-radius: var(--radius-md);
-  border: 1rpx solid transparent;
-  background: var(--surface-2);
-  font-size: 25rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--line);
+  background: var(--card);
+  font-size: 28rpx;
   color: var(--ink-2);
 }
 
 .map-chip--on {
-  border-color: var(--primary-text);
-  background: var(--sidebar-active);
-  color: var(--primary-text);
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-weight: 600;
 }
 
@@ -48,7 +48,7 @@
 .map-canvas {
   position: relative;
   flex: 1;
-  min-height: 480rpx;
+  min-height: 320rpx;
 }
 
 .map-canvas__inner {
@@ -71,7 +71,7 @@
 /* ===== 底部点位列表 ===== */
 .map-sheet {
   flex: 0 0 auto;
-  height: 520rpx;
+  height: 420rpx;
 }
 
 .map-sheet__scroll {

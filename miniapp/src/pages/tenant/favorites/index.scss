@@ -25,7 +25,7 @@
     border-radius: var(--radius-xl);
     padding: 24rpx;
     margin-bottom: 24rpx;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
 
     &__cover {
       width: 160rpx;
@@ -51,7 +51,7 @@
 
     &__title {
       display: block;
-      font-size: 30rpx;
+      font-size: 32rpx;
       font-weight: 600;
       color: var(--ink);
       overflow: hidden;
@@ -71,9 +71,9 @@
 
     &__price {
       display: block;
-      font-size: 30rpx;
+      font-size: 32rpx;
       font-weight: 700;
-      color: var(--error);
+      color: var(--error-ink);
       margin-top: 14rpx;
       font-variant-numeric: tabular-nums;
     }
@@ -86,10 +86,10 @@
 
     &__heart {
       position: absolute;
-      right: 24rpx;
-      top: 24rpx;
-      width: 56rpx;
-      height: 56rpx;
+      right: 12rpx;
+      top: 12rpx;
+      width: 88rpx;
+      height: 88rpx;
       display: flex;
       align-items: center;
       justify-content: center;

@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '房源浏览' }
+export default { navigationStyle: 'custom', navigationBarTitleText: '房源浏览' }

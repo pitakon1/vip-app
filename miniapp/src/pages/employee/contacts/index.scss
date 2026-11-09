@@ -17,7 +17,7 @@
     border: 1rpx solid var(--line);
     border-radius: var(--radius-full);
     padding: 0 28rpx;
-    height: 80rpx;
+    height: 88rpx;
     margin-bottom: 20rpx;
 
     &__icon {
@@ -28,7 +28,7 @@
 
     &__input {
       flex: 1;
-      font-size: 28rpx;
+      font-size: 32rpx;
       color: var(--ink);
       height: 100%;
     }
@@ -41,8 +41,8 @@
   /* ===== 部门分组卡片 ===== */
   .c-group {
     background: var(--card);
-    border: 1rpx solid var(--line);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
     padding: 0 28rpx;
     margin-bottom: 20rpx;
 
@@ -54,7 +54,7 @@
     }
 
     &__title {
-      font-size: 30rpx;
+      font-size: 32rpx;
       font-weight: 700;
       color: var(--ink);
     }
@@ -74,22 +74,22 @@
 
     &__name {
       display: block;
-      font-size: 30rpx;
+      font-size: 32rpx;
       font-weight: 600;
       color: var(--ink);
     }
 
     &__pos {
       display: block;
-      font-size: 24rpx;
-      color: var(--ink-3);
+      font-size: 28rpx;
+      color: var(--ink-2);
       margin-top: 4rpx;
     }
 
     &__phone {
       display: block;
       font-size: 24rpx;
-      color: var(--ink-2);
+      color: var(--ink-3);
       font-family: monospace;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.02em;
@@ -110,8 +110,8 @@
 
   /* ===== 行内操作按钮 ===== */
   .c-op {
-    width: 64rpx;
-    height: 64rpx;
+    width: 88rpx;
+    height: 88rpx;
     border-radius: var(--radius-md);
     background: var(--surface-2);
     border: 1rpx solid var(--line);
@@ -129,8 +129,8 @@
     }
 
     &__text {
-      font-size: 26rpx;
-      font-weight: 700;
+      font-size: 28rpx;
+      font-weight: 600;
       color: var(--ink-2);
 
       &--primary {
@@ -141,8 +141,8 @@
 
   /* ===== 头像 ===== */
   .c-avatar {
-    width: 84rpx;
-    height: 84rpx;
+    width: 88rpx;
+    height: 88rpx;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -158,10 +158,10 @@
       font-size: 32rpx;
       font-weight: 700;
 
-      .c-avatar--primary & { color: var(--primary); }
-      .c-avatar--success & { color: var(--success); }
-      .c-avatar--info & { color: var(--info); }
-      .c-avatar--warning & { color: var(--warning); }
+      .c-avatar--primary & { color: var(--primary-text); }
+      .c-avatar--success & { color: var(--success-ink); }
+      .c-avatar--info & { color: var(--info-ink); }
+      .c-avatar--warning & { color: var(--warning-ink); }
     }
   }
 
@@ -177,13 +177,13 @@
     &--warning { background: rgba(var(--warning-rgb), 0.1); }
 
     &__text {
-      font-size: 20rpx;
+      font-size: 24rpx;
       font-weight: 600;
 
-      .c-dept--primary & { color: var(--primary); }
-      .c-dept--success & { color: var(--success); }
-      .c-dept--info & { color: var(--info); }
-      .c-dept--warning & { color: var(--warning); }
+      .c-dept--primary & { color: var(--primary-text); }
+      .c-dept--success & { color: var(--success-ink); }
+      .c-dept--info & { color: var(--info-ink); }
+      .c-dept--warning & { color: var(--warning-ink); }
     }
   }
 

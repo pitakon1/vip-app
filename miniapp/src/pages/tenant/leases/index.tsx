@@ -89,9 +89,7 @@ export default function TenantLeasesPage() {
             />
           )}
           {!loading && !error && leases.length === 0 && (
-            <View className='empty-tip'>
-              <Text>{t('tenantLease.empty')}</Text>
-            </View>
+            <StateBlock empty text={t('tenantLease.empty')} icon='home' />
           )}
           {leases.map((lease, idx) => {
             const meta = LEASE_STATUS[String(lease?.status ?? '')] ?? LEASE_STATUS.pending

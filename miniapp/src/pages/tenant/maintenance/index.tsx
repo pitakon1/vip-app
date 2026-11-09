@@ -279,10 +279,7 @@ export default function TenantMaintenancePage() {
             />
           )}
           {!loading && !error && visibleTickets.length === 0 && (
-            <View className='empty-state'>
-              <View className='empty-state__icon icon-svg' style={iconStyle('clipboard', 80)} />
-              <Text>{t('maint.emptyRecords')}</Text>
-            </View>
+            <StateBlock empty text={t('maint.emptyRecords')} icon='clipboard' />
           )}
           {visibleTickets.map((ticket) => {
             const statusInfo = STATUS_MAP[ticket.status] || STATUS_MAP.open

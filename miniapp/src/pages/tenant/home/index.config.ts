@@ -1,1 +1,6 @@
-export default { navigationBarTitleText: '我的租约' }
+export default {
+  navigationStyle: 'custom',
+  navigationBarTitleText: 'VIP Rental',
+  navigationBarBackgroundColor: '#ffffff',
+  navigationBarTextStyle: 'black'
+}

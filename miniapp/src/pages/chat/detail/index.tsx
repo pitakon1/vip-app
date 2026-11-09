@@ -4,6 +4,7 @@ import Taro, { useDidShow, useUnload, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi } from '@/services/api'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 
@@ -125,9 +126,7 @@ export default function ChatDetailPage() {
       <ShellHeader title={t('chat.detailTitle')} />
       <ScrollView scrollY className='message-list' scrollWithAnimation>
         {messages.length === 0 && (
-          <View className='empty-state'>
-            <Text>{t('chat.empty')}</Text>
-          </View>
+          <StateBlock empty text={t('chat.empty')} />
         )}
         {messages.map((m) => {
           const mine = m.mine || m.is_mine || (!!myId && String(m.sender_id) === myId)

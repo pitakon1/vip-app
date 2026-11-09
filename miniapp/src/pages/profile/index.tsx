@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
 import { unwrapUploadResult } from '@/lib/api'
@@ -812,6 +813,7 @@ export default function ProfilePage() {
 
   return (
     <View className={`profile-page${hasBottomNav ? ' profile-page--nav' : ''}`}>
+      <StatusTop />
       {/* 顶部操作条：右上角客服入口（对齐贝壳导航栏右上角客服，未登录引导登录） */}
       <View className='profile-topbar'>
         <View className='profile-topbar__support' onClick={openSupport}>

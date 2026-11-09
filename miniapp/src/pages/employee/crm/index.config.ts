@@ -1,1 +1,1 @@
-export default { navigationBarTitleText: '客户管理' }
+export default { navigationStyle: 'custom', navigationBarTitleText: '客户管理' }

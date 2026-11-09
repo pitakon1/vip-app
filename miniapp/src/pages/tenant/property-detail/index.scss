@@ -15,7 +15,7 @@
     border-radius: var(--radius-xl);
     padding: 32rpx;
     margin-bottom: 24rpx;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
   }
 
   .detail-card--pad0 {
@@ -25,7 +25,7 @@
 
   .detail-title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 24rpx;
@@ -121,17 +121,17 @@
 
   .biz-tab {
     flex: 1;
-    height: 64rpx;
+    height: 88rpx;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-full);
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
 
     &--active {
       background-color: var(--card);
-      color: var(--primary);
+      color: var(--primary-text);
       font-weight: 700;
       box-shadow: var(--shadow-sm);
     }
@@ -150,7 +150,7 @@
 
   .price-value {
     font-size: 48rpx;
-    font-weight: 800;
+    font-weight: 700;
     color: var(--ink);
     letter-spacing: -0.02em;
   }
@@ -167,7 +167,7 @@
     padding: 8rpx 20rpx;
     border-radius: var(--radius-full);
     background-color: rgba(var(--success-rgb), 0.1);
-    color: var(--success);
+    color: var(--success-ink);
     font-size: 22rpx;
     font-weight: 600;
 
@@ -194,14 +194,14 @@
 
     &--primary {
       background-color: rgba(var(--primary-rgb), 0.1);
-      color: var(--primary);
+      color: var(--primary-text);
     }
   }
 
   .price-name {
     display: block;
     margin-top: 24rpx;
-    font-size: 34rpx;
+    font-size: 40rpx;
     font-weight: 700;
     color: var(--ink);
   }
@@ -209,7 +209,7 @@
   .price-addr {
     display: block;
     margin-top: 10rpx;
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
   }
 
@@ -270,7 +270,7 @@
     display: block;
     margin-top: 16rpx;
     font-size: 26rpx;
-    color: var(--primary);
+    color: var(--primary-text);
     font-weight: 600;
   }
 
@@ -317,7 +317,7 @@
     padding: 20rpx 24rpx;
     border-radius: var(--radius-lg);
     background-color: rgba(var(--primary-rgb), 0.08);
-    color: var(--primary);
+    color: var(--primary-text);
     font-size: 24rpx;
     font-weight: 600;
   }
@@ -492,7 +492,7 @@
 
     &__picker {
       flex: 1;
-      height: 80rpx;
+      height: 88rpx;
       padding: 0 20rpx;
       display: flex;
       align-items: center;
@@ -509,7 +509,7 @@
 
     &__input {
       margin-top: 20rpx;
-      height: 80rpx;
+      height: 88rpx;
       padding: 0 20rpx;
       border-radius: var(--radius-md);
       border: 1rpx solid var(--line);

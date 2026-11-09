@@ -31,14 +31,14 @@
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  height: 92rpx;
-  border-radius: var(--radius-full);
+  height: 88rpx;
+  border-radius: var(--radius-lg);
   background: var(--primary);
   box-shadow: var(--shadow-primary);
   margin-bottom: 8rpx;
 
   &__text {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--primary-foreground);
   }
@@ -48,7 +48,7 @@
 .ac-card {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
@@ -72,7 +72,7 @@
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     margin-bottom: 12rpx;
@@ -120,14 +120,14 @@
   align-items: center;
   padding: 4rpx 16rpx;
   border-radius: var(--radius-full);
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
 
   &--default { background: var(--surface-2); color: var(--ink-2); }
-  &--primary { background: rgba(var(--primary-rgb), 0.12); color: var(--primary); }
-  &--warning { background: rgba(var(--warning-rgb), 0.14); color: var(--warning); }
-  &--success { background: rgba(var(--success-rgb), 0.14); color: var(--success); }
-  &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
+  &--primary { background: rgba(var(--primary-rgb), 0.12); color: var(--primary-text); }
+  &--warning { background: rgba(var(--warning-rgb), 0.14); color: var(--warning-ink); }
+  &--success { background: rgba(var(--success-rgb), 0.14); color: var(--success-ink); }
+  &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error-ink); }
 }
 
 /* ===== 按钮 ===== */
@@ -138,7 +138,7 @@
   gap: 8rpx;
   height: 72rpx;
   padding: 0 26rpx;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
 
   &--ghost {
     background: var(--surface-2);
@@ -150,7 +150,7 @@
   }
 
   &--danger-outline {
-    border: 1rpx solid var(--error);
+    border: 1rpx solid var(--error-ink);
   }
 
   &--disabled {
@@ -158,12 +158,12 @@
   }
 
   &__text {
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 600;
 
     &--ghost { color: var(--ink-2); }
     &--primary { color: var(--primary-foreground); }
-    &--danger { color: var(--error); }
+    &--danger { color: var(--error-ink); }
   }
 }
 
@@ -189,15 +189,15 @@
   }
 
   &__back-text {
-    font-size: 26rpx;
-    color: var(--primary);
+    font-size: 28rpx;
+    color: var(--primary-text);
     font-weight: 600;
   }
 
   &__meta-card {
     background: var(--card);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
     padding: 24rpx;
     margin-bottom: 16rpx;
   }
@@ -206,15 +206,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10rpx 0;
+    padding: 18rpx 0;
     border-bottom: 1rpx solid var(--line);
 
     &:last-child { border-bottom: none; }
   }
 
-  &__field-label { font-size: 26rpx; color: var(--ink-3); }
+  &__field-label { font-size: 28rpx; color: var(--ink-3); }
   &__field-value {
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink);
     max-width: 65%;
     text-align: right;
@@ -224,7 +224,7 @@
   }
 
   &__section-title {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin: 24rpx 0 14rpx;
@@ -248,7 +248,8 @@
   background: var(--card);
   border-radius: var(--radius-lg);
   border: 1rpx solid var(--line);
-  padding: 20rpx;
+  box-shadow: var(--shadow-card);
+  padding: 24rpx;
   margin-bottom: 16rpx;
 
   &__head {
@@ -266,7 +267,7 @@
     min-width: 0;
   }
 
-  &__name { font-size: 28rpx; font-weight: 600; color: var(--ink); }
+  &__name { font-size: 32rpx; font-weight: 600; color: var(--ink); }
 
   &__meta { font-size: 24rpx; color: var(--ink-3); margin-top: 4rpx; }
 
@@ -277,10 +278,11 @@
   background: var(--card);
   border-radius: var(--radius-lg);
   border: 1rpx solid var(--line);
-  padding: 20rpx;
+  box-shadow: var(--shadow-card);
+  padding: 24rpx;
 
   &__inner {
-    font-size: 24rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
     line-height: 1.7;
   }
@@ -351,7 +353,7 @@
   margin-bottom: 20rpx;
 
   &__label {
-    font-size: 26rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
     margin-bottom: 10rpx;
   }
@@ -362,8 +364,8 @@
     padding: 0 24rpx;
     background: var(--surface-2);
     border: 1rpx solid var(--line);
-    border-radius: var(--radius-lg);
-    font-size: 28rpx;
+    border-radius: var(--radius-md);
+    font-size: 32rpx;
     color: var(--ink);
     box-sizing: border-box;
   }
@@ -385,7 +387,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12rpx 28rpx;
+  min-height: 88rpx;
+  padding: 0 32rpx;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   border: 1rpx solid var(--line);
@@ -393,7 +396,7 @@
   &--active { background: var(--primary); border-color: var(--primary); }
   &--disabled { opacity: 0.35; }
 
-  &__text { font-size: 26rpx; color: var(--ink-2); }
+  &__text { font-size: 28rpx; color: var(--ink-2); }
   &--active &__text { color: var(--primary-foreground); font-weight: 600; }
 }
 
@@ -410,7 +413,7 @@
   &__html {
     display: block;
     padding: 24rpx 28rpx;
-    font-size: 26rpx;
+    font-size: 28rpx;
     line-height: 1.8;
     color: var(--ink);
     word-break: break-word;
@@ -435,19 +438,19 @@
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  height: 92rpx;
-  border-radius: var(--radius-full);
+  height: 88rpx;
+  border-radius: var(--radius-lg);
   background: var(--primary);
   box-shadow: var(--shadow-primary);
   margin-top: 12rpx;
 
-  &--danger { background: var(--error); box-shadow: none; }
+  &--danger { background: var(--error-ink); box-shadow: none; }
 
-  &__text { font-size: 30rpx; font-weight: 700; color: var(--primary-foreground); }
+  &__text { font-size: 32rpx; font-weight: 700; color: var(--primary-foreground); }
   &--danger &__text { color: #fff; }
 }
 
-.ac-hint { font-size: 26rpx; color: var(--ink-2); margin-bottom: 16rpx; }
+.ac-hint { font-size: 28rpx; color: var(--ink-2); margin-bottom: 16rpx; }
 
 /* ===== 放签区：签署配置栏 + 文档区（开放签风格） ===== */
 .ac-chip__text--active { color: var(--primary-foreground); font-weight: 600; }
@@ -455,13 +458,13 @@
 .ac-esign {
   background: var(--card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
   &__title {
     display: block;
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
     margin-bottom: 16rpx;
@@ -471,7 +474,7 @@
 
   &__label {
     display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 600;
     color: var(--ink-2);
     margin: 20rpx 0 12rpx;
@@ -509,21 +512,21 @@
   }
 
   &__main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  &__name { font-size: 28rpx; font-weight: 600; color: var(--ink); }
-  &__role { font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; }
+  &__name { font-size: 32rpx; font-weight: 600; color: var(--ink); }
+  &__role { font-size: 24rpx; color: var(--ink-3); margin-top: 4rpx; }
 }
 
 .ac-esign-badge {
   padding: 4rpx 16rpx;
   border-radius: var(--radius-full);
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
 
-  &__text { font-size: 22rpx; font-weight: 600; }
+  &__text { font-size: 24rpx; font-weight: 600; }
 
-  &--ok { background: rgba(var(--success-rgb), 0.14); color: var(--success); }
-  &--err { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
-  &--warn { background: rgba(var(--warning-rgb), 0.14); color: var(--warning); }
+  &--ok { background: rgba(var(--success-rgb), 0.14); color: var(--success-ink); }
+  &--err { background: rgba(var(--error-rgb), 0.1); color: var(--error-ink); }
+  &--warn { background: rgba(var(--warning-rgb), 0.14); color: var(--warning-ink); }
 }
 
 .ac-seg {
@@ -535,7 +538,7 @@
 
   &__item {
     flex: 1;
-    height: 64rpx;
+    height: 72rpx;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -544,8 +547,8 @@
     &--active { background: var(--card); box-shadow: var(--shadow-sm); }
   }
 
-  &__text { font-size: 26rpx; color: var(--ink-2); }
-  &__text--active { color: var(--primary); font-weight: 700; }
+  &__text { font-size: 28rpx; color: var(--ink-2); }
+  &__text--active { color: var(--primary-text); font-weight: 700; }
 }
 
 .ac-esign-assets { margin-top: 20rpx; }
@@ -555,7 +558,7 @@
 
   &__label {
     display: block;
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 600;
     color: var(--ink-2);
     margin-bottom: 12rpx;
@@ -608,12 +611,12 @@
   border-radius: var(--radius-md);
   background: var(--surface-2);
 
-  &__title { display: block; font-size: 26rpx; font-weight: 600; color: var(--ink-2); margin-bottom: 12rpx; }
+  &__title { display: block; font-size: 28rpx; font-weight: 600; color: var(--ink-2); margin-bottom: 12rpx; }
 }
 
 .ac-seal-style {
   display: inline-block;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--ink-2);
   background: var(--card);
   border: 1rpx solid var(--line);
@@ -651,12 +654,12 @@
   &__input {
     flex: 1;
     min-width: 0;
-    height: 68rpx;
+    height: 88rpx;
     padding: 0 20rpx;
     border: 1rpx solid var(--line);
     border-radius: var(--radius-md);
     background: var(--card);
-    font-size: 26rpx;
+    font-size: 32rpx;
   }
 
   &__hit {
@@ -672,8 +675,8 @@
   }
 
   &__hit-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-  &__hit-page { font-size: 26rpx; font-weight: 600; color: var(--primary); }
-  &__hit-text { font-size: 22rpx; color: var(--ink-3); margin-top: 4rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  &__hit-page { font-size: 28rpx; font-weight: 600; color: var(--primary-text); }
+  &__hit-text { font-size: 24rpx; color: var(--ink-3); margin-top: 4rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 }
 
 /* ===== 文档区 ===== */
@@ -689,7 +692,7 @@
     margin-bottom: 16rpx;
   }
 
-  &-title { font-size: 30rpx; font-weight: 700; color: var(--ink); }
+  &-title { font-size: 32rpx; font-weight: 700; color: var(--ink); }
 
   &-canvas {
     position: relative;
@@ -704,7 +707,7 @@
 
   &-text {
     padding: 20rpx;
-    font-size: 26rpx;
+    font-size: 28rpx;
     line-height: 1.8;
     color: var(--ink);
     word-break: break-all;
@@ -772,13 +775,13 @@
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  height: 92rpx;
-  border-radius: var(--radius-full);
+  height: 88rpx;
+  border-radius: var(--radius-lg);
   background: var(--primary);
   box-shadow: var(--shadow-primary);
   margin-top: 16rpx;
 
-  &-text { font-size: 30rpx; font-weight: 700; color: var(--primary-foreground); }
+  &-text { font-size: 32rpx; font-weight: 700; color: var(--primary-foreground); }
 }
 
 /* 放签区入口（未展开时） */
@@ -788,10 +791,10 @@
   justify-content: center;
   gap: 12rpx;
   height: 88rpx;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   background: var(--primary);
   box-shadow: var(--shadow-primary);
   margin-bottom: 20rpx;
 
-  &__text { font-size: 30rpx; font-weight: 700; color: var(--primary-foreground); }
+  &__text { font-size: 32rpx; font-weight: 700; color: var(--primary-foreground); }
 }

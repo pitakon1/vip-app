@@ -2,7 +2,7 @@
 .about-page {
   min-height: 100vh;
   background: var(--bg);
-  padding: 40rpx 24rpx 60rpx;
+  padding: 56rpx 24rpx 60rpx;
   box-sizing: border-box;
 }
 
@@ -14,8 +14,8 @@
 }
 
 .about-logo {
-  width: 140rpx;
-  height: 140rpx;
+  width: 152rpx;
+  height: 152rpx;
   border-radius: var(--radius-xl);
   background: var(--primary-soft);
 }
@@ -35,21 +35,21 @@
 
 .about-slogan {
   margin-top: 10rpx;
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: var(--ink-3);
 }
 
 .about-card {
   background: var(--card);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
 .about-row {
   display: flex;
   align-items: center;
-  padding: 30rpx 28rpx;
+  padding: 30rpx 32rpx;
 }
 
 .about-row + .about-row {
@@ -85,7 +85,7 @@
 }
 
 .about-footer__text {
-  font-size: 22rpx;
+  font-size: 24rpx;
   line-height: 1.7;
   color: var(--ink-3);
   text-align: center;

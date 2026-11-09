@@ -24,8 +24,8 @@
     &__text { font-size: 28rpx; color: var(--ink-2); }
 
     &--active .st-tab__text {
-      color: var(--primary);
-      font-weight: 700;
+      color: var(--primary-text);
+      font-weight: 600;
     }
     &--active::after {
       content: '';
@@ -49,10 +49,13 @@
 
   &__title { font-size: 24rpx; color: var(--ink-3); }
   &__add {
-    padding: 10rpx 24rpx;
+    min-height: 88rpx;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 24rpx;
     border-radius: var(--radius-full);
-    background: rgba(var(--primary-rgb), 0.1);
-    &__text { font-size: 26rpx; font-weight: 600; color: var(--primary); }
+    background: var(--primary-soft);
+    &__text { font-size: 28rpx; font-weight: 600; color: var(--primary-text); }
   }
 }
 
@@ -68,16 +71,15 @@
 
 .st-card {
   background: var(--card);
-  border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
   margin-bottom: 20rpx;
 
   &__top { display: flex; align-items: center; justify-content: space-between; }
-  &__name { font-size: 30rpx; font-weight: 700; color: var(--ink); flex: 1; }
+  &__name { font-size: 32rpx; font-weight: 600; color: var(--ink); flex: 1; }
   &__addr { font-size: 24rpx; color: var(--ink-3); margin-top: 6rpx; }
-  &__price { font-size: 30rpx; font-weight: 800; color: var(--primary); margin-top: 16rpx; }
+  &__price { font-size: 32rpx; font-weight: 700; color: var(--primary-text); margin-top: 16rpx; }
   &__tags { display: flex; flex-wrap: wrap; gap: 8rpx 24rpx; margin-top: 16rpx; }
   &__foot {
     display: flex;
@@ -92,12 +94,12 @@
 .st-badge {
   padding: 6rpx 16rpx;
   border-radius: var(--radius-full);
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
-  &__text { font-size: 22rpx; font-weight: 600; }
-  &--success { background: rgba(var(--success-rgb), 0.1); color: var(--success); }
-  &--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); }
-  &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error); }
+  &__text { font-size: 24rpx; font-weight: 600; }
+  &--success { background: rgba(var(--success-rgb), 0.1); color: var(--success-ink); }
+  &--warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning-ink); }
+  &--error { background: rgba(var(--error-rgb), 0.1); color: var(--error-ink); }
   &--neutral { background: var(--surface-2); color: var(--ink-2); }
 }
 
@@ -105,6 +107,6 @@
   font-size: 24rpx;
   color: var(--ink-2);
 }
-.st-meta--dedup.st-meta--suspect { color: var(--warning); }
-.st-meta--dedup.st-meta--blocked { color: var(--error); }
+.st-meta--dedup.st-meta--suspect { color: var(--warning-ink); }
+.st-meta--dedup.st-meta--blocked { color: var(--error-ink); }
 .st-meta--dedup.st-meta--merged { color: var(--ink-3); }

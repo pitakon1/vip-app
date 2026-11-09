@@ -23,6 +23,7 @@ import { useI18n } from '@/i18n'
 import { useLocationStore } from '@/stores/location'
 import { ICONS } from '@/utils/icons'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
 type Biz = '' | 'rent' | 'sell'
@@ -196,7 +197,7 @@ export default function PublicMapPage() {
     <View className='map-page'>
       <ShellHeader title={t('tl.mapTitle')} />
 
-      {/* 顶部筛选：方块样式（小圆角 + 浅灰底 + 选中描边） */}
+      {/* 顶部筛选：与 App 筛选 chip 同一套（全圆角 + 选中主色实底） */}
       <View className='map-filters'>
         <View className='map-chips'>
           {bizOptions.map(([key, label]) => (
@@ -243,11 +244,11 @@ export default function PublicMapPage() {
       {/* 底部点位列表 */}
       <View className='map-sheet'>
         {loading ? (
-          <View className='pub-loading'>{t('pub.loading')}</View>
+          <StateBlock loading text={t('pub.loading')} />
         ) : failed ? (
-          <View className='pub-empty'>{t('tl.mapLoadFailed')}</View>
+          <StateBlock error text={t('tl.mapLoadFailed')} />
         ) : points.length === 0 ? (
-          <View className='pub-empty'>{t('tl.mapEmpty')}</View>
+          <StateBlock empty text={t('tl.mapEmpty')} />
         ) : (
           <ScrollView className='map-sheet__scroll' scrollY showScrollbar={false}>
             {points.map((p) => {
@@ -272,12 +273,12 @@ export default function PublicMapPage() {
                     ) : null}
                     {p.address ? <Text className='pub-listing__addr'>{p.address}</Text> : null}
                     <View className='pub-listing__facts'>
-                      {p.bedrooms != null ? <Text>{p.bedrooms} BED</Text> : null}
-                      {p.size_sqm != null ? (
-                        <Text>
-                          {p.size_sqm} {t('pub.sqm')}
-                        </Text>
-                      ) : null}
+                      {[
+                        p.bedrooms != null ? `${p.bedrooms} BED` : '',
+                        p.size_sqm != null ? `${p.size_sqm} ${t('pub.sqm')}` : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </View>
                     {price != null ? (
                       <Text className='pub-listing__price'>

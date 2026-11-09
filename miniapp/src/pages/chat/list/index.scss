@@ -8,27 +8,28 @@
     padding: 24rpx;
   }
 
-  .empty-state {
-    text-align: center;
-    color: var(--ink-3);
-    font-size: 26rpx;
-    padding: 40rpx 0;
-  }
-
-  /* ===== 纯对话列表 ===== */
+  /* ===== 纯对话列表（对齐 App ChatListScreen：白底、分隔线、无卡片描边）===== */
   .conversation-list {
+    background-color: var(--card);
+    border-radius: 32rpx;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+
     .conversation-card {
       display: flex;
       align-items: center;
+      min-height: 88rpx;
       background-color: var(--card);
-      border-radius: 16rpx;
-      border: 1rpx solid var(--line);
-      padding: 24rpx;
-      margin-bottom: 16rpx;
+      padding: 24rpx 32rpx;
+      border-bottom: 1rpx solid var(--line);
+
+      &:last-child {
+        border-bottom: none;
+      }
 
       .avatar {
-        width: 88rpx;
-        height: 88rpx;
+        width: 80rpx;
+        height: 80rpx;
         border-radius: 50%;
         background-color: var(--sidebar-active);
         display: flex;
@@ -38,16 +39,16 @@
         flex-shrink: 0;
 
         .avatar-text {
-          font-size: 36rpx;
-          color: var(--primary);
-          font-weight: 600;
+          font-size: 32rpx;
+          color: var(--primary-text);
+          font-weight: 700;
         }
       }
 
       .conv-title {
         flex: 1;
         min-width: 0;
-        font-size: 30rpx;
+        font-size: 32rpx;
         font-weight: 600;
         color: var(--ink);
         overflow: hidden;
@@ -58,7 +59,7 @@
       .conv-time {
         flex-shrink: 0;
         margin-left: 16rpx;
-        font-size: 22rpx;
+        font-size: 24rpx;
         color: var(--ink-3);
       }
     }

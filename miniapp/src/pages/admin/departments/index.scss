@@ -16,7 +16,7 @@
 
   &__desc {
     flex: 1;
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     line-height: 1.5;
   }
@@ -24,17 +24,17 @@
 
 .dm-add {
   flex-shrink: 0;
-  height: 64rpx;
-  padding: 0 26rpx;
+  height: 88rpx;
+  padding: 0 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--primary);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-primary);
 
   &__text {
-    font-size: 26rpx;
+    font-size: 28rpx;
     font-weight: 600;
     color: var(--primary-foreground);
   }
@@ -51,7 +51,7 @@
   background: var(--card);
   border: 1rpx solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   padding: 24rpx;
 
   &__head {
@@ -70,13 +70,13 @@
   }
 
   &__name {
-    font-size: 30rpx;
+    font-size: 32rpx;
     font-weight: 700;
     color: var(--ink);
   }
 
   &__code {
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
     flex-shrink: 0;
   }
@@ -89,7 +89,7 @@
   }
 
   &__meta-text {
-    font-size: 22rpx;
+    font-size: 24rpx;
     color: var(--ink-3);
   }
 
@@ -103,9 +103,9 @@
 }
 
 .dm-tag {
-  font-size: 20rpx;
+  font-size: 24rpx;
   padding: 2rpx 12rpx;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
 
   &--off {
     color: var(--ink-3);
@@ -114,12 +114,15 @@
 }
 
 .dm-act {
-  font-size: 26rpx;
-  color: var(--primary);
+  display: flex;
+  align-items: center;
+  min-height: 56rpx;
+  font-size: 28rpx;
+  color: var(--primary-text);
   font-weight: 600;
 
   &--danger {
-    color: #dc2626;
+    color: var(--error-ink);
   }
 }
 
@@ -169,7 +172,7 @@
 
   &__title {
     display: block;
-    font-size: 34rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: var(--ink);
     margin-bottom: 8rpx;
@@ -181,7 +184,7 @@
 
   &__label {
     display: block;
-    font-size: 24rpx;
+    font-size: 28rpx;
     color: var(--ink-2);
     margin-bottom: 8rpx;
   }
@@ -190,11 +193,11 @@
     height: 88rpx;
     line-height: 88rpx;
     padding: 0 24rpx;
-    font-size: 28rpx;
+    font-size: 32rpx;
     color: var(--ink);
-    background: var(--bg);
+    background: var(--surface-2);
     border: 1rpx solid var(--line);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
   }
 }
 
@@ -206,14 +209,15 @@
 
 .modal-btn {
   flex: 1;
-  height: 80rpx;
+  height: 88rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 
   &--ghost {
-    background-color: var(--bg);
+    background-color: var(--surface-2);
+    border: 1rpx solid var(--line);
   }
 
   &--primary {
@@ -225,7 +229,7 @@
   }
 
   &__text {
-    font-size: 30rpx;
+    font-size: 32rpx;
     color: var(--ink-2);
 
     &--primary {
