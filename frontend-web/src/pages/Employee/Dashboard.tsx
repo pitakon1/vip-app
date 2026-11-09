@@ -128,8 +128,7 @@ const Dashboard = () => {
         anyFailed = true
         return { data: {} }
       }
-      const [sumRes, leadsRes, wbRes, vwRes, pfRes, calRes] = await Promise.all([
-        api.get('/dashboard/summary').catch(markFailed),
+      const [leadsRes, wbRes, vwRes, pfRes, lbRes, calRes] = await Promise.all([
         api.get('/leads', { params: { pageSize: DETAIL_PAGE_SIZE } }).catch(() => {
           anyFailed = true
           return { data: { items: [] } }
@@ -139,15 +138,26 @@ const Dashboard = () => {
           anyFailed = true
           return { data: { items: [] } }
         }),
+        // 员工无 /dashboard/summary 权限（admin/agent only），业绩与排名改用
+        // 员工本人可访问的 /performance/me + /employees/leaderboard
         api.get('/performance/me').catch(markFailed),
+        api.get('/employees/leaderboard').catch(() => ({ data: { data: [] } })),
         calendarEventsApi.list().catch(() => ({ data: { items: [] } })),
       ])
 
-      const sumPayload = sumRes.data?.data ?? sumRes.data
-      setSummary(sumPayload ?? {})
-
       const pfPayload = pfRes.data?.data ?? pfRes.data
       setMonthly(Array.isArray(pfPayload?.monthly) ? pfPayload.monthly : [])
+      const perfSummary = pfPayload?.summary ?? {}
+      const lbPayload = lbRes.data?.data ?? lbRes.data
+      const lbRows: any[] = Array.isArray(lbPayload) ? lbPayload : []
+      const selfIndex = lbRows.findIndex((r) => r.is_self)
+      setSummary({
+        monthly_deals: perfSummary.month_deals,
+        monthly_commission: perfSummary.month_commission,
+        yearly_commission: perfSummary.year_total,
+        currency: 'THB',
+        rank: selfIndex >= 0 ? selfIndex + 1 : undefined,
+      })
 
       const leadsPayload = leadsRes.data?.data ?? leadsRes.data
       setLeads(leadsPayload?.items ?? [])
@@ -583,7 +593,7 @@ const Dashboard = () => {
         okText={t('employeeDashboard.calSave')}
         cancelText={t('common.cancel')}
         confirmLoading={savingCal}
-        destroyOnClose
+        destroyOnHidden
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 8 }}>
           <div>

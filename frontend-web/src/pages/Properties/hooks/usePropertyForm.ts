@@ -16,7 +16,7 @@ export function usePropertyForm({ onSaved }: { onSaved: () => void | Promise<voi
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  // 编辑态原始记录：由弹窗在 Form 挂载后回填（Modal destroyOnClose 每次重建）
+  // 编辑态原始记录：由弹窗在 Form 挂载后回填（Modal destroyOnHidden 每次重建）
   const [editingRecord, setEditingRecord] = useState<Property | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import dayjs from 'dayjs'
 import type { FilterKey, StatusKey, StatusMeta, OnlinePayMethod } from './types'
 
 type Translate = (key: string, options?: any) => string
@@ -13,7 +14,22 @@ export const normalizeStatus = (status?: string): StatusKey => {
   return 'pending'
 }
 
-export const CHIPS: FilterKey[] = ['all', 'pending', 'approved', 'rejected']
+export const CHIPS: FilterKey[] = ['all', 'pending', 'overdue', 'approved']
+
+/**
+ * 是否「未结清」。口径：只要还没有确认到账（pending/processing/rejected 等）
+ * 都算待缴；`processing` 只是凭证已上传待核销，并未确认收款，必须继续计入，
+ * 否则账单会从「待缴合计」里凭空消失（如逾期 ฿35,000 显示为 0）。
+ */
+export const isUnpaid = (status?: string): boolean =>
+  normalizeStatus(status) !== 'approved'
+
+/** 逾期唯一判定口径：未结清 + due_date 已过（按自然日比较，不含时分秒）。 */
+export const isOverdue = (bill: { status?: string; due_date?: string }): boolean => {
+  if (!isUnpaid(bill.status) || !bill.due_date) return false
+  const due = dayjs(bill.due_date)
+  return due.isValid() && due.startOf('day').isBefore(dayjs().startOf('day'))
+}
 
 export const fmtMoney = (v: number) =>
   `RM ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -21,8 +37,8 @@ export const fmtMoney = (v: number) =>
 export const makeChipLabelMap = (t: Translate): Record<FilterKey, string> => ({
   all: t('tenantPayments.chipAll'),
   pending: t('tenantPayments.chipPending'),
+  overdue: t('tenantPayments.chipOverdue'),
   approved: t('tenantPayments.chipApproved'),
-  rejected: t('tenantPayments.chipRejected'),
 })
 
 export const makeRecordStatusMap = (t: Translate): Record<StatusKey, StatusMeta> => ({

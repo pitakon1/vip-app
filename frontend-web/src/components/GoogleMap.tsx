@@ -255,7 +255,7 @@ function GoogleMapView({
     padding: '0 12px',
     border: '1px solid var(--rent-line, #e2e8f0)',
     borderRadius: 8,
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--rent-ink, #1c2733)',
     background: 'var(--rent-card)',
     outline: 'none',
@@ -272,7 +272,7 @@ function GoogleMapView({
     padding: '0 12px',
     border: 'none',
     borderRadius: 8,
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--rent-primary-foreground)',
     background: 'var(--rent-primary, #14b8a6)',
     cursor: 'pointer',
@@ -284,7 +284,7 @@ function GoogleMapView({
     padding: '0 12px',
     border: '1px solid var(--rent-line, #e2e8f0)',
     borderRadius: 8,
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--rent-ink, #1c2733)',
     background: 'var(--rent-card)',
     cursor: 'pointer',
@@ -325,7 +325,7 @@ function GoogleMapView({
           background: 'var(--rent-surface-2, #f4f1ec)',
           border: '1px dashed var(--rent-line, #ece7df)',
           color: 'var(--rent-ink-2, #55606c)',
-          fontSize: 13,
+          fontSize: 14,
         }}
       >
         <svg width="22" height="22" viewBox="0 0 24 24" {...iconProps}>

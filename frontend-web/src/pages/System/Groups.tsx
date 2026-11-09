@@ -186,7 +186,7 @@ const Groups = () => {
         </div>
       )}
 
-      <Modal title={t('systemGroups.newGroup')} open={modalOpen} onCancel={() => setModalOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnClose>
+      <Modal title={t('systemGroups.newGroup')} open={modalOpen} onCancel={() => setModalOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnHidden>
         <Form form={form} layout="vertical">
           <Form.Item name="name" label={t('systemGroups.labelName')} rules={[{ required: true, message: t('systemGroups.errNameRequired') }]}>
             <Input placeholder={t('systemGroups.phGroupName')} />

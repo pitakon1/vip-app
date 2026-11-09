@@ -5,6 +5,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { Project, Property } from '@/types'
+import { roomFacts } from '@/lib/displayValue'
 
 // 户型剪影图标（与首页/公开列表同一套 lucide 路径，缺封面时作为低对比占位）
 const typeIconPath = (pt: string): string => {
@@ -52,9 +53,8 @@ export default function PropertyCard({
   const title = projectName ? `${projectName} · ${item.room_number || ''}` : (item.address || item.room_number || '—')
   const ptype = propertyTypeMap[item.property_type] || item.property_type || t('propertyType.apartment')
   const statusKey = (item.status || 'vacant').toLowerCase()
-  const beds = Number(item.bedrooms || 0)
-  const baths = Number(item.bathrooms || 0)
-  const size = Number(item.size_sqm || 0)
+  // 缺失字段保持 null，不补 0：无数据时不渲染该段，避免「0㎡ / 0卧 / 0浴」假信息
+  const { bedrooms: beds, bathrooms: baths, sizeSqm: size } = roomFacts(item)
   const rent = Number(item.monthly_rent || 0)
 
   const statusTone =
@@ -82,18 +82,24 @@ export default function PropertyCard({
         <h3 className="rent-prop-card__name">{title}</h3>
         <p className="rent-prop-card__address">{item.address || '—'}</p>
         <div className="rent-prop-card__stats">
-          <span className="rent-prop-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-            {size}㎡
-          </span>
-          <span className="rent-prop-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
-            {beds} {t('propertiesPage.unitBed')}
-          </span>
-          <span className="rent-prop-card__stat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
-            {baths} {t('propertiesPage.unitBath')}
-          </span>
+          {size != null && (
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              {size}㎡
+            </span>
+          )}
+          {beds != null && (
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h4"/></svg>
+              {beds} {t('propertiesPage.unitBed')}
+            </span>
+          )}
+          {baths != null && (
+            <span className="rent-prop-card__stat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v3"/><path d="M2 12h20v3a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4z"/><line x1="7" y1="19" x2="7" y2="22"/><line x1="17" y1="19" x2="17" y2="22"/></svg>
+              {baths} {t('propertiesPage.unitBath')}
+            </span>
+          )}
         </div>
         <div className="rent-prop-card__rent-row">
           <span className="rent-prop-card__rent">฿{formatRent(rent)}<span className="rent-prop-card__rent-unit">{t('propertiesPage.perMonth')}</span></span>

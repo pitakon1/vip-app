@@ -17,7 +17,7 @@ import { propertyTypeMap, statusLabelMap } from '../constants'
 import { useDecorationMap, useOrientationMap } from '@/lib/enumLabels'
 import type { OwnerProperty } from '../types'
 
-// 编辑态回填值：Modal destroyOnClose 每次重建，需在 Form 挂载后再 setFieldsValue
+// 编辑态回填值：Modal destroyOnHidden 每次重建，需在 Form 挂载后再 setFieldsValue
 const formValuesFrom = (record: OwnerProperty) => ({
   room_number: record.room_number,
   building: record.building ?? undefined,
@@ -90,7 +90,7 @@ const OwnerPropertyEditorModal = ({
   const orientationMap = useOrientationMap()
   const decorationMap = useDecorationMap()
 
-  // 编辑态回填（Modal destroyOnClose 每次重建，Form 挂载后写入）
+  // 编辑态回填（Modal destroyOnHidden 每次重建，Form 挂载后写入）
   useEffect(() => {
     if (open && record) form.setFieldsValue(formValuesFrom(record))
   }, [open, record, form])
@@ -109,7 +109,7 @@ const OwnerPropertyEditorModal = ({
       confirmLoading={submitting}
       okText={t('common.save')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
       width={640}
     >
       <Form

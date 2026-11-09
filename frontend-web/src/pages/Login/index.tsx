@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { message } from 'antd'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { authApi } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -43,14 +43,34 @@ const EmailIcon = () => (
   </svg>
 )
 
+// 只允许站内相对路径，防止 ?redirect=//evil.com 或外链劫持
+const safeRedirectPath = (raw: string | null): string | null => {
+  if (!raw) return null
+  let path = raw
+  try {
+    path = decodeURIComponent(raw)
+  } catch {
+    // 原样使用
+  }
+  path = path.trim()
+  if (!path.startsWith('/')) return null
+  if (path.startsWith('//') || path.includes('\\')) return null
+  // 登录页自己不能再当回跳目标（会造成登录后原地打转）
+  if (path.startsWith('/login')) return null
+  return path
+}
+
 const Login = () => {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const login = useAuthStore((s) => s.login)
   const [submitting, setSubmitting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
+  // 凭据类错误优先内联展示；401 不再误报成「登录已过期」
+  const [formError, setFormError] = useState('')
 
   // Reddit 分步式：方式选择屏(choose) → 对应表单屏(form)
   const [stage, setStage] = useState<'choose' | 'form'>('choose')
@@ -86,7 +106,9 @@ const Login = () => {
     }
     login(token, user, payload?.refresh_token)
     message.success(t('login.loginSuccess'))
-    navigate(roleRedirectPath(user.role))
+    // 优先回跳 ?redirect=（仅限站内路径），否则按角色进对应端
+    const redirect = safeRedirectPath(searchParams.get('redirect'))
+    navigate(redirect ?? roleRedirectPath(user.role))
     return true
   }
 
@@ -109,13 +131,20 @@ const Login = () => {
       }
     }
     setSubmitting(true)
+    setFormError('')
     try {
       const res = method === 'phone'
         ? await authApi.loginByOtp(phoneWithCode(countryCode, phone), smsCode)
         : await authApi.login(email, password)
       if (!handleAuthSuccess(res)) return
     } catch (err: any) {
-      message.error(errorText(err, t('login.loginFailed')))
+      const status = err?.response?.status ?? err?.status
+      if (status === 401) {
+        // 登录接口的 401 是「邮箱或密码错误」，不是会话过期
+        setFormError(t('login.invalidCredentials'))
+      } else {
+        message.error(errorText(err, t('login.loginFailed')))
+      }
     } finally {
       setSubmitting(false)
     }
@@ -245,6 +274,7 @@ const Login = () => {
                         value={email}
                         onChange={(e) => {
                           setEmail(e.target.value)
+                          if (formError) setFormError('')
                           if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
                         }}
                       />
@@ -263,6 +293,7 @@ const Login = () => {
                         value={password}
                         onChange={(e) => {
                           setPassword(e.target.value)
+                          if (formError) setFormError('')
                           if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
                         }}
                       />
@@ -347,6 +378,9 @@ const Login = () => {
                 )}
 
                 {/* 登录按钮 */}
+                {formError && (
+                  <div className="rent-form-error rent-form-error--block" role="alert">{formError}</div>
+                )}
                 <button type="submit" className="rent-btn rent-btn--primary rent-btn--lg rent-btn--block" disabled={submitting}>
                   {submitting ? (
                     <>

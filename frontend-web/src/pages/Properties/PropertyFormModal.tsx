@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next'
 import type { Project, Property } from '@/types'
 import { useDecorationMap, useOrientationMap } from '@/lib/enumLabels'
 
-// 编辑态回填值：Modal destroyOnClose 每次重建，需在 Form 挂载后再 setFieldsValue
+// 编辑态回填值：Modal destroyOnHidden 每次重建，需在 Form 挂载后再 setFieldsValue
 const formValuesFrom = (record: Property) => ({
   project_id: record.project_id, room_number: record.room_number,
   owner_id: record.owner_id, monthly_rent: record.monthly_rent,
@@ -87,7 +87,7 @@ export default function PropertyFormModal({
   const orientationMap = useOrientationMap()
   const decorationMap = useDecorationMap()
 
-  // 编辑态回填（Modal destroyOnClose 每次重建，Form 挂载后写入）
+  // 编辑态回填（Modal destroyOnHidden 每次重建，Form 挂载后写入）
   useEffect(() => {
     if (open && record) form.setFieldsValue(formValuesFrom(record))
   }, [open, record, form])
@@ -114,7 +114,7 @@ export default function PropertyFormModal({
       confirmLoading={submitting}
       okText={t('common.save')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
       width={640}
     >
       <Form

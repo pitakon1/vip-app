@@ -41,7 +41,12 @@ interface DashboardMetrics {
   rented?: number
   vacant?: number
   expiring_leases?: number
+  /** 生效租约笔数（含关联房源已软删的租约），与 active_lease_revenue 同源 */
+  active_leases?: number
+  /** 7 天内到期的 pending 笔数（原语义，非待收款口径） */
   upcoming_payments?: number
+  /** 全部未结清账单（pending+processing）笔数：待收款卡片使用此字段 */
+  outstanding_payments?: number
   employee_count?: number
   new_employees?: number
   // 线索漏斗（后端 /dashboard/summary 已提供，此前页面未渲染）
@@ -108,7 +113,7 @@ interface RecentPayment {
 interface KpiMeta {
   label: string
   /** 限定为数值型指标，避免 key 指到 expiring_property 这类字符串字段 */
-  key: 'monthly_revenue' | 'occupancy_rate' | 'rented' | 'employee_count'
+  key: 'monthly_revenue' | 'occupancy_rate' | 'rented' | 'active_leases' | 'employee_count'
   format: (v: number) => string
   /** 有真实环比才返回；返回 null 时不画涨跌箭头 */
   delta?: () => { up: boolean; text: string } | null
@@ -252,7 +257,8 @@ const Dashboard = () => {
     },
     {
       label: t('dashboardOps.kpiActiveLease'),
-      key: 'rented',
+      // 在租合同取生效租约数：房源 status 未回写时用 rented 会显示 0
+      key: 'active_leases',
       format: (v: number) => String(v ?? 0),
       icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z',
       poly: '14 2 14 8 20 8',
@@ -306,17 +312,25 @@ const Dashboard = () => {
         const name = s.expiring_property ? `${s.expiring_property} ` : ''
         return name + t('dashboardOps.riskExpiringPending', { count: s.expiring_leases })
       },
-      ratio: (s: DashboardMetrics) => Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+      ratio: (s: DashboardMetrics) =>
+        Math.min(Number(s.expiring_leases ?? 0) / Math.max(Number(s.active_leases ?? s.rented ?? 0), 1), 1),
       path: '/leases',
       icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8',
     },
     {
       tone: 'danger' as const,
       label: t('dashboardOps.riskOverdue'),
-      value: (s: DashboardMetrics) => `${s.upcoming_payments ?? 0}`,
+      // 待收款 = 全部未结清账单（pending+processing）；只用 upcoming_payments
+      // （7 天内 pending）会出现「欠租 3.5 万 / 待收款 0 笔」
+      value: (s: DashboardMetrics) => `${s.outstanding_payments ?? s.upcoming_payments ?? 0}`,
       unit: t('dashboardOps.unitPayment'),
       desc: () => t('dashboardOps.riskOverdueDesc'),
-      ratio: (s: DashboardMetrics) => Math.min(Number(s.upcoming_payments ?? 0) / Math.max(Number(s.rented ?? 0), 1), 1),
+      ratio: (s: DashboardMetrics) =>
+        Math.min(
+          Number(s.outstanding_payments ?? s.upcoming_payments ?? 0) /
+            Math.max(Number(s.active_leases ?? s.rented ?? 0), 1),
+          1,
+        ),
       path: '/payments',
       icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
     },

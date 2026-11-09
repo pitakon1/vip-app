@@ -13,6 +13,26 @@ interface AuthState {
 
 export const REFRESH_TOKEN_KEY = 'refresh_token'
 
+/**
+ * 本地令牌是否「可用」：存在且未过期。
+ *
+ * 公开页面（如房源详情）会在挂载时查收藏状态，若只判断 `!!token`，
+ * 浏览器里残留一张过期令牌仍会发请求并稳定拿到 401（控制台报错）。
+ * 这里按 JWT 的 exp 做一次廉价预检；非 JWT（拿不到 payload/exp）视为可用。
+ */
+export function isTokenFresh(token?: string | null): boolean {
+  if (!token) return false
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return true
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    if (typeof json?.exp !== 'number') return true
+    return json.exp * 1000 > Date.now() + 30 * 1000
+  } catch {
+    return true
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: localStorage.getItem('token'),
   user: (() => {

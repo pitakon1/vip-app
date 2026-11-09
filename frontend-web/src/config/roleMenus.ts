@@ -148,6 +148,12 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           iconKey: 'BUILDING',
         },
         {
+          // 员工/经纪也会自己上架，入口不能只在 URL 里（此前侧栏缺失，页面看似不可达）
+          key: '/my-listings',
+          labelKey: 'menu.myListings',
+          iconKey: 'GRID_4',
+        },
+        {
           key: '/crm',
           labelKey: 'menu.leads',
           iconKey: 'USER',

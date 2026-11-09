@@ -23,7 +23,7 @@ export default function SplitRuleModal({ open, editId, form, partners, saving, o
       onCancel={() => !saving && onCancel()}
       onOk={() => onSubmit()}
       confirmLoading={saving}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="deal_type" label={t('commissionSplit.labelDealType')} rules={[{ required: true }]}>

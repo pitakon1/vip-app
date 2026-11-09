@@ -22,7 +22,7 @@ export const EmployeeDetailModal = ({ emp, onClose }: Props) => {
           {t('common.close')}
         </button>
       }
-      destroyOnClose
+      destroyOnHidden
     >
       {emp && (
         <>

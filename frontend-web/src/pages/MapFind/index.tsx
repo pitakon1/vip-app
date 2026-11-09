@@ -178,7 +178,7 @@ export default function MapFind() {
       <PublicTopBar />
       <div className="pub-wrap" style={{ paddingTop: 24, paddingBottom: 48 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>{t('mapFind.title')}</h1>
-        <p style={{ color: 'var(--rent-ink-2)', fontSize: 13, margin: '0 0 16px' }}>
+        <p style={{ color: 'var(--rent-ink-2)', fontSize: 14, margin: '0 0 16px' }}>
           {t('mapFind.subtitle')}
         </p>
 
@@ -202,7 +202,7 @@ export default function MapFind() {
                     style={{
                       padding: '6px 14px',
                       borderRadius: 999,
-                      fontSize: 13,
+                      fontSize: 14,
                       cursor: 'pointer',
                       border: '1px solid var(--rent-line)',
                       background: biz === k ? 'var(--rent-primary)' : 'var(--rent-card)',
@@ -264,7 +264,7 @@ export default function MapFind() {
             <div className="pub-card" style={{ flex: 1, minHeight: 120 }}>
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: 600,
                   marginBottom: 8,
                   display: 'flex',
@@ -281,7 +281,7 @@ export default function MapFind() {
                   <Spin />
                 </div>
               ) : points.length === 0 ? (
-                <div style={{ color: 'var(--rent-ink-2)', fontSize: 13, padding: '12px 0' }}>
+                <div style={{ color: 'var(--rent-ink-2)', fontSize: 14, padding: '12px 0' }}>
                   {t('mapFind.empty')}
                 </div>
               ) : (
@@ -303,8 +303,8 @@ export default function MapFind() {
                         gap: 4,
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{pointName(p)}</span>
-                      <span style={{ fontSize: 13, color: 'var(--rent-primary)', fontWeight: 600 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600 }}>{pointName(p)}</span>
+                      <span style={{ fontSize: 14, color: 'var(--rent-primary)', fontWeight: 600 }}>
                         {formatMoney(pointPrice(p), p.currency)}
                         {p.listing_type === 'rent' ? t('browse.rentUnit') : ''}
                       </span>

@@ -19,7 +19,7 @@ interface Props {
   loanResult: LoanResult | null
 }
 
-/** 贷款试算弹窗（无 Form，保持原 destroyOnClose 行为） */
+/** 贷款试算弹窗（无 Form，保持原 destroyOnHidden 行为） */
 const LoanModal = ({
   open,
   onCancel,
@@ -43,7 +43,7 @@ const LoanModal = ({
       open={open}
       onCancel={onCancel}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>

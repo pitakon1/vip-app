@@ -36,7 +36,7 @@ export default function GroupFormModal({
       okText={t('common.save')}
       cancelText={t('common.cancel')}
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <div className="attAdm-form">
         <div className="rent-grid rent-grid--2">

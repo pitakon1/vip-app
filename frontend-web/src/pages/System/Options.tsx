@@ -277,7 +277,7 @@ const Options = () => {
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" initialValues={{ sort: 0, is_active: true }}>
           <Form.Item

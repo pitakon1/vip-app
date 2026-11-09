@@ -5,6 +5,7 @@
  * 查询参数语义、回到第 1 页的触发条件均保持不变。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import type { QueryParams } from '@/services/api'
@@ -31,9 +32,12 @@ export const TYPE_CLASS_MAP: Record<string, string[]> = {
 
 export function usePropertyFilters() {
   const { t } = useTranslation()
+  // 顶栏全局搜索会带 ?q=... 跳进来，这里作为关键词的初始值
+  const [searchParams] = useSearchParams()
+  const qParam = searchParams.get('q')
 
   // 筛选参数
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(qParam ?? '')
   const [status, setStatus] = useState('')
   // 房产类型大类：与 C 端口径一致（公寓=apartment+condo、商铺办公=office+shop），
   // 不再用单个 property_type 值，避免「公寓」漏掉 condo、「商铺办公」被拆成两个选项
@@ -52,6 +56,13 @@ export function usePropertyFilters() {
   const [areaCustomMax, setAreaCustomMax] = useState('')
   const [sort, setSort] = useState('created')
   const [page, setPage] = useState(1)
+
+  // 已在 /properties 页时再次从顶栏搜索（URL 的 q 变化）也要生效
+  useEffect(() => {
+    if (qParam == null) return
+    setKeyword(qParam)
+    setPage(1)
+  }, [qParam])
 
   // 按区域 / 按地铁定位（与租客端 PublicListings 交互逻辑一致）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')

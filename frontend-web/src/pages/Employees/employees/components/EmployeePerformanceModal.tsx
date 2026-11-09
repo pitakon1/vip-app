@@ -23,7 +23,7 @@ export const EmployeePerformanceModal = ({ emp, rows, loading, onClose }: Props)
         </button>
       }
       width={880}
-      destroyOnClose
+      destroyOnHidden
     >
       {loading ? (
         <div className="rent-empty">

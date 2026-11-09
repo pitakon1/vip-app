@@ -12,6 +12,7 @@ import { useLocationStore } from '@/stores/location'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
+import { formatRoomFacts, joinFacts, roomFacts } from '@/lib/displayValue'
 import { makePropertyTypeLabel, toItems } from './tenantPropertyDetail/utils'
 
 interface PropertyItem {
@@ -435,7 +436,13 @@ const TenantDashboard = () => {
     const price = mode === 'buy'
       ? <span className="rv17-prop__price">{formatPrice(item.sale_price, item.currency)}</span>
       : <span className="rv17-prop__price">{formatRent(item.monthly_rent, item.currency)}<span className="rv17-prop__price-unit">{t('browse.rentUnit')}</span></span>
-    const meta = t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })
+    // 缺失字段不补 0：只渲染真实存在的户型段，全部缺失时整段省略
+    const facts = roomFacts(item)
+    const meta = formatRoomFacts(facts, {
+      bed: (n) => t('common.roomBed', { n }),
+      bath: (n) => t('common.roomBath', { n }),
+      size: (n) => t('common.roomSize', { n }),
+    })
     // 标签只展示后端真实字段，不再写死「近地铁/带家具/拎包入住」这类无数据支撑的文案
     const typeLabel = makePropertyTypeLabel(t)[String(item.property_type || '')]
     const tags = [
@@ -472,7 +479,7 @@ const TenantDashboard = () => {
         </div>
         <div className="rv17-prop__body">
           <h3 className="rv17-prop__name">{title}</h3>
-          <p className="rv17-prop__addr">{addr} · {meta}</p>
+          <p className="rv17-prop__addr">{joinFacts([addr, meta])}</p>
           {tags.length > 0 && (
             <div className="rv17-prop__tags">
               {tags.map((tg) => (
@@ -493,7 +500,13 @@ const TenantDashboard = () => {
     const projectName = item.project_name || item.project_id || ''
     const title = projectName || item.room_number || t('tenantDashboard.inSaleUnit')
     const addr = item.address || item.city || '—'
-    const sub = `${t('tenantDashboard.bedroomBath', { bed: item.bedrooms ?? 0, bath: item.bathrooms ?? 0, size: item.size_sqm || 0 })} · ${t('tenantDashboard.furnishedDelivery')}`
+    // 缺失字段不补 0：户型段仅在有数据时出现
+    const commMeta = formatRoomFacts(roomFacts(item), {
+      bed: (n) => t('common.roomBed', { n }),
+      bath: (n) => t('common.roomBath', { n }),
+      size: (n) => t('common.roomSize', { n }),
+    })
+    const sub = joinFacts([commMeta, t('tenantDashboard.furnishedDelivery')])
     return (
       <button
         type="button"

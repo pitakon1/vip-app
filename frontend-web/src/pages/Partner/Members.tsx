@@ -392,7 +392,7 @@ const Members = () => {
       />
 
       {/* Create member modal */}
-      <Modal title={t('member.createTitle')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnClose>
+      <Modal title={t('member.createTitle')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnHidden>
         <Form form={createForm} layout="vertical" preserve={false}>
           <Form.Item name="full_name" label={t('member.labelName')} rules={[{ required: true, message: t('member.errNameRequired') }]}>
             <Input placeholder={t('member.placeholderName')} />
@@ -413,7 +413,7 @@ const Members = () => {
       </Modal>
 
       {/* Pull-in modal */}
-      <Modal title={t('member.pullInTitle')} open={pullOpen} onCancel={() => setPullOpen(false)} onOk={handlePullIn} confirmLoading={pulling} destroyOnClose>
+      <Modal title={t('member.pullInTitle')} open={pullOpen} onCancel={() => setPullOpen(false)} onOk={handlePullIn} confirmLoading={pulling} destroyOnHidden>
         <Form form={pullForm} layout="vertical" preserve={false}>
           <Form.Item name="user_id" label={t('member.labelUserId')} rules={[{ required: true, message: t('member.errUserIdRequired') }]}>
             <Input placeholder={t('member.placeholderUserId')} />

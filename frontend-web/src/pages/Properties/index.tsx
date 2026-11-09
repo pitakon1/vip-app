@@ -89,9 +89,13 @@ const Properties = () => {
   // 列表查询走统一缓存（跨会话秒开 + 翻页/改筛选保留上一页结果）
   const listParams = filters.buildParams()
   const listKey = JSON.stringify(listParams)
+  // 缓存键必须带身份维度：同一份筛选条件下，admin/employee/owner 看到的
+  // 房源范围不同（后端按角色做可见性裁剪），共用 key 会把上一个角色拿到的
+  // 列表喂给下一个角色（含空列表），表现为「空缓存串数据」。
+  const cacheScope = `${user?.id ?? 'anon'}:${role || 'anon'}`
   const listQuery = useCachedQuery<{ items: Property[]; total: number }>({
-    queryKey: ['properties', listKey],
-    cacheKey: `properties:${listKey}`,
+    queryKey: ['properties', cacheScope, listKey],
+    cacheKey: `properties:${cacheScope}:${listKey}`,
     keepPreviousData: true,
     queryFn: async () => {
       const res = await propertiesApi.list(listParams)
@@ -423,7 +427,7 @@ const Properties = () => {
         confirmLoading={projectSubmitting}
         okText={t('common.save')}
         cancelText={t('common.cancel')}
-        destroyOnClose
+        destroyOnHidden
         width={640}
       >
         <Form form={projectForm} layout="vertical" preserve={false}>

@@ -43,6 +43,9 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // 同时监听 IPv4 / IPv6：此前只绑定 ::1，导致 127.0.0.1:3000 连不上，
+    // 验收脚本与部分容器环境会误判「Web 未启动」。
+    host: true,
     proxy: {
       // 开发环境下聊天 WebSocket 也走 /api 前缀（/api/v1/chat/ws/chat/*），
       // 缺少 ws: true 时 Vite 只代理普通 HTTP，WS 升级请求会被直接断开。

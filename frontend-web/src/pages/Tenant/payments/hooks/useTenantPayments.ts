@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import api from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCachedQuery } from '@/lib/queryCache'
-import { makeMethodLabelMap, normalizeStatus } from '../constants'
+import { makeMethodLabelMap, isOverdue, isUnpaid, normalizeStatus } from '../constants'
 import { groupByMonth, tenantPaymentsKey } from '../utils'
 import type { FilterKey, PaymentVoucher } from '../types'
 
@@ -41,13 +41,15 @@ export const useTenantPayments = () => {
 
   const filteredData = useMemo(() => {
     if (filter === 'all') return data
-    return data.filter((d) => normalizeStatus(d.status) === filter)
+    if (filter === 'pending') return data.filter((d) => isUnpaid(d.status) && !isOverdue(d))
+    if (filter === 'overdue') return data.filter((d) => isOverdue(d))
+    return data.filter((d) => normalizeStatus(d.status) === 'approved')
   }, [data, filter])
 
-  // 待缴只算尚未提交凭证的 pending；processing（已上传待核销）不能再算作待缴。
-  // 否则上传凭证后待缴金额不会下降，用户会重复付款。
+  // 待缴口径：未确认到账一律计入（含 processing 已上传待核销）；逾期是这组
+  // 未结清账单里 due_date 已过的子集，不额外叠加，列表/汇总/逾期数才自洽。
   const rawPending = useMemo(
-    () => data.filter((d) => String(d.status || '').toLowerCase() === 'pending'),
+    () => data.filter((d) => isUnpaid(d.status)),
     [data],
   )
   const summary = useMemo(() => {

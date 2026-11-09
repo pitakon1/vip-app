@@ -473,7 +473,7 @@ const Users = () => {
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Form.Item name="full_name" label={t('systemUsers.labelName')} rules={[{ required: true, message: t('systemUsers.errNameRequired') }]}>
@@ -527,7 +527,7 @@ const Users = () => {
         open={!!pwdTarget}
         onCancel={() => setPwdTarget(null)}
         onOk={handleResetPwd}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={pwdForm} layout="vertical">
           <Form.Item name="new_password" label={t('systemUsers.labelNewPassword')} rules={[{ required: true, min: 6, message: t('systemUsers.errPwdMin') }]}>

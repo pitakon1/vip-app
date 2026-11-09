@@ -301,7 +301,7 @@ const Departments = () => {
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" initialValues={{ sort: 0, is_active: true }}>
           <Form.Item
@@ -352,7 +352,7 @@ const Departments = () => {
         onCancel={() => setAssignTarget(null)}
         onOk={handleAssign}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Select
           style={{ width: '100%' }}

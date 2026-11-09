@@ -14,7 +14,7 @@ interface Props {
   onCancel: () => void
 }
 
-/** 预约看房弹窗（无 Form，保持原 destroyOnClose 行为） */
+/** 预约看房弹窗（无 Form，保持原 destroyOnHidden 行为） */
 const BookingModal = ({
   open,
   displayName,
@@ -37,7 +37,7 @@ const BookingModal = ({
       okText={t('tenantPropertyDetail.submitBooking')}
       cancelText={t('common.cancel')}
       confirmLoading={busy}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ marginBottom: 12, color: 'var(--rent-ink-2)', fontSize: 13 }}>
         {displayName}

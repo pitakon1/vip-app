@@ -258,7 +258,7 @@ const Operations = () => {
                   showInfo={false}
                   strokeColor="var(--rent-primary)"
                   trailColor="rgba(148,163,184,0.15)"
-                  strokeWidth={10}
+                  size={{ height: 10 }}
                 />
               </div>
             ))}
@@ -342,7 +342,7 @@ const Operations = () => {
                     showInfo={false}
                     strokeColor="var(--state-info)"
                     trailColor="rgba(148,163,184,0.15)"
-                    strokeWidth={8}
+                    size={{ height: 8 }}
                   />
                 </div>
               ))

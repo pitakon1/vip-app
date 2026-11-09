@@ -32,7 +32,7 @@ const itemStyle = (active: boolean): CSSProperties => ({
   width: '100%',
   textAlign: 'left',
   padding: '7px 10px',
-  fontSize: 13,
+  fontSize: 14,
   lineHeight: '18px',
   borderRadius: 'var(--rent-radius-md)',
   cursor: 'pointer',
@@ -198,7 +198,7 @@ const RegionPicker = ({ value, onChange }: Props) => {
         {'\u00A0'}
         {summary}
         {'\u00A0'}
-        <DownOutlined style={{ fontSize: 11 }} />
+        <DownOutlined style={{ fontSize: 12 }} />
       </Button>
     </Popover>
   )

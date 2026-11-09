@@ -34,7 +34,7 @@
 }
 
 .pub-brand {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   cursor: pointer;
   display: flex;
@@ -81,7 +81,7 @@
 }
 
 .pub-loc__arrow {
-  font-size: 10px;
+  font-size: var(--rent-fs-xs);
   color: var(--rent-ink-2);
 }
 
@@ -151,7 +151,7 @@
 .pub-btn--lg {
   height: 48px;
   padding: 0 28px;
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
 }
 
 .pub-btn--block {
@@ -176,7 +176,7 @@
 }
 
 .pub-section__title {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   margin: 0 0 var(--rent-s-1);
 }
@@ -241,7 +241,7 @@
 }
 
 .pub-listing__title {
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   line-height: 1.4;
   margin: 0;
@@ -257,7 +257,7 @@
 }
 
 .pub-listing__price {
-  font-size: 17px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   color: var(--rent-primary-text); /* UI-01：白底 5.42:1（原 #14b8a6 仅 2.49:1） */
 }
@@ -372,7 +372,7 @@
 }
 
 .pub-row__title {
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   font-weight: 500;
   margin: 0;
 }
@@ -580,13 +580,13 @@
 }
 
 .pub-price-block__main {
-  font-size: 26px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 500;
   color: var(--rent-primary-text); /* 26px 大文本仍需 3:1，#14b8a6 仅 2.49:1 */
 }
 
 .pub-price-block__alt {
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   color: var(--rent-ink-2);
 }
 

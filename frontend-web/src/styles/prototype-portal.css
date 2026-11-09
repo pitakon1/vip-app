@@ -79,7 +79,7 @@
   background: var(--rent-accent-soft);
 }
 .rent-portal__loc-icon { color: var(--rent-primary-text); flex-shrink: 0; }
-.rent-portal__loc-arrow { color: var(--rent-ink-2); font-size: 10px; }
+.rent-portal__loc-arrow { color: var(--rent-ink-2); font-size: var(--rent-fs-xs); }
 .rent-portal__brand {
   display: flex;
   align-items: center;
@@ -96,7 +96,7 @@
   justify-content: center;
   color: var(--rent-primary-foreground);
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   flex-shrink: 0;
 }
 /* 图片 logo：去掉字母占位底色，改为白底圆角 + 青绿投影（对齐 tenant-consign.html） */
@@ -110,7 +110,7 @@
   box-shadow: 0 4px 14px rgba(20, 184, 166, 0.35);
 }
 .rent-portal__name {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
   letter-spacing: -0.01em;
@@ -419,7 +419,7 @@
   gap: var(--rent-s-3);
 }
 .rent-lease__heading {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
   margin: 0;
@@ -437,7 +437,7 @@
   letter-spacing: 0.02em;
 }
 .rent-lease__stat-value {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
   letter-spacing: -0.01em;
@@ -616,7 +616,7 @@
   .rent-quick-grid { grid-template-columns: 1fr; }
   .rent-maint-flow { grid-template-columns: 1fr; }
   .rent-hero { padding: 28px; }
-  .rent-hero__title { font-size: 26px; }
+  .rent-hero__title { font-size: var(--rent-fs-2xl); }
   .rent-portal__main { padding: var(--rent-s-5); }
 }
 
@@ -806,7 +806,7 @@ body {
   border-radius: var(--rent-radius-full);
   background: rgba(20, 184, 166, 0.08);
   color: var(--rent-primary-text);
-  font-size: 10px;
+  font-size: var(--rent-fs-xs);
   font-weight: 600;
 }
 @media (max-width: 768px) {
@@ -1157,7 +1157,7 @@ body {
 .rv17-prop__tags .rent-badge { padding: 2px 8px; font-size: var(--rent-fs-2xs); }
 .rv17-prop__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--rent-s-2); }
 .rv17-prop__price {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: var(--rent-fw-display);
   color: var(--rent-primary-text);
   font-variant-numeric: tabular-nums;
@@ -1273,7 +1273,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 .rent-search-hero__title {
-  font-size: 42px;
+  font-size: var(--rent-fs-4xl);
   font-weight: var(--rent-fw-display);
   margin: 0 0 var(--rent-s-3);
   letter-spacing: -0.03em;
@@ -1407,10 +1407,17 @@ body {
   font-weight: 500;
   color: var(--rent-ink-2);
   cursor: pointer;
+  position: relative;
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease,
     color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease;
   white-space: nowrap;
   font-family: var(--rent-font-sans);
+}
+/* 视觉高度保持 35px 左右，用伪元素把可点热区补到 44px（触控无障碍） */
+.rent-filter-chip::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
 }
 .rent-filter-chip:hover {
   background: var(--rent-surface-2);
@@ -1812,7 +1819,7 @@ body {
 /* ----- Responsive ----- */
 @media (max-width: 1024px) {
   .rent-search-hero { padding: 32px 28px 28px; }
-  .rent-search-hero__title { font-size: 30px; }
+  .rent-search-hero__title { font-size: var(--rent-fs-4xl); }
   .rent-prop-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--rent-s-4); }
   .rent-filter-bar { position: static; }
   .rent-portal__header { padding: 0 20px; }
@@ -1877,7 +1884,7 @@ body {
   flex-wrap: wrap;
 }
 .rent-cta__title {
-  font-size: var(--rent-fs-3xl);
+  font-size: var(--rent-fs-2xl);
   font-weight: var(--rent-fw-display);
   color: var(--rent-primary-foreground);
   margin-bottom: var(--rent-s-2);
@@ -2119,7 +2126,7 @@ body {
   background: var(--rent-border);
 }
 .rent-pay-summary__num {
-  font-size: 26px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.02em;
@@ -2164,7 +2171,7 @@ body {
 .rent-pay-section { margin-bottom: var(--rent-s-6); }
 .rent-pay-section:last-child { margin-bottom: 0; }
 .rent-pay-section__title {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   color: var(--rent-ink);
   margin: 0 0 20px;
@@ -2188,7 +2195,7 @@ body {
   border-bottom: 1px solid var(--rent-border);
 }
 .rent-pay-month__title {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.01em;
@@ -2288,7 +2295,7 @@ body {
 .rent-doc-hero__text { min-width: 0; flex: 1; }
 .rent-doc-hero__title {
   font-family: var(--rent-font-sans);
-  font-size: 30px;
+  font-size: var(--rent-fs-4xl);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--rent-ink);
@@ -2588,7 +2595,7 @@ body {
   letter-spacing: 0.03em;
 }
 .svc-hero__title {
-  font-size: 34px;
+  font-size: var(--rent-fs-4xl);
   font-weight: 700;
   margin: 0 0 10px;
   letter-spacing: -0.03em;
@@ -2750,7 +2757,7 @@ body {
   margin-bottom: 3px;
 }
 .svc-category-card__price {
-  font-size: 26px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 700;
   color: var(--rent-ink);
   letter-spacing: -0.02em;
@@ -2832,7 +2839,7 @@ body {
   margin-bottom: var(--rent-s-1);
 }
 .svc-order-item__amount {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 700;
   color: var(--rent-ink);
   font-variant-numeric: tabular-nums;
@@ -2899,7 +2906,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-primary-foreground);
   flex-shrink: 0;
@@ -3052,9 +3059,9 @@ body {
 /* ----- Responsive ----- */
 @media (max-width: 1024px) {
   .svc-hero { padding: 28px 24px; flex-direction: column; align-items: flex-start; }
-  .svc-hero__title { font-size: 26px; }
+  .svc-hero__title { font-size: var(--rent-fs-2xl); }
   .svc-hero__stats { width: 100%; justify-content: space-between; gap: var(--rent-s-4); }
-  .svc-hero__stat-value { font-size: 26px; }
+  .svc-hero__stat-value { font-size: var(--rent-fs-2xl); }
   .svc-category-grid { grid-template-columns: 1fr; }
   .svc-order-item { flex-wrap: wrap; gap: var(--rent-s-3); }
   .svc-order-item__mid { min-width: 0; text-align: left; flex: 1; }
@@ -3133,7 +3140,7 @@ body {
   flex-shrink: 0;
 }
 .mt-summary__value {
-  font-size: 26px;
+  font-size: var(--rent-fs-2xl);
   font-weight: 700;
   color: var(--rent-ink);
   font-variant-numeric: tabular-nums;
@@ -3358,7 +3365,7 @@ body {
   border-bottom: 1px solid var(--rent-border);
 }
 .mt-form-card__title {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: 600;
   color: var(--rent-ink);
   margin: 0;
@@ -3704,7 +3711,7 @@ body {
 
 /* 2 价格区 */
 .rent-detail-price__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--rent-s-3); }
-.rent-detail-price__value { font-size: 30px; font-weight: 700; color: var(--rent-primary-text); letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rent-detail-price__value { font-size: var(--rent-fs-4xl); font-weight: 700; color: var(--rent-primary-text); letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .rent-detail-price__value small { font-size: var(--rent-fs-base); font-weight: 600; color: var(--rent-ink-2); margin-left: 2px; }
 .rent-detail-price__tags { display: flex; gap: var(--rent-s-2); flex-wrap: wrap; margin-top: 10px; }
 .rent-detail-price__name { font-size: var(--rent-fs-xl); font-weight: 600; color: var(--rent-ink); margin-top: var(--rent-s-4); letter-spacing: -0.01em; }
@@ -3798,7 +3805,7 @@ body {
   .rent-detail-gallery__thumb { height: 38px; }
   .rent-detail-card { border-radius: var(--rent-radius-lg); padding: var(--rent-s-4); }
   .rent-detail-map__pois { flex-direction: column; }
-  .rent-detail-price__value { font-size: 26px; }
+  .rent-detail-price__value { font-size: var(--rent-fs-2xl); }
   .rent-v17-price--buy { font-size: var(--rent-fs-2xl); }
   .rent-v17-loan { font-size: var(--rent-fs-xs); }
   .rent-detail-bar__agent { max-width: 120px; }

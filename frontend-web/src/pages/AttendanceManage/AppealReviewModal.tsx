@@ -32,7 +32,7 @@ export default function AppealReviewModal({
       confirmLoading={saving}
       okText={t('common.confirm')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
     >
       {appealReview && (
         <div className="attAdm-form">

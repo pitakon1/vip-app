@@ -24,7 +24,7 @@ export const CreateEmployeeModal = ({ open, onCancel, onOk, confirmLoading, valu
       confirmLoading={confirmLoading}
       okText={t('employees.okCreate')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
     >
       <div className="rent-form-group">
         <label className="rent-form-label">{t('employees.labelName')}</label>

@@ -239,7 +239,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ onSuccess }) => {
         okText={t('login.signIn')}
         cancelText={t('common.cancel')}
         confirmLoading={loading === mock?.provider}
-        destroyOnClose
+        destroyOnHidden
       >
         <p style={{ marginBottom: 12 }}>{t('login.oauthMockHint')}</p>
         <Input

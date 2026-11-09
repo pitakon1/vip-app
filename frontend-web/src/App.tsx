@@ -206,7 +206,8 @@ const App = () => {
             <Route path="/portal" element={<RoleRedirect />} />
 
             {/* 管理端路由：MainLayout 属 B 端后台，租客(C端)一律拦回 /portal */}
-            <Route path="/dashboard" element={<ProtectedRoute denyRoles={['tenant']}><Dashboard /></ProtectedRoute>} />
+            {/* 数据总览隶属管理层：业主/员工不该进入（员工走 /employee/dashboard 工作台） */}
+            <Route path="/dashboard" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee']}><Dashboard /></ProtectedRoute>} />
             {/* 房源库/详情属 B 端，租客走门户壳（/tenant/listings、/tenant/properties/:id） */}
             <Route path="/properties" element={<ProtectedRoute denyRoles={['tenant']}><Properties /></ProtectedRoute>} />
             <Route path="/properties/detail/:id" element={<ProtectedRoute denyRoles={['tenant']}><PropertyDetail /></ProtectedRoute>} />

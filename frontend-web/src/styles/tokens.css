@@ -164,9 +164,9 @@
   --rent-font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
 
   /* ---- 字号阶梯（Web：12 起步，桌面阅读距离下更紧凑）---- */
-  --rent-fs-2xs: 11px;  /* Badge / 极小数字，仅非正文 */
+  --rent-fs-2xs: 12px;  /* 极小标注：与 xs 同档，字号阶梯只保留 12 / 14 / 16 / 20 / 24 / 28 / 32 */
   --rent-fs-xs: 12px;
-  --rent-fs-sm: 13px;
+  --rent-fs-sm: 14px;   /* 次级正文：原 13px 并入 base 档，避免 13 这一档孤立字号 */
   --rent-fs-base: 14px;
   --rent-fs-lg: 16px;
   --rent-fs-xl: 20px;

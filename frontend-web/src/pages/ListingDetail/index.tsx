@@ -18,12 +18,12 @@ import api from '@/lib/api'
 import LazyImage from '@/components/LazyImage'
 import DataState from '@/components/DataState'
 import { errorKind, type ErrorKind } from '@/lib/errorText'
-import { convertCurrency, formatMoney, loadRates } from '@/lib/money'
+import { convertCurrency, formatMoney, formatUnitPrice, loadRates } from '@/lib/money'
 import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, {
   type PublicListingCardData,
 } from '@/components/PublicListingCard'
-import useAuthStore from '@/stores/auth'
+import useAuthStore, { isTokenFresh } from '@/stores/auth'
 import { viewingsApi } from '@/services/api'
 import {
   curriculumLabel,
@@ -117,7 +117,8 @@ const ListingDetailPage = () => {
   const { t } = useTranslation()
   const token = useAuthStore((s) => s.token)
   const authUser = useAuthStore((s) => s.user)
-  const isLoggedIn = !!token
+  // 过期令牌不算已登录：匿名详情页不再发收藏状态请求，也就没有 401 报错
+  const isLoggedIn = isTokenFresh(token)
 
   const [detail, setDetail] = useState<ListingDetail | null>(null)
   const [similar, setSimilar] = useState<SimilarListing[]>([])
@@ -425,7 +426,7 @@ const ListingDetailPage = () => {
                     alt={title}
                     loading="eager"
                     decoding="async"
-                    fetchPriority="high"
+                    {...({ fetchpriority: 'high' } as Record<string, string>)}
                   />
                   <div className="pub-gallery__side">
                     {photos.slice(1, 3).map((url, index) => (
@@ -509,9 +510,8 @@ const ListingDetailPage = () => {
               {detail.size_sqm ? (
                 <p className="pub-detail__unit-price">
                   {t('publicSite.unitPrice')}: ≈{' '}
-                  {formatMoney(price / detail.size_sqm, detail.currency || 'THB')}
-                  {t('publicSite.sqm')}
-                  {' · '}≈ {formatMoney(convertCurrency(price / detail.size_sqm, 'CNY'), 'CNY')}/㎡
+                  {formatUnitPrice(price / detail.size_sqm, detail.currency || 'THB')}
+                  {' · '}≈ {formatUnitPrice(convertCurrency(price / detail.size_sqm, 'CNY'), 'CNY')}
                 </p>
               ) : null}
             </div>

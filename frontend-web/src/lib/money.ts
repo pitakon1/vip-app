@@ -28,6 +28,22 @@ export function formatMoney(
   return `${symbol}${num.toLocaleString()}`
 }
 
+/**
+ * 单价（金额/㎡）统一出口。
+ *
+ * 直接 `formatMoney(price / size)` 会保留 3 位小数（`฿133.333`），且 `/㎡` 后缀常被漏掉，
+ * 两端（Web 详情 / App 详情）格式因此不一致。这里固定两位小数 + 统一 `/㎡` 后缀。
+ */
+export function formatUnitPrice(
+  value: number | string | null | undefined,
+  currency: string = 'THB',
+): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const num = Number(value)
+  if (!Number.isFinite(num) || num <= 0) return '—'
+  return `${formatMoney(Number(num.toFixed(2)), currency)}/㎡`
+}
+
 /** 泰铢 → 目标币种 展示换算。 */
 export function convertCurrency(
   amountThb: number,

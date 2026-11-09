@@ -44,7 +44,7 @@
   border-radius: var(--rent-radius-full);
   background: var(--state-error);
   color: var(--rent-on-status);
-  font-size: 10px; font-weight: 600;
+  font-size: var(--rent-fs-xs); font-weight: 600;
   display: flex; align-items: center; justify-content: center;
 }
 .rent-avatar {
@@ -57,7 +57,7 @@
   flex-shrink: 0;
 }
 .rent-avatar--sm { width: 28px; height: 28px; font-size: var(--rent-fs-xs); }
-.rent-avatar--lg { width: 48px; height: 48px; font-size: 18px; }
+.rent-avatar--lg { width: 48px; height: 48px; font-size: var(--rent-fs-lg); }
 /* 头像可点击上传：去掉按钮默认边框/内边距，图片铺满裁圆 */
 .rent-avatar--upload {
   border: none;

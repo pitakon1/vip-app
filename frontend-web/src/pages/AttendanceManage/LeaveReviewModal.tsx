@@ -35,7 +35,7 @@ export default function LeaveReviewModal({
       confirmLoading={saving}
       okText={t('common.confirm')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
     >
       {review && (
         <div className="attAdm-form">

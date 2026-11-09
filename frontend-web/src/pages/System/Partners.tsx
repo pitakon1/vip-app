@@ -29,7 +29,7 @@ interface AgentOption {
 
 const fmtTime = (v?: string) => (v ? String(v).replace('T', ' ').slice(0, 16) : '—')
 
-// 编辑态回填值：Modal destroyOnClose 每次重建，需在 Form 挂载后再 setFieldsValue
+// 编辑态回填值：Modal destroyOnHidden 每次重建，需在 Form 挂载后再 setFieldsValue
 const formValuesFrom = (record: Partner) => ({
   name: record.name,
   contact_name: record.contact_name,
@@ -101,7 +101,7 @@ const Partners = () => {
     setModalOpen(true)
   }
 
-  // 编辑态回填（Modal destroyOnClose 每次重建，Form 挂载后写入）
+  // 编辑态回填（Modal destroyOnHidden 每次重建，Form 挂载后写入）
   useEffect(() => {
     if (modalOpen && editing) form.setFieldsValue(formValuesFrom(editing))
   }, [modalOpen, editing, form])
@@ -298,7 +298,7 @@ const Partners = () => {
         onCancel={() => setModalOpen(false)}
         onOk={handleSubmit}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false} initialValues={editing ? formValuesFrom(editing) : undefined}>
           <Form.Item name="name" label={t('partners.labelName')} rules={[{ required: true, message: t('partners.errNameRequired') }]}>

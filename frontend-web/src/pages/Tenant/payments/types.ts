@@ -16,8 +16,8 @@ export interface PaymentVoucher {
   [key: string]: any
 }
 
-export type FilterKey = 'all' | 'pending' | 'approved' | 'rejected'
-export type StatusKey = Exclude<FilterKey, 'all'>
+export type FilterKey = 'all' | 'pending' | 'overdue' | 'approved'
+export type StatusKey = 'pending' | 'approved' | 'rejected'
 
 export interface OnlinePayMethod {
   id: string

@@ -41,7 +41,7 @@ export default function GroupMembersModal({
       onCancel={onClose}
       footer={null}
       width={640}
-      destroyOnClose
+      destroyOnHidden
     >
       <div className="attAdm-form">
         <div className="rent-field">

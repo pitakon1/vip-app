@@ -43,7 +43,7 @@ export default function MapSection({
         padding: '4px 12px',
         borderRadius: 999,
         background: 'rgba(255,255,255,0.92)',
-        fontSize: 11,
+        fontSize: 12,
         color: 'var(--rent-ink-2, #64748b)',
         boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
       }}>

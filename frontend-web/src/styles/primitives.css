@@ -273,7 +273,7 @@
 }
 .rent-sidebar__name {
   font-family: var(--rent-font-sans);
-  font-size: 15px;
+  font-size: var(--rent-fs-lg);
   font-weight: var(--rent-fw-semibold);
   color: var(--rent-ink);
   letter-spacing: -0.01em;
@@ -290,7 +290,7 @@
 }
 .rent-sidebar__section-label {
   /* 沿用合并前实际生效的 11px（system 层后加载），未改成 12px 以免侧栏高度变化 */
-  font-size: 11px;
+  font-size: var(--rent-fs-xs);
   font-weight: var(--rent-fw-semibold);
   color: var(--rent-ink-2);
   text-transform: uppercase;
@@ -355,7 +355,7 @@
   min-width: 0;
 }
 .rent-topbar__title {
-  font-size: 18px;
+  font-size: var(--rent-fs-lg);
   font-weight: var(--rent-fw-semibold);
   color: var(--rent-ink);
   letter-spacing: -0.01em;

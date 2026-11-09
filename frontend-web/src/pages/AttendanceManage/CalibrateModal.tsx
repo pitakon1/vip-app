@@ -40,7 +40,7 @@ export default function CalibrateModal({
       confirmLoading={saving}
       okText={t('common.save')}
       cancelText={t('common.cancel')}
-      destroyOnClose
+      destroyOnHidden
     >
       {calib && (
         <div className="attAdm-form">

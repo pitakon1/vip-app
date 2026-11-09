@@ -286,7 +286,7 @@ const DataScopes = () => {
         onCancel={() => setModalOpen(false)}
         onOk={handleAddUser}
         confirmLoading={saving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <Select

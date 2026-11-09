@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Spin, message } from 'antd'
 import DataState from '@/components/DataState'
 import api from '@/lib/api'
-import useAuthStore from '@/stores/auth'
+import useAuthStore, { isTokenFresh } from '@/stores/auth'
 import { usePropertyStatusMap, usePropertyTypeMap } from '@/lib/enumLabels'
 import { useListingFilters } from './hooks/useListingFilters'
 import { useListingQuery } from './hooks/useListingQuery'
@@ -55,7 +55,8 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
   const [favOverride, setFavOverride] = useState<Record<string, boolean>>({})
   const favQ = useQuery({
     queryKey: ['public-listings-fav', user?.id ?? 'anon', propertyIds.join(',')],
-    enabled: !!token && propertyIds.length > 0,
+    // 未登录 / 令牌已过期时不发收藏状态请求，避免匿名浏览稳定报 401
+    enabled: isTokenFresh(token) && propertyIds.length > 0,
     staleTime: 60 * 1000,
     queryFn: async () => {
       const res = await api.get('/favorites/status', { params: { property_ids: propertyIds.join(',') } })

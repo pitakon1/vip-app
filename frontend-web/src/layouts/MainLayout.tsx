@@ -83,6 +83,8 @@ const MainLayout = () => {
   const location = useLocation()
   const { user, logout } = useAuthStore()
   const { t } = useTranslation()
+  // 顶栏全局搜索：回车后带 q 跳到房源管理列表做真实过滤，而不是留个死输入框
+  const [globalQuery, setGlobalQuery] = useState('')
 
   // 兜底为空角色而不是 admin：user 缺失（本地缓存被清、令牌与用户不同步）时
   // 不应拿到管理端菜单，菜单构建的 default 分支返回空即可。
@@ -262,6 +264,14 @@ const MainLayout = () => {
                 variant="borderless"
                 placeholder={t('topbar.searchPlaceholder')}
                 style={{ background: 'none', padding: 0 }}
+                value={globalQuery}
+                onChange={(e) => setGlobalQuery(e.target.value)}
+                onPressEnter={() => {
+                  const keyword = globalQuery.trim()
+                  if (!keyword) return
+                  navigate(`/properties?q=${encodeURIComponent(keyword)}`)
+                  setGlobalQuery('')
+                }}
               />
             </div>
             <LanguageSwitcher />
