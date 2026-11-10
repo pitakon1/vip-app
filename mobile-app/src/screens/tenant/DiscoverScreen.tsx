@@ -19,8 +19,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { cityDisplayName } from '@/data/locationNames';
 import { useLocationStore } from '@/stores/location';
 import RemoteImage from '@/components/RemoteImage';
+import { formatCompactNumber } from '@/utils/format';
 import {
   publicApi,
   unwrapPage,
@@ -29,20 +31,17 @@ import {
   type PublicSchool,
 } from '@/services/publicApi';
 
-/** 千分位 + 万/百万缩写，避免区域均价把卡片撑破 */
-const compact = (n?: number | null): string => {
-  if (n == null || !Number.isFinite(n)) return '—';
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 10_000) return `${Math.round(n / 1_000)}K`;
-  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-};
-
 export default function DiscoverScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const compact = (n?: number | null) => formatCompactNumber(n, lang);
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const cityKey = useLocationStore((s) => s.selection.cityKey);
-  const cityLabel = useLocationStore((s) => s.selection.cityLabel);
+  const cityLabel = cityDisplayName(
+    cityKey,
+    useLocationStore((s) => s.selection.cityLabel),
+    lang,
+  );
 
   const [summary, setSummary] = useState<PublicCategorySummary | null>(null);
   const [projects, setProjects] = useState<PublicProject[]>([]);

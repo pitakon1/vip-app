@@ -10,7 +10,6 @@ import {
   Text,
   StyleSheet,
   RefreshControl,
-  Alert,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -30,6 +29,7 @@ import {
   calendarEventsApi,
 } from '@/services/api';
 import { errorText } from '@/lib/errorText'
+import { notifyError } from '@/utils/feedback';
 
 interface ViewingItem {
   id: string;
@@ -75,14 +75,12 @@ interface AgendaEvent {
   date: Date;
 }
 
-const AGENDA_META: Record<AgendaKind, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  viewing: { label: '带看', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.12), icon: 'eye-outline' },
-  rent: { label: '租金', color: colors.warningInk, bg: colors.alpha(colors.warningRgb, 0.12), icon: 'wallet-outline' },
-  contract: { label: '合同', color: colors.infoInk, bg: colors.alpha(colors.infoRgb, 0.12), icon: 'document-text-outline' },
-  user: { label: '日程', color: colors.successInk, bg: colors.alpha(colors.successRgb, 0.12), icon: 'calendar-outline' },
+const AGENDA_META: Record<AgendaKind, { labelKey: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
+  viewing: { labelKey: 'emp.kind.viewing', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.12), icon: 'eye-outline' },
+  rent: { labelKey: 'emp.kind.rent', color: colors.warningInk, bg: colors.alpha(colors.warningRgb, 0.12), icon: 'wallet-outline' },
+  contract: { labelKey: 'emp.kind.contract', color: colors.infoInk, bg: colors.alpha(colors.infoRgb, 0.12), icon: 'document-text-outline' },
+  user: { labelKey: 'emp.kind.user', color: colors.successInk, bg: colors.alpha(colors.successRgb, 0.12), icon: 'calendar-outline' },
 };
-
-const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'];
 
 const dateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -107,39 +105,45 @@ const buildMonthDays = (year: number, month: number) => {
   return cells;
 };
 
-const VIEWING_STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
-  pending: { label: '待确认', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
-  confirmed: { label: '待开始', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
-  completed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
-  cancelled: { label: '已取消', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
-  no_show: { label: '爽约', bg: colors.alpha(colors.errorRgb, 0.12), color: colors.errorInk },
+const VIEWING_STATUS_META: Record<string, { labelKey: string; bg: string; color: string }> = {
+  pending: { labelKey: 'emp.viewStatus.pending', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
+  confirmed: { labelKey: 'emp.viewStatus.confirmed', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
+  completed: { labelKey: 'emp.viewStatus.completed', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
+  cancelled: { labelKey: 'emp.viewStatus.cancelled', bg: colors.alpha('148, 163, 184', 0.12), color: colors.ink2 },
+  no_show: { labelKey: 'emp.viewStatus.noShow', bg: colors.alpha(colors.errorRgb, 0.12), color: colors.errorInk },
 };
 
-const getStatusMeta = (status?: string | null) =>
-  VIEWING_STATUS_META[status ?? ''] ?? {
+const getStatusMeta = (status: string | null | undefined, t: (key: string, params?: Record<string, string | number>) => string) => {
+  const known = VIEWING_STATUS_META[status ?? ''];
+  if (known) return { ...known, label: t(known.labelKey) };
+  return {
     label: status || '-',
     bg: colors.alpha('148, 163, 184', 0.12),
     color: colors.ink2,
   };
+};
 
 const toTime = (dt: Date | null) =>
   dt ? `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}` : '--:--';
 
 // 客户线索阶段（后端 LeadStage 枚举）
-const LEAD_STAGE_META: Record<string, { label: string; bg: string; color: string }> = {
-  inquiring: { label: '咨询中', bg: colors.alpha('148, 163, 184', 0.14), color: colors.ink2 },
-  viewing_scheduled: { label: '看房中', bg: colors.alpha(colors.infoRgb, 0.12), color: colors.infoInk },
-  negotiating: { label: '谈判中', bg: colors.alpha(colors.warningRgb, 0.12), color: colors.warningInk },
-  pending_contract: { label: '待签约', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
-  closed: { label: '已完成', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
+const LEAD_STAGE_META: Record<string, { labelKey: string; bg: string; color: string }> = {
+  inquiring: { labelKey: 'emp.leadStage.inquiring', bg: colors.alpha('148, 163, 184', 0.14), color: colors.ink2 },
+  viewing_scheduled: { labelKey: 'emp.leadStage.viewing', bg: colors.alpha(colors.infoRgb, 0.12), color: colors.infoInk },
+  negotiating: { labelKey: 'emp.leadStage.negotiating', bg: colors.alpha(colors.warningRgb, 0.12), color: colors.warningInk },
+  pending_contract: { labelKey: 'emp.leadStage.pending', bg: colors.alpha(colors.primaryRgb, 0.12), color: colors.primaryText },
+  closed: { labelKey: 'emp.leadStage.closed', bg: colors.alpha(colors.successRgb, 0.12), color: colors.successInk },
 };
 
-const getLeadStageMeta = (stage?: string | null) =>
-  LEAD_STAGE_META[stage ?? ''] ?? {
-    label: stage || '未分阶段',
+const getLeadStageMeta = (stage: string | null | undefined, t: (key: string, params?: Record<string, string | number>) => string) => {
+  const known = LEAD_STAGE_META[stage ?? ''];
+  if (known) return { ...known, label: t(known.labelKey) };
+  return {
+    label: stage || t('emp.leadStage.unknown'),
     bg: colors.alpha('148, 163, 184', 0.12),
     color: colors.ink2,
   };
+};
 
 interface LeadItem {
   id: string;
@@ -204,6 +208,7 @@ export default function HomeScreen() {
   const [calSelected, setCalSelected] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const loadAll = useCallback(async () => {
     try {
@@ -273,8 +278,12 @@ export default function HomeScreen() {
         const items = Array.isArray(data) ? data : data?.items ?? [];
         setCustomEvents(items as CalendarEventItem[]);
       }
+      // 任一核心接口失败时给出失败提示：否则页面会把「今日 0 场带看 / 暂无待跟进客户」当成真实数据
+      setLoadFailed(
+        [vwRes, pfRes, ldRes, wbRes, ceRes].some((r) => r.status === 'rejected'),
+      );
     } catch (err: any) {
-      Alert.alert(t('loadFailed'),errorText(err, t('emp.workbenchFail')));
+      notifyError(t('loadFailed'), errorText(err, t('emp.workbenchFail')));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -286,6 +295,11 @@ export default function HomeScreen() {
   }, [loadAll]);
 
   const today = useMemo(() => new Date(), []);
+  // 星期表头随语言切换（日 / 一 … / Sun / Mon …）
+  const weekdayLabels = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => t(`emp.weekday.${i}`)),
+    [t],
+  );
 
   // 今日带看（按时间升序）
   const todaySchedule = useMemo(() => {
@@ -311,8 +325,8 @@ export default function HomeScreen() {
       list.push({
         id: `viewing-${v.id}`,
         kind: 'viewing',
-        title: `${v.visitor_name || '待定客户'} 看房`,
-        sub: v.property_title || v.property_address || '房源',
+        title: t('emp.viewingTitle', { name: v.visitor_name || t('emp.tbdCustomer') }),
+        sub: v.property_title || v.property_address || t('emp.propertyFallback'),
         date: d,
       });
     });
@@ -323,7 +337,7 @@ export default function HomeScreen() {
       list.push({
         id: `rent-${r.payment_id}`,
         kind: 'rent',
-        title: r.is_overdue ? '租金催收' : '租金到期',
+        title: r.is_overdue ? t('emp.rentOverdue') : t('emp.rentDue'),
         sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()}`,
         date: d,
       });
@@ -335,8 +349,10 @@ export default function HomeScreen() {
       list.push({
         id: `contract-${l.lease_id}`,
         kind: 'contract',
-        title: '合同到期',
-        sub: l.property_title || `${symOf(l.currency)}${Number(l.monthly_rent || 0).toLocaleString()}/月`,
+        title: t('emp.contractDue'),
+        sub:
+          l.property_title ||
+          t('emp.perMonth', { amount: `${symOf(l.currency)}${Number(l.monthly_rent || 0).toLocaleString()}` }),
         date: d,
       });
     });
@@ -347,13 +363,13 @@ export default function HomeScreen() {
       list.push({
         id: `user-${u.id}`,
         kind: 'user',
-        title: u.title || '自定义日程',
+        title: u.title || t('emp.customEvent'),
         sub: u.note || '',
         date: d,
       });
     });
     return list.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [viewings, receivables, leases, customEvents]);
+  }, [viewings, receivables, leases, customEvents, t]);
 
   const agendaByDate = useMemo(() => {
     const map: Record<string, AgendaEvent[]> = {};
@@ -410,10 +426,10 @@ export default function HomeScreen() {
           ).toFixed(1)}%`
         : null;
     return {
-      deals: `${deals >= 0 ? '+' : ''}${deals} 较上月`,
+      deals: t('emp.vsLastMonth', { value: `${deals >= 0 ? '+' : ''}${deals}` }),
       commission,
     };
-  }, [monthly, perf]);
+  }, [monthly, perf, t]);
 
   // 业绩柱状图：近 6 个月佣金（纯 View 实现，无图表库依赖）
   const chartBars = useMemo(() => {
@@ -443,7 +459,7 @@ export default function HomeScreen() {
             : String(Math.round(r.commission))
           : '',
     }));
-  }, [monthly]);
+  }, [monthly, t]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -458,7 +474,7 @@ export default function HomeScreen() {
     );
   }
 
-  const roleLine = profile?.position || profile?.department || '经纪工作台';
+  const roleLine = profile?.position || profile?.department || t('emp.roleFallback');
 
   return (
     <ScrollView
@@ -474,12 +490,34 @@ export default function HomeScreen() {
         />
       }
     >
+      {loadFailed ? (
+        <View style={styles.errorBanner}>
+          <Ionicons name="cloud-offline-outline" size={16} color={colors.errorInk} />
+          <Text style={styles.errorText} numberOfLines={2}>
+            {t('emp.workbenchFail')}
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              setLoadFailed(false);
+              setRefreshing(true);
+              loadAll();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.errorRetry}>{t('common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {/* 今日概览卡（品牌色底 + 白字） */}
       <View style={styles.greeting}>
         <View style={styles.greetingLeft}>
           <Text style={styles.greetingSub}>
-            今日 {todaySchedule.length} 场带看 · 本月成交 {perf?.month_deals ?? 0} 单 · 佣金{' '}
-            {money(perf?.month_commission)}
+            {t('emp.greeting', {
+              viewings: todaySchedule.length,
+              deals: perf?.month_deals ?? 0,
+              commission: money(perf?.month_commission),
+            })}
           </Text>
         </View>
         <View style={styles.greetingAvatar}>
@@ -490,9 +528,9 @@ export default function HomeScreen() {
       {/* 今日工作台：带看时间线 */}
       <View style={styles.sectionHead}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>今日工作台</Text>
+          <Text style={styles.sectionTitle}>{t('emp.workbench')}</Text>
           <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{todaySchedule.length} 场带看</Text>
+            <Text style={styles.countBadgeText}>{t('emp.viewingCount', { n: todaySchedule.length })}</Text>
           </View>
         </View>
       </View>
@@ -500,19 +538,28 @@ export default function HomeScreen() {
       <View style={styles.timelineCard}>
         {todaySchedule.length === 0 ? (
           <View style={styles.scheduleEmpty}>
-            <Text style={styles.scheduleEmptyText}>今天暂无带看安排</Text>
+            <Text style={styles.scheduleEmptyText}>{t('emp.todayNoViewing')}</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={() => navigation.navigate('Calendar')}>
-              <Text style={styles.scheduleEmptyLink}>去日历页添加安排 ›</Text>
+              <Text style={styles.scheduleEmptyLink}>{t('emp.goCalendar')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           todaySchedule.map((item, idx) => {
-            const meta = getStatusMeta(item.status);
-            const hint = idx === nextIndex ? '下一场' : idx < nextIndex || nextIndex === -1 ? '已过' : '';
+            const meta = getStatusMeta(item.status, t);
+            const hint =
+              idx === nextIndex
+                ? t('emp.nextUp')
+                : idx < nextIndex || nextIndex === -1
+                  ? t('emp.past')
+                  : '';
             return (
-              <View
+              <TouchableOpacity
                 key={item.id}
                 style={[styles.timelineItem, idx > 0 && styles.timelineItemDivided]}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('Calendar')}
+                accessibilityRole="button"
+                accessibilityLabel={item.visitor_name || t('emp.tbdCustomer')}
               >
                 <View style={styles.timelineTime}>
                   <Text
@@ -524,16 +571,16 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.timelineBody}>
                   <Text style={styles.timelineName} numberOfLines={1}>
-                    {item.visitor_name || '待定客户'}
+                    {item.visitor_name || t('emp.tbdCustomer')}
                   </Text>
                   <Text style={styles.timelineProp} numberOfLines={1}>
-                    {item.property_title || item.property_address || '房源'}
+                    {item.property_title || item.property_address || t('emp.propertyFallback')}
                   </Text>
                 </View>
                 <View style={[styles.stageBadge, { backgroundColor: meta.bg }]}>
                   <Text style={[styles.stageBadgeText, { color: meta.color }]}>{meta.label}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -542,9 +589,11 @@ export default function HomeScreen() {
       {/* 我的日历：紧接今日工作台，按日期直接看每天行程（不展示具体时间） */}
       <View style={styles.sectionHead}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>我的日历</Text>
+          <Text style={styles.sectionTitle}>{t('emp.myCalendar')}</Text>
           <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{calMonthCount} 项安排</Text>
+            <Text style={styles.countBadgeText}>
+              {t('emp.agendaCount', { n: calMonthCount })}
+            </Text>
           </View>
         </View>
         <TouchableOpacity
@@ -552,7 +601,7 @@ export default function HomeScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => navigation.navigate('Calendar')}
         >
-          <Text style={styles.chartMore}>完整日历 ›</Text>
+          <Text style={styles.chartMore}>{t('emp.fullCalendar')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -563,9 +612,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.calMonthBtn} onPress={backToToday} activeOpacity={0.7}>
             <Text style={styles.calMonthText}>
-              {calYear} 年 {calMonth + 1} 月
+              {t('emp.yearMonth', { year: calYear, month: calMonth + 1 })}
             </Text>
-            <Text style={styles.calTodayText}>回到今天</Text>
+            <Text style={styles.calTodayText}>{t('emp.backToToday')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.calNav} onPress={() => shiftCalendarMonth(1)} activeOpacity={0.7}>
             <Ionicons name="chevron-forward" size={18} color={colors.ink} />
@@ -573,7 +622,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.calWeekRow}>
-          {WEEKDAY_LABELS.map((w, i) => (
+          {weekdayLabels.map((w, i) => (
             <Text key={i} style={[styles.calWeekDay, i === 0 || i === 6 ? styles.calWeekDayWeekend : null]}>
               {w}
             </Text>
@@ -635,7 +684,7 @@ export default function HomeScreen() {
                       style={[styles.calCountText, selected && styles.calCountTextSelected]}
                       numberOfLines={1}
                     >
-                      {dayEvents.length}项
+                      {t('emp.itemsShort', { n: dayEvents.length })}
                     </Text>
                   </>
                 ) : null}
@@ -646,13 +695,18 @@ export default function HomeScreen() {
 
         <View style={styles.calAgendaHead}>
           <Text style={styles.calAgendaTitle}>
-            {calSelected.getMonth() + 1}月{calSelected.getDate()}日 · 行程
+            {t('emp.agendaDateTitle', {
+              month: calSelected.getMonth() + 1,
+              day: calSelected.getDate(),
+            })}
           </Text>
-          <Text style={styles.calAgendaCount}>{calSelectedEvents.length} 项</Text>
+          <Text style={styles.calAgendaCount}>
+            {t('emp.itemsCount', { n: calSelectedEvents.length })}
+          </Text>
         </View>
 
         {calSelectedEvents.length === 0 ? (
-          <Text style={styles.calAgendaEmpty}>这一天暂无行程安排</Text>
+          <Text style={styles.calAgendaEmpty}>{t('emp.dayNoAgenda')}</Text>
         ) : (
           calSelectedEvents.map((e) => {
             const meta = AGENDA_META[e.kind];
@@ -666,7 +720,7 @@ export default function HomeScreen() {
                     {e.title}
                   </Text>
                   <Text style={styles.calAgendaSub} numberOfLines={1}>
-                    {meta.label}
+                    {t(meta.labelKey)}
                     {e.sub ? ` · ${e.sub}` : ''}
                   </Text>
                 </View>
@@ -679,25 +733,31 @@ export default function HomeScreen() {
       {/* 待跟进客户 */}
       <View style={styles.sectionHead}>
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>待跟进客户</Text>
+          <Text style={styles.sectionTitle}>{t('emp.leadsTitle')}</Text>
           <View style={[styles.countBadge, styles.countBadgeWarn]}>
             <Text style={[styles.countBadgeText, { color: colors.warningInk }]}>
-              {leads.length} 位
+              {t('emp.leadCount', { n: leads.length })}
             </Text>
           </View>
         </View>
       </View>
 
       {leads.length === 0 ? (
-        <EmptyState icon="people-outline" title="暂无待跟进客户" sub="分配给你的客户线索会展示在这里" />
+        <EmptyState icon="people-outline" title={t('emp.noLeads')} sub={t('emp.noLeadsSub')} />
       ) : (
         <View style={styles.listCard}>
           {leads.map((lead, idx) => {
-            const meta = getLeadStageMeta(lead.stage);
+            const meta = getLeadStageMeta(lead.stage, t);
+            const budgetValue = lead.budget_max ?? lead.budget_min;
             const budget =
               lead.budget_min || lead.budget_max
-                ? `预算 ${money(lead.budget_max ?? lead.budget_min, lead.budget_currency)}`
-                : lead.source || '未填预算';
+                ? t('emp.budget', {
+                    // 币种缺失时不猜符号（避免把 USD 预算标成 ฿）
+                    amount: lead.budget_currency
+                      ? money(budgetValue, lead.budget_currency)
+                      : Number(budgetValue || 0).toLocaleString(),
+                  })
+                : lead.source || t('emp.noBudget');
             return (
               <View key={lead.id} style={[styles.listItem, idx > 0 && styles.listItemDivided]}>
                 <View style={styles.listAvatar}>
@@ -706,7 +766,7 @@ export default function HomeScreen() {
                 <View style={styles.listBody}>
                   <View style={styles.listTop}>
                     <Text style={styles.listName} numberOfLines={1}>
-                      {lead.name || '未命名客户'}
+                      {lead.name || t('emp.unnamedLead')}
                     </Text>
                     <View style={[styles.stageBadge, { backgroundColor: meta.bg }]}>
                       <Text style={[styles.stageBadgeText, { color: meta.color }]}>{meta.label}</Text>
@@ -720,9 +780,11 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={styles.followBtn}
                   activeOpacity={0.8}
-                  onPress={() => navigation.navigate('CRM')}
+                  onPress={() =>
+                    navigation.navigate('CRM', lead.name ? { leadName: lead.name } : undefined)
+                  }
                 >
-                  <Text style={styles.followBtnText}>去跟进</Text>
+                  <Text style={styles.followBtnText}>{t('emp.followUp')}</Text>
                 </TouchableOpacity>
               </View>
             );
@@ -732,13 +794,13 @@ export default function HomeScreen() {
 
       {/* 业绩摘要（图表卡片：关键指标 + 近 6 个月佣金柱状图 + 环比） */}
       <View style={styles.blockTitleRow}>
-        <Text style={styles.blockTitle}>业绩摘要</Text>
+        <Text style={styles.blockTitle}>{t('emp.perfSummary')}</Text>
         <TouchableOpacity
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           onPress={() => navigation.navigate('Performance')}
         >
-          <Text style={styles.chartMore}>查看详情 ›</Text>
+          <Text style={styles.chartMore}>{t('emp.viewDetail')}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.chartCard}>
@@ -746,28 +808,32 @@ export default function HomeScreen() {
           <View style={styles.chartKeyCell}>
             <Text style={[styles.chartKeyValue, { color: colors.primaryText }]}>
               {perf?.month_deals ?? 0}
-              <Text style={styles.chartKeyUnit}> 单</Text>
+              <Text style={styles.chartKeyUnit}> {t('emp.dealUnit')}</Text>
             </Text>
-            <Text style={styles.chartKeyLabel}>本月成交</Text>
+            <Text style={styles.chartKeyLabel}>{t('emp.monthDealsShort')}</Text>
           </View>
           <View style={styles.chartKeyDivider} />
           <View style={styles.chartKeyCell}>
             <Text style={styles.chartKeyValue}>{money(perf?.month_commission)}</Text>
-            <Text style={styles.chartKeyLabel}>佣金收入</Text>
+            <Text style={styles.chartKeyLabel}>{t('emp.commissionIncome')}</Text>
           </View>
           <View style={styles.chartKeyDivider} />
           <View style={styles.chartKeyCell}>
-            <Text style={styles.chartKeyValue}>{myRank > 0 ? `第 ${myRank}` : '—'}</Text>
-            <Text style={styles.chartKeyLabel}>团队排名</Text>
+            <Text style={styles.chartKeyValue}>
+              {myRank > 0 ? t('emp.rankLabel', { n: myRank }) : '—'}
+            </Text>
+            <Text style={styles.chartKeyLabel}>{t('emp.teamRank')}</Text>
           </View>
         </View>
 
         <View style={styles.chartDivider} />
 
         <View style={styles.chartTitleRow}>
-          <Text style={styles.chartTitle}>近 6 个月佣金趋势</Text>
+          <Text style={styles.chartTitle}>{t('emp.trend6m')}</Text>
           {deltas.commission ? (
-            <Text style={styles.chartTitleDelta}>{deltas.commission} 较上月</Text>
+            <Text style={styles.chartTitleDelta}>
+              {t('emp.vsLastMonth', { value: deltas.commission })}
+            </Text>
           ) : null}
         </View>
 
@@ -795,7 +861,7 @@ export default function HomeScreen() {
         {deltas.deals ? (
           <View style={styles.chartDeltaRow}>
             <Text style={styles.chartDelta}>{deltas.deals}</Text>
-            <Text style={styles.chartDeltaMuted}>（以月度业绩为基数）</Text>
+            <Text style={styles.chartDeltaMuted}>{t('emp.monthBase')}</Text>
           </View>
         ) : null}
       </View>
@@ -807,6 +873,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 32 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+  /* ===== 失败提示条 ===== */
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: colors.spacing.lg,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+  },
+  errorText: { flex: 1, fontSize: 12, color: colors.errorInk, lineHeight: 17 },
+  errorRetry: { fontSize: 12, fontWeight: '700', color: colors.errorInk },
 
   /* ===== 问候行（品牌色底 + 深墨字） ===== */
   greeting: {

@@ -1,4 +1,5 @@
 import { LIST_PAGE_SIZE } from '@/lib/pagination';
+import { fmtDate } from '@/utils/format';
 /**
  * 房源详情（管理端）
  * 原型：admin-mobile-property-detail.html
@@ -104,7 +105,6 @@ const TICKET_STATUS = (
   closed: { label: t('ticket.status.closed'), color: colors.ink2, rgb: colors.primaryRgb },
 });
 
-const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
 export default function AdminPropertyDetailScreen() {

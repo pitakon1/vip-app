@@ -25,6 +25,7 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  Keyboard,
   useWindowDimensions,
 } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
@@ -34,6 +35,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import ListState from '@/components/ListState';
+import LoadingState from '@/components/LoadingState';
+import { usePanelToggle } from '@/components/PanelBackdrop';
+import { notifyError } from '@/utils/feedback';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -150,7 +154,20 @@ export function CategoryTopBar({
               placeholder={searchPlaceholder}
               placeholderTextColor={colors.ink3}
               returnKeyType="search"
+              onSubmitEditing={() => Keyboard.dismiss()}
+              accessibilityLabel={searchPlaceholder}
             />
+            {keyword ? (
+              <TouchableOpacity
+                onPress={() => onKeywordChange('')}
+                hitSlop={colors.touch.hitSlop}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.clear')}
+              >
+                <Ionicons name="close-circle" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </View>
@@ -259,6 +276,9 @@ export function PlainTabs({
             style={styles.plainTab}
             activeOpacity={0.7}
             onPress={() => onChange?.(it.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={it.label}
           >
             <Text style={[styles.plainTabText, active && styles.plainTabTextActive]}>{it.label}</Text>
           </TouchableOpacity>
@@ -378,6 +398,9 @@ function BlockOption({
       style={[styles.block, width ? { width } : null, active && styles.blockActive]}
       activeOpacity={0.8}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
     >
       <Text style={[styles.blockText, active && styles.blockTextActive]} numberOfLines={1}>
         {label}
@@ -626,6 +649,9 @@ export function FilterBar({
               style={styles.filterTrigger}
               activeOpacity={0.8}
               onPress={() => open(g)}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: openKey === g.key }}
+              accessibilityLabel={label}
             >
               <Text style={[styles.filterTriggerText, active && styles.filterTriggerTextActive]} numberOfLines={1}>
                 {label}
@@ -658,6 +684,9 @@ export function FilterBar({
                 style={[styles.quickTag, active && styles.quickTagActive]}
                 activeOpacity={0.8}
                 hitSlop={{ top: 7, bottom: 7, left: 0, right: 0 }}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={tag.label}
                 onPress={() => {
                   if (tag.reset) {
                     onReset?.();
@@ -766,7 +795,10 @@ export function CategoryListScreen<T>({
   const insets = useSafeAreaInsets();
 
   const [values, setValues] = useState<FilterValues>({ ...DEFAULT_VALUES, ...defaultFilterValues });
-  const [openGroup, setOpenGroup] = useState<{ group: FilterGroup; top: number } | null>(null);
+  // 面板开关统一走共享 toggle：再次点击当前已展开的筛选项 = 收起
+  const { openKey, toggle: toggleGroup, close: closeGroup } = usePanelToggle<string>();
+  const [openTop, setOpenTop] = useState(0);
+  const openGroup = openKey ? filterGroups.find((g) => g.key === openKey) ?? null : null;
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   const [items, setItems] = useState<T[]>([]);
@@ -779,9 +811,13 @@ export function CategoryListScreen<T>({
   const reqSeq = useRef(0);
   // 筛选默认值（含排序）：不同分类的数据面接受不同的 sort 枚举，
   // 必须由页面显式下发，不能一律用 latest（/public/projects 会 422）。
+  // 默认值按内容序列化做依赖：调用方若传内联对象（如新房 `{ sort: 'hot' }`），
+  // 引用每次渲染都变，会让下面 query → load 的 memo 级联失效，进而 effect 无限重拉。
+  const defaultValuesKey = JSON.stringify(defaultFilterValues ?? {});
   const baseValues = useMemo(
     () => ({ ...DEFAULT_VALUES, ...defaultFilterValues }),
-    [defaultFilterValues],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [defaultValuesKey],
   );
 
   useEffect(() => {
@@ -809,9 +845,10 @@ export function CategoryListScreen<T>({
         setTotal(res.total);
         setPage(targetPage);
         setItems((prev) => (targetPage === 1 ? res.items : [...prev, ...res.items]));
-      } catch {
+      } catch (err) {
         if (seq !== reqSeq.current) return;
         if (targetPage === 1) setLoadError(t('loadFailed'));
+        else notifyError(t('loadFailed'), err);
       } finally {
         if (seq === reqSeq.current) {
           setLoading(false);
@@ -842,10 +879,8 @@ export function CategoryListScreen<T>({
         rightActions={rightActions}
       />
 
-      {loading || loadError ? (
+      {loadError ? (
         <ListState
-          loading={loading}
-          loadingLabel={t('category.loading')}
           error={loadError}
           retryLabel={t('retry')}
           onRetry={() => {
@@ -855,7 +890,7 @@ export function CategoryListScreen<T>({
         />
       ) : (
         <FlatList
-          data={items}
+          data={loading ? [] : items}
           keyExtractor={keyExtractor}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
@@ -875,11 +910,20 @@ export function CategoryListScreen<T>({
                 onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
                 quickTags={quickTags}
                 onReset={() => setValues(baseValues)}
-                openKey={openGroup?.group.key ?? null}
-                onOpenGroup={(g, top) => setOpenGroup({ group: g, top })}
+                openKey={openKey}
+                onOpenGroup={(g, top) => {
+                  if (openKey === g.key) {
+                    closeGroup();
+                    return;
+                  }
+                  setOpenTop(top);
+                  toggleGroup(g.key);
+                }}
               />
-              <Text style={styles.count}>{t('category.resultCount', { n: total })}</Text>
-              {items.length === 0 ? (
+              {!loading ? (
+                <Text style={styles.count}>{t('category.resultCount', { n: total })}</Text>
+              ) : null}
+              {!loading && items.length === 0 ? (
                 <ListState empty filtered={filtered} emptyTitle={emptyTitle} emptySub={emptySub} />
               ) : null}
             </View>
@@ -901,21 +945,24 @@ export function CategoryListScreen<T>({
               tintColor={colors.primary}
             />
           }
+          ListEmptyComponent={loading ? <LoadingState label={t('category.loading')} /> : null}
           ListFooterComponent={
             loadingMore ? (
               <ActivityIndicator style={{ paddingVertical: 16 }} color={colors.primary} />
+            ) : items.length > 0 && !hasMore ? (
+              <Text style={styles.footer}>{t('pub.noMore')}</Text>
             ) : null
           }
         />
       )}
       {openGroup ? (
         <FilterPanel
-          key={openGroup.group.key}
-          group={openGroup.group}
+          key={openGroup.key}
+          group={openGroup}
           values={values}
-          topOffset={openGroup.top}
+          topOffset={openTop}
           onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
-          onClose={() => setOpenGroup(null)}
+          onClose={closeGroup}
         />
       ) : null}
     </View>
@@ -1001,7 +1048,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: colors.spacing.sm,
   },
-  plainTab: { paddingVertical: colors.spacing.xs },
+  plainTab: { minHeight: colors.touch.min, justifyContent: 'center', paddingVertical: colors.spacing.xs },
   plainTabText: { fontSize: colors.fontSize.base, color: colors.ink3, fontWeight: colors.fontWeight.medium },
   plainTabTextActive: { color: colors.ink, fontWeight: colors.fontWeight.bold },
 
@@ -1064,7 +1111,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
-  bannerBtnText: { fontSize: colors.fontSize.sm, color: colors.accent, fontWeight: '700' },
+  bannerBtnText: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '700' },
 
   // 筛选行：贝壳式纯文字 + 小三角，各项均分，底部 hairline 分隔
   filterRow: {
@@ -1099,9 +1146,10 @@ const styles = StyleSheet.create({
   },
   quickTagActive: { backgroundColor: colors.sidebarActive },
   quickTagText: { fontSize: colors.fontSize.sm, color: colors.ink2 },
-  quickTagTextActive: { color: colors.accent, fontWeight: colors.fontWeight.semibold },
+  quickTagTextActive: { color: colors.primary, fontWeight: colors.fontWeight.semibold },
 
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 4, marginBottom: 8 },
+  footer: { fontSize: colors.fontSize.sm, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
 
   // 筛选面板（贝壳 App 实测：紧贴筛选条下沿的整幅下拉，下方露出列表，点外部关闭）
   panelOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20, elevation: 20 },

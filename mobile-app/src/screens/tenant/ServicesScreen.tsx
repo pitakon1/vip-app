@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Modal,
   ActivityIndicator,
   RefreshControl,
@@ -20,7 +19,8 @@ import { fmtMoney as formatMoney, fmtDate } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import LoadingState from '@/components/LoadingState';
-import { errorText } from '@/lib/errorText'
+import { notify, notifyError } from '@/utils/feedback';
+import { useI18n } from '@/i18n';
 
 const formatDate = (x?: string) => fmtDate(x, 'minute');
 
@@ -53,20 +53,20 @@ const SERVICE_ICONS: Record<string, string> = {
   insurance: 'shield-checkmark-outline',
 };
 
-const orderStatusMeta: Record<string, { text: string; color: string; bg: string }> = {
-  pending: { text: '待处理', color: colors.warning, bg: colors.warningLight },
-  assigned: { text: '已派单', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  in_progress: { text: '进行中', color: colors.primary, bg: colors.sidebarActive },
-  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
-  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
+const orderStatusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  pending: { labelKey: 'svc.st.pending', color: colors.warning, bg: colors.warningLight },
+  assigned: { labelKey: 'svc.st.assigned', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  in_progress: { labelKey: 'svc.st.inProgress', color: colors.primary, bg: colors.sidebarActive },
+  completed: { labelKey: 'svc.st.completed', color: colors.success, bg: colors.successLight },
+  cancelled: { labelKey: 'svc.st.cancelled', color: colors.ink3, bg: colors.surface2 },
 };
 
 /* ===== 购买规格（淘宝式 SKU：按次 / 按日 / 按月）===== */
 type BuyModel = 'per_use' | 'daily' | 'monthly';
-const MODEL_OPTIONS: { key: BuyModel; label: string }[] = [
-  { key: 'per_use', label: '按次' },
-  { key: 'daily', label: '按日' },
-  { key: 'monthly', label: '按月' },
+const MODEL_OPTIONS: { key: BuyModel; labelKey: string; noteZh: string }[] = [
+  { key: 'per_use', labelKey: 'svc.model.perUse', noteZh: '按次' },
+  { key: 'daily', labelKey: 'svc.model.daily', noteZh: '按日' },
+  { key: 'monthly', labelKey: 'svc.model.monthly', noteZh: '按月' },
 ];
 // 规格单价必须由服务端 /billing/pricing/quotes 报价，客户端不再维护系数
 // 各规格可选购数量（次数 / 天数 / 月数）
@@ -75,10 +75,18 @@ const MODEL_QTY_OPTIONS: Record<BuyModel, number[]> = {
   daily: [1, 3, 7, 15, 30],
   monthly: [1, 3, 6, 12],
 };
-const MODEL_UNIT_LABEL: Record<BuyModel, string> = {
-  per_use: '次',
-  daily: '天',
-  monthly: '月',
+const MODEL_UNIT_KEY: Record<BuyModel, string> = {
+  per_use: 'svc.unit.perUse',
+  daily: 'svc.unit.daily',
+  monthly: 'svc.unit.monthly',
+};
+
+const SERVICE_NAME_KEYS: Record<string, string> = {
+  cleaning: 'svc.name.cleaning',
+  ac_cleaning: 'svc.name.acCleaning',
+  wifi_install: 'svc.name.wifiInstall',
+  utility_payment: 'svc.name.utility',
+  insurance: 'svc.name.insurance',
 };
 
 interface ServicesPayload {
@@ -88,6 +96,7 @@ interface ServicesPayload {
 }
 
 export default function ServicesScreen() {
+  const { t } = useI18n();
   const user = useAuthStore((state: any) => state.user);
   const uid = user?.id ?? 'anon';
   const [selected, setSelected] = useState<CatalogItem | null>(null);
@@ -212,15 +221,22 @@ export default function ServicesScreen() {
     setBuyQty(MODEL_QTY_OPTIONS[m][0]);
   };
 
+  const unitOf = (m: BuyModel) => t(MODEL_UNIT_KEY[m]);
+  const serviceNameOf = (item?: CatalogItem | null) => {
+    if (!item) return '';
+    const k = SERVICE_NAME_KEYS[item.code];
+    return k ? t(k) : item.label_zh || item.code;
+  };
+
   // 提交购买：写入真实服务订单（orderer_id / orderer_type / property_id 必填）
   const handleBuy = async () => {
     if (!selected) return;
     if (!user?.id) {
-      Alert.alert('提示', '请先登录后再购买服务');
+      notify(t('common.notice'), t('svc.loginRequired'));
       return;
     }
     if (!activeLease?.property_id) {
-      Alert.alert('提示', '当前没有生效中的租约，无法关联房源购买服务');
+      notify(t('common.notice'), t('svc.noActiveLease'));
       return;
     }
     setSubmitting(true);
@@ -237,7 +253,7 @@ export default function ServicesScreen() {
         currency: 'THB',
         notes: isUtility
           ? '公共事业代缴（单笔）'
-          : `${MODEL_OPTIONS.find((m) => m.key === buyModel)?.label} x${buyQty}`,
+          : `${MODEL_OPTIONS.find((m) => m.key === buyModel)?.noteZh} x${buyQty}`,
       };
       await serviceOrdersApi.create(
         isUtility
@@ -249,15 +265,14 @@ export default function ServicesScreen() {
               billing_amount: unitPrice,
             },
       );
-      Alert.alert(
-        isUtility ? '缴费成功' : '购买成功',
-        isUtility ? '公共事业代缴已提交，请留意缴费结果' : '服务订单已提交，工作人员将尽快与您联系',
+      notify(
+        isUtility ? t('svc.paySuccess') : t('svc.buySuccess'),
+        isUtility ? t('svc.paySuccessMsg') : t('svc.buySuccessMsg'),
       );
       setSelected(null);
       void q.refetch({ cancelRefetch: false });
     } catch (err: any) {
-      Alert.alert(
-        '购买失败',errorText(err, '请稍后重试'));
+      notifyError(t('svc.buyFail'), err);
     } finally {
       setSubmitting(false);
     }
@@ -266,7 +281,7 @@ export default function ServicesScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="加载服务中…" />
+        <LoadingState label={t('svc.loading')} />
       </View>
     );
   }
@@ -281,36 +296,36 @@ export default function ServicesScreen() {
       >
         {/* Hero */}
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>服务商城</Text>
-          <Text style={styles.heroSub}>按次 · 按日 · 按月，按需选购</Text>
+          <Text style={styles.heroTitle}>{t('svc.title')}</Text>
+          <Text style={styles.heroSub}>{t('svc.subtitle')}</Text>
         </View>
 
         {/* 快捷过滤/标签（淘宝式：当前可选规格一眼可见） */}
         <View style={styles.filterRow}>
           {MODEL_OPTIONS.map((m) => (
             <View key={m.key} style={styles.filterTag}>
-              <Text style={styles.filterTagText}>{m.label}</Text>
+              <Text style={styles.filterTagText}>{t(m.labelKey)}</Text>
             </View>
           ))}
         </View>
 
         {/* 服务商品橱窗（淘宝式两列商品卡） */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>实惠购</Text>
-          <Text style={styles.sectionHint}>专人上门 · 安心服务</Text>
+          <Text style={styles.sectionTitle}>{t('svc.sectionShop')}</Text>
+          <Text style={styles.sectionHint} numberOfLines={1}>{t('svc.sectionShopSub')}</Text>
         </View>
         {catalog.length === 0 ? (
           <View style={styles.emptyBox}>
             <Ionicons name="construct-outline" size={40} color={colors.ink3} />
-            <Text style={styles.empty}>暂无可用服务</Text>
+            <Text style={styles.empty}>{t('svc.empty')}</Text>
           </View>
         ) : (
           <View style={styles.productGrid}>
             {catalog.map((item) => {
               const unitBase =
                 item.code === 'utility_payment'
-                  ? `${formatMoney(Number(item.base_price || 0), 'THB')}/笔`
-                  : `${formatMoney(Number(item.base_price || 0), 'THB')}/${item.unit || '次'}`;
+                  ? `${formatMoney(Number(item.base_price || 0), 'THB')}/${t('svc.unit.order')}`
+                  : `${formatMoney(Number(item.base_price || 0), 'THB')}/${item.unit || t('svc.unit.perUse')}`;
               return (
                 <TouchableOpacity
                   key={item.code}
@@ -325,11 +340,11 @@ export default function ServicesScreen() {
                       color={colors.primary}
                     />
                   </View>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {item.label_zh || item.code}
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {serviceNameOf(item)}
                   </Text>
-                  <Text style={styles.productTag}>
-                    {item.code === 'utility_payment' ? '公共事业代缴' : '按次 · 按日 · 按月'}
+                  <Text style={styles.productTag} numberOfLines={1}>
+                    {item.code === 'utility_payment' ? t('svc.utilityTag') : t('svc.modelTag')}
                   </Text>
                   <View style={styles.productFoot}>
                     <Text style={styles.productPrice} numberOfLines={1}>
@@ -346,9 +361,9 @@ export default function ServicesScreen() {
         )}
 
         {/* 我的订单（真实订单数据） */}
-        <Text style={styles.sectionTitle}>我的订单</Text>
+        <Text style={styles.sectionTitle}>{t('svc.myOrders')}</Text>
         {orders.length === 0 ? (
-          <Text style={styles.empty}>暂无服务订单</Text>
+          <Text style={styles.empty}>{t('svc.noOrders')}</Text>
         ) : (
           <View style={styles.orderCard}>
             {orders.map((o) => {
@@ -357,9 +372,9 @@ export default function ServicesScreen() {
                 <View key={o.id} style={styles.orderItem}>
                   <View style={styles.orderInfo}>
                     <Text style={styles.orderTitle}>
-                      {catalog.find((c) => c.code === o.service_type)?.label_zh ??
-                        o.service_type ??
-                        '服务订单'}
+                      {catalog.find((c) => c.code === o.service_type)
+                        ? serviceNameOf(catalog.find((c) => c.code === o.service_type))
+                        : t('svc.orderFallback')}
                     </Text>
                     <Text style={styles.orderMeta}>
                       {formatDate(o.scheduled_at ?? o.created_at)} ·{' '}
@@ -368,7 +383,7 @@ export default function ServicesScreen() {
                   </View>
                   <View style={[styles.chip, { backgroundColor: meta.bg }]}>
                     <Text style={[styles.chipText, { color: meta.color }]}>
-                      {meta.text}
+                      {t(meta.labelKey)}
                     </Text>
                   </View>
                 </View>
@@ -397,11 +412,14 @@ export default function ServicesScreen() {
                 />
               </View>
               <View style={styles.skuInfo}>
-                <Text style={styles.skuTitle}>{selected?.label_zh || selected?.code}</Text>
+                <Text style={styles.skuTitle}>{serviceNameOf(selected)}</Text>
                 <Text style={styles.skuPrice}>
                   {formatMoney(total, 'THB')}
                   <Text style={styles.skuPriceUnit}>
-                    {'　'}{selectedIsUtility ? '/笔' : `/共 ${buyQty}${MODEL_UNIT_LABEL[buyModel]}`}
+                    {'　'}
+                    {selectedIsUtility
+                      ? `/${t('svc.unit.order')}`
+                      : `/${t('svc.qtyTotal', { n: buyQty, unit: unitOf(buyModel) })}`}
                   </Text>
                 </Text>
               </View>
@@ -411,7 +429,7 @@ export default function ServicesScreen() {
             </View>
 
             {/* 规格选择（水电代缴为公共事业专用接口，无规格选择） */}
-            {!selectedIsUtility && <Text style={styles.specLabel}>购买规格</Text>}
+            {!selectedIsUtility && <Text style={styles.specLabel}>{t('svc.specModel')}</Text>}
             {!selectedIsUtility && (
               <View style={styles.modelRow}>
                 {MODEL_OPTIONS.map((m) => {
@@ -424,10 +442,10 @@ export default function ServicesScreen() {
                       onPress={() => switchModel(m.key)}
                     >
                       <Text style={[styles.modelBtnText, active && styles.modelBtnTextActive]}>
-                        {m.label}
+                        {t(m.labelKey)}
                       </Text>
                       <Text style={[styles.modelSub, active && styles.modelSubActive]}>
-                        {formatMoney(Number(modelQuotes[m.key] || 0), 'THB')}/{MODEL_UNIT_LABEL[m.key]}
+                        {formatMoney(Number(modelQuotes[m.key] || 0), 'THB')}/{unitOf(m.key)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -436,7 +454,7 @@ export default function ServicesScreen() {
             )}
 
             {/* 数量选择（水电代缴不适用） */}
-            {!selectedIsUtility && <Text style={styles.specLabel}>数量</Text>}
+            {!selectedIsUtility && <Text style={styles.specLabel}>{t('svc.specQty')}</Text>}
             {!selectedIsUtility && (
               <View style={styles.qtyWrap}>
                 {MODEL_QTY_OPTIONS[buyModel].map((n) => {
@@ -449,7 +467,7 @@ export default function ServicesScreen() {
                       onPress={() => setBuyQty(n)}
                     >
                       <Text style={[styles.qtyChipText, active && styles.qtyChipTextActive]}>
-                        {n}{MODEL_UNIT_LABEL[buyModel]}
+                        {n}{unitOf(buyModel)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -460,35 +478,35 @@ export default function ServicesScreen() {
             {/* 小计明细 */}
             <View style={styles.summary}>
               <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>单价</Text>
+                <Text style={styles.sumLabel}>{t('svc.unitPrice')}</Text>
                 <Text style={styles.sumValue}>{formatMoney(unitPrice, 'THB')}</Text>
               </View>
               {!selectedIsUtility && (
                 <View style={styles.sumRow}>
-                  <Text style={styles.sumLabel}>数量</Text>
-                  <Text style={styles.sumValue}>{buyQty}{MODEL_UNIT_LABEL[buyModel]}</Text>
+                  <Text style={styles.sumLabel}>{t('svc.specQty')}</Text>
+                  <Text style={styles.sumValue}>{buyQty}{unitOf(buyModel)}</Text>
                 </View>
               )}
               <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>小计</Text>
+                <Text style={styles.sumLabel}>{t('svc.subtotal')}</Text>
                 <Text style={[styles.sumValue, styles.sumTotal]}>{formatMoney(total, 'THB')}</Text>
               </View>
               {!selectedIsUtility && (
                 <View style={styles.sumRow}>
-                  <Text style={styles.sumLabel}>税费</Text>
-                  <Text style={styles.sumValue}>另计（VAT 7%）</Text>
+                  <Text style={styles.sumLabel}>{t('svc.tax')}</Text>
+                  <Text style={styles.sumValue}>{t('svc.taxNote')}</Text>
                 </View>
               )}
             </View>
 
             {!activeLease?.property_id && (
-              <Text style={styles.warn}>当前没有生效中的租约，购买将失败</Text>
+              <Text style={styles.warn}>{t('svc.noLeaseWarn')}</Text>
             )}
 
             {/* 底部结算条 */}
             <View style={styles.buyBar}>
               <View>
-                <Text style={styles.buyBarLabel}>{quoteLoading ? '报价中…' : '应付合计'}</Text>
+                <Text style={styles.buyBarLabel}>{quoteLoading ? t('svc.quoting') : t('svc.totalDue')}</Text>
                 <Text style={styles.buyBarTotal}>{quoteLoading ? '—' : formatMoney(total, 'THB')}</Text>
               </View>
               <TouchableOpacity
@@ -501,7 +519,7 @@ export default function ServicesScreen() {
                   <ActivityIndicator color={colors.primaryForeground} size="small" />
                 ) : (
                   <Text style={styles.buyBtnText}>
-                    {selectedIsUtility ? '立即缴费' : '立即购买'}
+                    {selectedIsUtility ? t('svc.payNow') : t('svc.buyNow')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -548,8 +566,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
-  sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2, flexShrink: 1 },
+  sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500', flexShrink: 1 },
   // 商品橱窗（淘宝式两列）
   productGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 12 },
   productCard: {

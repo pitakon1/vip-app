@@ -14,11 +14,13 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { AREA_GROUPS, type CityGroup } from '@/data/locationArea';
+import { cityDisplayName, countryDisplayName } from '@/data/locationNames';
 import { useI18n } from '@/i18n';
 
 export interface RegionSelection {
@@ -49,7 +51,7 @@ const findCity = (region?: string, city?: string): CityGroup | undefined =>
     : undefined;
 
 export default function RegionPicker({ value, onChange }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const insets = useSafeAreaInsets();
 
   const [visible, setVisible] = useState(false);
@@ -64,12 +66,15 @@ export default function RegionPicker({ value, onChange }: Props) {
   }, [visible, value]);
 
   const countries = useMemo(countriesOf, []);
-  // 国家列按最长国家名定宽（国家名 2–4 字，如「马来西亚」）。
+  // 国家列按最长国家名定宽（中文 2–4 字；英/泰名更长，按当前语言取）。
   // 三列各 flex:1 会让很窄的国家名占掉 1/3 宽度，城市/城区被挤压、右侧留大片空白。
   const countryColWidth = useMemo(() => {
-    const maxLen = countries.reduce((m, c) => Math.max(m, c.length), 0);
-    return Math.min(120, Math.max(76, maxLen * 16 + 16));
-  }, [countries]);
+    const maxLen = countries.reduce(
+      (m, c) => Math.max(m, countryDisplayName(c, lang).length),
+      0,
+    );
+    return Math.min(132, Math.max(76, maxLen * 16 + 16));
+  }, [countries, lang]);
   const cities = useMemo(
     () => (country ? AREA_GROUPS.filter((g) => g.country === country) : []),
     [country],
@@ -109,7 +114,13 @@ export default function RegionPicker({ value, onChange }: Props) {
   };
 
   const summary = value
-    ? [value.region, value.city, value.district].filter(Boolean).join(' · ')
+    ? [
+        countryDisplayName(value.region ?? '', lang),
+        cityDisplayName(findCity(value.region, value.city)?.cityKey, value.city ?? '', lang),
+        value.district,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     : t('regionFilter.allRegions');
 
   return (
@@ -118,6 +129,10 @@ export default function RegionPicker({ value, onChange }: Props) {
         activeOpacity={0.7}
         onPress={() => setVisible(true)}
         style={[styles.trigger, value && styles.triggerActive]}
+        hitSlop={colors.touch.hitSlop}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: visible }}
+        accessibilityLabel={summary}
       >
         <Ionicons name="location-outline" size={13} color={value ? colors.primary : colors.ink2} />
         <Text style={[styles.triggerText, value && styles.triggerTextActive]} numberOfLines={1}>
@@ -128,6 +143,8 @@ export default function RegionPicker({ value, onChange }: Props) {
 
       <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
         <View style={styles.mask}>
+          {/* 点击面板外的空白区域 = 收起（与筛选下拉面板一致） */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setVisible(false)} />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.head}>
               <Text style={styles.title}>{t('regionFilter.title')}</Text>
@@ -135,7 +152,7 @@ export default function RegionPicker({ value, onChange }: Props) {
                 <TouchableOpacity onPress={() => pickCountry(undefined)} hitSlop={8} style={styles.resetBtn}>
                   <Text style={styles.resetText}>{t('regionFilter.allRegions')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setVisible(false)} hitSlop={10}>
+                <TouchableOpacity onPress={() => setVisible(false)} hitSlop={12}>
                   <Ionicons name="close" size={20} color={colors.ink3} />
                 </TouchableOpacity>
               </View>
@@ -144,23 +161,29 @@ export default function RegionPicker({ value, onChange }: Props) {
             <View style={styles.columns}>
               <Column
                 title={t('regionFilter.country')}
-                options={countries}
+                options={countries.map((c) => ({ value: c, label: countryDisplayName(c, lang) }))}
                 active={(o) => o === country}
+                allActive={!country}
                 disabled={false}
                 onPick={pickCountry}
                 width={countryColWidth}
               />
               <Column
                 title={t('regionFilter.city')}
-                options={cities.map((g) => g.cityLabel)}
+                options={cities.map((g) => ({
+                  value: g.cityLabel,
+                  label: cityDisplayName(g.cityKey, g.cityLabel, lang),
+                }))}
                 active={(o) => o === cityLabel}
+                allActive={!cityLabel}
                 disabled={!country}
                 onPick={pickCity}
               />
               <Column
                 title={t('regionFilter.district')}
-                options={districts.map((d) => d.label)}
+                options={districts.map((d) => ({ value: d.label, label: d.label }))}
                 active={(o) => o === value?.district}
+                allActive={!value?.district}
                 disabled={!city}
                 onPick={pickDistrict}
               />
@@ -176,13 +199,17 @@ function Column({
   title,
   options,
   active,
+  allActive,
   disabled,
   onPick,
   width,
 }: {
   title: string;
-  options: string[];
+  /** 选项：value 为下发给后端的原值（中文），label 为当前语言展示名 */
+  options: { value: string; label: string }[];
   active: (o: string) => boolean;
+  /** 「全部」是否处于选中态（各列选中值均为空时） */
+  allActive: boolean;
   disabled: boolean;
   onPick: (o: string | undefined) => void;
   /** 固定列宽（国家列按最长国家名）；不传则等分剩余空间 */
@@ -201,19 +228,25 @@ function Column({
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => onPick(undefined)}
-            style={[styles.opt, styles.optAll]}
+            style={[styles.opt, styles.optAll, allActive && styles.optActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: allActive }}
+            accessibilityLabel={t('common.all')}
           >
-            <Text style={styles.optText}>{t('common.all')}</Text>
+            <Text style={[styles.optText, allActive && styles.optTextActive]}>{t('common.all')}</Text>
           </TouchableOpacity>
           {options.map((o) => (
             <TouchableOpacity
-              key={o}
+              key={o.value}
               activeOpacity={0.7}
-              onPress={() => onPick(o)}
-              style={[styles.opt, active(o) && styles.optActive]}
+              onPress={() => onPick(o.value)}
+              style={[styles.opt, active(o.value) && styles.optActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active(o.value) }}
+              accessibilityLabel={o.label}
             >
-              <Text style={[styles.optText, active(o) && styles.optTextActive]} numberOfLines={1}>
-                {o}
+              <Text style={[styles.optText, active(o.value) && styles.optTextActive]} numberOfLines={1}>
+                {o.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -279,6 +312,8 @@ const styles = StyleSheet.create({
   },
   colEmptyText: { fontSize: 12, color: colors.ink3 },
   opt: {
+    minHeight: colors.touch.min,
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: colors.radius.md,

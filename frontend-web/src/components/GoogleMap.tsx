@@ -253,7 +253,7 @@ function GoogleMapView({
     minWidth: 0,
     height: 36,
     padding: '0 12px',
-    border: '1px solid var(--rent-line, #e2e8f0)',
+    border: '1px solid var(--rent-line, #e2e5e8)',
     borderRadius: 8,
     fontSize: 14,
     color: 'var(--rent-ink, #1c2733)',
@@ -282,7 +282,7 @@ function GoogleMapView({
   const ghostBtnStyle: CSSProperties = {
     height: 36,
     padding: '0 12px',
-    border: '1px solid var(--rent-line, #e2e8f0)',
+    border: '1px solid var(--rent-line, #e2e5e8)',
     borderRadius: 8,
     fontSize: 14,
     color: 'var(--rent-ink, #1c2733)',
@@ -322,8 +322,8 @@ function GoogleMapView({
           justifyContent: 'center',
           gap: 8,
           minHeight: DEFAULT_HEIGHT,
-          background: 'var(--rent-surface-2, #f4f1ec)',
-          border: '1px dashed var(--rent-line, #ece7df)',
+          background: 'var(--rent-surface-2, #eceef1)',
+          border: '1px dashed var(--rent-line, #e2e5e8)',
           color: 'var(--rent-ink-2, #55606c)',
           fontSize: 14,
         }}

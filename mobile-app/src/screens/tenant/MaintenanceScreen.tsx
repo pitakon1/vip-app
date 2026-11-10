@@ -26,22 +26,22 @@ import type { MaintenanceTicket } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
-const PRIORITY_OPTIONS: Array<{ label: string; value: MaintenanceTicket['priority'] }> = [
-  { label: '低', value: 'low' },
-  { label: '中', value: 'medium' },
-  { label: '高', value: 'high' },
-  { label: '紧急', value: 'urgent' },
+const PRIORITY_OPTIONS: Array<{ labelKey: string; value: MaintenanceTicket['priority'] }> = [
+  { labelKey: 'maint.priorityLow', value: 'low' },
+  { labelKey: 'maint.priorityMedium', value: 'medium' },
+  { labelKey: 'maint.priorityHigh', value: 'high' },
+  { labelKey: 'maint.priorityUrgent', value: 'urgent' },
 ];
 
 // 与后端 TicketStatus 对齐（open/assigned/in_progress/resolved/closed）。
 // 注意语义映射：后端 `open` = 已提交待受理 → 展示「待处理」；
 // 后端 `assigned` = 已派单 → 展示「已受理」。
-const statusMeta: Record<string, { text: string; color: string; bg: string }> = {
-  open: { text: '待处理', color: colors.warning, bg: colors.warningLight },
-  assigned: { text: '已受理', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  in_progress: { text: '处理中', color: colors.primary, bg: colors.sidebarActive },
-  resolved: { text: '已完成', color: colors.success, bg: colors.successLight },
-  closed: { text: '已关闭', color: colors.ink3, bg: colors.surface2 },
+const statusMeta: Record<string, { labelKey: string; color: string; bg: string }> = {
+  open: { labelKey: 'maint.statusOpen', color: colors.warning, bg: colors.warningLight },
+  assigned: { labelKey: 'maint.statusAssigned', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  in_progress: { labelKey: 'maint.statusInProgress', color: colors.primary, bg: colors.sidebarActive },
+  resolved: { labelKey: 'maint.statusResolved', color: colors.success, bg: colors.successLight },
+  closed: { labelKey: 'maint.statusClosed', color: colors.ink3, bg: colors.surface2 },
 };
 
 // 优先级徽标（对齐原型：紧急=红 / 高=橙 / 中=蓝 / 低=灰）
@@ -54,11 +54,11 @@ const priorityMeta: Record<string, { color: string; bg: string }> = {
 
 // 状态 Tabs（对齐原型：全部 / 待处理 / 处理中 / 已完成）
 type StatusTabKey = 'all' | 'pending' | 'processing' | 'done';
-const STATUS_TABS: { key: StatusTabKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'pending', label: '待处理' },
-  { key: 'processing', label: '处理中' },
-  { key: 'done', label: '已完成' },
+const STATUS_TABS: { key: StatusTabKey; labelKey: string }[] = [
+  { key: 'all', labelKey: 'maint.tabAll' },
+  { key: 'pending', labelKey: 'maint.statusOpen' },
+  { key: 'processing', labelKey: 'maint.statusInProgress' },
+  { key: 'done', labelKey: 'maint.statusResolved' },
 ];
 
 const matchTab = (status: string, tab: StatusTabKey) => {
@@ -189,7 +189,7 @@ export default function MaintenanceScreen() {
     }
     if (!ok) return;
     if (!activeLease?.property_id) {
-      notify('提示', '当前没有生效中的租约，无法提交报修');
+      notify(t('common.hint'), t('maint.noLease'));
       return;
     }
     setSubmitting(true);
@@ -214,14 +214,14 @@ export default function MaintenanceScreen() {
     }
   };
 
-  const openDetail = (t: TicketRow) => {
-    setSelected(t);
+  const openDetail = (row: TicketRow) => {
+    setSelected(row);
     setRating(5);
     setFeedback('');
   };
 
-  const canRate = (t: TicketRow | null) =>
-    !!t && (t.status === 'resolved' || t.status === 'closed');
+  const canRate = (row: TicketRow | null) =>
+    !!row && (row.status === 'resolved' || row.status === 'closed');
 
   const handleRate = async () => {
     if (!selected) return;
@@ -241,8 +241,8 @@ export default function MaintenanceScreen() {
   const renderTicket = ({ item }: { item: TicketRow }) => {
     const meta = statusMeta[item.status] ?? statusMeta.open;
     const prio = priorityMeta[item.priority] ?? priorityMeta.medium;
-    const prioLabel =
-      PRIORITY_OPTIONS.find((p) => p.value === item.priority)?.label ?? '—';
+    const prioOpt = PRIORITY_OPTIONS.find((p) => p.value === item.priority);
+    const prioLabel = prioOpt ? t(prioOpt.labelKey) : '—';
     return (
       <TouchableOpacity
         style={styles.ticketCard}
@@ -252,7 +252,7 @@ export default function MaintenanceScreen() {
         <View style={styles.ticketTop}>
           <Text style={styles.ticketCode}>{ticketCode(item.id)}</Text>
           <Text style={styles.ticketTitle} numberOfLines={1}>
-            {item.title || '报修工单'}
+            {item.title || t('maint.defaultTitle')}
           </Text>
         </View>
         {!!item.description && (
@@ -266,7 +266,7 @@ export default function MaintenanceScreen() {
               <Text style={[styles.chipText, { color: prio.color }]}>{prioLabel}</Text>
             </View>
             <View style={[styles.chip, { backgroundColor: meta.bg }]}>
-              <Text style={[styles.chipText, { color: meta.color }]}>{meta.text}</Text>
+              <Text style={[styles.chipText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
             </View>
           </View>
           <Text style={styles.ticketDate}>{formatDate(item.created_at)}</Text>
@@ -276,13 +276,17 @@ export default function MaintenanceScreen() {
   };
 
   // Stat Row / Tabs 计数均来自真实工单
-  const pendingCount = tickets.filter((t) => t.status === 'open').length;
+  const pendingCount = tickets.filter((row) => row.status === 'open').length;
   const processingCount = tickets.filter(
-    (t) => t.status === 'assigned' || t.status === 'in_progress'
+    (row) => row.status === 'assigned' || row.status === 'in_progress'
   ).length;
   const tabCount = (key: StatusTabKey) =>
-    tickets.filter((t) => matchTab(t.status, key)).length;
-  const visibleTickets = tickets.filter((t) => matchTab(t.status, statusTab));
+    tickets.filter((row) => matchTab(row.status, key)).length;
+  const visibleTickets = tickets.filter((row) => matchTab(row.status, statusTab));
+  const selectedPrioOpt = selected
+    ? PRIORITY_OPTIONS.find((p) => p.value === selected.priority)
+    : undefined;
+  const selectedPrioLabel = selectedPrioOpt ? t(selectedPrioOpt.labelKey) : '—';
 
   return (
     <ScrollView
@@ -295,19 +299,19 @@ export default function MaintenanceScreen() {
       {/* Stat Row（真实工单统计） */}
       <View style={styles.statRow}>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>待处理</Text>
+          <Text style={styles.statLabel}>{t('maint.statusOpen')}</Text>
           <Text
             style={[styles.statValue, pendingCount > 0 && { color: colors.warning }]}
           >
-            {pendingCount} 个
+            {t('maint.countUnit', { count: pendingCount })}
           </Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>处理中</Text>
+          <Text style={styles.statLabel}>{t('maint.statusInProgress')}</Text>
           <Text
             style={[styles.statValue, processingCount > 0 && { color: colors.primary }]}
           >
-            {processingCount} 个
+            {t('maint.countUnit', { count: processingCount })}
           </Text>
         </View>
       </View>
@@ -318,17 +322,17 @@ export default function MaintenanceScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.statusTabs}
       >
-        {STATUS_TABS.map((t) => {
-          const active = statusTab === t.key;
+        {STATUS_TABS.map((tabItem) => {
+          const active = statusTab === tabItem.key;
           return (
             <TouchableOpacity
-              key={t.key}
+              key={tabItem.key}
               style={[styles.statusTab, active && styles.statusTabActive]}
-              onPress={() => setStatusTab(t.key)}
+              onPress={() => setStatusTab(tabItem.key)}
               activeOpacity={0.8}
             >
               <Text style={[styles.statusTabText, active && styles.statusTabTextActive]}>
-                {t.label} {tabCount(t.key)}
+                {t(tabItem.labelKey)} {tabCount(tabItem.key)}
               </Text>
             </TouchableOpacity>
           );
@@ -337,17 +341,21 @@ export default function MaintenanceScreen() {
 
       {/* 历史工单（可折叠：默认收起，避免历史挤占，保持表单区优先可见） */}
       <View style={styles.historyHeader}>
-        <Text style={styles.sectionTitle}>工单列表</Text>
+        <Text style={styles.sectionTitle}>{t('maint.listTitle')}</Text>
         {!loading && (
           <TouchableOpacity
             onPress={() => setHistoryOpen((v) => !v)}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
-            accessibilityLabel={historyOpen ? '收起工单列表' : '展开全部工单列表'}
+            accessibilityLabel={
+              historyOpen ? t('maint.collapseA11y') : t('maint.expandAllA11y')
+            }
           >
             <Text style={styles.historyToggleText}>
-              {historyOpen ? '收起' : `展开全部(${visibleTickets.length})`}
+              {historyOpen
+                ? t('maint.collapse')
+                : t('maint.expandAll', { count: visibleTickets.length })}
             </Text>
           </TouchableOpacity>
         )}
@@ -355,7 +363,7 @@ export default function MaintenanceScreen() {
       {historyOpen &&
         (loading ? (
           <View style={styles.center}>
-            <LoadingState label="加载工单中…" />
+            <LoadingState label={t('maint.loadingTickets')} />
           </View>
         ) : loadError && visibleTickets.length === 0 ? (
           <EmptyState
@@ -374,12 +382,12 @@ export default function MaintenanceScreen() {
             onAction={scrollToForm}
           />
         ) : (
-          visibleTickets.map((t) => renderTicket({ item: t }))
+          visibleTickets.map((row) => renderTicket({ item: row }))
         ))}
 
       {/* 提交报修（现有业务逻辑保留，按原型置于列表之后） */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>提交报修</Text>
+        <Text style={styles.sectionTitle}>{t('maint.submitSection')}</Text>
       </View>
       <Card>
         <Text style={styles.label}>{t('maint.title')}</Text>
@@ -417,12 +425,12 @@ export default function MaintenanceScreen() {
               style={[styles.priorityBtn, priority === opt.value && styles.priorityBtnActive]}
               onPress={() => setPriority(opt.value)}
               accessibilityRole="button"
-              accessibilityLabel={`优先级 ${opt.label}`}
+              accessibilityLabel={t('maint.priorityA11y', { name: t(opt.labelKey) })}
             >
               <Text
                 style={[styles.priorityText, priority === opt.value && styles.priorityTextActive]}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -458,33 +466,38 @@ export default function MaintenanceScreen() {
         <View style={styles.modalWrap}>
           <View style={[styles.modalCard, { paddingBottom: insets.bottom + 12 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>工单详情</Text>
+              <Text style={styles.modalTitle}>{t('maint.detailTitle')}</Text>
               <TouchableOpacity
                 onPress={() => setSelected(null)}
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('maint.close')}
               >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
             {selected && (
               <>
-                <Text style={styles.modalProp}>{selected.title || '报修工单'}</Text>
-                <Text style={styles.modalLabel}>详情描述</Text>
-                <Text style={styles.modalText}>{selected.description || '无描述'}</Text>
-                <Text style={styles.modalLabel}>状态</Text>
+                <Text style={styles.modalProp}>{selected.title || t('maint.defaultTitle')}</Text>
+                <Text style={styles.modalLabel}>{t('maint.detailDesc')}</Text>
+                <Text style={styles.modalText}>{selected.description || t('maint.noDesc')}</Text>
+                <Text style={styles.modalLabel}>{t('maint.statusLabel')}</Text>
                 <Text style={styles.modalText}>
-                  {statusMeta[selected.status]?.text ?? selected.status} ·{' '}
-                  {PRIORITY_OPTIONS.find((p) => p.value === selected.priority)?.label ?? '—'}优先级
+                  {t(
+                    (statusMeta[selected.status] ?? statusMeta.open).labelKey
+                  )}{' '}
+                  ·{' '}
+                  {t('maint.priorityWith', {
+                    name: selectedPrioLabel,
+                  })}
                 </Text>
-                <Text style={styles.modalLabel}>提交时间</Text>
+                <Text style={styles.modalLabel}>{t('maint.submitTime')}</Text>
                 <Text style={styles.modalText}>{formatDate(selected.created_at)}</Text>
 
                 {canRate(selected) && (
                   <View style={styles.rateArea}>
-                    <Text style={styles.modalLabel}>服务评价</Text>
+                    <Text style={styles.modalLabel}>{t('maint.rateTitle')}</Text>
                     <View style={styles.starRow}>
                       {[1, 2, 3, 4, 5].map((s) => (
                         <TouchableOpacity
@@ -493,7 +506,7 @@ export default function MaintenanceScreen() {
                           activeOpacity={0.7}
                           hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                           accessibilityRole="button"
-                          accessibilityLabel={`${s} 星`}
+                          accessibilityLabel={t('maint.starA11y', { count: s })}
                         >
                           <Ionicons
                             name={rating >= s ? 'star' : 'star-outline'}
@@ -505,7 +518,7 @@ export default function MaintenanceScreen() {
                     </View>
                     <TextInput
                       style={[styles.input, styles.textarea, styles.feedbackInput]}
-                      placeholder="留下您的反馈（可选）"
+                      placeholder={t('maint.ratePlaceholder')}
                       placeholderTextColor={colors.ink3}
                       value={feedback}
                       onChangeText={setFeedback}
@@ -522,7 +535,7 @@ export default function MaintenanceScreen() {
                       {ratingLoading ? (
                         <ActivityIndicator color={colors.primaryForeground} size="small" />
                       ) : (
-                        <Text style={styles.rateBtnText}>提交评价</Text>
+                        <Text style={styles.rateBtnText}>{t('maint.rateSubmit')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>

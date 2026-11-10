@@ -118,3 +118,7 @@ rental-full-draft/**/_archive-*/
 # ===== 本地验证产物（UI 点测截图、临时登录态）=====
 /_verify_*.png
 /.tmp_login.json
+/color-*.png
+
+# ===== 上线采购资料（报告与贝壳页面抓取产物，非项目源码）=====
+/vip-app-launch-procurement/

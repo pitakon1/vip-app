@@ -55,7 +55,7 @@ export default function ContractsScreen() {
   if (loading && list.length === 0) {
     return (
       <View style={styles.center}>
-        <LoadingState label={t('pub.loading') ?? '加载中…'} />
+        <LoadingState label={t('pub.loading')} />
       </View>
     );
   }

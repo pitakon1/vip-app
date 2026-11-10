@@ -40,7 +40,7 @@
   cursor: pointer;
   font-family: var(--rent-font-sans);
 }
-.mt-hero__btn:hover { background: #0d9488; transform: translateY(-1px); }
+.mt-hero__btn:hover { background: var(--rent-primary-hover); transform: translateY(-1px); }
 
 /* Status summary bar */
 .mt-summary {
@@ -419,7 +419,7 @@
   box-shadow: var(--rent-shadow-2);
   transition: background var(--motion-fast), transform var(--motion-fast);
 }
-.mt-submit-btn:hover { background: #0d9488; transform: translateY(-1px); }
+.mt-submit-btn:hover { background: var(--rent-primary-hover); transform: translateY(-1px); }
 .mt-form__photos {
   display: flex;
   flex-wrap: wrap;

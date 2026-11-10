@@ -16,38 +16,43 @@ import {
   TouchableOpacity,
   RefreshControl,
   Modal,
-  Alert,
   Linking,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import dayjs from 'dayjs';
 import colors from '../../theme/colors';
 import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '../../components/EmptyState';
 import ListState from '../../components/ListState';
+import { toast } from '@/components/Toast';
 import { chatApi, leadsApi } from '../../services/api';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
 import { useI18n } from '@/i18n';
-import { errorText } from '@/lib/errorText'
+import { notify, notifyError } from '@/utils/feedback';
 
-const STAGES: { key: string; label: string; color: string; rgb: string }[] = [
-  { key: 'inquiring', label: '咨询中', color: colors.info, rgb: colors.infoRgb },
-  { key: 'viewing_scheduled', label: '看房中', color: colors.primary, rgb: colors.primaryRgb },
-  { key: 'negotiating', label: '谈判中', color: colors.warning, rgb: colors.warningRgb },
-  { key: 'pending_contract', label: '待签约', color: colors.info, rgb: colors.infoRgb },
-  { key: 'closed', label: '已成交', color: colors.success, rgb: colors.successRgb },
+const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = [
+  { key: 'inquiring', labelKey: 'crm.stage.inquiring', color: colors.info, rgb: colors.infoRgb },
+  { key: 'viewing_scheduled', labelKey: 'crm.stage.viewing', color: colors.primary, rgb: colors.primaryRgb },
+  { key: 'negotiating', labelKey: 'crm.stage.negotiating', color: colors.warning, rgb: colors.warningRgb },
+  { key: 'pending_contract', labelKey: 'crm.stage.pending', color: colors.info, rgb: colors.infoRgb },
+  { key: 'closed', labelKey: 'crm.stage.closed', color: colors.success, rgb: colors.successRgb },
 ];
 
-const stageMeta = (key?: string | null) =>
-  STAGES.find((s) => s.key === key) ?? {
+const stageMeta = (key?: string | null) => {
+  const found = STAGES.find((s) => s.key === key);
+  if (found) return { ...found, rawLabel: '' };
+  // 未收录阶段：展示后端原值（不翻译），无值时不猜
+  return {
     key: 'inquiring',
-    label: key || '未知',
+    labelKey: '',
+    rawLabel: key || '',
     color: colors.ink2,
     rgb: colors.primaryRgb,
   };
+};
 
 export default function CRMScreen() {
   const { t } = useI18n();
@@ -77,6 +82,13 @@ export default function CRMScreen() {
     return () => clearTimeout(handle);
   }, [keyword]);
 
+  // 首页「去跟进」直达：带 leadName 进来时预填搜索，落在该客户附近而不是列表首屏
+  const route = useRoute<any>();
+  const focusLeadName = route.params?.leadName as string | undefined;
+  useEffect(() => {
+    if (focusLeadName) setKeyword(focusLeadName);
+  }, [focusLeadName]);
+
   // 编辑线索弹窗（对齐管理员端：可填写姓名/电话/来源/意向项目/阶段/备注）
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -95,11 +107,11 @@ export default function CRMScreen() {
   const callCustomer = (l: Lead) => {
     const phone = (l.phone || '').trim();
     if (!phone) {
-      Alert.alert(t('crm.contactCustomer'), t('crm.noPhone'));
+      notify(t('crm.contactCustomer'), t('crm.noPhone'));
       return;
     }
     Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
-      Alert.alert(t('crm.contactCustomer'), t('crm.callFail'));
+      toast.show({ type: 'error', title: t('crm.callFail') });
     });
   };
 
@@ -108,11 +120,12 @@ export default function CRMScreen() {
     const phone = (l.phone || '').trim();
     const email = (l.email || '').trim();
     if (!phone && !email) {
-      Alert.alert(t('crm.contactCustomer'), t('crm.noContactInfo'));
+      notify(t('crm.contactCustomer'), t('crm.noContactInfo'));
       return;
     }
     try {
       const res = await chatApi.createConversation({
+        // 会话标题属于落库内容，按约定保持中文不动
         title: l.name?.trim() || '客户咨询',
         ...(phone ? { participant_phones: [phone] } : {}),
         ...(email ? { participant_emails: [email] } : {}),
@@ -120,11 +133,10 @@ export default function CRMScreen() {
       const conv = res.data?.data ?? res.data;
       navigation.navigate('ChatDetail', {
         conversationId: conv?.id,
-        title: conv?.title ?? l.name ?? '会话',
+        title: conv?.title ?? l.name ?? t('crm.conversation'),
       });
     } catch (e: any) {
-      Alert.alert(
-        t('crm.cannotSend'),errorText(e, t('crm.notRegistered')));
+      notifyError(t('crm.cannotSend'), e);
     }
   };
 
@@ -143,7 +155,7 @@ export default function CRMScreen() {
 
   const submitForm = async () => {
     if (!form.name.trim()) {
-      Alert.alert(t('crm.edit'), t('crm.nameRequired'));
+      toast.show({ type: 'error', title: t('crm.nameRequired') });
       return;
     }
     setSaving(true);
@@ -160,11 +172,11 @@ export default function CRMScreen() {
       if (editingId) {
         await leadsApi.update(editingId, payload);
       }
-      Alert.alert(t('crm.edit'), t('crm.saved'));
+      notify(t('crm.saved'));
       setFormOpen(false);
       load();
     } catch (e: any) {
-      Alert.alert(t('crm.edit'),errorText(e, t('crm.saveFail')));
+      notifyError(t('crm.saveFail'), e);
     } finally {
       setSaving(false);
     }
@@ -185,17 +197,18 @@ export default function CRMScreen() {
 
   const renderLead = (l: Lead) => {
     const meta = stageMeta(l.stage);
+    const stageLabel = meta.labelKey ? t(meta.labelKey) : meta.rawLabel || t('crm.unknownStage');
     const budget =
       l.budget_max || l.budget_min
-        ? `预算 ${currencySymbol(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
+        ? `${t('crm.budget')} ${currencySymbol(l.budget_currency)}${Number(l.budget_max || l.budget_min || 0).toLocaleString()}`
         : null;
     const tags = [
       budget,
-      l.interested_projects?.length ? `意向项目 ${l.interested_projects.length}` : null,
-      l.recommended_projects?.length ? `推荐房源 ${l.recommended_projects.length}` : null,
-      l.source ? `来源 ${l.source}` : null,
+      l.interested_projects?.length ? `${t('crm.interestProject')} ${l.interested_projects.length}` : null,
+      l.recommended_projects?.length ? `${t('crm.recommend')} ${l.recommended_projects.length}` : null,
+      l.source ? `${t('crm.source')} ${l.source}` : null,
     ].filter(Boolean) as string[];
-    const contact = l.phone || l.line_id || l.wechat_id || l.email || '未留联系方式';
+    const contact = l.phone || l.line_id || l.wechat_id || l.email || t('crm.noContact');
     const owner = l.assigned_to ? nameMap[l.assigned_to] : null;
     const lastFollow = l.updated_at || l.created_at;
 
@@ -210,10 +223,12 @@ export default function CRMScreen() {
           <View style={styles.leadInfo}>
             <View style={styles.leadHead}>
               <Text style={styles.leadName} numberOfLines={1}>
-                {l.name || '未命名客户'}
+                {l.name || t('crm.unnamed')}
               </Text>
               <View style={[styles.stageBadge, { backgroundColor: colors.alpha(meta.rgb, 0.12) }]}>
-                <Text style={[styles.stageBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                <Text style={[styles.stageBadgeText, { color: meta.color }]} numberOfLines={1}>
+                  {stageLabel}
+                </Text>
               </View>
             </View>
             <View style={styles.contactRow}>
@@ -227,9 +242,9 @@ export default function CRMScreen() {
 
         {tags.length > 0 ? (
           <View style={styles.tags}>
-            {tags.map((t) => (
-              <View key={t} style={styles.tag}>
-                <Text style={styles.tagText}>{t}</Text>
+            {tags.map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
           </View>
@@ -237,26 +252,30 @@ export default function CRMScreen() {
 
         <View style={styles.followRow}>
           <Ionicons name="time-outline" size={12} color={colors.ink3} />
-          <Text style={styles.followText}>
-            {lastFollow ? `最后跟进: ${dayjs(lastFollow).format('MM-DD')}` : '暂无跟进记录'}
-            {owner ? ` · 负责人 ${owner}` : ''}
+          <Text style={styles.followText} numberOfLines={2}>
+            {lastFollow
+              ? `${t('crm.lastFollow')}: ${dayjs(lastFollow).format('MM-DD')}`
+              : t('crm.noFollow')}
+            {owner ? ` · ${t('crm.owner')} ${owner}` : ''}
           </Text>
         </View>
 
         <View style={styles.leadActions}>
           <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => callCustomer(l)}>
             <Ionicons name="call-outline" size={14} color={colors.primary} />
-            <Text style={[styles.leadActionText, { color: colors.primary }]}>电话</Text>
+            <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionCall')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => chatCustomer(l)}>
             <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} />
-            <Text style={[styles.leadActionText, { color: colors.primary }]}>发消息</Text>
+            <Text style={[styles.leadActionText, { color: colors.primary }]}>{t('crm.actionMessage')}</Text>
           </TouchableOpacity>
           {/* 非本人负责的线索隐藏编辑入口：PATCH 只允许负责人，避免点了必然 403 */}
           {myEmployeeId && l.assigned_to === myEmployeeId ? (
             <TouchableOpacity style={styles.leadActionBtn} activeOpacity={0.7} onPress={() => openEdit(l)}>
               <Ionicons name="create-outline" size={14} color={colors.primary} />
-              <Text style={[styles.leadActionText, { color: colors.primary }]}>编辑状态</Text>
+              <Text style={[styles.leadActionText, { color: colors.primary }]} numberOfLines={1}>
+                {t('crm.editStatus')}
+              </Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -265,11 +284,11 @@ export default function CRMScreen() {
   };
 
   if (loading) {
-    return <ListState loading loadingLabel="正在加载客户数据…" />;
+    return <ListState loading loadingLabel={t('crm.loading')} />;
   }
 
   if (loadError && leads.length === 0) {
-    return <ListState error="客户数据加载失败" retryLabel="重试" onRetry={load} />;
+    return <ListState error={t('crm.loadFailed')} retryLabel={t('common.retry')} onRetry={load} />;
   }
 
   return (
@@ -290,7 +309,7 @@ export default function CRMScreen() {
           leads.length > 0 ? (
             <View style={{ paddingVertical: 16, alignItems: 'center' }}>
               <Text style={{ fontSize: 12, color: colors.ink3 }}>
-                {loadingMore ? '加载中…' : hasMore ? '上拉加载更多' : '没有更多了'}
+                {loadingMore ? t('common.loading') : hasMore ? t('crm.pullUpMore') : t('pub.noMore')}
               </Text>
             </View>
           ) : null
@@ -309,9 +328,9 @@ export default function CRMScreen() {
             backgroundColor: colors.alpha(colors.errorRgb, 0.08),
           }}
         >
-          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>客户数据加载失败</Text>
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('crm.loadFailed')}</Text>
           <TouchableOpacity onPress={load} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -322,7 +341,7 @@ export default function CRMScreen() {
           style={styles.searchInput}
           value={keyword}
           onChangeText={setKeyword}
-          placeholder="搜索客户姓名/电话"
+          placeholder={t('crm.searchPlaceholder')}
           placeholderTextColor={colors.ink3}
         />
         {keyword ? (
@@ -345,7 +364,7 @@ export default function CRMScreen() {
           style={[styles.chip, stage === '' && styles.chipActive]}
         >
           <Text style={[styles.chipText, stage === '' && styles.chipTextActive]}>
-            全部 <Text style={styles.chipCount}>{totalCustomers}</Text>
+            {t('crm.all')} <Text style={styles.chipCount}>{totalCustomers}</Text>
           </Text>
         </TouchableOpacity>
         {STAGES.map((s) => (
@@ -356,7 +375,7 @@ export default function CRMScreen() {
             style={[styles.chip, stage === s.key && styles.chipActive]}
           >
             <Text style={[styles.chipText, stage === s.key && styles.chipTextActive]}>
-              {s.label} <Text style={styles.chipCount}>{stageTotals[s.key] ?? 0}</Text>
+              {t(s.labelKey)} <Text style={styles.chipCount}>{stageTotals[s.key] ?? 0}</Text>
             </Text>
           </TouchableOpacity>
         ))}
@@ -365,36 +384,36 @@ export default function CRMScreen() {
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>总客户</Text>
+          <Text style={styles.statLabel}>{t('crm.totalCustomers')}</Text>
           <Text style={[styles.statValue, { color: colors.primary }]}>{totalCustomers}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>意向</Text>
+          <Text style={styles.statLabel}>{t('crm.intent')}</Text>
           <Text style={[styles.statValue, { color: colors.info }]}>
             {stageTotals.inquiring ?? 0}
           </Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>已签约</Text>
+          <Text style={styles.statLabel}>{t('crm.signed')}</Text>
           <Text style={[styles.statValue, { color: colors.success }]}>
             {stageTotals.closed ?? 0}
           </Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>本月新增</Text>
+          <Text style={styles.statLabel}>{t('crm.monthNew')}</Text>
           <Text style={[styles.statValue, { color: colors.warning }]}>{monthNew ?? '—'}</Text>
         </View>
       </View>
 
       {/* 客户列表 */}
-      <Text style={styles.sectionTitle}>客户列表</Text>
+      <Text style={styles.sectionTitle}>{t('crm.list')}</Text>
           </>
         }
         ListEmptyComponent={
           <EmptyState
             icon="people-outline"
-            title={keyword ? '没有找到客户' : '暂无客户线索'}
-            sub={keyword ? '换个姓名或电话试试' : '分配给你的客户线索会展示在这里'}
+            title={keyword ? t('crm.noFound') : t('crm.noLead')}
+            sub={keyword ? t('crm.noFoundSub') : t('crm.noLeadSub')}
           />
         }
       />
@@ -405,21 +424,21 @@ export default function CRMScreen() {
           <View style={bottomSheetStyles.bsSheet}>
             <View style={bottomSheetStyles.bsGrabber} />
             <ScrollView contentContainerStyle={bottomSheetStyles.bsContent}>
-              <Text style={styles.modalTitle}>编辑客户状态</Text>
+              <Text style={styles.modalTitle}>{t('crm.editStatus')}</Text>
 
-              <Text style={styles.fieldLabel}>姓名 *</Text>
+              <Text style={styles.fieldLabel}>{t('crm.formName')} *</Text>
               <TextInput style={styles.fieldInput} value={form.name} onChangeText={(v) => setForm((f) => ({ ...f, name: v }))} placeholderTextColor={colors.ink3} />
 
-              <Text style={styles.fieldLabel}>电话</Text>
+              <Text style={styles.fieldLabel}>{t('crm.formPhone')}</Text>
               <TextInput style={styles.fieldInput} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholderTextColor={colors.ink3} />
 
-              <Text style={styles.fieldLabel}>来源</Text>
+              <Text style={styles.fieldLabel}>{t('crm.formSource')}</Text>
               <TextInput style={styles.fieldInput} value={form.source} onChangeText={(v) => setForm((f) => ({ ...f, source: v }))} placeholderTextColor={colors.ink3} />
 
-              <Text style={styles.fieldLabel}>意向房产</Text>
+              <Text style={styles.fieldLabel}>{t('crm.formProperty')}</Text>
               <TextInput style={styles.fieldInput} value={form.property} onChangeText={(v) => setForm((f) => ({ ...f, property: v }))} placeholderTextColor={colors.ink3} />
 
-              <Text style={styles.fieldLabel}>客户状态</Text>
+              <Text style={styles.fieldLabel}>{t('crm.customerStage')}</Text>
               <View style={styles.chipWrapper}>
                 {STAGES.map((s) => (
                   <TouchableOpacity
@@ -427,20 +446,22 @@ export default function CRMScreen() {
                     style={[styles.chipInline, form.stage === s.key && styles.chipInlineActive]}
                     onPress={() => setForm((f) => ({ ...f, stage: s.key }))}
                   >
-                    <Text style={[styles.chipInlineText, form.stage === s.key && styles.chipInlineTextActive]}>{s.label}</Text>
+                    <Text style={[styles.chipInlineText, form.stage === s.key && styles.chipInlineTextActive]} numberOfLines={1}>
+                      {t(s.labelKey)}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.fieldLabel}>备注</Text>
+              <Text style={styles.fieldLabel}>{t('crm.formNotes')}</Text>
               <TextInput style={[styles.fieldInput, styles.multilineInput]} value={form.notes} onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))} multiline placeholderTextColor={colors.ink3} />
             </ScrollView>
             <View style={bottomSheetStyles.bsActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setFormOpen(false)}>
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('crm.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.modalOk]} activeOpacity={0.7} disabled={saving} onPress={submitForm}>
-                <Text style={styles.modalOkText}>{saving ? '...' : '保存'}</Text>
+                <Text style={styles.modalOkText}>{saving ? '...' : t('crm.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -545,10 +566,10 @@ const styles = StyleSheet.create({
     gap: colors.spacing.sm,
   },
   leadName: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink },
-  stageBadge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  stageBadge: { flexShrink: 1, borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
   stageBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  contactText: { fontSize: 13, color: colors.ink3, fontVariant: ['tabular-nums'] },
+  contactText: { flexShrink: 1, fontSize: 13, color: colors.ink3, fontVariant: ['tabular-nums'] },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: colors.spacing.md },
   tag: {
     backgroundColor: colors.surface2,
@@ -558,7 +579,7 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: colors.fontSize.xs, color: colors.ink2, fontWeight: '500' },
   followRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: colors.spacing.md },
-  followText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
+  followText: { flex: 1, fontSize: colors.fontSize.xs, color: colors.ink3 },
 
   /* ===== 编辑操作行 ===== */
   leadActions: {
@@ -569,7 +590,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  leadActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leadActionBtn: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
   leadActionText: { fontSize: 12, fontWeight: '600' },
 
   /* ===== 编辑弹窗 ===== */

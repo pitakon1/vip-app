@@ -27,7 +27,7 @@ export default function BrowseHistoryPage() {
     Taro.showModal({
       title: t('history.clearTitle'),
       content: t('history.clearConfirm'),
-      confirmColor: '#ef4444',
+      confirmColor: '#dc2626',
       success: (res) => {
         if (!res.confirm) return
         clearHistory()

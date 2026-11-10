@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import colors from '../../theme/colors';
+import { useI18n } from '@/i18n';
+import { formatCompactNumber } from '@/utils/format';
 
 interface BarChartProps {
   data: { label: string; value: number; color?: string }[];
@@ -18,6 +20,7 @@ export default function BarChart({
   labelColor,
   activeIndex,
 }: BarChartProps) {
+  const { lang } = useI18n();
   const max = maxValue ?? Math.max(...data.map((d) => d.value), 1);
 
   return (
@@ -37,11 +40,7 @@ export default function BarChart({
           return (
             <View key={idx} style={styles.barCol}>
               <Text style={[styles.barValue, labelColor && { color: labelColor }]}>
-                {d.value >= 10000
-                  ? `${(d.value / 10000).toFixed(1)}万`
-                  : d.value >= 1000
-                    ? `${(d.value / 1000).toFixed(1)}k`
-                    : d.value}
+                {formatCompactNumber(d.value, lang)}
               </Text>
               <View style={styles.barWrap}>
                 <View

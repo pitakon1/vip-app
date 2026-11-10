@@ -181,8 +181,8 @@ const Verify = () => {
         </div>
       )}
       <style>{`
-        .rent-verify-row{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--rent-line,#eef2f5)}
-        .rent-verify-row>span{width:170px;flex-shrink:0;color:var(--rent-ink-3,#64748b);font-size:13px}
+        .rent-verify-row{display:flex;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--rent-line,#e2e5e8)}
+        .rent-verify-row>span{width:170px;flex-shrink:0;color:var(--rent-ink-3,#55606c);font-size:13px}
         .rent-verify-code{word-break:break-all;font-size:12px;color:#14b8a6}
       `}</style>
     </div>

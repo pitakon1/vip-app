@@ -78,7 +78,7 @@
 }
 
 .rv-hero__search-btn:active {
-  background-color: var(--primary-hover);
+  background-color: var(--primary-active);
 }
 
 .rv-hero__search-btn-text {
@@ -136,7 +136,7 @@
   width: 80rpx;
   height: 80rpx;
   border-radius: 32rpx;
-  background-color: var(--surface-2);
+  background-color: var(--sidebar-active);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -150,7 +150,7 @@
 .gold-nav__icon--factory,
 .gold-nav__icon--hotel,
 .gold-nav__icon--land {
-  background-color: var(--surface-2);
+  background-color: var(--sidebar-active);
 }
 
 .gold-nav__label {
@@ -503,7 +503,7 @@
 }
 
 .translate-btn:active {
-  background: var(--primary-hover);
+  background: var(--primary-active);
   transform: scale(0.98);
 }
 

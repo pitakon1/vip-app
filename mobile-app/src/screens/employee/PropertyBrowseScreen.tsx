@@ -7,7 +7,7 @@ import { DETAIL_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagina
  * 因此 UI 与 C 端「找房」页 1:1 一致；且本页为**纯浏览**：无上架/编辑/删除/新增楼盘，卡片无额外操作块。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
@@ -25,6 +25,7 @@ import { propertyCoverUrl } from '@/lib/property';
 import { METRO_LINES } from '@/data/locationMetro';
 import { useLocationStore, findCityByKey } from '@/stores/location';
 import { useI18n } from '@/i18n';
+import { cityDisplayName } from '@/data/locationNames';
 import ListingsMapModal from '@/components/ListingsMapModal';
 import ListingsFeed, {
   priceRanges,
@@ -84,7 +85,7 @@ const normalize = (p: PropertyItem): Listing => {
 };
 
 export default function PropertyBrowseScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigation = useNavigation<any>();
   const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
   const SALE_PRICE_RANGES = useMemo(() => salePriceRanges(t), [t]);
@@ -368,7 +369,7 @@ export default function PropertyBrowseScreen() {
         }
         setFavSet((s) => ({ ...s, [p.id]: !current }));
       } catch {
-        Alert.alert(t('acc.opFailed'), t('prop.retryLater'));
+        notify(t('acc.opFailed'), t('prop.retryLater'));
       }
     },
     [favSet, t],
@@ -561,7 +562,7 @@ export default function PropertyBrowseScreen() {
         onOpenDetail={handleOpenDetail}
         districts={districts}
         metroLines={metroLines}
-        cityLabel={locCity?.cityLabel ?? ''}
+        cityLabel={cityDisplayName(locCity?.cityKey, locCity?.cityLabel ?? '', lang)}
         schools={schools}
         schoolsLoaded={schoolsLoaded}
         translatingId={translatingId}

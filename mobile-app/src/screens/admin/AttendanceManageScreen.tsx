@@ -8,7 +8,7 @@ import { BANGKOK_CENTER } from '@/constants/location';
  *   异常报表 —— P1-c：异常分类统计与逐日趋势
  *
  * 口径与 Web 端 frontend-web/src/pages/AttendanceManage/index.tsx 保持一致。
- * 本页为管理端页面，文案沿用仓库 App 管理页的硬编码中文风格。
+ * 本页文案统一走 i18n 字典（attAdm.*），中/英/泰三语。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -31,6 +31,7 @@ import ListState from '@/components/ListState';
 import LoadingState from '@/components/LoadingState';
 import { notify, notifyError } from '@/utils/feedback';
 import { attendanceApi, employeesApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 
 type AttStatus = 'present' | 'late' | 'early_out' | 'absent' | 'leave' | 'field_work';
 type LeaveType = 'annual' | 'sick' | 'personal' | 'unpaid' | 'maternity' | 'other';
@@ -40,30 +41,37 @@ const STATUSES: AttStatus[] = ['present', 'late', 'early_out', 'absent', 'leave'
 const LEAVE_TYPES: LeaveType[] = ['annual', 'sick', 'personal', 'unpaid', 'maternity', 'other'];
 const LEAVE_STATUSES: LeaveStatus[] = ['pending', 'approved', 'rejected', 'cancelled'];
 
-const STATUS_META: Record<AttStatus, { label: string; color: string; bg: string }> = {
-  present: { label: '正常', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
-  late: { label: '迟到', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
-  early_out: { label: '早退', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
-  absent: { label: '缺勤', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
-  leave: { label: '请假', color: colors.ink2, bg: colors.surface2 },
-  field_work: { label: '外勤', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
+const STATUS_META: Record<AttStatus, { key: string; color: string; bg: string }> = {
+  present: { key: 'attAdm.status.present', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  late: { key: 'attAdm.status.late', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
+  early_out: { key: 'attAdm.status.earlyOut', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
+  absent: { key: 'attAdm.status.absent', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
+  leave: { key: 'attAdm.status.leave', color: colors.ink2, bg: colors.surface2 },
+  field_work: { key: 'attAdm.status.fieldWork', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
 };
 
 const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
-  annual: '年假',
-  sick: '病假',
-  personal: '事假',
-  unpaid: '无薪假',
-  maternity: '产假',
-  other: '其他',
+  annual: 'attAdm.leaveType.annual',
+  sick: 'attAdm.leaveType.sick',
+  personal: 'attAdm.leaveType.personal',
+  unpaid: 'attAdm.leaveType.unpaid',
+  maternity: 'attAdm.leaveType.maternity',
+  other: 'attAdm.leaveType.other',
 };
 
-const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: '待审批', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
-  approved: { label: '已通过', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
-  rejected: { label: '已驳回', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
-  cancelled: { label: '已撤销', color: colors.ink2, bg: colors.surface2 },
+const LEAVE_STATUS_META: Record<LeaveStatus, { key: string; color: string; bg: string }> = {
+  pending: { key: 'attAdm.leaveStatus.pending', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
+  approved: { key: 'attAdm.leaveStatus.approved', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  rejected: { key: 'attAdm.leaveStatus.rejected', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
+  cancelled: { key: 'attAdm.leaveStatus.cancelled', color: colors.ink2, bg: colors.surface2 },
 };
+
+const TABS = [
+  { key: 'records' as const, labelKey: 'attAdm.tab.records' },
+  { key: 'groups' as const, labelKey: 'attAdm.tab.groups' },
+  { key: 'leave' as const, labelKey: 'attAdm.tab.leave' },
+  { key: 'report' as const, labelKey: 'attAdm.tab.report' },
+];
 
 interface DayRow {
   date: string;
@@ -196,14 +204,16 @@ function Chip({
 function Field({
   label,
   hint,
+  style,
   children,
 }: {
   label: string;
   hint?: string;
+  style?: any;
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, style]}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {children}
       {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
@@ -212,10 +222,11 @@ function Field({
 }
 
 function StatusBadge({ status }: { status: AttStatus }) {
+  const { t } = useI18n();
   const meta = STATUS_META[status] ?? STATUS_META.present;
   return (
     <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-      <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+      <Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.key)}</Text>
     </View>
   );
 }
@@ -259,6 +270,7 @@ function Sheet({
 }
 
 export default function AttendanceManageScreen() {
+  const { t } = useI18n();
   const [tab, setTab] = useState<'records' | 'groups' | 'leave' | 'report'>('records');
   const [refreshing, setRefreshing] = useState(false);
   const [empOptions, setEmpOptions] = useState<EmpOption[]>([]);
@@ -314,11 +326,11 @@ export default function AttendanceManageScreen() {
         setSummary(res.data?.summary ?? {});
       })
       .catch((err) => {
-        setRecordsError('考勤明细加载失败');
-        notifyError('加载考勤明细失败', err);
+        setRecordsError(t('attAdm.records.loadFailInline'));
+        notifyError(t('attAdm.records.loadFail'), err);
       })
       .finally(() => setLoadingRecords(false));
-  }, [range.start, range.end, recordsDept]);
+  }, [range.start, range.end, recordsDept, t]);
 
   // 校准弹窗
   const [calib, setCalib] = useState<{ employee: EmployeeRecord; day: DayRow | null } | null>(null);
@@ -345,7 +357,7 @@ export default function AttendanceManageScreen() {
     if (!calib) return;
     const date = calibForm.date.trim();
     if (!isDateStr(date)) {
-      notify('日期格式不正确', '请使用 YYYY-MM-DD');
+      notify(t('attAdm.calib.badDateTitle'), t('attAdm.calib.badDateMsg'));
       return;
     }
     const payload: Record<string, unknown> = { date };
@@ -355,25 +367,25 @@ export default function AttendanceManageScreen() {
     if (calibForm.notes) payload.notes = calibForm.notes;
     // 补录（当日无记录）必须带状态
     if (!calib.day && !calibForm.status) {
-      notify('缺少状态', '补录记录时必须选择考勤状态');
+      notify(t('attAdm.calib.missStatusTitle'), t('attAdm.calib.missStatusMsg'));
       return;
     }
     if (Object.keys(payload).length === 1) {
-      notify('无改动内容', '请至少修改一项后再提交');
+      notify(t('attAdm.calib.noChangeTitle'), t('attAdm.calib.noChangeMsg'));
       return;
     }
     if (calibForm.check_in && calibForm.check_out && calibForm.check_out < calibForm.check_in) {
-      notify('时间区间有误', '下班时间不能早于上班时间');
+      notify(t('attAdm.calib.badRangeTitle'), t('attAdm.calib.badRangeMsg'));
       return;
     }
     setSaving(true);
     try {
       await attendanceApi.calibrate(calib.employee.employee_id, payload);
-      notify('校准成功', '考勤记录已更新');
+      notify(t('attAdm.calib.okTitle'), t('attAdm.calib.okMsg'));
       setCalib(null);
       loadRecords();
     } catch (err) {
-      notifyError('校准失败', err);
+      notifyError(t('attAdm.calib.failTitle'), err);
     } finally {
       setSaving(false);
     }
@@ -400,11 +412,11 @@ export default function AttendanceManageScreen() {
         setGroups(res.data ?? []);
       })
       .catch((err) => {
-        setGroupsError('考勤组加载失败');
-        notifyError('加载考勤组失败', err);
+        setGroupsError(t('attAdm.groups.loadFailInline'));
+        notifyError(t('attAdm.groups.loadFail'), err);
       })
       .finally(() => setLoadingGroups(false));
-  }, []);
+  }, [t]);
 
   const openGroupModal = (group?: GroupItem) => {
     if (group) {
@@ -432,11 +444,11 @@ export default function AttendanceManageScreen() {
 
   const submitGroup = async () => {
     if (!groupForm.name.trim()) {
-      notify('请填写考勤组名称', undefined);
+      notify(t('attAdm.groups.needName'), undefined);
       return;
     }
     if (!isHm(groupForm.work_start) || !isHm(groupForm.work_end)) {
-      notify('作息时间格式不正确', '请使用 HH:mm，例如 09:00');
+      notify(t('attAdm.groups.badTimeTitle'), t('attAdm.groups.badTimeMsg'));
       return;
     }
     const body: Record<string, unknown> = {
@@ -461,33 +473,37 @@ export default function AttendanceManageScreen() {
       } else {
         await attendanceApi.createGroup(body);
       }
-      notify('保存成功', '考勤组已更新');
+      notify(t('attAdm.groups.savedTitle'), t('attAdm.groups.savedMsg'));
       setGroupModal(null);
       loadGroups();
     } catch (err) {
-      notifyError('保存考勤组失败', err);
+      notifyError(t('attAdm.groups.saveFail'), err);
     } finally {
       setSaving(false);
     }
   };
 
   const removeGroup = (group: GroupItem) => {
-    Alert.alert('删除考勤组', `确定删除「${group.name}」吗？删除后成员将回落到默认规则。`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await attendanceApi.deleteGroup(group.id);
-            notify('已删除', '考勤组已移除');
-            loadGroups();
-          } catch (err) {
-            notifyError('删除考勤组失败', err);
-          }
+    Alert.alert(
+      t('attAdm.groups.deleteTitle'),
+      t('attAdm.groups.deleteMsg', { name: group.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('attAdm.groups.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await attendanceApi.deleteGroup(group.id);
+              notify(t('attAdm.groups.deletedTitle'), t('attAdm.groups.deletedMsg'));
+              loadGroups();
+            } catch (err) {
+              notifyError(t('attAdm.groups.deleteFail'), err);
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const openMembers = async (group: GroupItem) => {
@@ -500,7 +516,7 @@ export default function AttendanceManageScreen() {
       setMembers(res.data ?? []);
     } catch (err) {
       setMembers([]);
-      notifyError('加载成员失败', err);
+      notifyError(t('attAdm.members.loadFail'), err);
     }
   };
 
@@ -512,10 +528,10 @@ export default function AttendanceManageScreen() {
       });
       setMembers(res.data ?? []);
       setPickedEmployees([]);
-      notify('已添加成员', `共新增 ${pickedEmployees.length} 人`);
+      notify(t('attAdm.members.addedTitle'), t('attAdm.members.addedMsg', { n: pickedEmployees.length }));
       loadGroups();
     } catch (err) {
-      notifyError('添加成员失败', err);
+      notifyError(t('attAdm.members.addFail'), err);
     }
   };
 
@@ -526,7 +542,7 @@ export default function AttendanceManageScreen() {
       setMembers((prev) => prev.filter((m) => m.employee_id !== employeeId));
       loadGroups();
     } catch (err) {
-      notifyError('移除成员失败', err);
+      notifyError(t('attAdm.members.removeFail'), err);
     }
   };
 
@@ -544,9 +560,9 @@ export default function AttendanceManageScreen() {
     attendanceApi
       .leaveRequests(leaveFilter ? { status: leaveFilter } : undefined)
       .then((res) => setLeaves(res.data ?? []))
-      .catch((err) => notifyError('加载请假申请失败', err))
+      .catch((err) => notifyError(t('attAdm.leave.loadFail'), err))
       .finally(() => setLoadingLeaves(false));
-  }, [leaveFilter]);
+  }, [leaveFilter, t]);
 
   const submitReview = async () => {
     if (!review) return;
@@ -556,12 +572,17 @@ export default function AttendanceManageScreen() {
         action: review.action,
         reply_note: replyNote || null,
       });
-      notify(review.action === 'approved' ? '已通过' : '已驳回', '审批结果已提交');
+      notify(
+        review.action === 'approved'
+          ? t('attAdm.leaveStatus.approved')
+          : t('attAdm.leaveStatus.rejected'),
+        t('attAdm.review.submitted'),
+      );
       setReview(null);
       setReplyNote('');
       loadLeaves();
     } catch (err) {
-      notifyError('审批失败', err);
+      notifyError(t('attAdm.review.fail'), err);
     } finally {
       setSaving(false);
     }
@@ -585,9 +606,9 @@ export default function AttendanceManageScreen() {
         ...(reportDept ? { department: reportDept } : {}),
       })
       .then((res) => setReport(res.data))
-      .catch((err) => notifyError('加载异常报表失败', err))
+      .catch((err) => notifyError(t('attAdm.report.loadFail'), err))
       .finally(() => setLoadingReport(false));
-  }, [reportRange.start, reportRange.end, reportDept]);
+  }, [reportRange.start, reportRange.end, reportDept, t]);
 
   // 进入页签或筛选变化时加载；日期必须完整合法才发请求（避免输入中途打出无效区间）
   useEffect(() => {
@@ -637,17 +658,17 @@ export default function AttendanceManageScreen() {
   const renderRecords = () => (
     <>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>筛选</Text>
+        <Text style={styles.cardTitle}>{t('attAdm.filter.title')}</Text>
         <View style={styles.quickRow}>
           <Chip
-            label="本月"
+            label={t('attAdm.filter.month')}
             active={range.start === dayjs().startOf('month').format(DATE_FMT)}
             onPress={() =>
               setRange({ start: dayjs().startOf('month').format(DATE_FMT), end: dayjs().format(DATE_FMT) })
             }
           />
           <Chip
-            label="近 7 天"
+            label={t('attAdm.filter.last7')}
             onPress={() =>
               setRange({
                 start: dayjs().subtract(6, 'day').format(DATE_FMT),
@@ -656,14 +677,14 @@ export default function AttendanceManageScreen() {
             }
           />
           <Chip
-            label="今天"
+            label={t('attAdm.filter.today')}
             onPress={() => {
               const d = dayjs().format(DATE_FMT);
               setRange({ start: d, end: d });
             }}
           />
         </View>
-        <Field label="日期区间">
+        <Field label={t('attAdm.filter.range')}>
           <View style={styles.rangeRow}>
             <TextInput
               style={[styles.input, styles.rangeInput]}
@@ -686,9 +707,9 @@ export default function AttendanceManageScreen() {
             />
           </View>
         </Field>
-        <Field label="部门">
+        <Field label={t('attAdm.field.dept')}>
           <View style={styles.chipWrap}>
-            <Chip label="全部" active={!recordsDept} onPress={() => setRecordsDept('')} />
+            <Chip label={t('common.all')} active={!recordsDept} onPress={() => setRecordsDept('')} />
             {deptOptions.map((d) => (
               <Chip key={d} label={d} active={recordsDept === d} onPress={() => setRecordsDept(d)} />
             ))}
@@ -696,19 +717,19 @@ export default function AttendanceManageScreen() {
         </Field>
         <TouchableOpacity style={styles.primaryBtn} onPress={loadRecords} activeOpacity={0.8}>
           <Ionicons name="search" size={16} color={colors.primaryForeground} />
-          <Text style={styles.primaryBtnText}>查询</Text>
+          <Text style={styles.primaryBtnText}>{t('attAdm.filter.search')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>汇总</Text>
+        <Text style={styles.cardTitle}>{t('attAdm.summary')}</Text>
         <View style={styles.chipWrap}>
           {STATUSES.map((s) => {
             const meta = STATUS_META[s];
             return (
               <View key={s} style={[styles.badge, { backgroundColor: meta.bg }]}>
                 <Text style={[styles.badgeText, { color: meta.color }]}>
-                  {meta.label} {summary[s] ?? 0}
+                  {t(meta.key)} {summary[s] ?? 0}
                 </Text>
               </View>
             );
@@ -718,8 +739,8 @@ export default function AttendanceManageScreen() {
 
       <View style={styles.card}>
         <View style={styles.cardHeadRow}>
-          <Text style={styles.cardTitle}>考勤明细</Text>
-          <Text style={styles.cardCaption}>{records.length} 人</Text>
+          <Text style={styles.cardTitle}>{t('attAdm.records.title')}</Text>
+          <Text style={styles.cardCaption}>{t('attAdm.count.people', { n: records.length })}</Text>
         </View>
         {recordsError && records.length > 0 ? (
           <View
@@ -734,16 +755,24 @@ export default function AttendanceManageScreen() {
           >
             <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{recordsError}</Text>
             <TouchableOpacity onPress={() => loadRecords()} activeOpacity={0.7}>
-              <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+              <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
         {loadingRecords ? (
           <ListState loading />
         ) : recordsError && records.length === 0 ? (
-          <ListState error={recordsError} retryLabel="重试" onRetry={() => loadRecords()} />
+          <ListState
+            error={recordsError}
+            retryLabel={t('common.retry')}
+            onRetry={() => loadRecords()}
+          />
         ) : records.length === 0 ? (
-          <EmptyState icon="time-outline" title="暂无考勤数据" sub="换个日期区间或部门再试试" />
+          <EmptyState
+            icon="time-outline"
+            title={t('attAdm.records.emptyTitle')}
+            sub={t('attAdm.records.emptySub')}
+          />
         ) : (
           records.map((emp) => {
             const abnormal = emp.days.filter(
@@ -764,7 +793,9 @@ export default function AttendanceManageScreen() {
                   <View style={styles.flex1}>
                     <Text style={styles.empName}>{emp.name || emp.email || '—'}</Text>
                     <Text style={styles.empSub}>
-                      {[emp.employee_code || '无工号', emp.department || '未分组'].join(' · ')}
+                      {[emp.employee_code || t('attAdm.noCode'), emp.department || t('attAdm.noDept')].join(
+                        ' · ',
+                      )}
                     </Text>
                   </View>
                   <View
@@ -784,7 +815,7 @@ export default function AttendanceManageScreen() {
                         { color: abnormal > 0 ? colors.warning : colors.ink2 },
                       ]}
                     >
-                      异常 {abnormal}
+                      {t('attAdm.abnormalCount', { n: abnormal })}
                     </Text>
                   </View>
                   <Ionicons
@@ -797,29 +828,44 @@ export default function AttendanceManageScreen() {
                 {open ? (
                   <View style={styles.dayList}>
                     {emp.days.length === 0 ? (
-                      <Text style={styles.emptyHint}>该区间内无考勤记录</Text>
+                      <Text style={styles.emptyHint}>{t('attAdm.records.noDay')}</Text>
                     ) : (
                       emp.days.map((d) => (
                         <View key={d.date} style={styles.dayRow}>
                           <View style={styles.flex1}>
                             <Text style={styles.dayDate}>{d.date.slice(0, 10)}</Text>
                             <Text style={styles.daySub}>
-                              上班 {fmtTime(d.check_in)} · 下班 {fmtTime(d.check_out)}
+                              {t('attAdm.records.inOut', {
+                                in: fmtTime(d.check_in),
+                                out: fmtTime(d.check_out),
+                              })}
                             </Text>
                             <Text style={styles.daySub}>
-                              {d.late_minutes ? `迟到 ${d.late_minutes} 分 ` : ''}
-                              {d.early_out_minutes ? `早退 ${d.early_out_minutes} 分 ` : ''}
-                              {d.notes ? `备注：${d.notes}` : ''}
+                              {[
+                                d.late_minutes
+                                  ? t('attAdm.records.lateMin', { n: d.late_minutes })
+                                  : '',
+                                d.early_out_minutes
+                                  ? t('attAdm.records.earlyMin', { n: d.early_out_minutes })
+                                  : '',
+                                d.notes ? t('attAdm.records.notes', { text: d.notes }) : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
                             </Text>
                           </View>
-                          <StatusBadge status={d.status} />
-                          <TouchableOpacity
-                            style={styles.ghostBtn}
-                            onPress={() => openCalibrate(emp, d)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.ghostBtnText}>校准</Text>
-                          </TouchableOpacity>
+                          <View style={styles.dayRowRight}>
+                            <StatusBadge status={d.status} />
+                            <TouchableOpacity
+                              style={styles.ghostBtn}
+                              onPress={() => openCalibrate(emp, d)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.ghostBtnText} numberOfLines={1}>
+                                {t('attAdm.records.calibrate')}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       ))
                     )}
@@ -829,7 +875,7 @@ export default function AttendanceManageScreen() {
                       activeOpacity={0.8}
                     >
                       <Ionicons name="add-circle-outline" size={15} color={colors.primary} />
-                      <Text style={styles.ghostBtnText}>补录考勤</Text>
+                      <Text style={styles.ghostBtnText}>{t('attAdm.records.addRecord')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : null}
@@ -846,15 +892,13 @@ export default function AttendanceManageScreen() {
     <>
       <View style={styles.card}>
         <View style={styles.cardHeadRow}>
-          <Text style={styles.cardTitle}>考勤组</Text>
+          <Text style={styles.cardTitle}>{t('attAdm.groups.title')}</Text>
           <TouchableOpacity style={styles.smallPrimaryBtn} onPress={() => openGroupModal()} activeOpacity={0.8}>
             <Ionicons name="add" size={15} color={colors.primaryForeground} />
-            <Text style={styles.smallPrimaryBtnText}>新增</Text>
+            <Text style={styles.smallPrimaryBtnText}>{t('attAdm.groups.create')}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.cardHint}>
-          同一员工命中多个考勤组时按部门优先级匹配；默认组全局唯一，设为默认会自动清除其它默认组。
-        </Text>
+        <Text style={styles.cardHint}>{t('attAdm.groups.hint')}</Text>
       </View>
 
       {groupsError && groups.length > 0 ? (
@@ -870,16 +914,24 @@ export default function AttendanceManageScreen() {
         >
           <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{groupsError}</Text>
           <TouchableOpacity onPress={() => loadGroups()} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       {loadingGroups ? (
         <ListState loading />
       ) : groupsError && groups.length === 0 ? (
-        <ListState error={groupsError} retryLabel="重试" onRetry={() => loadGroups()} />
+        <ListState
+          error={groupsError}
+          retryLabel={t('common.retry')}
+          onRetry={() => loadGroups()}
+        />
       ) : groups.length === 0 ? (
-        <EmptyState icon="business-outline" title="暂无考勤组" sub="新增考勤组以区分办公点与班次" />
+        <EmptyState
+          icon="business-outline"
+          title={t('attAdm.groups.emptyTitle')}
+          sub={t('attAdm.groups.emptySub')}
+        />
       ) : (
         groups.map((g) => (
           <View key={g.id} style={styles.card}>
@@ -889,66 +941,77 @@ export default function AttendanceManageScreen() {
                   <Text style={styles.groupName}>{g.name}</Text>
                   {g.is_default ? (
                     <View style={[styles.badge, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
-                      <Text style={[styles.badgeText, { color: colors.primary }]}>默认</Text>
+                      <Text style={[styles.badgeText, { color: colors.primary }]}>
+                        {t('attAdm.groups.isDefault')}
+                      </Text>
                     </View>
                   ) : null}
                   {g.is_active === false ? (
                     <View style={[styles.badge, { backgroundColor: colors.surface2 }]}>
-                      <Text style={[styles.badgeText, { color: colors.ink2 }]}>已停用</Text>
+                      <Text style={[styles.badgeText, { color: colors.ink2 }]}>
+                        {t('attAdm.groups.inactive')}
+                      </Text>
                     </View>
                   ) : null}
                 </View>
                 {g.description ? <Text style={styles.cardHint}>{g.description}</Text> : null}
               </View>
-              <Text style={styles.cardCaption}>{g.member_count ?? 0} 人</Text>
+              <Text style={styles.cardCaption}>
+                {t('attAdm.count.people', { n: g.member_count ?? 0 })}
+              </Text>
             </View>
 
             <View style={styles.metaGrid}>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>作息</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.groups.workHours')}</Text>
                 <Text style={styles.metaValue}>
                   {g.work_start ?? '--:--'} - {g.work_end ?? '--:--'}
                 </Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>打卡半径</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.groups.radius')}</Text>
                 <Text style={styles.metaValue}>{g.radius_km ?? '—'} km</Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>宽限（迟到/早退）</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.groups.grace')}</Text>
                 <Text style={styles.metaValue}>
-                  {g.late_grace_minutes ?? 0} / {g.early_grace_minutes ?? 0} 分
+                  {t('attAdm.groups.graceValue', {
+                    late: g.late_grace_minutes ?? 0,
+                    early: g.early_grace_minutes ?? 0,
+                  })}
                 </Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>部门</Text>
-                <Text style={styles.metaValue}>{g.department || '全部'}</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.field.dept')}</Text>
+                <Text style={styles.metaValue}>{g.department || t('common.all')}</Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>办公点</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.groups.office')}</Text>
                 <Text style={styles.metaValue}>
                   {g.office_lat ?? '—'}, {g.office_lng ?? '—'}
                 </Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>时区</Text>
+                <Text style={styles.metaLabel}>{t('attAdm.groups.timezone')}</Text>
                 <Text style={styles.metaValue}>UTC+{g.utc_offset_hours ?? 0}</Text>
               </View>
             </View>
 
             <View style={styles.rowActions}>
               <TouchableOpacity style={styles.ghostBtn} onPress={() => openMembers(g)} activeOpacity={0.8}>
-                <Text style={styles.ghostBtnText}>成员</Text>
+                <Text style={styles.ghostBtnText}>{t('attAdm.groups.members')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.ghostBtn} onPress={() => openGroupModal(g)} activeOpacity={0.8}>
-                <Text style={styles.ghostBtnText}>编辑</Text>
+                <Text style={styles.ghostBtnText}>{t('attAdm.groups.edit')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.ghostBtn, styles.ghostBtnDanger]}
                 onPress={() => removeGroup(g)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>删除</Text>
+                <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>
+                  {t('attAdm.groups.delete')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -961,13 +1024,13 @@ export default function AttendanceManageScreen() {
   const renderLeave = () => (
     <>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>状态筛选</Text>
+        <Text style={styles.cardTitle}>{t('attAdm.leave.filterTitle')}</Text>
         <View style={styles.chipWrap}>
-          <Chip label="全部" active={leaveFilter === ''} onPress={() => setLeaveFilter('')} />
+          <Chip label={t('common.all')} active={leaveFilter === ''} onPress={() => setLeaveFilter('')} />
           {LEAVE_STATUSES.map((s) => (
             <Chip
               key={s}
-              label={LEAVE_STATUS_META[s].label}
+              label={t(LEAVE_STATUS_META[s].key)}
               active={leaveFilter === s}
               onPress={() => setLeaveFilter(s)}
             />
@@ -976,9 +1039,13 @@ export default function AttendanceManageScreen() {
       </View>
 
       {loadingLeaves ? (
-        <LoadingState label="加载中…" />
+        <LoadingState label={t('common.loading')} />
       ) : leaves.length === 0 ? (
-        <EmptyState icon="document-text-outline" title="暂无请假申请" sub="当前筛选条件下没有记录" />
+        <EmptyState
+          icon="document-text-outline"
+          title={t('attAdm.leave.emptyTitle')}
+          sub={t('attAdm.leave.emptySub')}
+        />
       ) : (
         leaves.map((l) => {
           const meta = LEAVE_STATUS_META[l.status] ?? LEAVE_STATUS_META.pending;
@@ -987,31 +1054,41 @@ export default function AttendanceManageScreen() {
               <View style={styles.cardHeadRow}>
                 <View style={styles.flex1}>
                   <Text style={styles.empName}>{l.name || '—'}</Text>
-                  <Text style={styles.empSub}>{l.department || '未分组'}</Text>
+                  <Text style={styles.empSub}>{l.department || t('attAdm.noDept')}</Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-                  <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+                  <Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.key)}</Text>
                 </View>
               </View>
 
               <View style={styles.metaGrid}>
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>类型</Text>
-                  <Text style={styles.metaValue}>{LEAVE_TYPE_LABEL[l.leave_type] ?? l.leave_type}</Text>
+                  <Text style={styles.metaLabel}>{t('attAdm.leave.type')}</Text>
+                  <Text style={styles.metaValue}>
+                    {LEAVE_TYPE_LABEL[l.leave_type]
+                      ? t(LEAVE_TYPE_LABEL[l.leave_type])
+                      : l.leave_type}
+                  </Text>
                 </View>
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>天数</Text>
-                  <Text style={styles.metaValue}>{l.days} 天</Text>
+                  <Text style={styles.metaLabel}>{t('attAdm.leave.days')}</Text>
+                  <Text style={styles.metaValue}>{t('attAdm.leave.daysValue', { n: l.days })}</Text>
                 </View>
                 <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>起止</Text>
+                  <Text style={styles.metaLabel}>{t('attAdm.leave.period')}</Text>
                   <Text style={styles.metaValue}>
                     {l.start_date} ~ {l.end_date}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.leaveReason}>事由：{l.reason}</Text>
-              {l.reply_note ? <Text style={styles.cardHint}>批注：{l.reply_note}</Text> : null}
+              <Text style={styles.leaveReason}>
+                {t('attAdm.leave.reason', { text: l.reason })}
+              </Text>
+              {l.reply_note ? (
+                <Text style={styles.cardHint}>
+                  {t('attAdm.leave.replyNote', { text: l.reply_note })}
+                </Text>
+              ) : null}
 
               {l.status === 'pending' ? (
                 <View style={styles.rowActions}>
@@ -1023,7 +1100,7 @@ export default function AttendanceManageScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.ghostBtnText}>通过</Text>
+                    <Text style={styles.ghostBtnText}>{t('attAdm.leave.approve')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.ghostBtn, styles.ghostBtnDanger]}
@@ -1033,7 +1110,9 @@ export default function AttendanceManageScreen() {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>驳回</Text>
+                    <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>
+                      {t('attAdm.leave.reject')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -1059,10 +1138,10 @@ export default function AttendanceManageScreen() {
     return (
       <>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>筛选</Text>
+          <Text style={styles.cardTitle}>{t('attAdm.filter.title')}</Text>
           <View style={styles.quickRow}>
             <Chip
-              label="本月"
+              label={t('attAdm.filter.month')}
               onPress={() =>
                 setReportRange({
                   start: dayjs().startOf('month').format(DATE_FMT),
@@ -1071,7 +1150,7 @@ export default function AttendanceManageScreen() {
               }
             />
             <Chip
-              label="近 7 天"
+              label={t('attAdm.filter.last7')}
               onPress={() =>
                 setReportRange({
                   start: dayjs().subtract(6, 'day').format(DATE_FMT),
@@ -1080,7 +1159,7 @@ export default function AttendanceManageScreen() {
               }
             />
           </View>
-          <Field label="日期区间" hint="区间最长 92 天">
+          <Field label={t('attAdm.filter.range')} hint={t('attAdm.filter.rangeMax')}>
             <View style={styles.rangeRow}>
               <TextInput
                 style={[styles.input, styles.rangeInput]}
@@ -1103,9 +1182,9 @@ export default function AttendanceManageScreen() {
               />
             </View>
           </Field>
-          <Field label="部门">
+          <Field label={t('attAdm.field.dept')}>
             <View style={styles.chipWrap}>
-              <Chip label="全部" active={!reportDept} onPress={() => setReportDept('')} />
+              <Chip label={t('common.all')} active={!reportDept} onPress={() => setReportDept('')} />
               {deptOptions.map((d) => (
                 <Chip key={d} label={d} active={reportDept === d} onPress={() => setReportDept(d)} />
               ))}
@@ -1113,39 +1192,43 @@ export default function AttendanceManageScreen() {
           </Field>
           <TouchableOpacity style={styles.primaryBtn} onPress={loadReport} activeOpacity={0.8}>
             <Ionicons name="search" size={16} color={colors.primaryForeground} />
-            <Text style={styles.primaryBtnText}>查询</Text>
+            <Text style={styles.primaryBtnText}>{t('attAdm.filter.search')}</Text>
           </TouchableOpacity>
         </View>
 
         {loadingReport ? (
-          <LoadingState label="加载中…" />
+          <LoadingState label={t('common.loading')} />
         ) : !report ? (
-          <EmptyState icon="bar-chart-outline" title="暂无报表数据" sub="选择区间后点击查询" />
+          <EmptyState
+            icon="bar-chart-outline"
+            title={t('attAdm.report.emptyTitle')}
+            sub={t('attAdm.report.emptySub')}
+          />
         ) : (
           <>
             <View style={styles.kpiGrid}>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>迟到次数</Text>
+                <Text style={styles.kpiLabel}>{t('attAdm.report.kpiLate')}</Text>
                 <Text style={[styles.kpiValue, { color: colors.warning }]}>{totals.late ?? 0}</Text>
               </View>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>早退次数</Text>
+                <Text style={styles.kpiLabel}>{t('attAdm.report.kpiEarly')}</Text>
                 <Text style={[styles.kpiValue, { color: colors.warning }]}>
                   {totals.early_out ?? 0}
                 </Text>
               </View>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>缺勤次数</Text>
+                <Text style={styles.kpiLabel}>{t('attAdm.report.kpiAbsent')}</Text>
                 <Text style={[styles.kpiValue, { color: colors.error }]}>{totals.absent ?? 0}</Text>
               </View>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>异常合计</Text>
+                <Text style={styles.kpiLabel}>{t('attAdm.report.kpiAbnormal')}</Text>
                 <Text style={[styles.kpiValue, { color: colors.error }]}>
                   {totals.abnormal ?? 0}
                 </Text>
               </View>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>出勤率</Text>
+                <Text style={styles.kpiLabel}>{t('attAdm.report.kpiRate')}</Text>
                 <Text style={[styles.kpiValue, { color: colors.primary }]}>
                   {totals.attendance_rate ?? 0}
                   <Text style={styles.kpiUnit}> %</Text>
@@ -1154,9 +1237,9 @@ export default function AttendanceManageScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>部门维度</Text>
+              <Text style={styles.cardTitle}>{t('attAdm.report.byDept')}</Text>
               {(report.departments ?? []).length === 0 ? (
-                <Text style={styles.emptyHint}>暂无部门数据</Text>
+                <Text style={styles.emptyHint}>{t('attAdm.report.noDept')}</Text>
               ) : (
                 <View style={styles.reportList}>
                   {(report.departments ?? []).map((d: any) => {
@@ -1182,25 +1265,31 @@ export default function AttendanceManageScreen() {
                                 { color: abn === 0 ? colors.success : colors.error },
                               ]}
                             >
-                              异常 {abn}
+                              {t('attAdm.abnormalCount', { n: abn })}
                             </Text>
                           </View>
                         </View>
                         <View style={styles.reportStats}>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>迟到</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>
+                              {t('attAdm.status.late')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{d.late ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>早退</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>
+                              {t('attAdm.status.earlyOut')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{d.early_out ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>缺勤</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>
+                              {t('attAdm.status.absent')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{d.absent ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={styles.reportStatChipLabel}>请假</Text>
+                            <Text style={styles.reportStatChipLabel}>{t('attAdm.status.leave')}</Text>
                             <Text style={styles.reportStatChipText}>{d.leave ?? 0}</Text>
                           </View>
                         </View>
@@ -1212,9 +1301,9 @@ export default function AttendanceManageScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>逐日趋势（异常数）</Text>
+              <Text style={styles.cardTitle}>{t('attAdm.report.trend')}</Text>
               {daily.length === 0 ? (
-                <Text style={styles.emptyHint}>暂无趋势数据</Text>
+                <Text style={styles.emptyHint}>{t('attAdm.report.noTrend')}</Text>
               ) : (
                 daily.map((d) => {
                   const value = (d.late ?? 0) + (d.early_out ?? 0) + (d.absent ?? 0);
@@ -1234,11 +1323,13 @@ export default function AttendanceManageScreen() {
 
             <View style={styles.card}>
               <View style={styles.cardHeadRow}>
-                <Text style={styles.cardTitle}>员工维度（异常降序）</Text>
-                <Text style={styles.cardCaption}>{report.total_employees ?? 0} 人</Text>
+                <Text style={styles.cardTitle}>{t('attAdm.report.byEmployee')}</Text>
+                <Text style={styles.cardCaption}>
+                  {t('attAdm.count.people', { n: report.total_employees ?? 0 })}
+                </Text>
               </View>
               {topEmployees.length === 0 ? (
-                <Text style={styles.emptyHint}>暂无员工数据</Text>
+                <Text style={styles.emptyHint}>{t('attAdm.report.noEmployee')}</Text>
               ) : (
                 <View style={styles.reportList}>
                   {topEmployees.map((e: any) => {
@@ -1269,25 +1360,33 @@ export default function AttendanceManageScreen() {
                                 { color: abn === 0 ? colors.success : colors.error },
                               ]}
                             >
-                              异常 {abn}
+                              {t('attAdm.abnormalCount', { n: abn })}
                             </Text>
                           </View>
                         </View>
                         <View style={styles.reportStats}>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.success }]}>正常</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.success }]}>
+                              {t('attAdm.status.present')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{e.present ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>迟到</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>
+                              {t('attAdm.status.late')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{e.late ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>早退</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.warning }]}>
+                              {t('attAdm.status.earlyOut')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{e.early_out ?? 0}</Text>
                           </View>
                           <View style={styles.reportStatChip}>
-                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>缺勤</Text>
+                            <Text style={[styles.reportStatChipLabel, { color: colors.error }]}>
+                              {t('attAdm.status.absent')}
+                            </Text>
                             <Text style={styles.reportStatChipText}>{e.absent ?? 0}</Text>
                           </View>
                         </View>
@@ -1303,16 +1402,14 @@ export default function AttendanceManageScreen() {
     );
   };
 
-  const TABS = [
-    { key: 'records' as const, label: '考勤核对' },
-    { key: 'groups' as const, label: '考勤组' },
-    { key: 'leave' as const, label: '请假审批' },
-    { key: 'report' as const, label: '异常报表' },
-  ];
-
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
+      <ScrollView
+        horizontal
+        style={styles.tabBarScroll}
+        contentContainerStyle={styles.tabBar}
+        showsHorizontalScrollIndicator={false}
+      >
         {TABS.map((item) => (
           <TouchableOpacity
             key={item.key}
@@ -1320,12 +1417,15 @@ export default function AttendanceManageScreen() {
             onPress={() => setTab(item.key)}
             activeOpacity={0.85}
           >
-            <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>
-              {item.label}
+            <Text
+              style={[styles.tabText, tab === item.key && styles.tabTextActive]}
+              numberOfLines={1}
+            >
+              {t(item.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -1343,7 +1443,9 @@ export default function AttendanceManageScreen() {
       {/* 校准弹窗 */}
       <Sheet
         visible={!!calib}
-        title={`校准 · ${calib?.employee.name || calib?.employee.email || ''}`}
+        title={t('attAdm.calib.title', {
+          name: calib?.employee.name || calib?.employee.email || '',
+        })}
         onClose={() => setCalib(null)}
         footer={
           <TouchableOpacity
@@ -1355,12 +1457,15 @@ export default function AttendanceManageScreen() {
             {saving ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.primaryBtnText}>保存</Text>
+              <Text style={styles.primaryBtnText}>{t('attAdm.save')}</Text>
             )}
           </TouchableOpacity>
         }
       >
-        <Field label="日期" hint={calib?.day ? '已有记录不可改日期' : '补录需选择考勤状态'}>
+        <Field
+          label={t('attAdm.calib.date')}
+          hint={calib?.day ? t('attAdm.calib.dateLocked') : t('attAdm.calib.needStatus')}
+        >
           <TextInput
             style={[styles.input, calib?.day ? styles.inputDisabled : null]}
             value={calibForm.date}
@@ -1372,11 +1477,11 @@ export default function AttendanceManageScreen() {
             autoCapitalize="none"
           />
         </Field>
-        <Field label="状态">
+        <Field label={t('attAdm.calib.status')}>
           <View style={styles.chipWrap}>
             {calib?.day ? (
               <Chip
-                label="保持原状态"
+                label={t('attAdm.calib.keepStatus')}
                 active={!calibForm.status}
                 onPress={() => setCalibForm((p) => ({ ...p, status: '' }))}
               />
@@ -1384,14 +1489,14 @@ export default function AttendanceManageScreen() {
             {STATUSES.map((s) => (
               <Chip
                 key={s}
-                label={STATUS_META[s].label}
+                label={t(STATUS_META[s].key)}
                 active={calibForm.status === s}
                 onPress={() => setCalibForm((p) => ({ ...p, status: s }))}
               />
             ))}
           </View>
         </Field>
-        <Field label="上班时间（HH:mm）">
+        <Field label={t('attAdm.calib.checkIn')}>
           <TextInput
             style={styles.input}
             value={calibForm.check_in}
@@ -1402,7 +1507,7 @@ export default function AttendanceManageScreen() {
             autoCapitalize="none"
           />
         </Field>
-        <Field label="下班时间（HH:mm）">
+        <Field label={t('attAdm.calib.checkOut')}>
           <TextInput
             style={styles.input}
             value={calibForm.check_out}
@@ -1413,12 +1518,12 @@ export default function AttendanceManageScreen() {
             autoCapitalize="none"
           />
         </Field>
-        <Field label="备注">
+        <Field label={t('attAdm.calib.notes')}>
           <TextInput
             style={[styles.input, styles.textarea]}
             value={calibForm.notes}
             onChangeText={(v) => setCalibForm((p) => ({ ...p, notes: v }))}
-            placeholder="如：外勤补卡、请假类型备注"
+            placeholder={t('attAdm.calib.notesPlaceholder')}
             placeholderTextColor={colors.ink3}
             multiline
           />
@@ -1428,7 +1533,7 @@ export default function AttendanceManageScreen() {
       {/* 考勤组表单弹窗 */}
       <Sheet
         visible={!!groupModal}
-        title={groupModal?.id ? '编辑考勤组' : '新增考勤组'}
+        title={groupModal?.id ? t('attAdm.groups.editTitle') : t('attAdm.groups.createTitle')}
         onClose={() => setGroupModal(null)}
         footer={
           <TouchableOpacity
@@ -1440,31 +1545,31 @@ export default function AttendanceManageScreen() {
             {saving ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.primaryBtnText}>保存</Text>
+              <Text style={styles.primaryBtnText}>{t('attAdm.save')}</Text>
             )}
           </TouchableOpacity>
         }
       >
-        <Field label="名称（必填）">
+        <Field label={t('attAdm.groups.name')}>
           <TextInput
             style={styles.input}
             value={groupForm.name}
             onChangeText={(v) => setGroupForm((p) => ({ ...p, name: v }))}
-            placeholder="如：总部-标准班"
+            placeholder={t('attAdm.groups.namePlaceholder')}
             placeholderTextColor={colors.ink3}
           />
         </Field>
-        <Field label="描述">
+        <Field label={t('attAdm.groups.description')}>
           <TextInput
             style={styles.input}
             value={groupForm.description}
             onChangeText={(v) => setGroupForm((p) => ({ ...p, description: v }))}
-            placeholder="选填"
+            placeholder={t('attAdm.optional')}
             placeholderTextColor={colors.ink3}
           />
         </Field>
         <View style={styles.twoCol}>
-          <Field label="上班时间">
+          <Field label={t('attAdm.groups.workStart')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.work_start}
@@ -1475,7 +1580,7 @@ export default function AttendanceManageScreen() {
               autoCapitalize="none"
             />
           </Field>
-          <Field label="下班时间">
+          <Field label={t('attAdm.groups.workEnd')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.work_end}
@@ -1488,7 +1593,7 @@ export default function AttendanceManageScreen() {
           </Field>
         </View>
         <View style={styles.twoCol}>
-          <Field label="迟到宽限（分）">
+          <Field label={t('attAdm.groups.lateGrace')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.late_grace_minutes}
@@ -1497,7 +1602,7 @@ export default function AttendanceManageScreen() {
               placeholderTextColor={colors.ink3}
             />
           </Field>
-          <Field label="早退宽限（分）">
+          <Field label={t('attAdm.groups.earlyGrace')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.early_grace_minutes}
@@ -1508,7 +1613,7 @@ export default function AttendanceManageScreen() {
           </Field>
         </View>
         <View style={styles.twoCol}>
-          <Field label="办公点纬度">
+          <Field label={t('attAdm.groups.lat')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.office_lat}
@@ -1517,7 +1622,7 @@ export default function AttendanceManageScreen() {
               placeholderTextColor={colors.ink3}
             />
           </Field>
-          <Field label="办公点经度">
+          <Field label={t('attAdm.groups.lng')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.office_lng}
@@ -1528,7 +1633,7 @@ export default function AttendanceManageScreen() {
           </Field>
         </View>
         <View style={styles.twoCol}>
-          <Field label="打卡半径（km）">
+          <Field label={t('attAdm.groups.radiusKm')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.radius_km}
@@ -1537,7 +1642,7 @@ export default function AttendanceManageScreen() {
               placeholderTextColor={colors.ink3}
             />
           </Field>
-          <Field label="时区（UTC+）">
+          <Field label={t('attAdm.groups.utc')} style={styles.flex1}>
             <TextInput
               style={styles.input}
               value={groupForm.utc_offset_hours}
@@ -1547,38 +1652,38 @@ export default function AttendanceManageScreen() {
             />
           </Field>
         </View>
-        <Field label="部门" hint="留空表示对所有部门生效">
+        <Field label={t('attAdm.field.dept')} hint={t('attAdm.groups.deptHint')}>
           <TextInput
             style={styles.input}
             value={groupForm.department}
             onChangeText={(v) => setGroupForm((p) => ({ ...p, department: v }))}
-            placeholder="选填"
+            placeholder={t('attAdm.optional')}
             placeholderTextColor={colors.ink3}
           />
         </Field>
-        <Field label="是否默认组">
+        <Field label={t('attAdm.groups.defaultField')}>
           <View style={styles.chipWrap}>
             <Chip
-              label="是"
+              label={t('attAdm.yes')}
               active={groupForm.is_default}
               onPress={() => setGroupForm((p) => ({ ...p, is_default: true }))}
             />
             <Chip
-              label="否"
+              label={t('attAdm.no')}
               active={!groupForm.is_default}
               onPress={() => setGroupForm((p) => ({ ...p, is_default: false }))}
             />
           </View>
         </Field>
-        <Field label="是否启用">
+        <Field label={t('attAdm.groups.activeField')}>
           <View style={styles.chipWrap}>
             <Chip
-              label="启用"
+              label={t('attAdm.groups.enable')}
               active={groupForm.is_active}
               onPress={() => setGroupForm((p) => ({ ...p, is_active: true }))}
             />
             <Chip
-              label="停用"
+              label={t('attAdm.groups.disable')}
               active={!groupForm.is_active}
               onPress={() => setGroupForm((p) => ({ ...p, is_active: false }))}
             />
@@ -1589,42 +1694,47 @@ export default function AttendanceManageScreen() {
       {/* 成员管理弹窗 */}
       <Sheet
         visible={!!membersModal}
-        title={`成员 · ${membersModal?.name ?? ''}`}
+        title={t('attAdm.members.title', { name: membersModal?.name ?? '' })}
         onClose={() => setMembersModal(null)}
       >
-        <Field label={`当前成员（${members.length}）`}>
+        <Field label={t('attAdm.members.current', { n: members.length })}>
           {members.length === 0 ? (
-            <Text style={styles.emptyHint}>暂无成员</Text>
+            <Text style={styles.emptyHint}>{t('attAdm.members.empty')}</Text>
           ) : (
             members.map((m) => (
               <View key={m.employee_id} style={styles.memberRow}>
                 <View style={styles.flex1}>
                   <Text style={styles.empName}>{m.name || m.email || m.employee_id}</Text>
-                  <Text style={styles.empSub}>{m.department || '未分组'}</Text>
+                  <Text style={styles.empSub}>{m.department || t('attAdm.noDept')}</Text>
                 </View>
                 <TouchableOpacity
                   style={[styles.ghostBtn, styles.ghostBtnDanger]}
                   onPress={() => dropMember(m.employee_id)}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>移除</Text>
+                  <Text style={[styles.ghostBtnText, styles.ghostBtnTextDanger]}>
+                    {t('attAdm.members.remove')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ))
           )}
         </Field>
 
-        <Field label="添加成员（多选）" hint="同一员工只归属一个考勤组，重复添加会自动迁移">
+        <Field
+          label={t('attAdm.members.addTitle')}
+          hint={t('attAdm.members.addHint')}
+        >
           <TextInput
             style={styles.input}
             value={memberKw}
             onChangeText={setMemberKw}
-            placeholder="搜索姓名 / 工号 / 部门"
+            placeholder={t('attAdm.members.searchPlaceholder')}
             placeholderTextColor={colors.ink3}
           />
           <View style={styles.chipWrap}>
             {filteredEmployees.length === 0 ? (
-              <Text style={styles.emptyHint}>无匹配员工</Text>
+              <Text style={styles.emptyHint}>{t('attAdm.members.noMatch')}</Text>
             ) : (
               filteredEmployees.map((e) => (
                 <Chip
@@ -1647,14 +1757,20 @@ export default function AttendanceManageScreen() {
           disabled={pickedEmployees.length === 0}
           activeOpacity={0.8}
         >
-          <Text style={styles.primaryBtnText}>添加所选（{pickedEmployees.length}）</Text>
+          <Text style={styles.primaryBtnText}>
+            {t('attAdm.members.addSelected', { n: pickedEmployees.length })}
+          </Text>
         </TouchableOpacity>
       </Sheet>
 
       {/* 审批弹窗 */}
       <Sheet
         visible={!!review}
-        title={review?.action === 'approved' ? '通过申请' : '驳回申请'}
+        title={
+          review?.action === 'approved'
+            ? t('attAdm.review.approveTitle')
+            : t('attAdm.review.rejectTitle')
+        }
         onClose={() => setReview(null)}
         footer={
           <TouchableOpacity
@@ -1666,7 +1782,7 @@ export default function AttendanceManageScreen() {
             {saving ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.primaryBtnText}>确认</Text>
+              <Text style={styles.primaryBtnText}>{t('common.confirm')}</Text>
             )}
           </TouchableOpacity>
         }
@@ -1674,15 +1790,19 @@ export default function AttendanceManageScreen() {
         {review ? (
           <>
             <Text style={styles.reviewSummary}>
-              {review.leave.name} · {LEAVE_TYPE_LABEL[review.leave.leave_type]} ·{' '}
-              {review.leave.start_date} ~ {review.leave.end_date} · {review.leave.days} 天
+              {review.leave.name} ·{' '}
+              {LEAVE_TYPE_LABEL[review.leave.leave_type]
+                ? t(LEAVE_TYPE_LABEL[review.leave.leave_type])
+                : review.leave.leave_type}{' '}
+              · {review.leave.start_date} ~ {review.leave.end_date} ·{' '}
+              {t('attAdm.leave.daysValue', { n: review.leave.days })}
             </Text>
-            <Field label="批注">
+            <Field label={t('attAdm.review.note')}>
               <TextInput
                 style={[styles.input, styles.textarea]}
                 value={replyNote}
                 onChangeText={setReplyNote}
-                placeholder="选填，将同步给申请人"
+                placeholder={t('attAdm.review.notePlaceholder')}
                 placeholderTextColor={colors.ink3}
                 multiline
               />
@@ -1698,6 +1818,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
 
+  tabBarScroll: { flexGrow: 0 },
   tabBar: {
     flexDirection: 'row',
     gap: 8,
@@ -1706,7 +1827,7 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   tab: {
-    flex: 1,
+    paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
@@ -1715,7 +1836,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  tabText: { fontSize: 13, fontWeight: '600', color: colors.ink2, textAlign: 'center', lineHeight: 18 },
   tabTextActive: { color: colors.primaryForeground },
 
   card: {
@@ -1731,13 +1852,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, letterSpacing: -0.2, flexShrink: 1 },
   cardCaption: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
   cardHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: 16 },
 
   quickRow: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   field: { marginTop: 12 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.ink2, marginBottom: 6 },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.ink2,
+    marginBottom: 6,
+    // 泰文长标签可能两行：统一给两行高度，保证两列表单输入框基线对齐
+    minHeight: 34,
+  },
   fieldHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 4, lineHeight: colors.lineHeight.tight},
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
@@ -1748,12 +1876,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fieldFill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fieldFillBorder,
+    maxWidth: '100%',
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 12, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: 12, color: colors.ink2, fontWeight: '500', flexShrink: 1 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
 
   input: {
+    width: '100%',
     height: 42,
     borderRadius: colors.radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
@@ -1768,12 +1898,14 @@ const styles = StyleSheet.create({
   rangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rangeInput: { flex: 1 },
   rangeSep: { color: colors.ink3, fontWeight: '600' },
-  twoCol: { flexDirection: 'row', gap: 12 },
+  twoCol: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   flex1: { flex: 1 },
 
   primaryBtn: {
-    height: 42,
+    minHeight: 42,
     marginTop: 14,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderRadius: colors.radius.lg,
     backgroundColor: colors.primary,
     flexDirection: 'row',
@@ -1820,6 +1952,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
+  // 右侧徽标 + 校准按钮固定不被压缩，把窄屏余量留给左侧日期/备注
+  dayRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   dayDate: { fontSize: 13, fontWeight: '600', color: colors.ink },
   daySub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   emptyHint: { fontSize: 12, color: colors.ink3, paddingVertical: 8 },
@@ -1861,6 +1995,7 @@ const styles = StyleSheet.create({
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   kpiCard: {
     width: '47%',
+    minHeight: 96,
     flexGrow: 1,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
@@ -1868,7 +2003,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 14,
   },
-  kpiLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
+  kpiLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500', lineHeight: 16, flexShrink: 1 },
   kpiValue: {
     fontSize: 24,
     fontWeight: '700',
@@ -1996,7 +2131,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  sheetTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  sheetTitle: { flex: 1, paddingRight: 8, fontSize: 16, fontWeight: '700', color: colors.ink },
   sheetBody: { paddingHorizontal: colors.spacing.lg },
   sheetBodyContent: { paddingBottom: 8 },
   sheetFooter: { paddingHorizontal: colors.spacing.lg, paddingVertical: 14 },

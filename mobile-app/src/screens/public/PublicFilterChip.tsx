@@ -57,5 +57,5 @@ const styles = StyleSheet.create({
   },
   badgePrimary: { backgroundColor: colors.sidebarActive },
   badgeText: { fontSize: colors.fontSize.xs, color: colors.ink2 },
-  badgeTextPrimary: { color: colors.accent, fontWeight: '600' },
+  badgeTextPrimary: { color: colors.primary, fontWeight: '600' },
 });

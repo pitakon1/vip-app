@@ -24,27 +24,29 @@ import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney } from '@/utils/format';
+import { useI18n } from '@/i18n';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
 import Card from '@/components/Card';
 import type { Listing } from '@/types';
 
-const STATUS_META: Record<string, { text: string; color: string; bg: string }> = {
-  pending: { text: '待审核', color: colors.warning, bg: colors.warningLight },
-  active: { text: '已上架', color: colors.success, bg: colors.successLight },
-  rejected: { text: '已驳回', color: colors.error, bg: colors.errorLight },
-  closed: { text: '已下架', color: colors.ink3, bg: colors.surface2 },
-  sold: { text: '已售出', color: colors.primary, bg: colors.sidebarActive },
-  rented: { text: '已出租', color: colors.primary, bg: colors.sidebarActive },
+const STATUS_META: Record<string, { key: string; color: string; bg: string }> = {
+  pending: { key: 'myListings.status.pending', color: colors.warning, bg: colors.warningLight },
+  active: { key: 'myListings.status.active', color: colors.success, bg: colors.successLight },
+  rejected: { key: 'myListings.status.rejected', color: colors.error, bg: colors.errorLight },
+  closed: { key: 'myListings.status.closed', color: colors.ink3, bg: colors.surface2 },
+  sold: { key: 'myListings.status.sold', color: colors.primary, bg: colors.sidebarActive },
+  rented: { key: 'myListings.status.rented', color: colors.primary, bg: colors.sidebarActive },
 };
 
-const DEDUPE_META: Record<string, { text: string; color: string }> = {
-  new: { text: '正常', color: colors.success },
-  suspect: { text: '疑似重复待审', color: colors.warning },
-  blocked: { text: '重复已阻断', color: colors.error },
+const DEDUPE_META: Record<string, { key: string; color: string }> = {
+  new: { key: 'myListings.dedupe.new', color: colors.success },
+  suspect: { key: 'myListings.dedupe.suspect', color: colors.warning },
+  blocked: { key: 'myListings.dedupe.blocked', color: colors.error },
 };
 
 export default function MyListingsScreen() {
+  const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
@@ -84,7 +86,7 @@ export default function MyListingsScreen() {
     });
   }, [q.data, page]);
 
-  const loadError = q.isError && rows.length === 0 ? '上架单加载失败' : null;
+  const loadError = q.isError && rows.length === 0 ? t('myListings.loadFail') : null;
   const retry = () => {
     void q.refetch({ cancelRefetch: false });
   };
@@ -104,7 +106,7 @@ export default function MyListingsScreen() {
     const doClose = async () => {
       try {
         await listingApi.close(item.id, {});
-        notify('已下架', '该上架单已关闭');
+        notify(t('myListings.closedTitle'), t('myListings.closedMsg'));
         setRows((prev) =>
           prev.map((x) => (x.id === item.id ? { ...x, status: 'closed' as const } : x)),
         );
@@ -122,17 +124,17 @@ export default function MyListingsScreen() {
               : prev,
         );
       } catch (e: any) {
-        notifyError('操作失败', e);
+        notifyError(t('myListings.opFail'), e);
       }
     };
-    const msg = '确定关闭该上架单并下架吗？下架后买家/租客将无法再看到该房源。';
+    const msg = t('myListings.closeMsg');
     if (Platform.OS === 'web') {
       if (window.confirm(msg)) void doClose();
       return;
     }
-    Alert.alert('下架确认', msg, [
-      { text: '取消', style: 'cancel' },
-      { text: '确认下架', style: 'destructive', onPress: () => void doClose() },
+    Alert.alert(t('myListings.closeTitle'), msg, [
+      { text: t('myListings.cancel'), style: 'cancel' },
+      { text: t('myListings.confirmClose'), style: 'destructive', onPress: () => void doClose() },
     ]);
   };
 
@@ -145,36 +147,42 @@ export default function MyListingsScreen() {
         : item.monthly_rent != null
           ? fmtMoney(item.monthly_rent, item.currency)
           : '—';
-    const priceUnit = item.listing_type === 'sell' ? '' : ' / 月';
+    const priceUnit = item.listing_type === 'sell' ? '' : t('myListings.perMonth');
     const splitText =
       item.buyer_side_rate != null && item.listing_side_rate != null
-        ? `客源 ${item.buyer_side_rate}% · 房源 ${item.listing_side_rate}%`
+        ? t('myListings.split', { buyer: item.buyer_side_rate, listing: item.listing_side_rate })
         : item.owner_commission_rate != null
-          ? `佣金 ${item.owner_commission_rate}% 归业主`
+          ? t('myListings.ownerCommission', { rate: item.owner_commission_rate })
           : '';
     return (
       <Card>
         <View style={styles.itemHead}>
           <Text style={styles.itemTitle} numberOfLines={1}>
-            {item.room_number || item.address || '房源上架单'}
+            {item.room_number || item.address || t('myListings.untitled')}
           </Text>
           <View style={[styles.badge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.badgeText, { color: st.color }]}>{st.text}</Text>
+            <Text style={[styles.badgeText, { color: st.color }]}>{t(st.key)}</Text>
           </View>
         </View>
         {item.address ? <Text style={styles.itemAddr} numberOfLines={1}>{item.address}</Text> : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{price}{priceUnit}</Text>
-          <Text style={styles.typeTag}>{item.listing_type === 'sell' ? '出售' : '出租'}</Text>
+          <Text style={styles.typeTag}>
+            {item.listing_type === 'sell' ? t('myListings.sell') : t('myListings.rent')}
+          </Text>
         </View>
         <View style={styles.metaRow}>
-          {dd ? <Text style={[styles.meta, { color: dd.color }]}>去重：{dd.text}</Text> : null}
+          {dd ? (
+            <Text style={[styles.meta, { color: dd.color }]}>
+              {`${t('myListings.dedupePrefix')}${t(dd.key)}`}
+            </Text>
+          ) : null}
           {splitText ? <Text style={styles.meta}>{splitText}</Text> : null}
           <Text style={styles.meta}>
             {item.rental_commission_months != null
-              ? `租佣 ${item.rental_commission_months} 个月`
+              ? t('myListings.rentCommission', { months: item.rental_commission_months })
               : item.sale_commission_rate != null
-                ? `卖佣 ${item.sale_commission_rate}%`
+                ? t('myListings.saleCommission', { rate: item.sale_commission_rate })
                 : ''}
           </Text>
         </View>
@@ -186,9 +194,9 @@ export default function MyListingsScreen() {
               activeOpacity={0.7}
               onPress={() => closeListing(item)}
               accessibilityRole="button"
-              accessibilityLabel="关闭下架"
+              accessibilityLabel={t('myListings.close')}
             >
-              <Text style={styles.actionDangerText}>下架</Text>
+              <Text style={styles.actionDangerText}>{t('myListings.close')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -201,12 +209,12 @@ export default function MyListingsScreen() {
       {loading ? (
         <ListState loading />
       ) : loadError ? (
-        <ListState error={loadError} retryLabel="重试" onRetry={retry} />
+        <ListState error={loadError} retryLabel={t('retry')} onRetry={retry} />
       ) : items.length === 0 ? (
         <EmptyState
           icon="business-outline"
-          title="暂无上架单"
-          sub="到「我的」发布房源，把您的房源放到平台上架"
+          title={t('myListings.emptyTitle')}
+          sub={t('myListings.emptySub')}
         />
       ) : (
         <>
@@ -222,9 +230,9 @@ export default function MyListingsScreen() {
                 backgroundColor: colors.alpha(colors.errorRgb, 0.08),
               }}
             >
-              <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>上架单加载失败</Text>
+              <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('myListings.loadFail')}</Text>
               <TouchableOpacity onPress={retry} activeOpacity={0.7}>
-                <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+                <Text style={{ fontSize: 12, color: colors.primary }}>{t('retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -235,6 +243,11 @@ export default function MyListingsScreen() {
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+            ListFooterComponent={
+              items.length > 0 && items.length >= total ? (
+                <Text style={styles.footer}>{t('pub.noMore')}</Text>
+              ) : null
+            }
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
             }
@@ -259,7 +272,8 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 8 },
   meta: { fontSize: 12, color: colors.ink2 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  actionBtn: { flex: 1, height: 40, borderRadius: colors.radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  actionBtn: { flex: 1, minHeight: colors.touch.min, borderRadius: colors.radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
+  footer: { fontSize: 12, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
   actionText: { fontSize: 14, fontWeight: '600', color: colors.ink },
   actionDanger: { backgroundColor: colors.errorLight, borderColor: colors.errorLight },
   actionDangerText: { fontSize: 14, fontWeight: '600', color: colors.error },

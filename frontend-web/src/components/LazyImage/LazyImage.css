@@ -1,7 +1,7 @@
 /* 懒加载图片：容器沿用原图片的尺寸样式，加载完成前显示占位底色 */
 .lazy-img {
   overflow: hidden;
-  background: var(--rent-surface-2, #f4f1ec);
+  background: var(--rent-surface-2, #eceef1);
 }
 
 .lazy-img__img {
@@ -23,7 +23,7 @@
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: var(--rent-ink-2, #5b6672);
+  color: var(--rent-ink-2, #55606c);
   font-size: var(--rent-fs-sm);
 }
 

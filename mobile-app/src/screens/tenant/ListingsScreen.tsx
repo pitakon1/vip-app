@@ -7,8 +7,9 @@ import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
  * 本页只保留**数据逻辑**：公开接口拉取 / 本地缓存 / 过滤排序 / 收藏 / 翻译 / 区域与地铁数据 / 地图弹层。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { View, StyleSheet, Modal, ScrollView, Text, TouchableOpacity } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import colors from '@/theme/colors';
 import * as Location from 'expo-location';
@@ -33,6 +34,7 @@ import ListingsFeed, {
   type RegionMetroLine,
 } from '@/components/ListingsFeed';
 import { useI18n } from '@/i18n';
+import { cityDisplayName } from '@/data/locationNames';
 import { METRO_LINES } from '@/data/locationMetro';
 import { useAuthStore } from '@/stores/auth';
 import { useLocationStore, findCityByKey } from '@/stores/location';
@@ -65,10 +67,17 @@ const bedParams = (bed: string): Record<string, number> => {
 };
 
 export default function ListingsScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const PRICE_RANGES = useMemo(() => priceRanges(t), [t]);
   const AREA_PRESETS = useMemo(() => areaPresets(t), [t]);
   const [listings, setListings] = useState<Listing[]>([]);
+  // 分页：首屏 page=1，滚到底按接口 total 继续加载，避免「只有 50 套」的错觉
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [saleTotal, setSaleTotal] = useState<number | undefined>(undefined);
+  // 结果总数（服务端 total）：找房卡「查看 N 套房源」与分页同口径，不能取已加载条数
+  const [total, setTotal] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -168,12 +177,15 @@ export default function ListingsScreen() {
     if (apiDistricts && apiDistricts.length) {
       return apiDistricts.map((d) => ({
         key: String(d.district),
-        label: d.listing_count > 0 ? `${d.district} (${d.listing_count})` : String(d.district),
+        label:
+          d.listing_count > 0
+            ? t('list.districtCount', { name: String(d.district), n: d.listing_count })
+            : String(d.district),
         kws: [String(d.district).toLowerCase()],
       }));
     }
     return cityDistricts.map((c) => ({ key: c.key, label: c.label, kws: c.kws }));
-  }, [apiDistricts, cityDistricts]);
+  }, [apiDistricts, cityDistricts, t]);
 
   // 已选区域/地铁的关键词：下发后端 keywords（同义词组 OR 命中），不再本地匹配
   const activeLocationKw = useMemo(() => {
@@ -256,6 +268,30 @@ export default function ListingsScreen() {
     return p;
   }, [bedFilter, keyword, sortKey, nearby, userPos]);
 
+  // 列表查询参数（分页复用同一份口径：首屏与加载更多只差 page）
+  const buildListParams = useCallback(
+    (pageNum: number) => {
+      const params: any = {
+        page: pageNum,
+        page_size: DETAIL_PAGE_SIZE,
+        listing_type: 'rent',
+        // 城市作用域：传定位 Store 的 cityKey（后端做 slug 归一化），不传中文 cityLabel
+        ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
+        // 房源类型 / 新房二手房改由服务端过滤：多值数组经 axios paramsSerializer
+        // （indexes:null）序列化为重复键，与 FastAPI 的 List[str] Query 对齐。
+        ...(filterTypes.length ? { property_type: filterTypes } : {}),
+        ...(isNew === undefined ? {} : { is_new_development: isNew }),
+        ...serverFilters,
+      };
+      if (schoolFilter) {
+        params.school_id = schoolFilter.id;
+        params.school_radius_km = schoolFilter.km;
+      }
+      return params;
+    },
+    [locSel.cityKey, filterTypes, isNew, serverFilters, schoolFilter],
+  );
+
   const loadListings = useCallback(
     async (opts?: { force?: boolean }) => {
       // SWR：先渲染磁盘缓存（秒开），再后台请求刷新并回写缓存；公开数据全局一份。
@@ -269,6 +305,7 @@ export default function ListingsScreen() {
           const cached = await getCached<Listing[]>(cacheKey);
           if (cached && cached.length) {
             setListings(cached);
+            setTotal(cached.length);
             setLoadError(false);
             setLoading(false);
             if (!opts?.force && (await isFresh(cacheKey))) {
@@ -277,22 +314,7 @@ export default function ListingsScreen() {
             }
           }
         }
-        const params: any = {
-          page: 1,
-          page_size: DETAIL_PAGE_SIZE,
-          listing_type: 'rent',
-          // 城市作用域：传定位 Store 的 cityKey（后端做 slug 归一化），不传中文 cityLabel
-          ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
-          // 房源类型 / 新房二手房改由服务端过滤：多值数组经 axios paramsSerializer
-          // （indexes:null）序列化为重复键，与 FastAPI 的 List[str] Query 对齐。
-          ...(filterTypes.length ? { property_type: filterTypes } : {}),
-          ...(isNew === undefined ? {} : { is_new_development: isNew }),
-          ...serverFilters,
-        };
-        if (schoolFilter) {
-          params.school_id = schoolFilter.id;
-          params.school_radius_km = schoolFilter.km;
-        }
+        const params = buildListParams(1);
         // 登录/未登录统一走匿名公开层（对齐贝壳：浏览/搜索无需注册），内容对所有访客一致
         const res = await publicApi.listings(params);
         // 过期响应直接丢弃：连续切换学校等筛选时，先发的请求可能后到
@@ -302,6 +324,13 @@ export default function ListingsScreen() {
           ? data
           : (data as any)?.items ?? (data as any)?.data ?? [];
         setListings(items as Listing[]);
+        const serverTotal = Array.isArray(data) ? undefined : Number((data as any)?.total);
+        setTotal(Number.isFinite(serverTotal) ? serverTotal : items.length);
+        setPage(1);
+        setHasMore(
+          items.length >= DETAIL_PAGE_SIZE &&
+            (!Number.isFinite(serverTotal) || items.length < (serverTotal as number)),
+        );
         setLoadError(false);
         if (items.length && !scoped) setCached(cacheKey, items);
       } catch (err: any) {
@@ -319,12 +348,39 @@ export default function ListingsScreen() {
         }
       }
     },
-    [schoolFilter, t, filterTypes, isNew, locSel.cityKey, serverFilters, hasServerFilters],
+    [buildListParams, t, schoolFilter, nearby, hasServerFilters],
   );
 
   useEffect(() => {
     loadListings();
   }, [loadListings]);
+
+  // 上拉加载下一页：去重后追加，避免后端分页边界重复项
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await publicApi.listings(buildListParams(page + 1));
+      const data = res.data;
+      const items = (Array.isArray(data)
+        ? data
+        : (data as any)?.items ?? (data as any)?.data ?? []) as Listing[];
+      if (!items.length) {
+        setHasMore(false);
+        return;
+      }
+      setListings((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        return [...prev, ...items.filter((x) => !seen.has(x.id))];
+      });
+      setPage((p) => p + 1);
+      setHasMore(items.length >= DETAIL_PAGE_SIZE);
+    } catch {
+      notify(t('loadFailed'), t('loadFailedSub'));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, buildListParams, page, t]);
 
   // 学校候选：首次展开「更多」面板时懒加载一次（由 ListingsFeed 的 onPanelOpen 触发）
   const loadSchools = useCallback(() => {
@@ -355,6 +411,8 @@ export default function ListingsScreen() {
         ? data
         : (data as any)?.items ?? (data as any)?.data ?? [];
       setSaleListings(items as SaleListing[]);
+      const serverTotal = Array.isArray(data) ? undefined : Number((data as any)?.total);
+      setSaleTotal(Number.isFinite(serverTotal) ? serverTotal : items.length);
     } catch {
       // 挂牌加载失败：保留旧数据并置错误态（列表内提供错误条/重试）
       setSaleError(true);
@@ -395,11 +453,15 @@ export default function ListingsScreen() {
   const favSetRef = useRef(favSet);
   favSetRef.current = favSet;
 
+  // 收藏是否待续做：未登录点收藏 → 登录 → 回到本页后补上这次收藏
+  const [pendingFav, setPendingFav] = useState<Listing | null>(null);
+
   // 收藏 / 取消收藏（useCallback：保持引用稳定，配合 ListingCard 的 memo）
   const handleToggleFav = useCallback(
     async (item: Listing) => {
       // 收藏是需登录的动作：未登录先弹登录，登录成功后回到本页继续（对齐贝壳）
       if (!token) {
+        setPendingFav(item);
         navigation.navigate('Login');
         return;
       }
@@ -422,6 +484,16 @@ export default function ListingsScreen() {
       }
     },
     [queryClient, token, navigation, t],
+  );
+
+  // 登录返回后补做未完成的收藏
+  useFocusEffect(
+    useCallback(() => {
+      if (!token || !pendingFav) return;
+      const item = pendingFav;
+      setPendingFav(null);
+      void handleToggleFav(item);
+    }, [token, pendingFav, handleToggleFav]),
   );
 
   // 金刚区分类直达：路由参数变化时同步筛选（支持字符串与数组两种形式）
@@ -466,6 +538,9 @@ export default function ListingsScreen() {
     }
   }, [loadListings, biz, loadSaleListings]);
 
+  // 翻译结果：长文案放进可滚动弹层（toast 既不可滚动也无法复制）
+  const [translateModal, setTranslateModal] = useState<{ title: string; text: string } | null>(null);
+
   // 翻译（useCallback：引用稳定，配合 ListingCard 的 memo）
   const handleTranslate = useCallback(async (item: Listing) => {
     const source = translateSource(item);
@@ -478,7 +553,10 @@ export default function ListingsScreen() {
       const res = await translateApi.translate(source, 'zh');
       const data = res.data;
       const text = data?.translated_text ?? '';
-      notify(t('list.translateResult'), text || t('list.translateNoKey'));
+      setTranslateModal({
+        title: t('list.translateResult'),
+        text: text || t('list.translateNoKey'),
+      });
     } catch {
       notify(t('list.translateFail'), t('prop.retryLater'));
     } finally {
@@ -560,15 +638,18 @@ export default function ListingsScreen() {
     if (!userPos) {
       Location.requestForegroundPermissionsAsync()
         .then(({ status }) => {
-          if (status !== 'granted') return;
+          if (status !== 'granted') {
+            notify(t('common.hint'), t('list.mapNoLocation'));
+            return;
+          }
           return Location.getCurrentPositionAsync({}).then((cur) =>
             setUserPos({ lat: cur.coords.latitude, lng: cur.coords.longitude }),
           );
         })
-        .catch(() => {});
+        .catch(() => notify(t('common.hint'), t('list.mapNoLocation')));
     }
     void loadMapPoints();
-  }, [userPos, loadMapPoints]);
+  }, [userPos, loadMapPoints, t]);
 
   // ---------- 受控筛选：聚合为 filters 下发给展示组件，回写时按字段分发 ----------
   const filters: ListingsFilters = useMemo(
@@ -646,7 +727,13 @@ export default function ListingsScreen() {
   return (
     <View style={styles.container}>
       <ListingsFeed
+        autoFocusSearch={!!route.params?.autoFocus}
+        searchFocusTs={route.params?.focusTs}
         items={biz === 'sale' ? saleListings : listings}
+        total={biz === 'sale' ? saleTotal : total}
+        hasMore={biz === 'sale' ? false : hasMore}
+        loadingMore={biz === 'sale' ? false : loadingMore}
+        onLoadMore={biz === 'sale' ? undefined : loadMore}
         loading={loading}
         error={biz === 'sale' ? saleError : loadError}
         emptyLoading={biz === 'sale' && saleLoading}
@@ -663,7 +750,7 @@ export default function ListingsScreen() {
         onOpenDetail={goDetail}
         districts={districtList}
         metroLines={cityMetroLines}
-        cityLabel={locSel.cityLabel}
+        cityLabel={cityDisplayName(locSel.cityKey, locSel.cityLabel, lang)}
         schools={schools}
         schoolsLoaded={schoolsLoaded}
         enableNearby
@@ -693,10 +780,64 @@ export default function ListingsScreen() {
           navigation.navigate('PublicListingDetail', { id: p.id });
         }}
       />
+
+      {/* 翻译结果弹层：长文案可滚动、可长按复制，关闭按钮固定右上 */}
+      <Modal
+        visible={!!translateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTranslateModal(null)}
+      >
+        <View style={styles.translateOverlay}>
+          <View style={styles.translateCard}>
+            <View style={styles.translateHead}>
+              <Text style={styles.translateTitle} numberOfLines={1}>
+                {translateModal?.title}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setTranslateModal(null)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+              >
+                <Ionicons name="close" size={20} color={colors.ink2} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.translateBody} showsVerticalScrollIndicator>
+              <Text style={styles.translateText} selectable>
+                {translateModal?.text}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  translateOverlay: {
+    flex: 1,
+    backgroundColor: colors.alpha(colors.inkRgb, 0.45),
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  translateCard: {
+    maxHeight: '70%',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 16,
+  },
+  translateHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  translateTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
+  translateBody: { marginTop: 10 },
+  translateText: { fontSize: 14, lineHeight: 22, color: colors.ink2 },
 });

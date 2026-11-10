@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import apiClient from '../lib/api';
 import { clearHistory } from '../lib/browseHistory';
 import { refreshTokenStorage, tokenStorage } from '../lib/storage';
+import { useI18n } from '../i18n';
 import type { User, UserRole } from '../types';
 
 /**
@@ -75,7 +76,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : '登录失败';
+      const message = err instanceof Error ? err.message : useI18n.getState().t('login.failedTitle');
       set({ isLoading: false, error: message });
       throw err;
     }

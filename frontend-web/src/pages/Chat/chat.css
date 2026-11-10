@@ -9,7 +9,7 @@
   flex-shrink: 0;
   background: #fff;
   border-radius: 12px;
-  border: 1px solid var(--rent-line, #eef2f5);
+  border: 1px solid var(--rent-line, #e2e5e8);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -18,7 +18,7 @@
   padding: 14px 16px;
   font-weight: 600;
   font-size: var(--rent-fs-base);
-  border-bottom: 1px solid var(--rent-line, #eef2f5);
+  border-bottom: 1px solid var(--rent-line, #e2e5e8);
 }
 .rent-chat__list {
   flex: 1;
@@ -27,7 +27,7 @@
 .rent-chat__item {
   padding: var(--rent-s-3) var(--rent-s-4);
   cursor: pointer;
-  border-bottom: 1px solid var(--rent-line, #f2f5f7);
+  border-bottom: 1px solid var(--rent-line, #f3f4f6);
   transition: background var(--motion-fast);
 }
 .rent-chat__item:hover {
@@ -49,13 +49,13 @@
 }
 .rent-chat__side-foot {
   padding: var(--rent-s-3);
-  border-top: 1px solid var(--rent-line, #f2f5f7);
+  border-top: 1px solid var(--rent-line, #f3f4f6);
 }
 .rent-chat__main {
   flex: 1;
   background: #fff;
   border-radius: 12px;
-  border: 1px solid var(--rent-line, #eef2f5);
+  border: 1px solid var(--rent-line, #e2e5e8);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -93,7 +93,7 @@
   display: flex;
   gap: 10px;
   padding: var(--rent-s-3);
-  border-top: 1px solid var(--rent-line, #f2f5f7);
+  border-top: 1px solid var(--rent-line, #f3f4f6);
 }
 /* 连接状态提示条：连接中为中性色，断线重连为警示色 */
 .rent-chat__status {
@@ -101,7 +101,7 @@
   font-size: 12px;
   color: var(--rent-ink-3);
   background: var(--rent-surface-2);
-  border-bottom: 1px solid var(--rent-line, #f2f5f7);
+  border-bottom: 1px solid var(--rent-line, #f3f4f6);
 }
 .rent-chat__status--warn {
   color: #b45309;

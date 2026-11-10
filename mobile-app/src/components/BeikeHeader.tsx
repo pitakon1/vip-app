@@ -18,6 +18,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { useAuthStore } from '../stores/auth';
+import { useI18n } from '../i18n';
 import type { UserRole } from '../types';
 
 /** 各角色底部「首页」Tab 名（返回主页的目标） */
@@ -74,6 +75,7 @@ export function HomeIcon({ size = 20, color = colors.ink }: { size?: number; col
 /** 圆形半透明「返回」按钮（原生 header headerLeft 用） */
 export function BeikeBackButton() {
   const navigation = useNavigation<any>();
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={styles.circleBtn}
@@ -83,7 +85,7 @@ export function BeikeBackButton() {
         if (navigation.canGoBack()) navigation.goBack();
       }}
       accessibilityRole="button"
-      accessibilityLabel="返回"
+      accessibilityLabel={t('common.back')}
     >
       <Svg width={20} height={20} viewBox="0 0 24 24">
         <Path
@@ -102,6 +104,7 @@ export function BeikeBackButton() {
 /** 「返回主页」房屋按钮（原生 header headerRight 用） */
 export function BeikeHomeButton() {
   const navigation = useNavigation<any>();
+  const { t } = useI18n();
   return (
     <TouchableOpacity
       style={styles.circleBtn}
@@ -109,7 +112,7 @@ export function BeikeHomeButton() {
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       onPress={() => goMainHome(navigation)}
       accessibilityRole="button"
-      accessibilityLabel="返回主页"
+      accessibilityLabel={t('common.backHome')}
     >
       <HomeIcon size={18} />
     </TouchableOpacity>

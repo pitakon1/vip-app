@@ -44,7 +44,7 @@ export default function MapSection({
         borderRadius: 999,
         background: 'rgba(255,255,255,0.92)',
         fontSize: 12,
-        color: 'var(--rent-ink-2, #64748b)',
+        color: 'var(--rent-ink-2, #55606c)',
         boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
       }}>
         {t('browse.mapLegend')} · {markers.length} {t('property.units')}

@@ -42,6 +42,12 @@ export default function PublicInquiryForm({
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
+  // 编辑任一字段时收掉上一次的校验/提交提示，避免旧错误一直挂在表单上
+  const edit = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    if (feedback) setFeedback(null);
+  };
+
   const submit = async () => {
     if (!name.trim()) {
       setFeedback({ tone: 'error', text: t('pub.inquireNameRequired') });
@@ -50,6 +56,12 @@ export default function PublicInquiryForm({
     // 贝壳口径：匿名留资手机号必填——否则线索无法回访，这条 lead 是废的。
     if (!phone.trim()) {
       setFeedback({ tone: 'error', text: t('pub.inquirePhoneRequired') });
+      return;
+    }
+    // 只做宽松格式校验（允许 +、空格、短横），不猜国家码规则；至少 6 位数字
+    const digits = phone.replace(/\D/g, '');
+    if (!/^\+?[\d\s-]+$/.test(phone.trim()) || digits.length < 6 || digits.length > 20) {
+      setFeedback({ tone: 'error', text: t('pub.inquirePhoneInvalid') });
       return;
     }
     setSubmitting(true);
@@ -83,29 +95,38 @@ export default function PublicInquiryForm({
       <TextInput
         style={styles.input}
         value={name}
-        onChangeText={setName}
+        onChangeText={edit(setName)}
         placeholder={t('pub.inquireName')}
         placeholderTextColor={colors.ink3}
+        maxLength={40}
+        autoCorrect={false}
+        accessibilityLabel={t('pub.inquireName')}
       />
 
       <Text style={styles.label}>{t('pub.inquirePhone')}</Text>
       <TextInput
         style={styles.input}
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={edit(setPhone)}
         keyboardType="phone-pad"
         placeholder={t('pub.inquirePhone')}
         placeholderTextColor={colors.ink3}
+        maxLength={24}
+        autoCorrect={false}
+        accessibilityLabel={t('pub.inquirePhone')}
       />
 
       <Text style={styles.label}>{t('pub.inquireWechat')}</Text>
       <TextInput
         style={styles.input}
         value={wechat}
-        onChangeText={setWechat}
+        onChangeText={edit(setWechat)}
         autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={60}
         placeholder={t('pub.inquireWechat')}
         placeholderTextColor={colors.ink3}
+        accessibilityLabel={t('pub.inquireWechat')}
       />
 
       {feedback ? (

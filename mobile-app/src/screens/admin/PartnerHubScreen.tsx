@@ -233,7 +233,7 @@ export default function PartnerHubScreen() {
                     </View>
                     {a.total_revenue != null && (
                       <View style={styles.itemStatChip}>
-                        <Text style={styles.itemStatLabel}>营收</Text>
+                        <Text style={styles.itemStatLabel}>{t('partner.revenue')}</Text>
                         <Text style={[styles.itemStatValue, { color: colors.ink }]}>
                           {symOf(summary.currency)}{Number(a.total_revenue).toLocaleString()}
                         </Text>
@@ -348,7 +348,7 @@ export default function PartnerHubScreen() {
                   </View>
                   {early > 0 ? (
                     <View style={styles.itemStatChip}>
-                      <Text style={[styles.itemStatLabel, { color: colors.warning }]}>早退</Text>
+                      <Text style={[styles.itemStatLabel, { color: colors.warning }]}>{t('partner.attEarly')}</Text>
                       <Text style={[styles.itemStatValue, { color: colors.ink }]}>{early}</Text>
                     </View>
                   ) : null}
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
 
   listHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 20, marginBottom: 10 },
   attRange: { fontSize: colors.fontSize.xs, color: colors.ink3, marginHorizontal: 20, marginTop: 12, lineHeight: colors.lineHeight.tight},
-  listTitle: { fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  listTitle: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
   listHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   tableCard: { marginHorizontal: 20, marginBottom: 10, backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 14, ...colors.shadow.sm },
   tableHead: { flexDirection: 'row', paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },

@@ -9,13 +9,13 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import dayjs from 'dayjs';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '../../theme/colors';
 import EmptyState from '../../components/EmptyState';
 import LoadingState from '../../components/LoadingState';
+import { confirm } from '../../components/ConfirmDialog';
 import api from '../../lib/api';
 import {
   employeesApi,
@@ -26,6 +26,7 @@ import {
 } from '../../services/api';
 import { useI18n } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
+import { notify, notifyError } from '@/utils/feedback';
 
 interface RankItem {
   id: string;
@@ -126,15 +127,15 @@ type ViewKey = 'mine' | 'agents' | 'partners';
 
 type DealSourceKey = 'platform_customer' | 'self_sourced';
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+const STATUS_META: Record<string, { labelKey: string; color: string; bg: string }> = {
   pending: {
-    label: '待结算',
+    labelKey: 'perf.stPending',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
   },
-  approved: { label: '已审批', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
+  approved: { labelKey: 'perf.statusApproved', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
   paid: {
-    label: '已结算',
+    labelKey: 'perf.stPaid',
     color: colors.success,
     bg: colors.alpha(colors.successRgb, 0.12),
   },
@@ -143,12 +144,6 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 const fmtMoney = (v: number | undefined, c = 'THB') =>
   `${symOf(c)}${Number(v || 0).toLocaleString()}`;
-
-// 费率口径：rate>1 视为百分比（如 5 = 5%），否则视为月租倍数（兼容默认 1.0）
-const rateLabel = (rate?: number) => {
-  if (rate == null) return '佣金';
-  return rate > 1 ? `佣金 (${rate}%)` : `佣金 (${rate} 个月租金)`;
-};
 
 export default function PerformanceScreen() {
   const { t } = useI18n();
@@ -188,6 +183,13 @@ export default function PerformanceScreen() {
       key === 'self_sourced' ? t('perf.manualSourceSelf') : t('perf.manualSourcePlatform'),
     [t],
   );
+  // 费率口径：rate>1 视为百分比（如 5 = 5%），否则视为月租倍数（兼容默认 1.0）
+  const rateLabel = (rate?: number) => {
+    if (rate == null) return t('perf.commission');
+    return rate > 1
+      ? t('perf.ratePercent', { rate })
+      : t('perf.rateMonths', { months: rate });
+  };
 
   const [view, setView] = useState<ViewKey>('mine');
   const [leaderboard, setLeaderboard] = useState<RankItem[]>([]);
@@ -211,6 +213,8 @@ export default function PerformanceScreen() {
   const [dealCustomer, setDealCustomer] = useState('');
   const [dealNote, setDealNote] = useState('');
   const [dealSaving, setDealSaving] = useState(false);
+  // 补录校验：错误定位到具体字段（日期 / 金额），不再用整条弹窗打断
+  const [dealErrors, setDealErrors] = useState<{ date?: string; amount?: string }>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -309,23 +313,22 @@ export default function PerformanceScreen() {
   // 手工补录成交：来源（平台对接客户 / 自主拓客）+ 类型 + 日期 + 金额
   const submitDeal = useCallback(async () => {
     const amount = Number(dealAmount);
+    const errors: { date?: string; amount?: string } = {};
     if (!dealDate) {
-      Alert.alert(t('perf.manualAdd'), t('perf.manualRequired'));
-      return;
-    }
-    const parsedDate = dayjs(dealDate);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dealDate) || !parsedDate.isValid()) {
-      Alert.alert(t('perf.manualAdd'), t('perf.manualDateInvalid'));
-      return;
-    }
-    if (parsedDate.isAfter(dayjs().endOf('day'))) {
-      Alert.alert(t('perf.manualAdd'), t('perf.manualDateFuture'));
-      return;
+      errors.date = t('perf.manualDateRequired');
+    } else {
+      const parsedDate = dayjs(dealDate);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dealDate) || !parsedDate.isValid()) {
+        errors.date = t('perf.manualDateInvalid');
+      } else if (parsedDate.isAfter(dayjs().endOf('day'))) {
+        errors.date = t('perf.manualDateFuture');
+      }
     }
     if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert(t('perf.manualAdd'), t('perf.manualAmountRequired'));
-      return;
+      errors.amount = t('perf.manualAmountRequired');
     }
+    setDealErrors(errors);
+    if (errors.date || errors.amount) return;
     setDealSaving(true);
     try {
       await performanceApi.createDeal({
@@ -342,10 +345,11 @@ export default function PerformanceScreen() {
       setDealCommission('');
       setDealCustomer('');
       setDealNote('');
+      setDealErrors({});
+      notify(t('perf.manualSaved'));
       await load();
-      Alert.alert(t('perf.manualSaved'));
-    } catch {
-      Alert.alert(t('perf.manualAdd'), t('perf.manualSaveFail'));
+    } catch (e) {
+      notifyError(t('perf.manualSaveFail'), e);
     } finally {
       setDealSaving(false);
     }
@@ -362,22 +366,20 @@ export default function PerformanceScreen() {
   ]);
 
   const removeDeal = useCallback(
-    (deal: ManualDeal) => {
-      Alert.alert(t('perf.manualDelete'), t('perf.manualDeleteConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('perf.manualDelete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await performanceApi.deleteDeal(deal.id);
-              await load();
-            } catch {
-              Alert.alert(t('perf.manualDelete'), t('perf.manualDeleteFail'));
-            }
-          },
-        },
-      ]);
+    async (deal: ManualDeal) => {
+      const ok = await confirm({
+        title: t('perf.manualDelete'),
+        message: t('perf.manualDeleteConfirm'),
+        confirmLabel: t('perf.manualDelete'),
+        destructive: true,
+      });
+      if (!ok) return;
+      try {
+        await performanceApi.deleteDeal(deal.id);
+        await load();
+      } catch (e) {
+        notifyError(t('perf.manualDeleteFail'), e);
+      }
     },
     [load, t],
   );
@@ -414,8 +416,11 @@ export default function PerformanceScreen() {
   const titleOf = (s: Settlement) => {
     const lease = s.lease_id ? leaseMap[s.lease_id] : undefined;
     const property = lease?.property_id ? propertyMap[lease.property_id] : undefined;
-    if (!property) return '租赁成交';
-    return [property.room_number, property.address].filter(Boolean).join(' · ') || '房源';
+    if (!property) return t('perf.leaseDealTitle');
+    return (
+      [property.room_number, property.address].filter(Boolean).join(' · ') ||
+      t('perf.propertyFallback')
+    );
   };
 
   const renderSettlement = (s: Settlement) => {
@@ -423,7 +428,11 @@ export default function PerformanceScreen() {
     const lease = s.lease_id ? leaseMap[s.lease_id] : undefined;
     const sub = [
       dealLabel(s.deal_type),
-      lease ? `月租 ${fmtMoney(lease.monthly_rent, lease.currency || s.currency || 'THB')}` : null,
+      lease
+        ? t('perf.monthlyRent', {
+            amount: fmtMoney(lease.monthly_rent, lease.currency || s.currency || 'THB'),
+          })
+        : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -439,7 +448,7 @@ export default function PerformanceScreen() {
             </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+            <Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
           </View>
         </View>
         <View style={styles.detailFooter}>
@@ -461,8 +470,8 @@ export default function PerformanceScreen() {
   }
 
   const periodLabel = summary?.year
-    ? `${summary.year}年${summary.month}月`
-    : dayjs().format('YYYY年M月');
+    ? t('perf.period', { year: summary.year, month: summary.month ?? 0 })
+    : t('perf.period', { year: dayjs().year(), month: dayjs().month() + 1 });
 
   // 年度汇总
   const yearRevenue = summary?.year_total ?? 0;
@@ -495,7 +504,7 @@ export default function PerformanceScreen() {
         </View>
         <View style={styles.yearStat}>
           <Text style={styles.yearStatLabel}>{t('perf.yearDeals')}</Text>
-          <Text style={styles.yearStatValue}>{yearDeals}<Text style={styles.heroStatUnit}> 单</Text></Text>
+          <Text style={styles.yearStatValue}>{yearDeals}<Text style={styles.heroStatUnit}>{' '}{t('perf.unitDeal')}</Text></Text>
         </View>
       </View>
       {breakdown.length > 0 && (
@@ -628,25 +637,37 @@ export default function PerformanceScreen() {
 
           <Text style={styles.manualLabel}>{t('perf.manualDate')}</Text>
           <TextInput
-            style={styles.manualInput}
+            style={[styles.manualInput, dealErrors.date && styles.manualInputError]}
             value={dealDate}
-            onChangeText={setDealDate}
+            onChangeText={(v) => {
+              setDealDate(v);
+              if (dealErrors.date) setDealErrors((e) => ({ ...e, date: undefined }));
+            }}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.ink3}
             autoCapitalize="none"
           />
+          {dealErrors.date ? (
+            <Text style={styles.manualFieldError}>{dealErrors.date}</Text>
+          ) : null}
 
           <View style={styles.manualInputRow}>
             <View style={styles.manualInputCol}>
               <Text style={styles.manualLabel}>{t('perf.manualAmount')}</Text>
               <TextInput
-                style={styles.manualInput}
+                style={[styles.manualInput, dealErrors.amount && styles.manualInputError]}
                 value={dealAmount}
-                onChangeText={setDealAmount}
+                onChangeText={(v) => {
+                  setDealAmount(v);
+                  if (dealErrors.amount) setDealErrors((e) => ({ ...e, amount: undefined }));
+                }}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={colors.ink3}
               />
+              {dealErrors.amount ? (
+                <Text style={styles.manualFieldError}>{dealErrors.amount}</Text>
+              ) : null}
             </View>
             <View style={styles.manualInputCol}>
               <Text style={styles.manualLabel}>{t('perf.manualCommission')}</Text>
@@ -751,14 +772,14 @@ export default function PerformanceScreen() {
             <Text style={styles.heroStatLabel}>{t('perf.monthDeals')}</Text>
             <Text style={styles.heroStatValue}>
               {summary?.month_deals ?? 0}
-              <Text style={styles.heroStatUnit}> 单</Text>
+              <Text style={styles.heroStatUnit}>{' '}{t('perf.unitDeal')}</Text>
             </Text>
           </View>
           <View style={styles.heroStat}>
             <Text style={styles.heroStatLabel}>{t('perf.monthViewings')}</Text>
             <Text style={styles.heroStatValue}>
               {monthViewings}
-              <Text style={styles.heroStatUnit}> 次</Text>
+              <Text style={styles.heroStatUnit}>{' '}{t('perf.unitViewing')}</Text>
             </Text>
           </View>
           <View style={styles.heroStat}>
@@ -1178,6 +1199,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   manualInputMultiline: { height: 64, paddingTop: 10, textAlignVertical: 'top' },
+  manualInputError: { borderColor: colors.error, borderWidth: 1 },
+  manualFieldError: { fontSize: colors.fontSize.xs, color: colors.error, marginTop: 4 },
   manualInputRow: { flexDirection: 'row', gap: colors.spacing.sm },
   manualInputCol: { flex: 1 },
   manualSaveBtn: {

@@ -22,9 +22,11 @@ import RemoteImage from '@/components/RemoteImage';
 import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, type PublicSchool, type PublicProject } from '@/services/publicApi';
 import { ProjectRailCard } from '@/screens/category/categoryCards';
-import { fmtMoney as formatMoney } from '@/utils/format';
+import { fmtMoney as formatMoney, fmtDate, formatArea } from '@/utils/format';
 import { joinFacts } from '@/lib/displayValue';
 import { useI18n } from '@/i18n';
+import { notify } from '@/utils/feedback';
+import { cityDisplayName } from '@/data/locationNames';
 import { useAuthStore } from '@/stores/auth';
 import { useLocationStore } from '@/stores/location';
 import { getCachedMeta, setCached } from '@/lib/cache';
@@ -306,7 +308,7 @@ const ticketStatusMeta = (
   closed: { text: t('ticket.status.closed'), color: colors.ink3, bg: colors.surface2, progress: 100 },
 });
 
-const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '—');
+const formatDay = (x?: string) => fmtDate(x);
 
 /**
  * 租房房源卡片。
@@ -357,6 +359,7 @@ const PropertyCard = React.memo(function PropertyCard({
           ) : (
             <View style={[styles.propImg, styles.propImgPlaceholder]}>
               <Ionicons name="business-outline" size={26} color={colors.ink3} />
+              <Text style={styles.propImgPlaceholderText}>{t('pub.noPhoto')}</Text>
             </View>
           )}
           <View style={styles.propBadge}>
@@ -376,17 +379,19 @@ const PropertyCard = React.memo(function PropertyCard({
             {(() => {
               const facts = joinFacts([
                 item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
-                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+                item.size_sqm != null ? formatArea(item.size_sqm, t('pub.sqm')) : null,
               ])
               return facts ? <Text style={styles.propTag}>{facts}</Text> : null
             })()}
-            <Text style={styles.propTag}>
-              {statusText(t, String(item.status ?? '')) || t('prop.status.rented')}
-            </Text>
+            {statusText(t, String(item.status ?? '')) ? (
+              <Text style={styles.propTag}>{statusText(t, String(item.status ?? ''))}</Text>
+            ) : null}
           </View>
           <Text style={styles.propPrice}>
             {formatMoney(item.monthly_rent, item.currency)}
-            <Text style={styles.propPriceUnit}>{t('mkt.perMonth')}</Text>
+            {item.monthly_rent != null ? (
+              <Text style={styles.propPriceUnit}>{t('mkt.perMonth')}</Text>
+            ) : null}
           </Text>
         </View>
       </Animated.View>
@@ -409,8 +414,11 @@ const SaleCard = React.memo(function SaleCard({
   const canOpen = !!item.id;
   return (
     <Pressable
-      onPress={() => canOpen && onPress(String(item.id))}
-      disabled={!canOpen}
+      onPress={() =>
+        canOpen
+          ? onPress(String(item.id))
+          : notify(t('common.hint'), t('list.itemUnavailable'))
+      }
       onPressIn={() =>
         Animated.spring(scale, {
           toValue: 0.97,
@@ -440,6 +448,7 @@ const SaleCard = React.memo(function SaleCard({
           ) : (
             <View style={[styles.propImg, styles.propImgPlaceholder]}>
               <Ionicons name="pricetag-outline" size={26} color={colors.ink3} />
+              <Text style={styles.propImgPlaceholderText}>{t('pub.noPhoto')}</Text>
             </View>
           )}
           <View style={styles.propBadge}>
@@ -457,7 +466,7 @@ const SaleCard = React.memo(function SaleCard({
             {(() => {
               const facts = joinFacts([
                 item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
-                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+                item.size_sqm != null ? formatArea(item.size_sqm, t('pub.sqm')) : null,
               ])
               return facts ? <Text style={styles.propTag}>{facts}</Text> : null
             })()}
@@ -487,7 +496,9 @@ const SchoolCard = React.memo(function SchoolCard({
   const CURRICULUM_LABELS = useMemo(() => curriculumLabels(t), [t]);
   const scale = useRef(new Animated.Value(1)).current;
   const photo = item.cover_url ? String(item.cover_url) : null;
-  const stage = STAGE_LABELS[String(item.stage ?? '')] ?? t('pub.schoolsTitle');
+  const stageRaw = String(item.stage ?? '').trim();
+  // 学段未知时不能借用「学校」标题冒充学段，直接显示「未知」
+  const stage = stageRaw ? STAGE_LABELS[stageRaw] ?? stageRaw : t('common.unknown');
   const curriculum = CURRICULUM_LABELS[String(item.curriculum ?? '')];
   const sub = [item.name_en, item.district].filter(Boolean).join(' · ');
   return (
@@ -554,7 +565,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bizKey, setBizKey] = useState<BizKey>('rent');
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const PAYMENT_TYPE = useMemo(() => paymentTypeLabels(t), [t]);
   const PAYMENT_STATUS = useMemo(() => paymentStatusLabels(t), [t]);
   const TICKET_STATUS = useMemo(() => ticketStatusMeta(t), [t]);
@@ -636,6 +647,8 @@ export default function HomeScreen() {
   const landItems = publicQ.data?.landItems ?? [];
   const projects = publicQ.data?.projects ?? [];
   const schools = publicQ.data?.schools ?? [];
+  // 公开数据失败且无缓存：不能把「加载失败」当成「暂无房源」展示
+  const publicFailed = publicQ.isError && !publicQ.data;
   const payments = userQ.data?.payments ?? [];
   const tickets = userQ.data?.tickets ?? [];
 
@@ -666,13 +679,17 @@ export default function HomeScreen() {
 
   // 兜底：即使个别请求挂起/PostgreSQL 偶发慢，也强制结束 loading，
   // 避免首页永久停留在「加载中」白屏/转圈（实测并发下最坏约 11s）。
+  // 若 12s 后本地仍无缓存，说明首屏大概率是空态，明确提示可下拉刷新。
   useEffect(() => {
     const guard = setTimeout(() => {
       setLoading(false);
       setRefreshing(false);
+      void getCachedMeta(publicKey).then((cached) => {
+        if (!cached) notify(t('common.hint'), t('home.slowHint'));
+      });
     }, 12000);
     return () => clearTimeout(guard);
-  }, []);
+  }, [publicKey, t]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -683,12 +700,23 @@ export default function HomeScreen() {
   }, [publicQ, userQ, token]);
 
   const goListings = useCallback(() => navigation.navigate('PropertySearch'), [navigation]);
+  // 首页搜索条：直达找房页并聚焦输入框（focusTs 保证重复进入也能重新聚焦）
+  const openSearch = useCallback(
+    () => navigation.navigate('PropertySearch', { autoFocus: true, focusTs: Date.now() }),
+    [navigation],
+  );
 
   // 黄金导航栏与下方业务 Tab 共用 BIZ_ITEMS 这一份定义，两处的分类/顺序/文案永远一致。
   const openProperty = useCallback(
     // 卡片 id 为公开层挂牌 id：进公开房源详情（匿名可看，含小区/周边学校/经纪人留资）
-    (id: string) => navigation.navigate('PublicListingDetail', { id }),
-    [navigation],
+    (id: string) => {
+      if (!id) {
+        notify(t('common.hint'), t('list.itemUnavailable'));
+        return;
+      }
+      navigation.navigate('PublicListingDetail', { id });
+    },
+    [navigation, t],
   );
   // 学校卡片不是进学校详情，而是带着这所学校跳到「找房」并预选学校筛选（默认 3km）。
   // schoolTs 用时间戳而非学校 id：连续点同一所学校也要重新触发筛选重置。
@@ -708,7 +736,9 @@ export default function HomeScreen() {
   const recommended = useMemo(() => listings.slice(0, 10), [listings]);
 
   // 定位城市：来自全局定位 Store（主页左上角选择的国家/城市），当作全局上下文
-  const cityLabel = locationSel?.cityLabel || '';
+  const cityLabel = locationSel
+    ? cityDisplayName(locationSel.cityKey, locationSel.cityLabel, lang)
+    : '';
 
   // 最近动态：账单 + 报修按时间倒序合并。
   // title 只保留类型/事项名，状态一律交给右侧徽标表达，避免同一状态出现两次
@@ -722,6 +752,7 @@ export default function HomeScreen() {
       sub: string;
       badge: string;
       at: number;
+      target: 'Payments' | 'TenantMaintenance';
     }[] = [];
     payments.forEach((p) => {
       const metaText = PAYMENT_STATUS[String(p.status ?? '')] ?? String(p.status ?? '');
@@ -732,9 +763,10 @@ export default function HomeScreen() {
         color: colors.success,
         bg: colors.successLight,
         title: typeLabel ? t('home.billOf', { type: typeLabel }) : t('home.bill'),
-        sub: p.description || t('home.dueDate', { date: formatDay(p.due_date) }),
+        sub: p.description || (p.due_date ? t('home.dueDate', { date: formatDay(p.due_date) }) : t('home.dueTbd')),
         badge: metaText,
         at: Date.parse(String(p.paid_at ?? p.due_date ?? '')) || 0,
+        target: 'Payments' as const,
       });
     });
     tickets.forEach((tk) => {
@@ -748,6 +780,7 @@ export default function HomeScreen() {
         sub: `${tk.title || t('home.repair')} · ${formatDay(tk.createdAt ?? tk.created_at)}`,
         badge: meta.text,
         at: Date.parse(String(tk.createdAt ?? tk.created_at ?? '')) || 0,
+        target: 'TenantMaintenance' as const,
       });
     });
     return rows.sort((a, b) => b.at - a.at).slice(0, 5);
@@ -778,19 +811,35 @@ export default function HomeScreen() {
   // 房源卡统一在横向 rail（ScrollView horizontal）里，纵向只按「区块」懒加载，
   // 避免首页一次性渲染并挂载全部内容。最近动态区块固定渲染（无数据时展示空态），
   // 保证不同身份/状态用户看到一致的页面排版。
-  // 加载中仅渲染一个「加载」占位区块：顶部的问候/搜索/Tab 已在 ListHeader 立即展示，
-  // 数据到位后该区块替换为实际内容，避免整页停留在白屏/加载漩涡。
-  type BodySection = { key: 'rail' | 'school' | 'activity' | 'loading' };
+  // 加载中三个区块各渲染骨架占位：顶部问候/搜索/Tab 已在 ListHeader 立即展示，
+  // 数据到位后逐块替换，避免整页白屏或区块先后到位造成的高度跳动。
+  type BodySection = { key: 'rail' | 'school' | 'activity' | 'error' };
+
   const bodySections = useMemo<BodySection[]>(() => {
-    if (loading) return [{ key: 'loading' }];
+    // 三个区块都先占位：只剩房源骨架时，学校/动态到位会把页面整体顶下去
+    if (loading) return [{ key: 'rail' }, { key: 'school' }, { key: 'activity' }];
+    if (publicFailed) return [{ key: 'error' }, { key: 'activity' }];
     return [{ key: 'rail' }, { key: 'school' }, { key: 'activity' }];
-  }, [loading]);
+  }, [loading, publicFailed]);
 
   // 渲染单个数据区块（rail 内部仍是横向 ScrollView，保持横向滚动行为不变）
   const renderBodySection = ({ item }: { item: BodySection }) => {
     if (loading) {
-      // 骨架屏：占位图块 + 灰条，尺寸对齐真实房源卡（210 宽 rail），
-      // 比转圈更贴合最终内容，避免数据到位后整块跳变。
+      // 骨架屏：房源 rail 用对齐真实卡片的占位（210 宽 / 图高 110），
+      // 学校与动态用区块占位，三块同时存在，数据到位后不会互相顶动。
+      if (item.key !== 'rail') {
+        return (
+          <View style={styles.skeletonBlock}>
+            <View style={styles.sectionHead}>
+              <View style={styles.skelHeading} />
+            </View>
+            <View style={styles.skelRows}>
+              <View style={styles.skelRow} />
+              <View style={styles.skelRow} />
+            </View>
+          </View>
+        );
+      }
       return (
         <View style={styles.skeletonBlock}>
           <View style={styles.sectionHead}>
@@ -816,6 +865,21 @@ export default function HomeScreen() {
       );
     }
     switch (item.key) {
+      case 'error':
+        return (
+          <View style={styles.skeletonBlock}>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>{t(bizItem.titleKey)}</Text>
+            </View>
+            <EmptyState
+              icon="cloud-offline-outline"
+              title={t('loadFailed')}
+              sub={t('loadFailedSub')}
+              actionLabel={t('common.retry')}
+              onAction={() => void publicQ.refetch()}
+            />
+          </View>
+        );
       case 'rail':
         // 标题与「更多」都归当前分类；卡片形态按分类取（新房是楼盘卡，其余是房源卡）
         return (
@@ -826,7 +890,7 @@ export default function HomeScreen() {
                 onPress={() => navigation.navigate(bizItem.target)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.linkText}>{t('list.filterMore')}</Text>
+                <Text style={styles.linkText}>{t('discover.viewAll')}</Text>
               </TouchableOpacity>
             </View>
             {railItems.length === 0 ? (
@@ -849,7 +913,9 @@ export default function HomeScreen() {
                         key={it.id}
                         item={it}
                         t={t}
-                        onPress={() => navigation.navigate('NewHouse')}
+                        onPress={() =>
+                          navigation.navigate('PublicCommunityDetail', { id: it.id })
+                        }
                       />
                     ))
                   : railItems.map((it) =>
@@ -870,8 +936,8 @@ export default function HomeScreen() {
           <>
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>{t('pub.tabSchools')}</Text>
-              <TouchableOpacity onPress={goListings} activeOpacity={0.7}>
-                <Text style={styles.linkText}>{t('list.filterMore')}</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('PublicSchools')} activeOpacity={0.7}>
+                <Text style={styles.linkText}>{t('home.allSchools')}</Text>
               </TouchableOpacity>
             </View>
             {schools.length === 0 ? (
@@ -908,9 +974,13 @@ export default function HomeScreen() {
             ) : (
               <View style={styles.card}>
                 {activities.map((a, idx) => (
-                  <View
+                  <TouchableOpacity
                     key={a.id}
                     style={[styles.actRow, idx < activities.length - 1 && styles.actRowDivider]}
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate(a.target)}
+                    accessibilityRole="button"
+                    accessibilityLabel={a.title}
                   >
                     <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
                       <Ionicons name={a.icon} size={16} color={a.color} />
@@ -926,7 +996,7 @@ export default function HomeScreen() {
                     <View style={[styles.actBadge, { backgroundColor: a.bg }]}>
                       <Text style={[styles.actBadgeText, { color: a.color }]}>{a.badge}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -960,23 +1030,23 @@ export default function HomeScreen() {
         style={styles.locationRow}
         activeOpacity={0.7}
         onPress={() => navigation.navigate('LocationPicker')}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
         accessibilityRole="button"
         accessibilityLabel={t('home.selectCity')}
       >
         <>
           <Ionicons name="location-outline" size={14} color={colors.ink2} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.currentCity')}
+            {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.selectCity')}
           </Text>
           <Ionicons name="chevron-down" size={12} color={colors.ink3} />
         </>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={goListings}>
+      <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={openSearch}>
         <Ionicons name="search" size={16} color={colors.ink3} />
         <Text style={styles.searchPlaceholder}>{t('home.searchPlaceholder')}</Text>
-        <View style={styles.searchBtn}>
-          <Ionicons name="arrow-forward" size={16} color={colors.primaryForeground} />
-        </View>
+        {/* 箭头只做视觉引导，不再画成独立圆形按钮（整条都可点） */}
+        <Ionicons name="arrow-forward" size={18} color={colors.primary} />
       </TouchableOpacity>
 
       {/* 分类磁贴：首页唯一的业务分类入口。
@@ -996,7 +1066,7 @@ export default function HomeScreen() {
             accessibilityLabel={t(it.labelKey)}
           >
             <View style={styles.goldNavIcon}>
-              <Ionicons name={it.icon} size={22} color={colors.primaryText} />
+              <Ionicons name={it.icon} size={22} color={colors.primary} />
             </View>
             <Text style={styles.goldNavLabel} numberOfLines={1}>
               {t(it.labelKey)}
@@ -1037,20 +1107,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: colors.radius.full,
     paddingLeft: colors.spacing.lg,
-    paddingRight: colors.spacing.xs,
+    paddingRight: colors.spacing.lg,
     paddingVertical: colors.spacing.xs,
     marginBottom: colors.spacing.md,
     ...colors.shadow.sm,
   },
   searchPlaceholder: { flex: 1, fontSize: colors.fontSize.base, color: colors.ink3 },
-  searchBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   /* 数据区骨架屏：尺寸对齐真实房源卡（propCard 宽 210 / 图高 110） */
   skeletonBlock: { paddingBottom: colors.spacing.sm },
@@ -1064,6 +1126,9 @@ const styles = StyleSheet.create({
   skelBody: { padding: colors.spacing.md, gap: colors.spacing.sm },
   skelLineWide: { height: 14, borderRadius: 7, backgroundColor: colors.muted },
   skelLine: { height: 14, borderRadius: 7, backgroundColor: colors.surface2 },
+  skelHeading: { width: 120, height: 18, borderRadius: 9, backgroundColor: colors.muted },
+  skelRows: { gap: colors.spacing.sm, marginBottom: colors.spacing.md },
+  skelRow: { height: 56, borderRadius: colors.radius.md, backgroundColor: colors.muted },
 
   /* 城市标签（固定高度占位，避免数据到达时整行跳变） */
   locationRow: {
@@ -1103,6 +1168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  propImgPlaceholderText: { fontSize: 10, color: colors.ink3, marginTop: 4 },
   propBadge: {
     position: 'absolute',
     left: colors.spacing.sm,
@@ -1168,7 +1234,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: colors.radius.lg,
-    backgroundColor: colors.surface2,
+    backgroundColor: colors.sidebarActive,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,5 +1,6 @@
 ﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { fetchAllPages } from '@/lib/fetchAll';
+import { fmtDate } from '@/utils/format';
 /**
  * 合同管理（管理端）
  * 原型：admin-mobile-leases.html
@@ -23,6 +24,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
 import { leasesApi, propertiesApi } from '@/services/api';
+import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = OPTION_PAGE_SIZE;
 const EXPIRING_DAYS = 30;
@@ -47,29 +49,29 @@ interface PropertyRow {
   address?: string | null;
 }
 
-const STATUS_META: Record<string, { label: string; color: string; rgb: string }> = {
-  active: { label: '生效中', color: colors.success, rgb: colors.successRgb },
-  pending: { label: '待生效', color: colors.info, rgb: colors.infoRgb },
-  expired: { label: '已到期', color: colors.ink2, rgb: colors.primaryRgb },
-  terminated: { label: '已终止', color: colors.error, rgb: colors.errorRgb },
+const STATUS_META: Record<string, { labelKey: string; color: string; rgb: string }> = {
+  active: { labelKey: 'lease.status.active', color: colors.success, rgb: colors.successRgb },
+  pending: { labelKey: 'lease.status.pending', color: colors.info, rgb: colors.infoRgb },
+  expired: { labelKey: 'lease.status.expired', color: colors.ink2, rgb: colors.primaryRgb },
+  terminated: { labelKey: 'lease.status.terminated', color: colors.error, rgb: colors.errorRgb },
 };
 
 type ChipKey = 'all' | 'active' | 'expiring' | 'expired' | 'terminated';
-const CHIPS: { key: ChipKey; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'active', label: '生效中' },
-  { key: 'expiring', label: '即将到期' },
-  { key: 'expired', label: '已到期' },
-  { key: 'terminated', label: '已终止' },
+const CHIPS: { key: ChipKey; labelKey: string }[] = [
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'active', labelKey: 'lease.status.active' },
+  { key: 'expiring', labelKey: 'leaseAdm.chipExpiring' },
+  { key: 'expired', labelKey: 'lease.status.expired' },
+  { key: 'terminated', labelKey: 'lease.status.terminated' },
 ];
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 // 合同编号由租约 ID 前 6 位派生，保证同一合同在各端展示一致
 const leaseNoOf = (id: string) => `LC-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 
 export default function AdminLeasesScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [leases, setLeases] = useState<LeaseRow[]>([]);
   const [total, setTotal] = useState(0);
   const [propMap, setPropMap] = useState<Record<string, PropertyRow>>({});
@@ -92,7 +94,7 @@ export default function AdminLeasesScreen() {
       setLeases(rows);
       setTotal(rowTotal);
     } else {
-      setLoadError('合同加载失败，请重试');
+      setLoadError(t('leaseAdm.loadFail'));
     }
 
     if (propRes.status === 'fulfilled') {
@@ -106,7 +108,7 @@ export default function AdminLeasesScreen() {
 
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -136,8 +138,8 @@ export default function AdminLeasesScreen() {
 
   const propNameOf = (l: LeaseRow) => {
     const p = l.property_id ? propMap[l.property_id] : undefined;
-    if (!p) return '房源信息待补充';
-    return [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源';
+    if (!p) return t('leaseAdm.propertyPending');
+    return [p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('leaseAdm.propertyFallback');
   };
 
   const visible = leases.filter((l) => {
@@ -167,7 +169,7 @@ export default function AdminLeasesScreen() {
   }
 
   if (loadError && leases.length === 0) {
-    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
   }
 
   return (
@@ -194,7 +196,7 @@ export default function AdminLeasesScreen() {
           style={styles.searchInput}
           value={keyword}
           onChangeText={setKeyword}
-          placeholder="搜索合同编号/房源名称"
+          placeholder={t('leaseAdm.searchPlaceholder')}
           placeholderTextColor={colors.ink3}
           returnKeyType="search"
         />
@@ -203,7 +205,7 @@ export default function AdminLeasesScreen() {
             onPress={() => setKeyword('')}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="清除搜索"
+            accessibilityLabel={t('leaseAdm.clearSearch')}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="close-circle" size={18} color={colors.ink3} />
@@ -220,7 +222,7 @@ export default function AdminLeasesScreen() {
             activeOpacity={0.7}
             onPress={() => setChip(c.key)}
           >
-            <Text style={[styles.chipText, chip === c.key && styles.chipTextActive]}>{c.label}</Text>
+            <Text style={[styles.chipText, chip === c.key && styles.chipTextActive]}>{t(c.labelKey)}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -228,25 +230,25 @@ export default function AdminLeasesScreen() {
       {/* 统计行 */}
       <View style={styles.statRow}>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>总合同</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>{t('leaseAdm.statTotal')}</Text>
           <Text style={[styles.statValue, { color: colors.primary }]}>{stat.total}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>生效中</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>{t('lease.status.active')}</Text>
           <Text style={[styles.statValue, { color: colors.success }]}>{stat.active}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>即将到期</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>{t('leaseAdm.chipExpiring')}</Text>
           <Text style={[styles.statValue, { color: colors.warning }]}>{stat.expiring}</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={styles.statLabel}>已到期</Text>
+          <Text style={styles.statLabel} numberOfLines={1}>{t('lease.status.expired')}</Text>
           <Text style={[styles.statValue, { color: colors.error }]}>{stat.expired}</Text>
         </View>
       </View>
 
       {/* 合同列表 */}
-      <Text style={styles.sectionTitle}>合同列表</Text>
+      <Text style={styles.sectionTitle}>{t('leaseAdm.listTitle')}</Text>
       {loadError ? (
         <View
           style={{
@@ -261,23 +263,24 @@ export default function AdminLeasesScreen() {
         >
           <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{loadError}</Text>
           <TouchableOpacity onPress={retry} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       {visible.length === 0 ? (
         <EmptyState
           icon="document-text-outline"
-          title={keyword ? '没有找到合同' : '暂无合同'}
-          sub={keyword ? '换个编号或房源名称试试' : '签约后合同会展示在这里'}
+          title={keyword ? t('leaseAdm.emptyNoResult') : t('leaseAdm.empty')}
+          sub={keyword ? t('leaseAdm.emptyNoResultSub') : t('leaseAdm.emptySub')}
         />
       ) : (
         visible.map((l) => {
           const meta = STATUS_META[l.status ?? ''] ?? {
-            label: l.status ?? '未知',
+            labelKey: '',
             color: colors.ink2,
             rgb: colors.primaryRgb,
           };
+          const statusLabel = meta.labelKey ? t(meta.labelKey) : l.status ?? t('common.unknown');
           const d = daysLeftOf(l);
           const expiring = isExpiring(l);
           return (
@@ -291,8 +294,11 @@ export default function AdminLeasesScreen() {
                   ]}
                 >
                   <View style={[styles.dot, { backgroundColor: expiring ? colors.warning : meta.color }]} />
-                  <Text style={[styles.badgeText, { color: expiring ? colors.warning : meta.color }]}>
-                    {expiring ? `即将到期 · ${d} 天` : meta.label}
+                  <Text
+                    style={[styles.badgeText, { color: expiring ? colors.warning : meta.color }]}
+                    numberOfLines={1}
+                  >
+                    {expiring ? t('leaseAdm.expiringDays', { n: d ?? 0 }) : statusLabel}
                   </Text>
                 </View>
               </View>
@@ -304,14 +310,16 @@ export default function AdminLeasesScreen() {
               <View style={styles.metaRow}>
                 <Ionicons name="calendar-outline" size={13} color={colors.ink3} />
                 <Text style={styles.metaText} numberOfLines={1}>
-                  {fmtDate(l.start_date)} 至 {fmtDate(l.end_date)}
+                  {t('leaseAdm.dateRange', { start: fmtDate(l.start_date), end: fmtDate(l.end_date) })}
                 </Text>
               </View>
 
               <View style={styles.cardFoot}>
                 <Text style={styles.rent}>
-                  月租 {symOf(l.currency)}
-                  {Number(l.monthly_rent || 0).toLocaleString()}
+                  {t('leaseAdm.monthlyRent', {
+                    sym: symOf(l.currency),
+                    amount: Number(l.monthly_rent || 0).toLocaleString(),
+                  })}
                 </Text>
               </View>
             </View>
@@ -403,8 +411,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: colors.radius.full,
+    flexShrink: 1,
   },
-  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
+  badgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight, flexShrink: 1 },
   dot: { width: 6, height: 6, borderRadius: 3 },
 
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },

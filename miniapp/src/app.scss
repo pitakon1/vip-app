@@ -1,36 +1,37 @@
 /* 全局样式 */
 /* 设计令牌（Design Tokens）—— 唯一配色来源，见 UI-设计原则.md 第 5.2 节 */
 page {
-  /* ---- 主色 ---- */
+  /* ---- 主色（全站唯一青色 = #14b8a6）---- */
   --primary: #14b8a6;
   --primary-rgb: 20, 184, 166;
-  --primary-hover: #0d9488;
-  /* 主色底上的前景：深墨字 5.80:1（原白字仅 2.49:1） */
-  --primary-foreground: #0b2f2b;
-  --primary-foreground-rgb: 11, 47, 43;
-  /* 品牌绿作为「文字」落在白底时的深档：5.42:1（仅用于文字/图标） */
-  --primary-text: #0f766e;
-  /* 主色浅底：用于找房页「顶部头部区」这类大面积实色色块（禁止渐变，故用实色） */
-  --primary-soft: #e6f7f5;
-  --sidebar-active: #d9f2ee;
-  --sidebar-active-rgb: 217, 242, 238;
+  --primary-hover: rgba(20, 184, 166, 0.88);
+  --primary-active: rgba(20, 184, 166, 0.78);
+  /* 主色底上的前景：中性深墨 */
+  --primary-foreground: #1c2733;
+  --primary-foreground-rgb: 28, 39, 51;
+  /* 主色作为文字时与面同值，不再使用深青档 */
+  --primary-text: #14b8a6;
+  /* 中性浅底（不再使用淡青） */
+  --primary-soft: #eef0f2;
+  --sidebar-active: #e8ebee;
+  --sidebar-active-rgb: 232, 235, 238;
 
-  /* ---- 中性色（温暖米白基底 + 暖调墨色）---- */
-  --bg: #fbf9f6;
+  /* ---- 中性色（中性灰，不带青/暖色偏移）---- */
+  --bg: #f6fbfa;
   --ink: #1c2733;
   --ink-rgb: 28, 39, 51;
   --ink-2: #55606c;
   /* 辅助文字：米白底 5.18:1、白底 5.44:1（原 #98a1ab 仅 2.44:1） */
   --ink-3: #5f6b78;
-  /* 禁用 / 装饰专用，禁止作为正文色（原 ink-4 为冷调 slate #94a3b8） */
+  /* 禁用 / 装饰专用，禁止作为正文色（原 ink-4 为冷调 slate #98a1ab） */
   --ink-4: #98a1ab;
   --ink-disabled: #98a1ab;
-  --line: #ece7df;
+  --line: #e2e5e8;
   --card: #ffffff;
-  --surface-2: #f4f1ec;
-  --surface-2-rgb: 244, 241, 236;
-  --surface-3: #f0ece5;
-  --avatar-bg: #f2efe9;
+  --surface-2: #eceef1;
+  --surface-2-rgb: 236, 238, 241;
+  --surface-3: #e4e7ea;
+  --avatar-bg: #f1f3f5;
 
   /* ---- 状态色 ---- */
   --success: #16a34a;
@@ -52,8 +53,8 @@ page {
   --warning-ink: #a64c07;
   --error-ink: #b91c1c;
   --info-ink: #0369a1;
-  /* 焦点环：图形元素需 ≥3:1，白底 3.74:1 */
-  --ring: #0d9488;
+  /* 焦点环：与主题色同值 */
+  --ring: #14b8a6;
 
   /* ---- 品牌色 ---- */
   --wechat: #07c160;
@@ -208,7 +209,7 @@ view, text, scroll-view {
 }
 
 .btn--primary:active {
-  background: var(--primary-hover);
+  background: var(--primary-active);
   transform: scale(0.98);
 }
 

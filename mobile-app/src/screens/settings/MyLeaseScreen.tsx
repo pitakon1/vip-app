@@ -6,24 +6,26 @@ import ListState from '@/components/ListState';
 import { leasesApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
-import { fmtMoney as fmtRent } from '@/utils/format';
+import { fmtMoney as fmtRent, fmtDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
 const DAY_MS = 86400000;
-const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
-// 租约状态（LeaseStatus，与小程序 profile 一致）
-const LEASE_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  active: { text: '生效中', color: colors.success, bg: colors.successLight },
-  pending: { text: '待生效', color: colors.warning, bg: colors.warningLight },
-  expired: { text: '已到期', color: colors.ink3, bg: colors.surface2 },
-  terminated: { text: '已终止', color: colors.error, bg: colors.errorLight },
+// 租约状态（LeaseStatus，与小程序 profile 一致）；文案走 i18n，未知状态不猜
+const LEASE_STATUS: Record<string, { key: string; color: string; bg: string }> = {
+  active: { key: 'lease.status.active', color: colors.success, bg: colors.successLight },
+  pending: { key: 'lease.status.pending', color: colors.warning, bg: colors.warningLight },
+  expired: { key: 'lease.status.expired', color: colors.ink3, bg: colors.surface2 },
+  terminated: { key: 'lease.status.terminated', color: colors.error, bg: colors.errorLight },
 };
 
-const leaseTitle = (l: any) =>
-  l?.property_name || l?.room_number || l?.address || `租约 #${String(l?.id ?? '').slice(0, 8)}`;
+const leaseTitle = (l: any, t: (k: string) => string) =>
+  l?.property_name ||
+  l?.room_number ||
+  l?.address ||
+  `${t('lease.idPrefix')} #${String(l?.id ?? '').slice(0, 8)}`;
 
 const leaseProgress = (l: any) => {
   const start = new Date(l?.start_date || l?.startDate || '').getTime();
@@ -62,7 +64,7 @@ export default function MyLeaseScreen() {
   const leases = q.data ?? [];
   const loaded = q.isSuccess;
   const loading = q.isPending && !q.data;
-  const loadError = q.isError && leases.length === 0 ? '租约加载失败' : null;
+  const loadError = q.isError && leases.length === 0 ? t('lease.loadFailed') : null;
   const retry = () => {
     void q.refetch({ cancelRefetch: false });
   };
@@ -81,13 +83,13 @@ export default function MyLeaseScreen() {
   }
 
   if (loadError) {
-    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
   }
 
   if (loaded && leases.length === 0) {
     return (
       <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
-        <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub="签约后在这里查看租期进度与租金" />
+        <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub={t('lease.emptySub')} />
       </View>
     );
   }
@@ -110,15 +112,16 @@ export default function MyLeaseScreen() {
             backgroundColor: colors.alpha(colors.errorRgb, 0.08),
           }}
         >
-          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>租约加载失败</Text>
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('lease.loadFailed')}</Text>
           <TouchableOpacity onPress={retry} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       <View style={styles.card}>
         {leases.map((lease, idx) => {
-          const meta = LEASE_STATUS[String(lease?.status ?? '')] ?? LEASE_STATUS.pending;
+          const meta = LEASE_STATUS[String(lease?.status ?? '')];
+          const statusText = meta ? t(meta.key) : t('common.unknown');
           const remainDays = lease?.end_date
             ? Math.max(0, Math.round((new Date(lease.end_date).getTime() - Date.now()) / DAY_MS))
             : 0;
@@ -131,9 +134,9 @@ export default function MyLeaseScreen() {
             >
               <View style={styles.leaseLeft}>
                 <View style={styles.leaseTitleRow}>
-                  <Text style={styles.leaseTitle} numberOfLines={1}>{leaseTitle(lease)}</Text>
-                  <View style={[styles.leaseBadge, { backgroundColor: meta.bg }]}>
-                    <Text style={[styles.leaseBadgeText, { color: meta.color }]}>{meta.text}</Text>
+                  <Text style={styles.leaseTitle} numberOfLines={1}>{leaseTitle(lease, t)}</Text>
+                  <View style={[styles.leaseBadge, { backgroundColor: meta?.bg ?? colors.surface2 }]}>
+                    <Text style={[styles.leaseBadgeText, { color: meta?.color ?? colors.ink3 }]}>{statusText}</Text>
                   </View>
                 </View>
                 <Text style={styles.leaseMeta} numberOfLines={1}>
@@ -145,7 +148,7 @@ export default function MyLeaseScreen() {
                   <View style={{ flex: Math.max(1 - leaseProgress(lease), 0) }} />
                 </View>
                 <Text style={styles.leaseRange}>
-                  {fmtDate(lease?.start_date || lease?.startDate)} 至 {fmtDate(lease?.end_date || lease?.endDate)}
+                  {fmtDate(lease?.start_date || lease?.startDate)} {t('lease.until')} {fmtDate(lease?.end_date || lease?.endDate)}
                 </Text>
               </View>
               <View style={styles.chevron}>

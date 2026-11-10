@@ -3,7 +3,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f6fa;
+  background: #f3f4f6;
   padding: var(--rent-s-5);
 }
 .nf-card {
@@ -25,7 +25,7 @@
 .nf-title {
   font-size: var(--rent-fs-xl);
   font-weight: 700;
-  color: var(--rent-ink, #1a1d24);
+  color: var(--rent-ink, #1c2733);
   margin-bottom: var(--rent-s-2);
 }
 .nf-desc {

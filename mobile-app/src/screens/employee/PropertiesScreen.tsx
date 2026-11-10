@@ -1,5 +1,4 @@
 ﻿﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
-import { errorText } from '@/lib/errorText';
 /**
  * 房源台账：搜索 + 状态/排序筛选 + 结果统计 + 房源卡片（租客信息）+ 加载更多
  * 原型：employee-mobile-properties.html（房源浏览 · 台账）
@@ -18,8 +17,6 @@ import {
   RefreshControl,
   Modal,
   Image,
-  Alert,
-  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -30,6 +27,8 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import ListState from '@/components/ListState';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
+import { confirm } from '@/components/ConfirmDialog';
 import { leasesApi, propertiesApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
@@ -38,6 +37,8 @@ import { AREA_GROUPS } from '@/data/locationArea';
 import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
 import { buildListingPayload } from '@/lib/listingPayload';
+import { toast } from '@/components/Toast';
+import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
@@ -60,44 +61,44 @@ interface PropertyItem {
   project_name?: string | null;
 }
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  vacant: { label: '空置', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
+const STATUS_META: Record<string, { labelKey: string; color: string; bg: string }> = {
+  vacant: { labelKey: 'eprop.status.vacant', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) },
   rented: {
-    label: '在租',
+    labelKey: 'eprop.status.rented',
     color: colors.success,
     bg: colors.alpha(colors.successRgb, 0.12),
   },
   renewing: {
-    label: '续约中',
+    labelKey: 'eprop.status.renewing',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
   },
   maintenance: {
-    label: '维修中',
+    labelKey: 'eprop.status.maintenance',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
   },
 };
 
-const TYPE_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  apartment: { label: '公寓', icon: 'business-outline', color: colors.primary },
-  condo: { label: '公寓', icon: 'business-outline', color: colors.primary },
-  house: { label: '别墅', icon: 'home-outline', color: colors.success },
-  commercial: { label: '商铺', icon: 'storefront-outline', color: colors.warning },
+const TYPE_META: Record<string, { labelKey: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  apartment: { labelKey: 'eprop.type.apartment', icon: 'business-outline', color: colors.primary },
+  condo: { labelKey: 'eprop.type.apartment', icon: 'business-outline', color: colors.primary },
+  house: { labelKey: 'eprop.type.house', icon: 'home-outline', color: colors.success },
+  commercial: { labelKey: 'eprop.type.commercial', icon: 'storefront-outline', color: colors.warning },
 };
 
-const STATUS_FILTERS: { key: string; label: string }[] = [
-  { key: '', label: '全部' },
-  { key: 'rented', label: '在租' },
-  { key: 'vacant', label: '空置' },
-  { key: 'maintenance', label: '维修' },
+const STATUS_FILTERS: { key: string; labelKey: string }[] = [
+  { key: '', labelKey: 'common.all' },
+  { key: 'rented', labelKey: 'eprop.status.rented' },
+  { key: 'vacant', labelKey: 'eprop.status.vacant' },
+  { key: 'maintenance', labelKey: 'eprop.filterMaintenance' },
 ];
 
-const SORTS: { key: string; label: string }[] = [
-  { key: 'latest', label: '最新' },
-  { key: 'price_asc', label: '价格从低到高' },
-  { key: 'price_desc', label: '价格从高到低' },
-  { key: 'area_desc', label: '面积从大到小' },
+const SORTS: { key: string; labelKey: string }[] = [
+  { key: 'latest', labelKey: 'eprop.sort.latest' },
+  { key: 'price_asc', labelKey: 'eprop.sort.priceAsc' },
+  { key: 'price_desc', labelKey: 'eprop.sort.priceDesc' },
+  { key: 'area_desc', labelKey: 'eprop.sort.areaDesc' },
 ];
 
 // ---- 房产类型 / 业务类型（与 C 端找房页同一口径，服务端 property_type / listing_type / is_new_development）----
@@ -149,6 +150,8 @@ export default function PropertiesScreen() {
   const [schoolKw, setSchoolKw] = useState('');
   // 链家式单行筛选栏：当前展开的下拉 Tab（'region' | 'price' | 'sort' | 'more' | null）
   const [openTab, setOpenTab] = useState<string | null>(null);
+  // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [areaMin, setAreaMin] = useState('');
@@ -275,16 +278,16 @@ export default function PropertiesScreen() {
 
         let pageItems: PropertyItem[] = [];
         if (propRes.status === 'fulfilled') {
-          const { list, total: t, totalPages: tp } = propRes.value;
+          const { list, total: totalCount, totalPages: tp } = propRes.value;
           pageItems = list;
           setLoadError(null);
-          setTotal(t);
+          setTotal(totalCount);
           setTotalPages(tp);
           setPage(targetPage);
           setItems((prev) => (targetPage === 1 ? list : [...prev, ...list]));
         } else {
           // 保留上一次列表与总数，只置错误态；首屏失败由 ListState 呈现错误页
-          setLoadError('加载失败，请稍后重试');
+          setLoadError(t('eprop.loadFail'));
         }
 
         if (vacantRes.status === 'fulfilled') {
@@ -332,7 +335,7 @@ export default function PropertiesScreen() {
         setRefreshing(false);
       }
     },
-    [fetchProperties, keyword, status, sort, region, regionKeywords, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin, typeClass, bizType],
+    [fetchProperties, keyword, status, sort, region, regionKeywords, schoolId, schoolKm, priceMin, priceMax, areaMin, areaMax, bedsMin, typeClass, bizType, t],
   );
 
   // 学校清单只为筛选器备选（公开接口，匿名可读）
@@ -370,9 +373,9 @@ export default function PropertiesScreen() {
   const tenantLabel = useMemo(() => {
     return (propertyId: string) => {
       const name = tenantMap[propertyId];
-      return name ? `租客: ${name}` : '无租约';
+      return name ? t('eprop.tenant', { name }) : t('eprop.noLease');
     };
-  }, [tenantMap]);
+  }, [tenantMap, t]);
 
   // ---- 链家式单行筛选栏（对齐租客端）：区域 / 价格 / 更多 / 排序 ----
   const tabRegionActive = !!region;
@@ -390,18 +393,18 @@ export default function PropertiesScreen() {
   }, [typeClass, bizType, t]);
   const filterTabs = useMemo(
     () => [
-      { key: 'region', label: '区域', active: tabRegionActive, badge: 0 },
+      { key: 'region', label: t('eprop.tab.region'), active: tabRegionActive, badge: 0 },
       { key: 'type', label: typeTabLabel, active: tabTypeActive, badge: 0 },
-      { key: 'price', label: '价格', active: tabPriceActive, badge: 0 },
+      { key: 'price', label: t('eprop.tab.price'), active: tabPriceActive, badge: 0 },
       {
         key: 'more',
-        label: '更多',
+        label: t('eprop.tab.more'),
         active: tabMoreActive,
         badge: [status !== '' ? 1 : 0, bedsMin ? 1 : 0, schoolId ? 1 : 0].filter(Boolean).length,
       },
-      { key: 'sort', label: '排序', active: tabSortActive, badge: 0 },
+      { key: 'sort', label: t('eprop.tab.sort'), active: tabSortActive, badge: 0 },
     ],
-    [tabRegionActive, tabPriceActive, tabSortActive, tabMoreActive, status, bedsMin, schoolId, region, typeTabLabel, tabTypeActive],
+    [tabRegionActive, tabPriceActive, tabSortActive, tabMoreActive, status, bedsMin, schoolId, region, typeTabLabel, tabTypeActive, t],
   );
   const toggleTab = (key: string) => setOpenTab((cur) => (cur === key ? null : key));
   const resetPrice = () => {
@@ -427,22 +430,28 @@ export default function PropertiesScreen() {
 
   const renderCard = (p: PropertyItem) => {
     const st = p.status ?? 'vacant';
-    const meta = STATUS_META[st] ?? { label: st, color: colors.ink2, bg: colors.surface2 };
+    const meta = STATUS_META[st] ?? {
+      labelKey: '',
+      color: colors.ink2,
+      bg: colors.surface2,
+    };
     const type = TYPE_META[p.property_type ?? 'apartment'] ?? TYPE_META.apartment;
     const cover = propertyCoverUrl(p.photos);
     const title = p.project_name
       ? `${p.project_name} · ${p.room_number ?? ''}`.trim()
-      : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || '房源');
+      : ([p.room_number, p.building].filter(Boolean).join(' · ') || p.address || t('eprop.fallbackTitle'));
     const spec = [
       p.size_sqm ? `${p.size_sqm}㎡` : null,
-      p.bedrooms ? `${p.bedrooms}卧${p.bathrooms ?? 0}浴` : null,
+      p.bedrooms ? t('eprop.spec.beds', { b: p.bedrooms, ba: p.bathrooms ?? 0 }) : null,
     ]
       .filter(Boolean)
       .join(' · ');
     const tags = [
-      p.furnished ? '精装' : null,
-      p.video_url ? '视频看房' : null,
-      Array.isArray(p.photos) && p.photos.length > 0 ? `${p.photos.length} 张照片` : null,
+      p.furnished ? t('eprop.spec.furnished') : null,
+      p.video_url ? t('eprop.spec.video') : null,
+      Array.isArray(p.photos) && p.photos.length > 0
+        ? t('eprop.spec.photos', { n: p.photos.length })
+        : null,
     ].filter(Boolean) as string[];
 
     return (
@@ -459,7 +468,7 @@ export default function PropertiesScreen() {
             <Ionicons name={type.icon} size={26} color={colors.primaryForeground} />
           )}
           <View style={styles.typeBadge}>
-            <Text style={[styles.typeBadgeText, { color: type.color }]}>{type.label}</Text>
+            <Text style={[styles.typeBadgeText, { color: type.color }]}>{t(type.labelKey)}</Text>
           </View>
         </View>
         <View style={styles.cardBody}>
@@ -467,13 +476,13 @@ export default function PropertiesScreen() {
             {title}
           </Text>
           <Text style={styles.addr} numberOfLines={1}>
-            {p.address || '暂无地址'}
+            {p.address || t('eprop.noAddress')}
           </Text>
           {tags.length > 0 ? (
             <View style={styles.tags}>
-              {tags.map((t) => (
-                <View key={t} style={styles.tag}>
-                  <Text style={styles.tagText}>{t}</Text>
+              {tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
@@ -489,7 +498,7 @@ export default function PropertiesScreen() {
             <Text style={styles.price}>
               {currencySymbol(p.currency)}
               {Number(p.monthly_rent || 0).toLocaleString()}
-              <Text style={styles.priceUnit}>/月</Text>
+              <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
             </Text>
             <View style={styles.badgeGroup}>
               {/* 行内「上架」：房源管理页是全站唯一上架入口 */}
@@ -498,13 +507,15 @@ export default function PropertiesScreen() {
                 activeOpacity={0.8}
                 onPress={() => confirmPublish(p)}
                 accessibilityRole="button"
-                accessibilityLabel="上架"
+                accessibilityLabel={t('emp.publish')}
               >
                 <Ionicons name="cloud-upload-outline" size={12} color={colors.primary} />
-                <Text style={styles.publishChipText}>上架</Text>
+                <Text style={styles.publishChipText}>{t('emp.publish')}</Text>
               </TouchableOpacity>
               <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-                <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                <Text style={[styles.statusBadgeText, { color: meta.color }]}>
+                  {meta.labelKey ? t(meta.labelKey) : st}
+                </Text>
               </View>
             </View>
           </View>
@@ -514,31 +525,23 @@ export default function PropertiesScreen() {
   };
 
   // ===== 一键上架（唯一上架入口）=====
-  const confirmPublish = (item: PropertyItem) => {
+  const confirmPublish = async (item: PropertyItem) => {
     if (Number(item.monthly_rent || 0) <= 0) {
-      if (Platform.OS === 'web') window.alert('请先在「编辑」中补充月租金后再上架');
-      else Alert.alert('提示', '请先在「编辑」中补充月租金后再上架');
+      toast.show({ type: 'error', title: t('emp.publishRentRequired') });
       return;
     }
-    const doPublish = async () => {
-      try {
-        await listingApi.create(buildListingPayload(item));
-        if (Platform.OS === 'web') window.alert('已提交上架，等待平台审核');
-        else Alert.alert('已提交上架，等待平台审核');
-      } catch (err: any) {
-        const detail = errorText(err, '请稍后重试');
-        if (Platform.OS === 'web') window.alert(detail);
-        else Alert.alert('上架失败', detail);
-      }
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm('确定将该房源发布上架吗？')) doPublish();
-      return;
+    const ok = await confirm({
+      title: t('emp.publishConfirmTitle'),
+      message: t('emp.publishConfirm'),
+      confirmLabel: t('emp.publish'),
+    });
+    if (!ok) return;
+    try {
+      await listingApi.create(buildListingPayload(item));
+      notify(t('emp.publishSubmitted'));
+    } catch (err: any) {
+      notifyError(t('emp.publishFail'), err);
     }
-    Alert.alert('确认上架', '确定将该房源发布上架吗？', [
-      { text: '取消', style: 'cancel' },
-      { text: '上架', onPress: doPublish },
-    ]);
   };
 
   // 空态区分「没有任何房源」与「当前筛选无结果」
@@ -562,21 +565,13 @@ export default function PropertiesScreen() {
     setBizType('');
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <LoadingState label="正在加载房源…" />
-      </View>
-    );
-  }
-
   return (
-    <>
+    <View ref={rootRef} style={styles.container}>
     <FlatList
       style={styles.container}
       contentContainerStyle={[styles.content, respContainer]}
       showsVerticalScrollIndicator={false}
-      data={items}
+      data={loading ? [] : items}
       keyExtractor={(p) => p.id}
       renderItem={({ item }) => <View style={styles.listItem}>{renderCard(item)}</View>}
       refreshControl={
@@ -592,7 +587,7 @@ export default function PropertiesScreen() {
             style={styles.searchInput}
             value={keyword}
             onChangeText={setKeyword}
-            placeholder="搜索房源名称、地址..."
+            placeholder={t('eprop.searchPh')}
             placeholderTextColor={colors.ink3}
             returnKeyType="search"
           />
@@ -627,7 +622,7 @@ export default function PropertiesScreen() {
       </View>
 
       {/* ---- 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）---- */}
-      <View style={styles.filterZone}>
+      <View style={styles.filterZone} ref={anchorRef} onLayout={measureAnchor}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -677,10 +672,10 @@ export default function PropertiesScreen() {
                 </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => setRegion(null)} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('eprop.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('eprop.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -726,10 +721,10 @@ export default function PropertiesScreen() {
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('eprop.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('eprop.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -737,14 +732,14 @@ export default function PropertiesScreen() {
             {openTab === 'price' && (
               <>
                 <Text style={styles.dropGroupTitle}>
-                  {bizType === 'resale' || bizType === 'new' ? '总价（THB）' : '租金（THB/月）'}
+                  {bizType === 'resale' || bizType === 'new' ? t('eprop.price.total') : t('eprop.price.rent')}
                 </Text>
                 <View style={styles.ceRangeRow}>
                   <TextInput
                     style={styles.ceInput}
                     value={priceMin}
                     onChangeText={setPriceMin}
-                    placeholder="最低"
+                    placeholder={t('eprop.price.min')}
                     placeholderTextColor={colors.ink3}
                     keyboardType="numeric"
                   />
@@ -753,17 +748,17 @@ export default function PropertiesScreen() {
                     style={styles.ceInput}
                     value={priceMax}
                     onChangeText={setPriceMax}
-                    placeholder="最高"
+                    placeholder={t('eprop.price.max')}
                     placeholderTextColor={colors.ink3}
                     keyboardType="numeric"
                   />
                 </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={resetPrice} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('eprop.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('eprop.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -779,7 +774,7 @@ export default function PropertiesScreen() {
                       onPress={() => setSort(o.key)}
                     >
                       <Text style={[styles.dropSortText, sort === o.key && styles.dropSortTextActive]}>
-                        {o.label}
+                        {t(o.labelKey)}
                       </Text>
                       {sort === o.key ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
                     </TouchableOpacity>
@@ -787,10 +782,10 @@ export default function PropertiesScreen() {
                 </View>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={() => setSort('latest')} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('eprop.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('eprop.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -798,7 +793,7 @@ export default function PropertiesScreen() {
             {openTab === 'more' && (
               <>
                 <ScrollView style={styles.dropBodyTall} keyboardShouldPersistTaps="handled">
-                  <Text style={styles.dropGroupTitle}>房源状态</Text>
+                  <Text style={styles.dropGroupTitle}>{t('eprop.statusTitle')}</Text>
                   <View style={styles.filterGroup}>
                     {STATUS_FILTERS.map((f) => (
                       <TouchableOpacity
@@ -808,19 +803,19 @@ export default function PropertiesScreen() {
                         onPress={() => setStatus(f.key)}
                       >
                         <Text style={[styles.optChipText, status === f.key && styles.optChipTextActive]}>
-                          {f.label}
+                          {t(f.labelKey)}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>户型</Text>
+                  <Text style={styles.dropGroupTitle}>{t('eprop.layoutTitle')}</Text>
                   <View style={styles.filterGroup}>
                     <TouchableOpacity
                       style={[styles.optChip, bedsMin === '' && styles.optChipActive]}
                       activeOpacity={0.7}
                       onPress={() => setBedsMin('')}
                     >
-                      <Text style={[styles.optChipText, bedsMin === '' && styles.optChipTextActive]}>不限</Text>
+                      <Text style={[styles.optChipText, bedsMin === '' && styles.optChipTextActive]}>{t('eprop.anyOption')}</Text>
                     </TouchableOpacity>
                     {['1', '2', '3'].map((b) => (
                       <TouchableOpacity
@@ -830,12 +825,12 @@ export default function PropertiesScreen() {
                         onPress={() => setBedsMin(b)}
                       >
                         <Text style={[styles.optChipText, bedsMin === b && styles.optChipTextActive]}>
-                          {b}卧及以上
+                          {t('eprop.bedsAtLeast', { n: b })}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={styles.dropGroupTitle}>学校 · 距离</Text>
+                  <Text style={styles.dropGroupTitle}>{t('eprop.schoolTitle')}</Text>
                   <View style={styles.filterGroup}>
                     {SCHOOL_RADIUS_OPTIONS.map((km) => (
                       <TouchableOpacity
@@ -854,7 +849,7 @@ export default function PropertiesScreen() {
                     style={styles.dropSearch}
                     value={schoolKw}
                     onChangeText={setSchoolKw}
-                    placeholder="搜索学校名称"
+                    placeholder={t('eprop.schoolPh')}
                     placeholderTextColor={colors.ink3}
                     returnKeyType="search"
                   />
@@ -876,15 +871,15 @@ export default function PropertiesScreen() {
                     ))}
                   </View>
                   {schools.length > 0 && filteredSchools.length === 0 && (
-                    <Text style={styles.dropEmpty}>未找到相关学校</Text>
+                    <Text style={styles.dropEmpty}>{t('eprop.schoolEmpty')}</Text>
                   )}
                 </ScrollView>
                 <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.resetBtn} onPress={resetMore} activeOpacity={0.7}>
-                    <Text style={styles.resetText}>重置</Text>
+                    <Text style={styles.resetText}>{t('eprop.reset')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.confirmBtn} onPress={() => setOpenTab(null)} activeOpacity={0.7}>
-                    <Text style={styles.confirmText}>确定</Text>
+                    <Text style={styles.confirmText}>{t('eprop.confirm')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -895,11 +890,11 @@ export default function PropertiesScreen() {
 
       {/* 结果统计 */}
       <Text style={filterStyles.count}>
-        共 <Text style={styles.countStrong}>{total}</Text> 套
+        <Text style={styles.countStrong}>{t('eprop.countTotal', { n: total })}</Text>
         {vacantTotal !== null ? (
           <>
-            {' · 空置 '}
-            <Text style={styles.countVacant}>{vacantTotal}</Text> 套
+            {' · '}
+            <Text style={styles.countVacant}>{t('eprop.countVacant', { n: vacantTotal })}</Text>
           </>
         ) : null}
       </Text>
@@ -907,10 +902,12 @@ export default function PropertiesScreen() {
         </>
       }
       ListEmptyComponent={
-        loadError ? (
+        loading ? (
+          <LoadingState label={t('eprop.loading')} />
+        ) : loadError ? (
           <ListState
             error={loadError}
-            retryLabel="重试"
+            retryLabel={t('common.retry')}
             onRetry={() => void load({ nextPage: 1 })}
           />
         ) : (
@@ -926,9 +923,9 @@ export default function PropertiesScreen() {
       ListFooterComponent={
         loadError && items.length > 0 ? (
           <View style={styles.errorBar}>
-            <Text style={styles.errorBarText}>加载失败，请稍后重试</Text>
+            <Text style={styles.errorBarText}>{t('emp.listLoadFail')}</Text>
             <TouchableOpacity onPress={() => void load({ nextPage: 1 })} activeOpacity={0.8}>
-              <Text style={styles.errorBarRetry}>重试</Text>
+              <Text style={styles.errorBarRetry}>{t('common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : page < totalPages ? (
@@ -942,7 +939,7 @@ export default function PropertiesScreen() {
               {loadingMore ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={styles.loadMoreText}>加载更多房源</Text>
+                <Text style={styles.loadMoreText}>{t('emp.loadMoreListings')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -950,7 +947,11 @@ export default function PropertiesScreen() {
       }
     />
 
-      </>
+      {/* 面板展开时点击面板外的列表区即收起：与分类页筛选面板行为一致 */}
+      {openTab !== null ? (
+        <PanelBackdrop top={backdropTop} onClose={() => setOpenTab(null)} />
+      ) : null}
+    </View>
   );
 }
 

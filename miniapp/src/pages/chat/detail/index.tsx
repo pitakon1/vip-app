@@ -6,6 +6,7 @@ import { authApi, chatApi } from '@/services/api'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
+import { fmtDateTime } from '@/utils/format'
 import './index.scss'
 
 interface Message {
@@ -135,7 +136,7 @@ export default function ChatDetailPage() {
             <View key={m.id} className={`message-row ${mine ? 'mine' : 'other'}`}>
               <View className='bubble'>
                 <Text className='bubble-text'>{content}</Text>
-                {m.created_at && <Text className='bubble-time'>{m.created_at}</Text>}
+                {m.created_at && <Text className='bubble-time'>{fmtDateTime(m.created_at)}</Text>}
               </View>
             </View>
           )

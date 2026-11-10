@@ -1,4 +1,5 @@
 import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { fmtDate } from '@/utils/format';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -7,9 +8,10 @@ import {
   StyleSheet,
   RefreshControl,
   TouchableOpacity,
-  Alert,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
@@ -114,7 +116,7 @@ const rentStatus = (t: TFunc): Record<string, { text: string; color: string; bg:
   maintenance: { text: t('status.maintenance'), color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), pct: 40 },
 });
 
-const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
+const formatDate = (x?: string) => fmtDate(x);
 
 export default function OwnerMarketingScreen() {
   const { t } = useI18n();
@@ -131,6 +133,7 @@ export default function OwnerMarketingScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // 委托挂牌表单
   const [showForm, setShowForm] = useState(false);
@@ -138,6 +141,7 @@ export default function OwnerMarketingScreen() {
   const [formPrice, setFormPrice] = useState('');
   const [formAddress, setFormAddress] = useState('');
   const [formCcy, setFormCcy] = useState('THB');
+  const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
@@ -171,6 +175,7 @@ export default function OwnerMarketingScreen() {
       setListings(Array.isArray(items) ? items : []);
     }
 
+    setLoadFailed([mkRes, prRes, propRes, listRes].some((r) => r.status === 'rejected'));
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -225,6 +230,9 @@ export default function OwnerMarketingScreen() {
 
   const saleListing = listings[0] ?? null;
 
+  // 售价缺失时不按 0 展示，避免「฿0」与 0 预估价被当成真实报价
+  const salePrice = Number(saleProp?.sale_price || 0);
+
   /* 出租委托：托管中的名下房源（由真实房源状态派生） */
   const rentConsigns = useMemo(
     () => properties.filter((p) => !!RENT_STATUS[String(p.status || '').toLowerCase()]),
@@ -261,16 +269,22 @@ export default function OwnerMarketingScreen() {
     setFormPrice('');
     setFormAddress('');
     setFormCcy('THB');
+    setFormError('');
     setShowForm(true);
   };
 
   const submit = async () => {
     const title = formTitle.trim();
     const price = Number(formPrice);
-    if (!title || !price) {
-      Alert.alert(t('mkt.incompleteTitle'), t('mkt.incompleteMsg'));
+    if (!title) {
+      setFormError(t('mkt.formRequired'));
       return;
     }
+    if (!Number.isFinite(price) || price <= 0) {
+      setFormError(t('mkt.priceInvalid'));
+      return;
+    }
+    setFormError('');
     setSubmitting(true);
     try {
       await saleListingApi.create({
@@ -355,6 +369,22 @@ export default function OwnerMarketingScreen() {
           />
         }
       >
+        {/* 任一接口失败时提示并可重试，避免把失败渲染成「暂无数据」 */}
+        {loadFailed ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{t('mkt.loadFail')}</Text>
+            <TouchableOpacity
+              onPress={load}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('retry')}
+            >
+              <Text style={styles.errorRetry}>{t('retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* ===== 双委托入口 Tab ===== */}
         <View style={styles.tabs}>
           {([
@@ -366,6 +396,10 @@ export default function OwnerMarketingScreen() {
               style={[styles.tab, tab === tb.key && styles.tabActive]}
               activeOpacity={0.8}
               onPress={() => setTab(tb.key)}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === tb.key }}
+              accessibilityLabel={tb.label}
             >
               <Text style={[styles.tabText, tab === tb.key && styles.tabTextActive]}>{tb.label}</Text>
             </TouchableOpacity>
@@ -401,6 +435,12 @@ export default function OwnerMarketingScreen() {
                         style={[styles.pick, active && styles.pickActive]}
                         activeOpacity={0.8}
                         onPress={() => setSelectedId(v.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={t('mkt.pickMeta', {
+                          type: propertyTypeText(t, v.property_type),
+                          price: money(v.monthly_rent, v.currency),
+                        })}
                       >
                         <View style={[styles.radio, active && styles.radioActive]}>
                           {active && <View style={styles.radioDot} />}
@@ -567,20 +607,21 @@ export default function OwnerMarketingScreen() {
                   <View style={styles.fieldRow}>
                     <Text style={styles.fieldLabel}>{t('mkt.askingPrice')}</Text>
                     <Text style={styles.fieldValue}>
-                      {money(Number(saleProp.sale_price || 0), saleProp.currency)}
+                      {salePrice > 0 ? money(salePrice, saleProp.currency) : t('mkt.noPrice')}
                     </Text>
                   </View>
                   <View style={styles.estBox}>
                     <Text style={styles.mutedSm}>{t('mkt.estPriceLabel')}</Text>
                     <Text style={styles.estValue}>
-                      {money(Number(saleProp.sale_price || 0) * 0.97, saleProp.currency)} -{' '}
-                      {money(Number(saleProp.sale_price || 0) * 1.03, saleProp.currency)}
+                      {salePrice > 0
+                        ? `${money(salePrice * 0.97, saleProp.currency)} - ${money(salePrice * 1.03, saleProp.currency)}`
+                        : '—'}
                     </Text>
-                    <Text style={styles.estNote}>
-                      {t('mkt.suggestAsk', {
-                        price: money(Number(saleProp.sale_price || 0), saleProp.currency),
-                      })}
-                    </Text>
+                    {salePrice > 0 ? (
+                      <Text style={styles.estNote}>
+                        {t('mkt.suggestAsk', { price: money(salePrice, saleProp.currency) })}
+                      </Text>
+                    ) : null}
                   </View>
                   <TouchableOpacity style={styles.blockBtn} activeOpacity={0.85} onPress={openForm}>
                     <Text style={styles.blockBtnText}>{t('mkt.confirmEstimate')}</Text>
@@ -656,7 +697,7 @@ export default function OwnerMarketingScreen() {
                   <TouchableOpacity
                     style={styles.secondaryBtn}
                     activeOpacity={0.85}
-                    onPress={() => Alert.alert(t('mkt.setViewingTitle'), t('mkt.setViewingMsg'))}
+                    onPress={() => notify(t('mkt.setViewingTitle'), t('mkt.setViewingMsg'))}
                   >
                     <Text style={styles.secondaryBtnText}>{t('mkt.setViewingTitle')}</Text>
                   </TouchableOpacity>
@@ -776,10 +817,14 @@ export default function OwnerMarketingScreen() {
 
       {/* 委托挂牌表单弹层 */}
       <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <View style={bottomSheetStyles.bsMask}>
           <View style={bottomSheetStyles.bsSheet}>
             <View style={bottomSheetStyles.bsGrabber} />
-            <ScrollView contentContainerStyle={bottomSheetStyles.bsContent}>
+            <ScrollView contentContainerStyle={bottomSheetStyles.bsContent} keyboardShouldPersistTaps="handled">
               <Text style={styles.modalTitle}>{t('mkt.modalTitle')}</Text>
               <Text style={styles.modalSub}>{t('mkt.modalSub')}</Text>
 
@@ -787,10 +832,14 @@ export default function OwnerMarketingScreen() {
               <TextInput
                 style={styles.formInput}
                 value={formTitle}
-                onChangeText={setFormTitle}
+                onChangeText={(v) => {
+                  setFormTitle(v);
+                  if (formError) setFormError('');
+                }}
                 placeholder={t('mkt.formNamePh')}
                 placeholderTextColor={colors.ink3}
                 maxLength={80}
+                accessibilityLabel={t('mkt.formName')}
               />
 
               <Text style={styles.formLabel}>{t('mkt.formPrice')}</Text>
@@ -798,10 +847,15 @@ export default function OwnerMarketingScreen() {
                 <TextInput
                   style={[styles.formInput, styles.priceInput]}
                   value={formPrice}
-                  onChangeText={setFormPrice}
+                  onChangeText={(v) => {
+                    setFormPrice(v);
+                    if (formError) setFormError('');
+                  }}
                   keyboardType="numeric"
                   placeholder="0"
                   placeholderTextColor={colors.ink3}
+                  maxLength={15}
+                  accessibilityLabel={t('mkt.formPrice')}
                 />
                 <TextInput
                   style={[styles.formInput, styles.ccyInput]}
@@ -811,6 +865,7 @@ export default function OwnerMarketingScreen() {
                   placeholderTextColor={colors.ink3}
                   maxLength={3}
                   autoCapitalize="characters"
+                  accessibilityLabel={t('mkt.formCcy')}
                 />
               </View>
 
@@ -821,7 +876,11 @@ export default function OwnerMarketingScreen() {
                 onChangeText={setFormAddress}
                 placeholder={t('mkt.formAddressPh')}
                 placeholderTextColor={colors.ink3}
+                maxLength={120}
+                accessibilityLabel={t('mkt.formAddress')}
               />
+
+              {formError ? <Text style={styles.formError}>{formError}</Text> : null}
             </ScrollView>
             <View style={bottomSheetStyles.bsActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.modalCancel]} activeOpacity={0.7} onPress={() => setShowForm(false)}>
@@ -838,6 +897,7 @@ export default function OwnerMarketingScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -845,8 +905,23 @@ export default function OwnerMarketingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  flex1: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   content: { paddingBottom: 32 },
+
+  /* ===== 失败提示条 ===== */
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: colors.spacing.lg,
+    marginTop: colors.spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+  },
+  errorText: { flex: 1, fontSize: colors.fontSize.sm, color: colors.error },
+  errorRetry: { fontSize: colors.fontSize.sm, fontWeight: '600', color: colors.primary },
 
   /* ===== Tabs ===== */
   tabs: {
@@ -1100,4 +1175,5 @@ const styles = StyleSheet.create({
   priceInputRow: { flexDirection: 'row' },
   priceInput: { flex: 1, marginRight: 8 },
   ccyInput: { width: 96, textAlign: 'center' },
+  formError: { marginTop: colors.spacing.md, fontSize: colors.fontSize.sm, color: colors.error },
 });

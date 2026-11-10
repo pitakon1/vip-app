@@ -1,4 +1,5 @@
 ﻿﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { fmtDate } from '@/utils/format';
 /**
  * 收付款管理（管理端）
  * 原型：admin-mobile-payments.html
@@ -112,7 +113,6 @@ const CHANNEL_KEYS = Object.keys(CHANNEL_META);
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '');
 const fmtMoney = (v?: number, c?: string) => `${symOf(c)}${Number(v ?? 0).toLocaleString()}`;
-const fmtDate = (v?: string | null) => (v ? String(v).slice(0, 10) : '-');
 
 export default function AdminPaymentsScreen() {
   const { t } = useI18n();

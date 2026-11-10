@@ -29,5 +29,5 @@ export const pageStyle: CSSProperties = {
   margin: '0 auto',
   padding: '24px 16px 96px',
   minHeight: '100vh',
-  background: 'var(--rent-canvas, #f5f7fa)',
+  background: 'var(--rent-canvas, #f3f4f6)',
 }

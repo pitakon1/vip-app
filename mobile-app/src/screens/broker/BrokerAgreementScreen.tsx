@@ -20,6 +20,7 @@ import SignaturePad from '@/components/SignaturePad';
 import { brokerApi, contractsApi } from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { notify, notifyError } from '@/utils/feedback';
+import { useI18n } from '@/i18n';
 
 interface AgreementState {
   contract_id: string | null;
@@ -38,6 +39,7 @@ interface BrokerMe {
 
 export default function BrokerAgreementScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const [broker, setBroker] = useState<BrokerMe | null>(null);
   const [agreements, setAgreements] = useState<{
@@ -45,6 +47,9 @@ export default function BrokerAgreementScreen() {
     listing_agent: AgreementState;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  // 请求失败与「确实没有经纪人身份」必须区分：此前失败后 broker 仍为 null，
+  // 页面直接落到「暂无经纪人身份」，用户会误以为账号权限有问题且无重试入口。
+  const [loadFailed, setLoadFailed] = useState(false);
   const [busyRole, setBusyRole] = useState<string | null>(null);
   // 手写签名：后端只接受 <svg>（signature_svg），签名资产库存的是 PNG，
   // 直接提交会 400。这里改由 SignaturePad 现场产出 SVG 描边路径并随签署提交，
@@ -58,12 +63,16 @@ export default function BrokerAgreementScreen() {
       const meRes: any = await brokerApi.me();
       const me = meRes?.data ?? {};
       setBroker(me);
+      setLoadFailed(false);
       if (me?.id) {
         const agRes: any = await brokerApi.agreements(me.id);
         setAgreements(agRes?.data ?? null);
       }
     } catch (e: any) {
-      notifyError('加载失败', e);
+      setBroker(null);
+      setAgreements(null);
+      setLoadFailed(true);
+      notifyError(t('broker.loadFail'), e);
     } finally {
       setLoading(false);
     }
@@ -81,7 +90,7 @@ export default function BrokerAgreementScreen() {
       const gen: any = await brokerApi.createAgreement(broker.id, role);
       const cid = gen?.data?.contract_id;
       if (!cid) {
-        notify('请重试', '未能生成协议');
+        notify(t('broker.retryMsg'), t('broker.genFail'));
         return;
       }
       const detail: any = await contractsApi.get(cid);
@@ -95,7 +104,7 @@ export default function BrokerAgreementScreen() {
         ? parties.find((p) => p?.user_id && String(p.user_id) === String(currentUserId))
         : undefined;
       if (!self?.id) {
-        notify('请重试', '未找到您的签署位');
+        notify(t('broker.retryMsg'), t('broker.noSignSlot'));
         return;
       }
       // 若本人名下已有待签签署区，一并带上（按区签署）；否则整方签署
@@ -110,12 +119,12 @@ export default function BrokerAgreementScreen() {
         // 现场手写 SVG（<path>/<circle> 描边），与 Web 端签署走同一条通路
         ...(signatureSvg ? { signature_svg: signatureSvg } : {}),
       });
-      notify('签署成功', '协议已在线签署，相关权限已激活');
+      notify(t('broker.signSuccess'), t('broker.signSuccessMsg'));
       setSignRole(null);
       setSignSvg('');
       await load();
     } catch (e: any) {
-      notifyError('签署失败', e);
+      notifyError(t('broker.signFail'), e);
     } finally {
       setBusyRole(null);
     }
@@ -136,16 +145,14 @@ export default function BrokerAgreementScreen() {
         <Text style={styles.cardDesc}>{desc}</Text>
         <View style={styles.statusRow}>
           {signed ? (
-            <Text style={styles.statusSigned}>已在线签署 · 权限已激活</Text>
+            <Text style={styles.statusSigned}>{t('broker.signedActive')}</Text>
           ) : (
-            <Text style={styles.statusUnsigned}>未签署</Text>
+            <Text style={styles.statusUnsigned}>{t('broker.unsigned')}</Text>
           )}
-          {active ? <Text style={styles.statusActive}>使用中</Text> : null}
+          {active ? <Text style={styles.statusActive}>{t('broker.inUse')}</Text> : null}
         </View>
         <Text style={styles.settingTip}>
-          {role === 'listing_agent'
-            ? '签署后即可作为「房源上架经纪人」在发布房源入口上架房源'
-            : '签署后即可参与平台分销、赚取转介绍与联合单分成'}
+          {role === 'listing_agent' ? t('broker.listingTip') : t('broker.distributorTip')}
         </Text>
         {!signed ? (
           <TouchableOpacity
@@ -157,12 +164,12 @@ export default function BrokerAgreementScreen() {
               setSignSvg('');
             }}
             accessibilityRole="button"
-            accessibilityLabel={`签署${title}`}
+            accessibilityLabel={t('broker.signA11y', { title })}
           >
             {busyRole === role ? (
               <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.signBtnText}>生成并在线签署</Text>
+              <Text style={styles.signBtnText}>{t('broker.signBtn')}</Text>
             )}
           </TouchableOpacity>
         ) : null}
@@ -176,10 +183,22 @@ export default function BrokerAgreementScreen() {
     );
   }
 
+  if (loadFailed) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.failTitle}>{t('broker.loadFail')}</Text>
+        <Text style={styles.failSub}>{t('broker.loadFailSub')}</Text>
+        <TouchableOpacity style={styles.retryBtn} activeOpacity={0.8} onPress={() => void load()}>
+          <Text style={styles.retryBtnText}>{t('common.retry')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!broker?.id) {
     return (
       <View style={styles.center}>
-        <Text style={styles.noneText}>暂无经纪人身份，无法在线签约</Text>
+        <Text style={styles.noneText}>{t('broker.noBroker')}</Text>
       </View>
     );
   }
@@ -191,20 +210,20 @@ export default function BrokerAgreementScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.head}>经纪人合作协议</Text>
-        <Text style={styles.headSub}>在线生成并签署平台协议，签署完成后自动激活对应权限</Text>
+        <Text style={styles.head}>{t('broker.title')}</Text>
+        <Text style={styles.headSub}>{t('broker.subtitle')}</Text>
 
         {card(
           'listing_agent',
-          '《房源经纪人上架房源协议》',
-          '签署后解锁「发布房源」的上架资格',
+          t('broker.listingTitle'),
+          t('broker.listingDesc'),
           agreements?.listing_agent,
           broker.listing_active,
         )}
         {card(
           'distributor',
-          '《平台经纪人分销协议》',
-          '签署后解锁分销与转介绍资格',
+          t('broker.distributorTitle'),
+          t('broker.distributorDesc'),
           agreements?.distributor,
           broker.distributor_active,
         )}
@@ -212,15 +231,16 @@ export default function BrokerAgreementScreen() {
         {(broker.listing_active || broker.distributor_active) ? (
           <View style={styles.notice}>
             <Text style={styles.noticeText}>
-              您现在可以上架房源{broker.listing_active ? '' : ''}
-              {broker.distributor_active ? ' / 参与分销' : ''}
+              {broker.listing_active && broker.distributor_active
+                ? t('broker.activeBoth')
+                : broker.listing_active
+                  ? t('broker.activeListing')
+                  : t('broker.activeDistributor')}
             </Text>
           </View>
         ) : null}
 
-        <Text style={styles.footNote}>
-          协议由平台提供电子文档，全程数字签名加密，维护您的权益。如需纸质版，可联系平台客服。
-        </Text>
+        <Text style={styles.footNote}>{t('broker.footNote')}</Text>
       </ScrollView>
 
       <Modal
@@ -236,11 +256,9 @@ export default function BrokerAgreementScreen() {
       >
         <View style={styles.modalMask}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>请在下方手写签名</Text>
-            <Text style={styles.modalSub}>
-              签名将作为 SVG 随协议提交（与 Web 端签署一致）
-            </Text>
-            <SignaturePad title="签名区" onResult={setSignSvg} height={180} />
+            <Text style={styles.modalTitle}>{t('broker.signModalTitle')}</Text>
+            <Text style={styles.modalSub}>{t('broker.signModalSub')}</Text>
+            <SignaturePad title={t('broker.signArea')} onResult={setSignSvg} height={180} />
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnGhost]}
@@ -251,7 +269,7 @@ export default function BrokerAgreementScreen() {
                   setSignSvg('');
                 }}
               >
-                <Text style={styles.modalBtnGhostText}>取消</Text>
+                <Text style={styles.modalBtnGhostText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, (!signSvg || !!busyRole) && styles.modalBtnDisabled]}
@@ -262,11 +280,11 @@ export default function BrokerAgreementScreen() {
                 {busyRole ? (
                   <ActivityIndicator color={colors.primaryForeground} />
                 ) : (
-                  <Text style={styles.modalBtnText}>确认签署</Text>
+                  <Text style={styles.modalBtnText}>{t('broker.confirmSign')}</Text>
                 )}
               </TouchableOpacity>
             </View>
-            {!signSvg ? <Text style={styles.modalHint}>请先完成手写签名</Text> : null}
+            {!signSvg ? <Text style={styles.modalHint}>{t('broker.signHint')}</Text> : null}
           </View>
         </View>
       </Modal>
@@ -310,17 +328,27 @@ const styles = StyleSheet.create({
   modalBtnGhostText: { color: colors.ink2, fontSize: 15, fontWeight: '600' },
   modalHint: { fontSize: 12, color: colors.warning, marginTop: 10, textAlign: 'center' },
   noneText: { fontSize: 14, color: colors.ink3 },
+  failTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  failSub: { fontSize: 13, color: colors.ink3, marginTop: 6, textAlign: 'center', lineHeight: 19 },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
   head: { fontSize: 22, fontWeight: '800', color: colors.ink, letterSpacing: -0.4 },
   headSub: { fontSize: 13, color: colors.ink3, marginTop: 6, marginBottom: 6 },
   card: { backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 16, marginTop: 12, ...colors.shadow.card },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
   cardDesc: { fontSize: 13, color: colors.ink3, marginTop: 4 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 14 },
   statusSigned: { fontSize: 13, fontWeight: '700', color: colors.success },
   statusUnsigned: { fontSize: 13, fontWeight: '700', color: colors.warning },
   statusActive: { fontSize: 12, color: colors.primary, backgroundColor: colors.sidebarActive, paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full, overflow: 'hidden' },
   settingTip: { fontSize: 12, color: colors.ink2, marginTop: 8, lineHeight: 18 },
-  signBtn: { marginTop: 16, height: 46, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
+  signBtn: { marginTop: 16, minHeight: 46, paddingVertical: 12, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
   signBtnText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
   notice: { backgroundColor: colors.successLight, borderRadius: colors.radius.md, padding: 14, marginTop: 16 },
   noticeText: { fontSize: 14, color: colors.success, fontWeight: '600' },

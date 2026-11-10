@@ -9,6 +9,8 @@ import { BeikeBackButton, BeikeHomeButton } from '../components/BeikeHeader';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  /** 用户协议 / 隐私政策（App 内占位页） */
+  Agreement: { type: 'terms' | 'privacy' };
   Main: undefined;
   Test: undefined;
   ChatDetail: { conversationId: string; title?: string };
@@ -153,6 +155,7 @@ function lazyScreen(loader: () => Promise<{ default: React.ComponentType<any> }>
 const MainTabNavigator = lazyScreen(() => import('./MainTabNavigator'));
 const LoginScreen = lazyScreen(() => import('../screens/LoginScreen'));
 const RegisterScreen = lazyScreen(() => import('../screens/RegisterScreen'));
+const AgreementScreen = lazyScreen(() => import('../screens/legal/AgreementScreen'));
 const TestScreen = lazyScreen(() => import('../screens/TestScreen'));
 const LocationPickerScreen = lazyScreen(() => import('../screens/LocationPickerScreen'));
 const ChatDetailScreen = lazyScreen(() => import('../screens/chat/ChatDetailScreen'));
@@ -244,23 +247,32 @@ export function RootNavigator() {
       <Stack.Screen name="Main" component={MainTabNavigator} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="Test" component={TestScreen} options={{ headerShown: true, title: '测试调试面板' }} />
-      <Stack.Screen name="ChatDetail" component={ChatDetailScreen} options={{ headerShown: true, title: '会话' }} />
-      <Stack.Screen name="ChatList" component={ChatListScreen} options={{ headerShown: true, title: '消息' }} />
-      <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ headerShown: true, title: '考勤打卡' }} />
-      <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
-      <Stack.Screen name="PropertySearch" component={TenantListingsScreen} options={{ headerShown: true, title: '房源搜索' }} />
-      <Stack.Screen name="Documents" component={DocumentsScreen} options={{ headerShown: true, title: '文档中心' }} />
-      <Stack.Screen name="TenantMaintenance" component={MaintenanceScreen} options={{ headerShown: true, title: '服务工单' }} />
-      <Stack.Screen name="TenantServices" component={ServicesScreen} options={{ headerShown: true, title: '增值服务' }} />
-      <Stack.Screen name="OwnerServices" component={ServicesScreen} options={{ headerShown: true, title: '增值服务' }} />
-      <Stack.Screen name="Payments" component={PaymentsScreen} options={{ headerShown: true, title: '缴费中心' }} />
-      <Stack.Screen name="CRM" component={CRMScreen} options={{ headerShown: true, title: '客户与租约跟进' }} />
-      <Stack.Screen name="AdminCRM" component={AdminCRMScreen} options={{ headerShown: true, title: '客户管理' }} />
-      <Stack.Screen name="CommissionRules" component={CommissionRulesScreen} options={{ headerShown: true, title: '佣金设置' }} />
-      <Stack.Screen name="Performance" component={PerformanceScreen} options={{ headerShown: true, title: '我的业绩' }} />
-      <Stack.Screen name="EmployeeProperties" component={PropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
-      <Stack.Screen name="AdminProperties" component={AdminPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
+      <Stack.Screen
+        name="Agreement"
+        component={AgreementScreen}
+        options={({ route }) => ({
+          headerShown: true,
+          title:
+            route.params?.type === 'privacy' ? t('legal.privacyTitle') : t('legal.termsTitle'),
+        })}
+      />
+      <Stack.Screen name="Test" component={TestScreen} options={{ headerShown: true, title: t('nav.debugPanel') }} />
+      <Stack.Screen name="ChatDetail" component={ChatDetailScreen} options={{ headerShown: true, title: t('nav.chatDetail') }} />
+      <Stack.Screen name="ChatList" component={ChatListScreen} options={{ headerShown: true, title: t('nav.chatList') }} />
+      <Stack.Screen name="Attendance" component={AttendanceScreen} options={{ headerShown: true, title: t('nav.attendance') }} />
+      <Stack.Screen name="PropertyDetail" component={PropertyDetailScreen} options={{ headerShown: true, title: t('nav.propertyDetail') }} />
+      <Stack.Screen name="PropertySearch" component={TenantListingsScreen} options={{ headerShown: true, title: t('nav.propertySearch') }} />
+      <Stack.Screen name="Documents" component={DocumentsScreen} options={{ headerShown: true, title: t('nav.documents') }} />
+      <Stack.Screen name="TenantMaintenance" component={MaintenanceScreen} options={{ headerShown: true, title: t('nav.maintenance') }} />
+      <Stack.Screen name="TenantServices" component={ServicesScreen} options={{ headerShown: true, title: t('nav.services') }} />
+      <Stack.Screen name="OwnerServices" component={ServicesScreen} options={{ headerShown: true, title: t('nav.services') }} />
+      <Stack.Screen name="Payments" component={PaymentsScreen} options={{ headerShown: true, title: t('nav.payments') }} />
+      <Stack.Screen name="CRM" component={CRMScreen} options={{ headerShown: true, title: t('nav.crm') }} />
+      <Stack.Screen name="AdminCRM" component={AdminCRMScreen} options={{ headerShown: true, title: t('nav.adminCrm') }} />
+      <Stack.Screen name="CommissionRules" component={CommissionRulesScreen} options={{ headerShown: true, title: t('nav.commissionRules') }} />
+      <Stack.Screen name="Performance" component={PerformanceScreen} options={{ headerShown: true, title: t('nav.performance') }} />
+      <Stack.Screen name="EmployeeProperties" component={PropertiesScreen} options={{ headerShown: true, title: t('nav.propertyManage') }} />
+      <Stack.Screen name="AdminProperties" component={AdminPropertiesScreen} options={{ headerShown: true, title: t('nav.propertyManage') }} />
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ headerShown: true, title: t('acc.title') }} />
       <Stack.Screen name="PartnerHub" component={PartnerHubScreen} options={{ headerShown: true, title: t('partner.title') }} />
@@ -268,17 +280,17 @@ export function RootNavigator() {
       <Stack.Screen name="AdminDepartments" component={AdminDepartmentsScreen} options={{ headerShown: true, title: t('dept.title') }} />
       <Stack.Screen name="AdminDataScopes" component={AdminDataScopesScreen} options={{ headerShown: true, title: t('scope.title') }} />
       <Stack.Screen name="AdminOptions" component={AdminOptionsScreen} options={{ headerShown: true, title: t('dict.title') }} />
-      <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: '同事通讯录' }} />
-      <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: '资产管理' }} />
-      <Stack.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={{ headerShown: true, title: '收益明细' }} />
-      <Stack.Screen name="OwnerPayments" component={PaymentsScreen} options={{ headerShown: true, title: '我的付款' }} />
-      <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: '委托挂牌与营销' }} />
-      <Stack.Screen name="OwnerDocuments" component={DocumentsScreen} options={{ headerShown: true, title: '文档中心' }} />
-      <Stack.Screen name="OwnerProperties" component={OwnerPropertiesScreen} options={{ headerShown: true, title: '房源管理' }} />
+      <Stack.Screen name="Contacts" component={ContactScreen} options={{ headerShown: true, title: t('nav.contacts') }} />
+      <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} options={{ headerShown: true, title: t('nav.ownerHome') }} />
+      <Stack.Screen name="OwnerIncome" component={OwnerIncomeScreen} options={{ headerShown: true, title: t('nav.ownerIncome') }} />
+      <Stack.Screen name="OwnerPayments" component={PaymentsScreen} options={{ headerShown: true, title: t('nav.ownerPayments') }} />
+      <Stack.Screen name="OwnerMarketing" component={OwnerMarketingScreen} options={{ headerShown: true, title: t('nav.ownerMarketing') }} />
+      <Stack.Screen name="OwnerDocuments" component={DocumentsScreen} options={{ headerShown: true, title: t('nav.documents') }} />
+      <Stack.Screen name="OwnerProperties" component={OwnerPropertiesScreen} options={{ headerShown: true, title: t('nav.propertyManage') }} />
       <Stack.Screen name="FeatureNotAvailable" component={FeatureNotAvailableScreen} options={{ headerShown: true, title: '' }} />
-      <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
-      <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ headerShown: true, title: '我的上架单' }} />
-      <Stack.Screen name="PublicListings" component={PublicListingsScreen} options={{ headerShown: true, title: '上架房源' }} />
+      <Stack.Screen name="OwnerPropertyDetail" component={OwnerPropertyDetailScreen} options={{ headerShown: true, title: t('nav.propertyDetail') }} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ headerShown: true, title: t('nav.myListings') }} />
+      <Stack.Screen name="PublicListings" component={PublicListingsScreen} options={{ headerShown: true, title: t('nav.publicListings') }} />
       <Stack.Screen name="LocationPicker" component={LocationPickerScreen} options={{ headerShown: true, title: '' }} />
       {/* C 端公开页：登录/未登录都可进（从学校/小区/详情里互相跳转） */}
       <Stack.Screen name="PublicSchools" component={PublicSchoolsScreen} options={{ headerShown: false }} />
@@ -286,33 +298,33 @@ export function RootNavigator() {
       <Stack.Screen name="PublicListingDetail" component={PublicListingDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PublicSchoolDetail" component={PublicSchoolDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PublicCommunityDetail" component={PublicCommunityDetailScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="BrokerAgreement" component={BrokerAgreementScreen} options={{ headerShown: true, title: '协议签约' }} />
-      <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: '房源浏览' }} />
-      <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: '房源详情' }} />
+      <Stack.Screen name="BrokerAgreement" component={BrokerAgreementScreen} options={{ headerShown: true, title: t('nav.brokerAgreement') }} />
+      <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: t('nav.propertyBrowse') }} />
+      <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: t('nav.propertyDetail') }} />
       <Stack.Screen
         name="PropertyEdit"
         component={PropertyEditScreen}
         // 同一屏兼作新增与编辑，标题随进入方式切换（mode=create 为新增）
         options={({ route }: any) => ({
           headerShown: true,
-          title: route?.params?.mode === 'create' ? '新增房源' : '编辑房源',
+          title: route?.params?.mode === 'create' ? t('nav.propertyCreate') : t('nav.propertyEdit'),
         })}
       />
-      <Stack.Screen name="ProjectCreate" component={ProjectCreateScreen} options={{ headerShown: true, title: '新增楼盘' }} />
-      <Stack.Screen name="AdminLeases" component={AdminLeasesScreen} options={{ headerShown: true, title: '合同管理' }} />
-      <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} options={{ headerShown: true, title: '语言' }} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: true, title: '编辑资料' }} />
-      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: true, title: '修改密码' }} />
-      <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} options={{ headerShown: true, title: '通知设置' }} />
-      <Stack.Screen name="AdminBusinessSettings" component={AdminBusinessSettingsScreen} options={{ headerShown: true, title: '业务设置' }} />
-      <Stack.Screen name="AttendanceManage" component={AttendanceManageScreen} options={{ headerShown: true, title: '考勤管理' }} />
-      <Stack.Screen name="MyLease" component={MyLeaseScreen} options={{ headerShown: true, title: '我的租约' }} />
-      <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: '租约详情' }} />
-      <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: '我的交易订单' }} />
-      <Stack.Screen name="MyOrderDetail" component={MyOrderDetailScreen} options={{ headerShown: true, title: '订单详情' }} />
-      <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ headerShown: true, title: '我的关注' }} />
-      <Stack.Screen name="History" component={HistoryScreen} options={{ headerShown: true, title: '浏览历史' }} />
-      <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ headerShown: true, title: '降价提醒' }} />
+      <Stack.Screen name="ProjectCreate" component={ProjectCreateScreen} options={{ headerShown: true, title: t('nav.projectCreate') }} />
+      <Stack.Screen name="AdminLeases" component={AdminLeasesScreen} options={{ headerShown: true, title: t('nav.leaseManage') }} />
+      <Stack.Screen name="SettingsLanguage" component={SettingsLanguageScreen} options={{ headerShown: true, title: t('nav.language') }} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: true, title: t('nav.editProfile') }} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: true, title: t('nav.changePassword') }} />
+      <Stack.Screen name="NotificationPrefs" component={NotificationPrefsScreen} options={{ headerShown: true, title: t('nav.notificationPrefs') }} />
+      <Stack.Screen name="AdminBusinessSettings" component={AdminBusinessSettingsScreen} options={{ headerShown: true, title: t('nav.businessSettings') }} />
+      <Stack.Screen name="AttendanceManage" component={AttendanceManageScreen} options={{ headerShown: true, title: t('nav.attendanceManage') }} />
+      <Stack.Screen name="MyLease" component={MyLeaseScreen} options={{ headerShown: true, title: t('nav.myLease') }} />
+      <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: t('nav.leaseDetail') }} />
+      <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: t('nav.myOrders') }} />
+      <Stack.Screen name="MyOrderDetail" component={MyOrderDetailScreen} options={{ headerShown: true, title: t('nav.orderDetail') }} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ headerShown: true, title: t('nav.favorites') }} />
+      <Stack.Screen name="History" component={HistoryScreen} options={{ headerShown: true, title: t('nav.history') }} />
+      <Stack.Screen name="PriceAlerts" component={PriceAlertsScreen} options={{ headerShown: true, title: t('nav.priceAlerts') }} />
       <Stack.Screen name="Contracts" component={ContractsScreen} options={{ headerShown: true, title: t('contract.manage') }} />
       <Stack.Screen name="MyContracts" component={MyContractsScreen} options={{ headerShown: true, title: t('contract.my') }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: true, title: t('profile.about') }} />

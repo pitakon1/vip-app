@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ScrollView,
   RefreshControl,
 } from 'react-native';
@@ -17,6 +16,7 @@ import dayjs from 'dayjs';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import DataState, { type DataStateErrorKind } from '@/components/DataState';
+import { confirm } from '@/components/ConfirmDialog';
 import { errorKind, errorText } from '@/lib/errorText';
 import colors from '@/theme/colors';
 import api from '@/lib/api';
@@ -27,8 +27,6 @@ import { notify, notifyError } from '@/utils/feedback';
 
 // 打卡半径兜底（业务确认 C6：考勤地图定位；500 米）
 const RADIUS_KM = 0.5;
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-const CAL_WEEK = ['一', '二', '三', '四', '五', '六', '日'];
 const CAL_LEGEND: AttStatus[] = ['present', 'late', 'early_out', 'absent', 'leave', 'field_work'];
 
 // 页签导航（打卡 / 统计 / 申请）
@@ -37,12 +35,12 @@ type CheckinTab = 'checkin' | 'apply' | 'stats';
 // 打卡 / 申请 / 统计 / 考勤机，本项目无考勤机硬件故不设该项），图标+文字等宽排列
 const CHECKIN_TABS: {
   key: CheckinTab;
-  label: string;
+  labelKey: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
-  { key: 'checkin', label: '打卡', icon: 'location' },
-  { key: 'apply', label: '申请', icon: 'document-text' },
-  { key: 'stats', label: '统计', icon: 'stats-chart' },
+  { key: 'checkin', labelKey: 'att.tab.checkin', icon: 'location' },
+  { key: 'apply', labelKey: 'att.tab.apply', icon: 'document-text' },
+  { key: 'stats', labelKey: 'att.tab.stats', icon: 'stats-chart' },
 ];
 
 type AttStatus = 'present' | 'late' | 'early_out' | 'absent' | 'leave' | 'field_work';
@@ -73,30 +71,30 @@ interface AttRecord {
   notes?: string | null;
 }
 
-const STATUS_META: Record<AttStatus, { label: string; color: string; bg: string }> = {
+const STATUS_META: Record<AttStatus, { labelKey: string; color: string; bg: string }> = {
   present: {
-    label: '正常',
+    labelKey: 'att.status.present',
     color: colors.success,
     bg: colors.alpha(colors.successRgb, 0.12),
   },
   late: {
-    label: '迟到',
+    labelKey: 'att.status.late',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
   },
   early_out: {
-    label: '早退',
+    labelKey: 'att.status.earlyOut',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
   },
   absent: {
-    label: '缺勤',
+    labelKey: 'att.status.absent',
     color: colors.error,
     bg: colors.alpha(colors.errorRgb, 0.12),
   },
-  leave: { label: '请假', color: colors.ink2, bg: colors.surface2 },
+  leave: { labelKey: 'att.status.leave', color: colors.ink2, bg: colors.surface2 },
   field_work: {
-    label: '外勤',
+    labelKey: 'att.status.fieldWork',
     color: colors.info,
     bg: colors.alpha(colors.infoRgb, 0.12),
   },
@@ -137,18 +135,18 @@ type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 const LEAVE_TYPES: LeaveType[] = ['annual', 'sick', 'personal', 'unpaid', 'maternity', 'other'];
 const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
-  annual: '年假',
-  sick: '病假',
-  personal: '事假',
-  unpaid: '无薪假',
-  maternity: '产假',
-  other: '其他',
+  annual: 'att.leaveType.annual',
+  sick: 'att.leaveType.sick',
+  personal: 'att.leaveType.personal',
+  unpaid: 'att.leaveType.unpaid',
+  maternity: 'att.leaveType.maternity',
+  other: 'att.leaveType.other',
 };
-const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: '待审批', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
-  approved: { label: '已通过', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
-  rejected: { label: '已驳回', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
-  cancelled: { label: '已撤销', color: colors.ink2, bg: colors.surface2 },
+const LEAVE_STATUS_META: Record<LeaveStatus, { labelKey: string; color: string; bg: string }> = {
+  pending: { labelKey: 'att.leaveStatus.pending', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
+  approved: { labelKey: 'att.leaveStatus.approved', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
+  rejected: { labelKey: 'att.leaveStatus.rejected', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.12) },
+  cancelled: { labelKey: 'att.leaveStatus.cancelled', color: colors.ink2, bg: colors.surface2 },
 };
 
 interface MyRule {
@@ -199,6 +197,10 @@ const isDateStr = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v.trim());
 
 export default function AttendanceScreen() {
   const { t } = useI18n();
+  // 周名与「月/日」格式随语言：zh 用「周一 / 5月1日」，en/th 用短格式
+  const weekdays = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((d) => t(`att.week.${d}`)), [t]);
+  const calWeek = useMemo(() => [1, 2, 3, 4, 5, 6, 0].map((d) => t(`att.weekMin.${d}`)), [t]);
+  const md = (dt: dayjs.Dayjs) => t('att.mdFormat', { m: dt.month() + 1, d: dt.date() });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [today, setToday] = useState<TodayInfo | null>(null);
@@ -266,14 +268,14 @@ export default function AttendanceScreen() {
       (r) => r.status === 'rejected',
     ) as PromiseRejectedResult | undefined;
     if (coreFailed) {
-      setLoadError(errorText(coreFailed.reason, '考勤数据加载失败'));
+      setLoadError(errorText(coreFailed.reason, t('att.loadFail')));
       setLoadErrorKind(errorKind(coreFailed.reason));
     }
     setLeavesError(
-      leaveRes.status === 'rejected' ? errorText(leaveRes.reason, '请假记录加载失败') : null,
+      leaveRes.status === 'rejected' ? errorText(leaveRes.reason, t('att.leaveLoadFail')) : null,
     );
     setAppealsError(
-      appealRes.status === 'rejected' ? errorText(appealRes.reason, '申诉记录加载失败') : null,
+      appealRes.status === 'rejected' ? errorText(appealRes.reason, t('att.appealLoadFail')) : null,
     );
     setToday(
       todayRes.status === 'fulfilled' ? ((todayRes.value.data as TodayInfo) ?? null) : null,
@@ -296,7 +298,7 @@ export default function AttendanceScreen() {
         ? (appealRes.value.data as AppealReq[])
         : [],
     );
-  }, []);
+  }, [t]);
 
   // 读取当前定位（不弹授权框，仅消费已授权状态）
   const locate = useCallback(async () => {
@@ -361,19 +363,19 @@ export default function AttendanceScreen() {
 
   const submitLeave = async () => {
     if (!isDateStr(leaveStart) || !isDateStr(leaveEnd)) {
-      notify('日期格式不正确', `请使用 ${DATE_HINT}`);
+      notify(t('att.dateInvalidTitle'), t('att.dateFormat', { format: DATE_HINT }));
       return;
     }
     if (dayjs(leaveStart).isBefore(dayjs(), 'day')) {
-      notify('开始日期不能早于今天', undefined);
+      notify(t('att.startBeforeToday'), undefined);
       return;
     }
     if (dayjs(leaveEnd).isBefore(dayjs(leaveStart), 'day')) {
-      notify('结束日期不能早于开始日期', undefined);
+      notify(t('att.endBeforeStart'), undefined);
       return;
     }
     if (!leaveReason.trim()) {
-      notify('请填写请假事由', undefined);
+      notify(t('att.reasonRequired'), undefined);
       return;
     }
     setSubmittingLeave(true);
@@ -384,39 +386,40 @@ export default function AttendanceScreen() {
         end_date: leaveEnd,
         reason: leaveReason.trim(),
       });
-      notify('申请已提交', '等待管理员审批');
+      notify(t('att.leaveSubmitted'), t('att.pendingApproval'));
       setLeaveReason('');
       await load();
     } catch (err) {
-      notifyError('提交请假申请失败', err);
+      notifyError(t('att.leaveSubmitFail'), err);
     } finally {
       setSubmittingLeave(false);
     }
   };
 
-  const handleCancelLeave = (item: LeaveReq) => {
-    const doCancel = async () => {
-      try {
-        await attendanceApi.cancelLeave(item.id);
-        notify('已撤销', '请假申请已取消');
-        await load();
-      } catch (err) {
-        notifyError('撤销失败', err);
-      }
-    };
-    Alert.alert(
-      '撤销申请',
-      `确定撤销 ${item.start_date} ~ ${item.end_date}（${item.days} 天）的请假申请吗？`,
-      [
-        { text: '取消', style: 'cancel' },
-        { text: '撤销', style: 'destructive', onPress: doCancel },
-      ],
-    );
+  const handleCancelLeave = async (item: LeaveReq) => {
+    const ok = await confirm({
+      title: t('att.revokeConfirmTitle'),
+      message: t('att.revokeConfirmMsg', {
+        start: item.start_date,
+        end: item.end_date,
+        days: item.days,
+      }),
+      confirmLabel: t('att.revoke'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await attendanceApi.cancelLeave(item.id);
+      notify(t('att.revokedTitle'), t('att.revokedMsg'));
+      await load();
+    } catch (err) {
+      notifyError(t('att.revokeFail'), err);
+    }
   };
 
   const submitAppeal = async () => {
     if (!isDateStr(appealDate)) {
-      notify('日期格式不正确', `请使用 ${DATE_HINT}`);
+      notify(t('att.dateInvalidTitle'), t('att.dateFormat', { format: DATE_HINT }));
       return;
     }
     if (!appealReason.trim()) {
@@ -450,16 +453,16 @@ export default function AttendanceScreen() {
       const list = monthRecords.filter((r) => r.status === s);
       if (list.length === 0) return empty;
       const latest = list.reduce((a, b) => (dayjs(b.date).isAfter(dayjs(a.date)) ? b : a));
-      return `最近 ${dayjs(latest.date).format('M月D日')}`;
+      return t('att.latestOn', { d: md(dayjs(latest.date)) });
     };
     return {
       present: count('present') + count('late') + count('early_out') + count('field_work'),
       late: count('late'),
       earlyOut: count('early_out'),
       leave: count('leave'),
-      leaveHint: lastLabel('leave', '本月无请假'),
+      leaveHint: lastLabel('leave', t('att.noLeaveThisMonth')),
     };
-  }, [monthRecords]);
+  }, [monthRecords, t]);
 
   // 上月迟到次数（用于「较上月」环比提示）
   const lastMonthLate = useMemo(
@@ -501,13 +504,13 @@ export default function AttendanceScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(t('att.noPermTitle'), t('att.noPermMsg'));
+        notify(t('att.noPermTitle'), t('att.noPermMsg'));
         return null;
       }
       const pos = await Location.getCurrentPositionAsync({});
       return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
     } catch {
-      Alert.alert(t('att.locFailTitle'), t('att.locFailMsg'));
+      notify(t('att.locFailTitle'), t('att.locFailMsg'));
       return null;
     }
   };
@@ -541,7 +544,10 @@ export default function AttendanceScreen() {
         } else {
           await attendanceApi.checkOut({ lat: coord.latitude, lng: coord.longitude });
         }
-        notify('打卡成功', type === 'checkin' ? '已签到' : '已签退');
+        notify(
+          t('att.checkinSuccess'),
+          type === 'checkin' ? t('att.checkedIn') : t('att.checkedOut'),
+        );
         await load();
         void locate();
       } else {
@@ -557,15 +563,15 @@ export default function AttendanceScreen() {
           // 外勤申请提交失败不阻断提示
         }
         notify(
-          '不在打卡半径内',
-          `您距离打卡点超过 ${RADIUS_KM * 1000} 米，已为您登记外勤，可在「申请」页签补充事由。`,
+          t('att.outOfRangeTitle'),
+          t('att.outOfRangeMsg', { n: RADIUS_KM * 1000 }),
         );
         // 外勤登记表单在「申请」页签且默认收起：不切页签+展开的话用户看不到要填的表单
         setTripOpen(true);
         switchTab('apply');
       }
     } catch (err: any) {
-      notifyError('打卡失败', err);
+      notifyError(t('att.checkinFail'), err);
     } finally {
       setChecking(null);
     }
@@ -573,11 +579,11 @@ export default function AttendanceScreen() {
 
   const submitTrip = async () => {
     if (!isDateStr(tripDate)) {
-      notify('日期格式不正确', `请使用 ${DATE_HINT}`);
+      notify(t('att.dateInvalidTitle'), t('att.dateFormat', { format: DATE_HINT }));
       return;
     }
     if (!tripReason.trim()) {
-      notify('请填写外勤事由', undefined);
+      notify(t('att.tripReasonRequired'), undefined);
       return;
     }
     const coord = await getCurrentLocation();
@@ -590,11 +596,11 @@ export default function AttendanceScreen() {
         to_lng: coord.longitude,
         reason: tripReason.trim(),
       });
-      notify('外勤登记已提交', '等待管理员审批');
+      notify(t('att.tripSubmitted'), t('att.pendingApproval'));
       setTripReason('');
       await load();
     } catch (err) {
-      notifyError('外勤登记提交失败', err);
+      notifyError(t('att.tripSubmitFail'), err);
     } finally {
       setSubmittingTrip(false);
     }
@@ -620,24 +626,21 @@ export default function AttendanceScreen() {
   })();
 
   const dialActive = phase === 'checkin' || phase === 'checkout';
-  const dialLabel =
-    phase === 'before'
-      ? '未到上班时间'
-      : phase === 'checkin'
-        ? '上班打卡'
-        : phase === 'checkedin'
-          ? '已打卡上班'
-          : phase === 'checkout'
-            ? '下班打卡'
-            : '今日打卡已完成';
+  const dialLabel = t(`att.phase.${phase}`);
   const dialHint =
     phase === 'checkedin'
-      ? `上班打卡 ${fmtTime(today?.check_in_time)} · 下班时间 ${workEnd ?? '--:--'}`
+      ? t('att.dialHint.checkedin', {
+          in: fmtTime(today?.check_in_time),
+          end: workEnd ?? '--:--',
+        })
       : phase === 'done'
-        ? `上班 ${fmtTime(today?.check_in_time)} · 下班 ${fmtTime(today?.check_out_time)}`
+        ? t('att.dialHint.done', {
+            in: fmtTime(today?.check_in_time),
+            out: fmtTime(today?.check_out_time),
+          })
         : phase === 'checkout'
-          ? `下班时间 ${workEnd ?? '--:--'}`
-          : `上班时间 ${workStart ?? '--:--'}`;
+          ? t('att.dialHint.checkout', { end: workEnd ?? '--:--' })
+          : t('att.dialHint.before', { start: workStart ?? '--:--' });
 
   const onDialPress = () => {
     if (checking !== null || !dialActive) return;
@@ -666,12 +669,12 @@ export default function AttendanceScreen() {
         .slice(0, 10),
     [monthRecords],
   );
-  const WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'];
+  const WEEK_CN = calWeek;
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <LoadingState label="加载考勤数据…" />
+        <LoadingState label={t('att.loading')} />
       </View>
     );
   }
@@ -691,23 +694,24 @@ export default function AttendanceScreen() {
     );
   }
 
-  const groupName = myRule?.group_name || today?.group_name || '默认打卡点';
+  const groupName = myRule?.group_name || today?.group_name || t('att.defaultPoint');
   const distanceM = distanceKm != null ? Math.round(distanceKm * 1000) : null;
   const distanceText =
     distanceKm == null
       ? null
       : distanceKm >= 1
-        ? `${distanceKm.toFixed(1)} 公里`
-        : `${distanceM} 米`;
+        ? t('att.distanceKm', { n: distanceKm.toFixed(1) })
+        : t('att.distanceM', { n: distanceM ?? 0 });
 
+  const radiusM = Math.round(radiusKm * 1000);
   const locSub: string = (() => {
-    if (gpsStatus === 'locating' || gpsStatus === 'idle') return '正在定位…';
-    if (gpsStatus === 'denied') return '未授权定位，无法校验打卡范围';
-    if (gpsStatus === 'error') return '定位失败，请点击重试';
-    if (distanceText == null) return `已定位 · 允许范围 ${Math.round(radiusKm * 1000)} 米`;
+    if (gpsStatus === 'locating' || gpsStatus === 'idle') return t('att.locating');
+    if (gpsStatus === 'denied') return t('att.locDenied');
+    if (gpsStatus === 'error') return t('att.locError');
+    if (distanceText == null) return t('att.locOkRange', { n: radiusM });
     return withinRadius
-      ? `距打卡点约 ${distanceText} · 允许范围 ${Math.round(radiusKm * 1000)} 米`
-      : `距打卡点 ${distanceText}（超出范围）`;
+      ? t('att.locInRangeHint', { d: distanceText, n: radiusM })
+      : t('att.locOutOfRangeHint', { d: distanceText });
   })();
 
   const locPill: { label: string; color: string; bg: string } | null = (() => {
@@ -718,26 +722,38 @@ export default function AttendanceScreen() {
   })();
 
   const inBadge = !checkedIn
-    ? { label: '未打卡', color: colors.ink3, bg: colors.surface2 }
+    ? { label: t('att.notChecked'), color: colors.ink3, bg: colors.surface2 }
     : (today?.late_minutes ?? 0) > 0
       ? {
-          label: `迟到 ${today?.late_minutes} 分钟`,
+          label: t('att.lateMinutes', { n: today?.late_minutes ?? 0 }),
           color: colors.warning,
           bg: colors.alpha(colors.warningRgb, 0.12),
         }
       : today?.status === 'field_work'
-        ? { label: '外勤', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.12) }
-        : { label: '正常', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
+        ? {
+            label: t('att.status.fieldWork'),
+            color: colors.info,
+            bg: colors.alpha(colors.infoRgb, 0.12),
+          }
+        : {
+            label: t('att.status.present'),
+            color: colors.success,
+            bg: colors.alpha(colors.successRgb, 0.12),
+          };
 
   const outBadge = !checkedOut
-    ? { label: '未打卡', color: colors.ink3, bg: colors.surface2 }
+    ? { label: t('att.notChecked'), color: colors.ink3, bg: colors.surface2 }
     : (today?.early_out_minutes ?? 0) > 0
       ? {
-          label: `早退 ${today?.early_out_minutes} 分钟`,
+          label: t('att.earlyMinutes', { n: today?.early_out_minutes ?? 0 }),
           color: colors.warning,
           bg: colors.alpha(colors.warningRgb, 0.12),
         }
-      : { label: '正常', color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) };
+      : {
+          label: t('att.status.present'),
+          color: colors.success,
+          bg: colors.alpha(colors.successRgb, 0.12),
+        };
 
   const overviewItems: {
     key: string;
@@ -749,38 +765,38 @@ export default function AttendanceScreen() {
   }[] = [
     {
       key: 'present',
-      label: '出勤',
+      label: t('att.overview.present'),
       value: stats.present,
-      unit: '天',
+      unit: t('att.unit.day'),
       color: colors.ink,
-      caption: `应出勤 ${workdays} 天`,
+      caption: t('att.expectedDays', { n: workdays }),
     },
     {
       key: 'late',
-      label: '迟到',
+      label: t('att.status.late'),
       value: stats.late,
-      unit: '次',
+      unit: t('att.unit.times'),
       color: colors.warning,
       caption:
         stats.late === lastMonthLate
-          ? '较上月持平'
+          ? t('att.sameAsLast')
           : stats.late > lastMonthLate
-            ? `较上月多 ${stats.late - lastMonthLate} 次`
-            : `较上月少 ${lastMonthLate - stats.late} 次`,
+            ? t('att.moreThanLast', { n: stats.late - lastMonthLate })
+            : t('att.lessThanLast', { n: lastMonthLate - stats.late }),
     },
     {
       key: 'early',
-      label: '早退',
+      label: t('att.status.earlyOut'),
       value: stats.earlyOut,
-      unit: '次',
+      unit: t('att.unit.times'),
       color: colors.warning,
-      caption: stats.earlyOut === 0 ? '本月无早退' : '本月累计',
+      caption: stats.earlyOut === 0 ? t('att.noEarlyThisMonth') : t('att.monthTotal'),
     },
     {
       key: 'leave',
-      label: '请假',
+      label: t('att.status.leave'),
       value: stats.leave,
-      unit: '天',
+      unit: t('att.unit.day'),
       color: colors.ink,
       caption: stats.leaveHint,
     },
@@ -874,7 +890,7 @@ export default function AttendanceScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.locActionText}>
-                {gpsStatus === 'denied' ? '允许定位' : '重试'}
+                {gpsStatus === 'denied' ? t('att.allowLocation') : t('common.retry')}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -910,7 +926,7 @@ export default function AttendanceScreen() {
               <Text
                 style={[styles.dialDate, dialActive ? styles.dialDateOn : styles.dialTextOff]}
               >
-                {dayjs(now).format('M月D日')} · {WEEKDAYS[now.getDay()]}
+                {md(dayjs(now))} · {weekdays[now.getDay()]}
               </Text>
             </TouchableOpacity>
           </View>
@@ -918,17 +934,17 @@ export default function AttendanceScreen() {
         </View>
 
         {/* ④ 今日打卡记录 */}
-        <Text style={styles.sectionTitle}>今日打卡</Text>
+        <Text style={styles.sectionTitle}>{t('att.todayCheckin')}</Text>
         <View style={styles.todayCard}>
           <View style={[styles.todayRow, styles.todayRowFirst]}>
-            <Text style={styles.todayLabel}>上班打卡</Text>
+            <Text style={styles.todayLabel}>{t('att.phase.checkin')}</Text>
             <Text style={styles.todayValue}>{fmtTime(today?.check_in_time)}</Text>
             <View style={[styles.todayBadge, { backgroundColor: inBadge.bg }]}>
               <Text style={[styles.todayBadgeText, { color: inBadge.color }]}>{inBadge.label}</Text>
             </View>
           </View>
           <View style={styles.todayRow}>
-            <Text style={styles.todayLabel}>下班打卡</Text>
+            <Text style={styles.todayLabel}>{t('att.phase.checkout')}</Text>
             <Text style={styles.todayValue}>{fmtTime(today?.check_out_time)}</Text>
             <View style={[styles.todayBadge, { backgroundColor: outBadge.bg }]}>
               <Text style={[styles.todayBadgeText, { color: outBadge.color }]}>
@@ -938,7 +954,7 @@ export default function AttendanceScreen() {
           </View>
           {checkedIn && today?.check_in_location?.address ? (
             <Text style={styles.todayPlace} numberOfLines={2}>
-              打卡地点：{today.check_in_location.address}
+              {t('att.place', { addr: today.check_in_location.address })}
             </Text>
           ) : null}
         </View>
@@ -948,14 +964,16 @@ export default function AttendanceScreen() {
         {tab === 'stats' && (
           <>
         {/* ⑤ 打卡日历（月视图） */}
-        <Text style={styles.sectionTitle}>打卡日历</Text>
+        <Text style={styles.sectionTitle}>{t('att.calendar')}</Text>
         <View style={styles.calCard}>
           <View style={styles.cardHead}>
-            <Text style={styles.cardTitle}>{dayjs().format('YYYY年M月')}</Text>
-            <Text style={styles.cardHeadSub}>本月 {monthRecords.length} 天有记录</Text>
+            <Text style={styles.cardTitle}>
+              {t('att.calMonth', { y: dayjs().year(), m: dayjs().month() + 1 })}
+            </Text>
+            <Text style={styles.cardHeadSub}>{t('att.nDaysRecorded', { n: monthRecords.length })}</Text>
           </View>
           <View style={styles.calWeekRow}>
-            {CAL_WEEK.map((w) => (
+            {calWeek.map((w) => (
               <Text key={w} style={styles.calWeekText}>
                 {w}
               </Text>
@@ -1001,7 +1019,7 @@ export default function AttendanceScreen() {
             {CAL_LEGEND.map((s) => (
               <View key={s} style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: STATUS_META[s].color }]} />
-                <Text style={styles.legendText}>{STATUS_META[s].label}</Text>
+                <Text style={styles.legendText}>{t(STATUS_META[s].labelKey)}</Text>
               </View>
             ))}
             <View style={styles.legendItem}>
@@ -1016,10 +1034,14 @@ export default function AttendanceScreen() {
         </View>
 
         {/* ⑤-2 近期打卡明细（补足月历看不到的具体上下班时间与备注） */}
-        <Text style={styles.sectionTitle}>近期打卡记录</Text>
+        <Text style={styles.sectionTitle}>{t('att.recentRecords')}</Text>
         <View style={styles.recCard}>
           {recentRecords.length === 0 ? (
-            <EmptyState icon="list-outline" title="暂无考勤记录" sub="完成打卡后这里会显示明细" />
+            <EmptyState
+              icon="list-outline"
+              title={t('att.noRecords')}
+              sub={t('att.noRecordsSub')}
+            />
           ) : (
             recentRecords.map((r, idx) => {
               const meta = STATUS_META[r.status];
@@ -1032,17 +1054,22 @@ export default function AttendanceScreen() {
                 >
                   <View style={styles.recRowMain}>
                     <Text style={styles.recDate}>
-                      {dt.format('M月D日')}
-                      <Text style={styles.recWeek}> 周{WEEK_CN[dt.day()]}</Text>
-                      {isToday ? <Text style={styles.recToday}> 今天</Text> : null}
+                      {md(dt)}
+                      <Text style={styles.recWeek}> {weekdays[dt.day()]}</Text>
+                      {isToday ? <Text style={styles.recToday}> {t('att.today')}</Text> : null}
                     </Text>
                     <View style={[styles.recBadge, { backgroundColor: meta.bg }]}>
-                      <Text style={[styles.recBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                      <Text style={[styles.recBadgeText, { color: meta.color }]}>
+                        {t(meta.labelKey)}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.recRowSub}>
                     <Text style={styles.recTimes}>
-                      上班 {fmtTime(r.check_in_time)} · 下班 {fmtTime(r.check_out_time)}
+                      {t('att.timesLine', {
+                        in: fmtTime(r.check_in_time),
+                        out: fmtTime(r.check_out_time),
+                      })}
                     </Text>
                     {r.check_in_location?.address ? (
                       <Text style={styles.recAddr} numberOfLines={1}>
@@ -1066,38 +1093,43 @@ export default function AttendanceScreen() {
         {tab === 'checkin' && (
           <>
         {/* ⑥ 我的考勤规则 */}
-        <Text style={styles.sectionTitle}>我的考勤规则</Text>
+        <Text style={styles.sectionTitle}>{t('att.myRule')}</Text>
         <View style={styles.ruleCard}>
           <View style={styles.ruleHead}>
             <Ionicons name="business-outline" size={18} color={colors.primary} />
             <Text style={styles.ruleName} numberOfLines={1}>
-              {myRule?.group_id ? myRule.group_name || '考勤组' : '默认规则'}
+              {myRule?.group_id
+                ? myRule.group_name || t('att.groupFallback')
+                : t('att.defaultRule')}
             </Text>
           </View>
           <View style={styles.ruleRow}>
-            <Text style={styles.ruleRowLabel}>作息时间</Text>
+            <Text style={styles.ruleRowLabel}>{t('att.workHours')}</Text>
             <Text style={styles.ruleRowValue}>
               {workStart ?? '--:--'} - {workEnd ?? '--:--'}
             </Text>
           </View>
           <View style={styles.ruleRow}>
-            <Text style={styles.ruleRowLabel}>打卡半径</Text>
-            <Text style={styles.ruleRowValue}>{Math.round(radiusKm * 1000)} 米</Text>
+            <Text style={styles.ruleRowLabel}>{t('att.radiusLabel')}</Text>
+            <Text style={styles.ruleRowValue}>{t('att.distanceM', { n: radiusM })}</Text>
           </View>
           <View style={styles.ruleRow}>
-            <Text style={styles.ruleRowLabel}>迟到 / 早退宽限</Text>
+            <Text style={styles.ruleRowLabel}>{t('att.graceLabel')}</Text>
             <Text style={styles.ruleRowValue}>
-              {myRule?.late_grace_minutes ?? 0} / {myRule?.early_grace_minutes ?? 0} 分
+              {t('att.graceValue', {
+                late: myRule?.late_grace_minutes ?? 0,
+                early: myRule?.early_grace_minutes ?? 0,
+              })}
             </Text>
           </View>
           <View style={styles.ruleRow}>
-            <Text style={styles.ruleRowLabel}>考勤时区</Text>
+            <Text style={styles.ruleRowLabel}>{t('att.timezone')}</Text>
             <Text style={styles.ruleRowValue}>
               UTC+{myRule?.utc_offset_hours != null ? myRule.utc_offset_hours : 0}
             </Text>
           </View>
           <View style={styles.ruleRow}>
-            <Text style={styles.ruleRowLabel}>办公点</Text>
+            <Text style={styles.ruleRowLabel}>{t('att.office')}</Text>
             <Text style={styles.ruleRowValue}>
               {office ? `${office.lat.toFixed(4)}, ${office.lng.toFixed(4)}` : '--'}
             </Text>
@@ -1109,9 +1141,9 @@ export default function AttendanceScreen() {
         {tab === 'apply' && (
           <>
         {/* ⑦ 请假申请 */}
-        <Text style={styles.sectionTitle}>请假申请</Text>
+        <Text style={styles.sectionTitle}>{t('att.leaveApply')}</Text>
         <View style={styles.leaveFormCard}>
-          <Text style={styles.formLabel}>请假类型</Text>
+          <Text style={styles.formLabel}>{t('att.leaveTypeLabel')}</Text>
           <View style={styles.chipWrap}>
             {LEAVE_TYPES.map((k) => (
               <TouchableOpacity
@@ -1121,13 +1153,13 @@ export default function AttendanceScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={[styles.chipText, leaveType === k && styles.chipTextActive]}>
-                  {LEAVE_TYPE_LABEL[k]}
+                  {t(LEAVE_TYPE_LABEL[k])}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.formLabel}>开始日期</Text>
+          <Text style={styles.formLabel}>{t('att.startDate')}</Text>
           <TextInput
             style={styles.formInput}
             value={leaveStart}
@@ -1147,7 +1179,7 @@ export default function AttendanceScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.quickChipText}>今天</Text>
+              <Text style={styles.quickChipText}>{t('att.today')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.quickChip}
@@ -1158,11 +1190,11 @@ export default function AttendanceScreen() {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.quickChipText}>明天</Text>
+              <Text style={styles.quickChipText}>{t('att.tomorrow')}</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.formLabel}>结束日期</Text>
+          <Text style={styles.formLabel}>{t('att.endDate')}</Text>
           <TextInput
             style={styles.formInput}
             value={leaveEnd}
@@ -1174,16 +1206,16 @@ export default function AttendanceScreen() {
           />
 
           <View style={styles.daysRow}>
-            <Text style={styles.formLabel}>请假天数</Text>
-            <Text style={styles.daysValue}>{leaveDays} 天</Text>
+            <Text style={styles.formLabel}>{t('att.leaveDaysCount')}</Text>
+            <Text style={styles.daysValue}>{t('att.nDays', { n: leaveDays })}</Text>
           </View>
 
-          <Text style={styles.formLabel}>请假事由</Text>
+          <Text style={styles.formLabel}>{t('att.leaveReason')}</Text>
           <TextInput
             style={[styles.formInput, styles.formTextarea]}
             value={leaveReason}
             onChangeText={setLeaveReason}
-            placeholder="请说明请假原因"
+            placeholder={t('att.leaveReasonPh')}
             placeholderTextColor={colors.ink3}
             multiline
           />
@@ -1197,7 +1229,7 @@ export default function AttendanceScreen() {
             {submittingLeave ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.submitBtnText}>提交申请</Text>
+              <Text style={styles.submitBtnText}>{t('att.submitApply')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1211,7 +1243,7 @@ export default function AttendanceScreen() {
           >
             <View style={styles.tripTitleWrap}>
               <Ionicons name="navigate-outline" size={16} color={colors.primary} />
-              <Text style={styles.tripTitle}>外勤登记</Text>
+              <Text style={styles.tripTitle}>{t('att.trip')}</Text>
             </View>
             <Ionicons
               name={tripOpen ? 'chevron-up' : 'chevron-down'}
@@ -1221,7 +1253,7 @@ export default function AttendanceScreen() {
           </TouchableOpacity>
           {tripOpen ? (
             <View style={styles.tripBody}>
-              <Text style={styles.formLabel}>外勤日期</Text>
+              <Text style={styles.formLabel}>{t('att.tripDate')}</Text>
               <TextInput
                 style={styles.formInput}
                 value={tripDate}
@@ -1231,16 +1263,16 @@ export default function AttendanceScreen() {
                 maxLength={10}
                 autoCapitalize="none"
               />
-              <Text style={styles.formLabel}>外勤事由</Text>
+              <Text style={styles.formLabel}>{t('att.tripReason')}</Text>
               <TextInput
                 style={[styles.formInput, styles.formTextarea]}
                 value={tripReason}
                 onChangeText={setTripReason}
-                placeholder="请说明外勤原因"
+                placeholder={t('att.tripReasonPh')}
                 placeholderTextColor={colors.ink3}
                 multiline
               />
-              <Text style={styles.tripNote}>提交时将采集当前定位作为外勤地点，需管理员审批。</Text>
+              <Text style={styles.tripNote}>{t('att.tripNote')}</Text>
               <TouchableOpacity
                 style={[styles.submitBtn, submittingTrip && styles.submitBtnDisabled]}
                 onPress={submitTrip}
@@ -1250,7 +1282,7 @@ export default function AttendanceScreen() {
                 {submittingTrip ? (
                   <ActivityIndicator size="small" color={colors.primaryForeground} />
                 ) : (
-                  <Text style={styles.submitBtnText}>提交外勤登记</Text>
+                  <Text style={styles.submitBtnText}>{t('att.submitTrip')}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1258,20 +1290,20 @@ export default function AttendanceScreen() {
         </View>
 
         {/* ⑨ 我的请假记录 */}
-        <Text style={styles.sectionTitle}>我的请假记录</Text>
+        <Text style={styles.sectionTitle}>{t('att.myLeaves')}</Text>
         <View style={styles.listCard}>
           {leavesError ? (
             <EmptyState
               tone="error"
               title={leavesError}
-              actionLabel="重试"
+              actionLabel={t('common.retry')}
               onAction={() => void load()}
             />
           ) : leaves.length === 0 ? (
             <EmptyState
               icon="document-text-outline"
-              title="暂无请假申请"
-              sub="提交后可在此查看审批进度并撤销待审批的申请"
+              title={t('att.noLeaves')}
+              sub={t('att.noLeavesSub')}
             />
           ) : (
             leaves.map((l, idx) => {
@@ -1280,18 +1312,23 @@ export default function AttendanceScreen() {
                 <View key={l.id ?? idx} style={[styles.leaveRow, idx === 0 && styles.leaveRowFirst]}>
                   <View style={styles.leaveBody}>
                     <Text style={styles.leaveTitle}>
-                      {LEAVE_TYPE_LABEL[l.leave_type] ?? l.leave_type} · {l.days} 天
+                      {t(LEAVE_TYPE_LABEL[l.leave_type] ?? LEAVE_TYPE_LABEL.other)} ·{' '}
+                      {t('att.nDays', { n: l.days })}
                     </Text>
                     <Text style={styles.leaveSub}>
                       {l.start_date} ~ {l.end_date}
                     </Text>
-                    {l.reason ? <Text style={styles.leaveSub}>事由：{l.reason}</Text> : null}
+                    {l.reason ? (
+                      <Text style={styles.leaveSub}>{t('att.reasonLabel', { v: l.reason })}</Text>
+                    ) : null}
                     {l.reply_note ? (
-                      <Text style={styles.leaveSub}>批注：{l.reply_note}</Text>
+                      <Text style={styles.leaveSub}>{t('att.replyLabel', { v: l.reply_note })}</Text>
                     ) : null}
                   </View>
                   <View style={[styles.leaveBadge, { backgroundColor: meta.bg }]}>
-                    <Text style={[styles.leaveBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                    <Text style={[styles.leaveBadgeText, { color: meta.color }]}>
+                      {t(meta.labelKey)}
+                    </Text>
                   </View>
                   {l.status === 'pending' ? (
                     <TouchableOpacity
@@ -1299,7 +1336,7 @@ export default function AttendanceScreen() {
                       onPress={() => handleCancelLeave(l)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.cancelBtnText}>撤销</Text>
+                      <Text style={styles.cancelBtnText}>{t('att.revoke')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -1352,7 +1389,7 @@ export default function AttendanceScreen() {
         <Text style={styles.sectionTitle}>{t('att.appealList')}</Text>
         <View style={styles.listCard}>
           {appealsError ? (
-            <EmptyState tone="error" title={appealsError} actionLabel="重试" onAction={() => void load()} />
+            <EmptyState tone="error" title={appealsError} actionLabel={t('common.retry')} onAction={() => void load()} />
           ) : appeals.length === 0 ? (
             <EmptyState icon="clipboard-outline" title={t('att.noAppeal')} />
           ) : (
@@ -1397,7 +1434,7 @@ export default function AttendanceScreen() {
               color={tab === item.key ? colors.primary : colors.ink3}
             />
             <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>
-              {item.label}
+              {t(item.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}

@@ -113,7 +113,13 @@ export function ResidentialRow({
   const tags = commonTags(item, t).slice(0, 4);
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <Cover uri={cover} size={{ w: 108, h: 96 }} />
       <View style={styles.rowBody}>
         <Text style={styles.title} numberOfLines={1}>
@@ -138,7 +144,9 @@ export function ResidentialRow({
         ) : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(price, item.currency || 'THB')}</Text>
-          {mode === 'rent' ? <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text> : null}
+          {mode === 'rent' && price != null ? (
+            <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          ) : null}
           {unitPrice ? (
             <Text style={styles.priceUnit}>
               · {fmtMoney(Math.round(unitPrice), item.currency || 'THB')}/{t('pub.sqm')}
@@ -172,7 +180,13 @@ export function CommercialRow({
   const typeBadge = colors.badge;
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <View>
         <Cover uri={cover} size={{ w: 108, h: 96 }} />
         {typeLabel ? (
@@ -199,7 +213,9 @@ export function CommercialRow({
         ) : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}</Text>
-          <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          {item.monthly_rent != null || item.price != null ? (
+            <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          ) : null}
         </View>
         {item.rent_per_sqm_day != null ? (
           <Text style={styles.priceSub}>
@@ -227,14 +243,20 @@ export function FactoryRow({
   const specs: string[] = [];
   if (item.land_area_sqm != null) specs.push(`${t('category.landArea')} ${num(item.land_area_sqm)}${t('pub.sqm')}`);
   if (item.ceiling_height_m != null) specs.push(`${t('category.ceiling')} ${num(item.ceiling_height_m, 1)}m`);
-  if (item.floor_loading_kg_sqm != null) specs.push(`${t('category.floorLoading')} ${num(item.floor_loading_kg_sqm)}kg/㎡`);
+  if (item.floor_loading_kg_sqm != null) specs.push(`${t('category.floorLoading')} ${num(item.floor_loading_kg_sqm)}kg/${t('pub.sqm')}`);
   if (item.column_spacing) specs.push(`${t('category.columnSpacing')} ${item.column_spacing}`);
   if (item.power_capacity_kva != null) specs.push(`${t('category.power')} ${num(item.power_capacity_kva)}kVA`);
   if (item.environmental_permit) specs.push(t('category.tagEnvPermit'));
   if (item.whole_building_only) specs.push(t('category.tagWholeBuilding'));
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <Cover uri={cover} size={{ w: 108, h: 96 }} />
       <View style={styles.rowBody}>
         <Text style={styles.title} numberOfLines={1}>
@@ -254,7 +276,9 @@ export function FactoryRow({
         ) : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(item.monthly_rent ?? item.price, item.currency || 'THB')}</Text>
-          <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          {item.monthly_rent != null || item.price != null ? (
+            <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -279,7 +303,13 @@ export function HotelRow({
   const price = item.price ?? (mode === 'rent' ? item.monthly_rent : item.asking_price);
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <Cover uri={cover} size={{ w: 108, h: 96 }} />
       <View style={styles.rowBody}>
         <Text style={styles.title} numberOfLines={1}>
@@ -299,7 +329,9 @@ export function HotelRow({
         ) : null}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{fmtMoney(price, item.currency || 'THB')}</Text>
-          {mode === 'rent' ? <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text> : null}
+          {mode === 'rent' && price != null ? (
+            <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -326,7 +358,13 @@ export function LandRow({
   const price = item.price ?? (mode === 'rent' ? item.monthly_rent : item.asking_price);
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
       <Cover uri={cover} size={{ w: 108, h: 96 }} />
       <View style={styles.rowBody}>
         <Text style={styles.title} numberOfLines={1}>
@@ -386,7 +424,13 @@ export function ProjectRow({
   if (tenure) tags.push(tenure);
 
   return (
-    <TouchableOpacity style={styles.projectCard} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.projectCard}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.name ?? undefined}
+    >
       {item.cover ? (
         <RemoteImage uri={item.cover} style={styles.projectCover} resizeMode="cover" />
       ) : (
@@ -435,7 +479,13 @@ export function ProjectRailCard({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.railCard} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.railCard}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.name ?? undefined}
+    >
       {item.cover ? (
         <RemoteImage uri={item.cover} style={styles.railCover} resizeMode="cover" />
       ) : (
@@ -527,7 +577,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  onSaleBadgeText: { fontSize: colors.fontSize.xs, color: colors.accent, fontWeight: '700' },
+  onSaleBadgeText: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700' },
 
   railCard: {
     width: 200,

@@ -16,6 +16,7 @@ import { ownerApi, ownersApi } from '@/services/api';
 import { fmtMoney } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { useI18n } from '@/i18n';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type IncomeStatus = 'received' | 'pending' | 'overdue';
@@ -49,24 +50,26 @@ interface AnnualSummary {
   totals?: { received?: number; pending?: number; overdue?: number; count?: number };
 }
 
-const statusMap: Record<IncomeStatus, { label: string; color: string; bg: string; icon: IoniconName }> = {
-  received: { label: '已到账', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'cash-outline' },
-  pending: { label: '待收', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'time-outline' },
-  overdue: { label: '逾期', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'alert-circle-outline' },
+const statusMap: Record<IncomeStatus, { labelKey: string; color: string; bg: string; icon: IoniconName }> = {
+  received: { labelKey: 'income.status.received', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), icon: 'cash-outline' },
+  pending: { labelKey: 'income.status.pending', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'time-outline' },
+  overdue: { labelKey: 'income.status.overdue', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'alert-circle-outline' },
 };
 
-// 把月度字段转成 "N月"
-const monthLabel = (m?: string | number) => {
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+// 把月度字段转成「N月」/「N」（随语言）
+const monthLabel = (m: string | number | undefined, t: TFn) => {
   const nums = String(m ?? '').match(/\d+/g);
   const last = nums && nums.length ? nums[nums.length - 1] : '';
-  return last ? `${last}月` : '-';
+  return last ? t('common.monthN', { n: last }) : '-';
 };
 
-const FILTERS: { key: 'all' | IncomeStatus; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'received', label: '已到账' },
-  { key: 'pending', label: '待收' },
-  { key: 'overdue', label: '逾期' },
+const FILTERS: { key: 'all' | IncomeStatus; labelKey: string }[] = [
+  { key: 'all', labelKey: 'common.all' },
+  { key: 'received', labelKey: 'income.status.received' },
+  { key: 'pending', labelKey: 'income.status.pending' },
+  { key: 'overdue', labelKey: 'income.status.overdue' },
 ];
 
 interface IncomePayload {
@@ -75,6 +78,7 @@ interface IncomePayload {
 }
 
 export default function IncomeScreen() {
+  const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
   const year = new Date().getFullYear();
@@ -109,7 +113,7 @@ export default function IncomeScreen() {
   const summary = q.data?.summary ?? {};
   const annual = q.data?.annual ?? null;
   const loading = q.isPending && !q.data;
-  const loadError = q.isError && !q.data ? '收益数据加载失败' : null;
+  const loadError = q.isError && !q.data ? t('income.loadFail') : null;
   const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
     void q.refetch({ cancelRefetch: false });
@@ -124,10 +128,10 @@ export default function IncomeScreen() {
   const trendData = useMemo(
     () =>
       months.slice(-6).map((m) => ({
-        label: monthLabel(m.month),
+        label: monthLabel(m.month, t),
         value: Number(m.received ?? 0),
       })),
-    [months],
+    [months, t],
   );
 
   /* ===== Hero 口径 ===== */
@@ -148,11 +152,11 @@ export default function IncomeScreen() {
   );
 
   if (loading) {
-    return <ListState loading loadingLabel="正在加载收益…" />;
+    return <ListState loading loadingLabel={t('income.loading')} />;
   }
 
   if (loadError) {
-    return <ListState error={loadError} retryLabel="重试" onRetry={onRefresh} />;
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={onRefresh} />;
   }
 
   return (
@@ -180,17 +184,17 @@ export default function IncomeScreen() {
             backgroundColor: colors.alpha(colors.errorRgb, 0.08),
           }}
         >
-          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>收益数据刷新失败</Text>
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('income.refreshFail')}</Text>
           <TouchableOpacity onPress={onRefresh} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       {/* ===== Hero：本月收入 / 年累计 / 待收 ===== */}
       <View style={styles.heroCard}>
         <View style={styles.heroTop}>
-          <View>
-            <Text style={styles.heroLabel}>本月收入</Text>
+          <View style={styles.heroMain}>
+            <Text style={styles.heroLabel}>{t('income.thisMonth')}</Text>
             <Text style={styles.heroAmount}>{fmt(monthIncome)}</Text>
           </View>
           {momPct != null && (
@@ -200,21 +204,20 @@ export default function IncomeScreen() {
                 size={13}
                 color={colors.primaryForeground}
               />
-              <Text style={styles.heroTrendText}>
-                环比 {momPct > 0 ? '+' : ''}
-                {momPct}%
+              <Text style={styles.heroTrendText} numberOfLines={1}>
+                {t('income.mom', { pct: `${momPct > 0 ? '+' : ''}${momPct}%` })}
               </Text>
             </View>
           )}
         </View>
         <View style={styles.heroStats}>
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatLabel}>年累计收入</Text>
+            <Text style={styles.heroStatLabel}>{t('income.yearTotal')}</Text>
             <Text style={styles.heroStatVal}>{fmt(yearTotal)}</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStatItem}>
-            <Text style={styles.heroStatLabel}>待收金额</Text>
+            <Text style={styles.heroStatLabel}>{t('income.dueTotal')}</Text>
             <Text style={styles.heroStatVal}>{fmt(dueTotal)}</Text>
           </View>
         </View>
@@ -222,14 +225,18 @@ export default function IncomeScreen() {
 
       {/* ===== 月度收入趋势 ===== */}
       <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>月度收入趋势</Text>
-        <Text style={styles.sectionHint}>近 6 个月</Text>
+        <Text style={styles.sectionTitle}>{t('income.trendTitle')}</Text>
+        <Text style={styles.sectionHint}>{t('income.trendHint')}</Text>
       </View>
       <View style={styles.card}>
         {trendData.length > 0 ? (
           <BarChart data={trendData} height={150} activeIndex={trendData.length - 1} />
         ) : (
-          <EmptyState icon="bar-chart-outline" title="暂无月度数据" sub="产生租金流水后这里会展示逐月趋势" />
+          <EmptyState
+            icon="bar-chart-outline"
+            title={t('income.noTrend')}
+            sub={t('income.noTrendSub')}
+          />
         )}
       </View>
 
@@ -244,7 +251,7 @@ export default function IncomeScreen() {
               activeOpacity={0.8}
               onPress={() => setFilter(f.key)}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(f.labelKey)}</Text>
             </TouchableOpacity>
           );
         })}
@@ -252,15 +259,15 @@ export default function IncomeScreen() {
 
       {/* ===== 收入明细 ===== */}
       <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>收入明细</Text>
-        <Text style={styles.sectionHint}>{filtered.length} 笔</Text>
+        <Text style={styles.sectionTitle}>{t('income.details')}</Text>
+        <Text style={styles.sectionHint}>{t('income.countN', { n: filtered.length })}</Text>
       </View>
       <View style={styles.card}>
         {filtered.length === 0 ? (
           <EmptyState
             icon="wallet-outline"
-            title="暂无收入明细"
-            sub="租金到账后这里会按时间列出每一笔收款"
+            title={t('income.noRecords')}
+            sub={t('income.noRecordsSub')}
           />
         ) : (
           filtered.map((item, idx) => {
@@ -275,14 +282,14 @@ export default function IncomeScreen() {
                 </View>
                 <View style={styles.recordBody}>
                   <Text style={styles.recordTitle} numberOfLines={1}>
-                    {item.property || '租金收入'}
+                    {item.property || t('income.rentFallback')}
                   </Text>
                   <Text style={styles.recordSub} numberOfLines={1}>{item.month}</Text>
                 </View>
                 <View style={styles.recordRight}>
                   <Text style={[styles.recordAmount, { color: st.color }]}>{fmt(item.amount)}</Text>
                   <View style={[styles.badge, { backgroundColor: st.bg }]}>
-                    <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+                    <Text style={[styles.badgeText, { color: st.color }]}>{t(st.labelKey)}</Text>
                   </View>
                 </View>
               </View>
@@ -308,7 +315,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     ...colors.shadow.primary,
   },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  heroMain: { flexShrink: 1 },
   heroLabel: { fontSize: colors.fontSize.base, color: colors.alpha('255, 255, 255', 0.75), fontWeight: '500' },
   heroAmount: {
     fontSize: 30,
@@ -327,7 +335,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: colors.radius.full,
   },
-  heroTrendText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600' },
+  heroTrendText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600', flexShrink: 1 },
   heroStats: {
     flexDirection: 'row',
     marginTop: colors.spacing.lg,
@@ -354,7 +362,7 @@ const styles = StyleSheet.create({
     marginTop: colors.spacing.xl,
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, letterSpacing: -0.2, flexShrink: 1 },
   sectionHint: { fontSize: colors.fontSize.sm, color: colors.ink3, fontWeight: '500' },
 
   /* 卡片 */
@@ -371,6 +379,7 @@ const styles = StyleSheet.create({
   /* chips */
   chips: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     paddingHorizontal: colors.spacing.lg,
     marginTop: colors.spacing.xl,

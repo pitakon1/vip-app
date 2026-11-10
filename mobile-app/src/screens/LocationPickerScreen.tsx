@@ -18,8 +18,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { useLocationStore, LOCATION_GROUPS, type LocationSelection } from '@/stores/location';
+import { cityDisplayName, citySearchText, countryDisplayName } from '@/data/locationNames';
 
 interface CityRow {
   country: string;
@@ -31,6 +34,8 @@ interface CityRow {
 export default function LocationPickerScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { t, lang } = useI18n();
+  const navigation = useNavigation<any>();
 
   const selection = useLocationStore((s) => s.selection);
   const select = useLocationStore((s) => s.select);
@@ -69,9 +74,7 @@ export default function LocationPickerScreen() {
     if (!q) return [];
     return LOCATION_GROUPS.flatMap((g) =>
       g.cities
-        .filter(
-          (c) => c.cityLabel.toLowerCase().includes(q) || g.country.toLowerCase().includes(q),
-        )
+        .filter((c) => citySearchText(c).includes(q))
         .map((c) => ({
           country: g.country,
           cityKey: c.cityKey,
@@ -82,8 +85,12 @@ export default function LocationPickerScreen() {
   }, [query]);
 
   const handleSelect = useCallback(
-    (sel: LocationSelection) => select(sel),
-    [select],
+    (sel: LocationSelection) => {
+      select(sel);
+      // 选完即返回来源页：停留在选择页还需要用户再点一次返回，是多余的一步
+      if (navigation.canGoBack()) navigation.goBack();
+    },
+    [select, navigation],
   );
 
   const searchEmpty = query.trim().length > 0 && results.length === 0;
@@ -98,13 +105,19 @@ export default function LocationPickerScreen() {
             style={styles.searchInput}
             value={query}
             onChangeText={setQuery}
-            placeholder="请输入城市或国家名称"
+            placeholder={t('location.searchPlaceholder')}
             placeholderTextColor={colors.ink3}
             returnKeyType="search"
             autoCorrect={false}
+            accessibilityLabel={t('location.searchPlaceholder')}
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} hitSlop={8} accessibilityRole="button">
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.clear')}
+            >
               <Ionicons name="close-circle" size={16} color={colors.ink3} />
             </TouchableOpacity>
           )}
@@ -118,11 +131,11 @@ export default function LocationPickerScreen() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.resultTitle}>搜索结果</Text>
+          <Text style={styles.resultTitle}>{t('location.searchResults')}</Text>
           {searchEmpty ? (
             <View style={styles.empty}>
               <Ionicons name="search-outline" size={28} color={colors.ink3} />
-              <Text style={styles.emptyText}>未找到匹配的城市</Text>
+              <Text style={styles.emptyText}>{t('location.noMatch')}</Text>
             </View>
           ) : (
             results.map((item) => (
@@ -148,19 +161,24 @@ export default function LocationPickerScreen() {
               <Ionicons name="navigate" size={16} color={colors.primaryForeground} />
             </View>
             <View style={styles.currentMain}>
-              <Text style={styles.currentLabel}>当前定位</Text>
+              <Text style={styles.currentLabel}>{t('location.current')}</Text>
               <Text style={styles.currentCity}>
-                {selection.country} · {selection.cityLabel}
+                {countryDisplayName(selection.country, lang)} ·{' '}
+                {cityDisplayName(selection.cityKey, selection.cityLabel, lang)}
               </Text>
             </View>
             <View style={styles.rangeTag}>
-              <Text style={styles.rangeTagText}>{selection.country}全城</Text>
+              <Text style={styles.rangeTagText}>
+                {t('location.wholeCity', {
+                  city: cityDisplayName(selection.cityKey, selection.cityLabel, lang),
+                })}
+              </Text>
             </View>
           </View>
 
           {/* 热门城市 */}
           <View style={styles.hotWrap}>
-            <Text style={styles.groupTitle}>热门城市</Text>
+            <Text style={styles.groupTitle}>{t('location.hotCities')}</Text>
             <View style={styles.hotGrid}>
               {hotCities.map((c) => {
                 const active = selection.cityKey === c.cityKey;
@@ -170,9 +188,12 @@ export default function LocationPickerScreen() {
                     style={[styles.hotChip, active && styles.hotChipActive]}
                     onPress={() => handleSelect({ country: c.country, cityKey: c.cityKey, cityLabel: c.cityLabel })}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={cityDisplayName(c.cityKey, c.cityLabel, lang)}
                   >
                     <Text style={[styles.hotChipText, active && styles.hotChipTextActive]}>
-                      {c.cityLabel}
+                      {cityDisplayName(c.cityKey, c.cityLabel, lang)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -182,7 +203,7 @@ export default function LocationPickerScreen() {
 
           {/* 国家胶囊 Tab：自动换行不滑屏，只展示当前国家的城市，点击切换 */}
           <View style={styles.countryTabsWrap}>
-            <Text style={styles.groupTitle}>选择国家</Text>
+            <Text style={styles.groupTitle}>{t('location.selectCountry')}</Text>
             <View style={styles.countryTabs}>
               {countries.map((c) => {
                 const active = c === activeCountry;
@@ -192,9 +213,12 @@ export default function LocationPickerScreen() {
                     style={[styles.countryChip, active && styles.countryChipActive]}
                     onPress={() => setActiveCountry(c)}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={countryDisplayName(c, lang)}
                   >
                     <Text style={[styles.countryChipText, active && styles.countryChipTextActive]}>
-                      {c}
+                      {countryDisplayName(c, lang)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -205,8 +229,8 @@ export default function LocationPickerScreen() {
           {/* 当前国家城市列表 */}
           <View style={styles.cityList}>
             <Text style={styles.resultTitle}>
-              {activeCountry} · 城市
-              <Text style={styles.cityCount}>（{activeCities.length}）</Text>
+              {t('location.citiesOf', { country: countryDisplayName(activeCountry, lang) })}
+              <Text style={styles.cityCount}>{t('location.cityCount', { n: activeCities.length })}</Text>
             </Text>
             {activeCities.length ? (
               activeCities.map((item) => (
@@ -219,7 +243,7 @@ export default function LocationPickerScreen() {
               ))
             ) : (
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>该国家暂无可选城市</Text>
+                <Text style={styles.emptyText}>{t('location.noCities')}</Text>
               </View>
             )}
           </View>
@@ -238,11 +262,20 @@ function CityRowView({
   active: boolean;
   onSelect: () => void;
 }) {
+  const { t, lang } = useI18n();
+  const label = cityDisplayName(item.cityKey, item.cityLabel, lang);
   return (
-    <TouchableOpacity style={[styles.cityRow, active && styles.cityRowActive]} onPress={onSelect} activeOpacity={0.6}>
+    <TouchableOpacity
+      style={[styles.cityRow, active && styles.cityRowActive]}
+      onPress={onSelect}
+      activeOpacity={0.6}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={`${label} · ${t('location.districtCount', { n: item.districtCount })}`}
+    >
       <View style={styles.cityMain}>
-        <Text style={[styles.cityName, active && styles.cityNameActive]}>{item.cityLabel}</Text>
-        <Text style={styles.citySub}>{item.districtCount} 个区</Text>
+        <Text style={[styles.cityName, active && styles.cityNameActive]}>{label}</Text>
+        <Text style={styles.citySub}>{t('location.districtCount', { n: item.districtCount })}</Text>
       </View>
       {active && (
         <View style={styles.checkBadge}>

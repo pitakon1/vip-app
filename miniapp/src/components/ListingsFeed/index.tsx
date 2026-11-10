@@ -805,7 +805,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
             type='number'
             value={priceDraftMin}
             placeholder={t('pub.filterMin')}
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:#98a1ab'
             onInput={(e: any) => setPriceDraftMin(e.detail.value)}
           />
           <Text className='price-input__unit'>{t('pub.wanPerMonth')}</Text>
@@ -818,7 +818,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
             type='number'
             value={priceDraftMax}
             placeholder={t('pub.filterMax')}
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:#98a1ab'
             onInput={(e: any) => setPriceDraftMax(e.detail.value)}
           />
           <Text className='price-input__unit'>{t('pub.wanPerMonth')}</Text>
@@ -955,7 +955,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
             type='number'
             value={areaDraftMin}
             placeholder={t('tl.areaMinPlaceholder')}
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:#98a1ab'
             onInput={(e: any) => setAreaDraftMin(e.detail.value)}
           />
           <Text className='price-input__unit'>{t('pub.sqm')}</Text>
@@ -967,7 +967,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
             type='number'
             value={areaDraftMax}
             placeholder={t('tl.areaMaxPlaceholder')}
-            placeholderStyle='color:#9ca3af'
+            placeholderStyle='color:#98a1ab'
             onInput={(e: any) => setAreaDraftMax(e.detail.value)}
           />
           <Text className='price-input__unit'>{t('pub.sqm')}</Text>
@@ -1089,7 +1089,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
               className='hero-search__input'
               value={keyword}
               placeholder={t('tl.searchPlaceholder')}
-              placeholderStyle='color:#9ca3af'
+              placeholderStyle='color:#98a1ab'
               confirmType='search'
               onInput={(e: any) => onKeywordChange(e.detail.value)}
               onConfirm={onSearch}

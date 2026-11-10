@@ -25,6 +25,7 @@ import {
   RefreshControl,
   Modal,
   ScrollView,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -323,7 +324,9 @@ export default function PublicListingsScreen() {
           onPress={() => setSchoolPickOpen(true)}
         >
           <Text style={[styles.chipText, !!schoolId && styles.chipTextActive]} numberOfLines={1}>
-            {schoolId ? `${schoolName} · ${schoolKm}${t('pub.km')}` : t('pub.filterSchool')}
+            {schoolId
+              ? `${schoolName} · ${Number(schoolKm).toFixed(1)}${t('pub.km')}`
+              : t('pub.filterSchool')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -428,6 +431,8 @@ export default function PublicListingsScreen() {
       {/* ==================== 类型筛选 ==================== */}
       <Modal visible={typeOpen} animationType="slide" transparent onRequestClose={() => setTypeOpen(false)}>
         <View style={styles.modalMask}>
+          {/* 点击面板外的空白区域 = 收起（与下拉面板一致） */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTypeOpen(false)} />
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t('pub.filterType')}</Text>
@@ -494,6 +499,7 @@ export default function PublicListingsScreen() {
       {/* ==================== 排序 ==================== */}
       <Modal visible={sortOpen} animationType="slide" transparent onRequestClose={() => setSortOpen(false)}>
         <View style={styles.modalMask}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSortOpen(false)} />
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t('pub.sort')}</Text>
@@ -524,6 +530,7 @@ export default function PublicListingsScreen() {
       {/* ==================== 学校筛选（空间筛选）==================== */}
       <Modal visible={schoolPickOpen} animationType="slide" transparent onRequestClose={() => setSchoolPickOpen(false)}>
         <View style={styles.modalMask}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSchoolPickOpen(false)} />
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t('pub.filterSchool')}</Text>
@@ -600,6 +607,7 @@ export default function PublicListingsScreen() {
       {/* ==================== 更多筛选 ==================== */}
       <Modal visible={moreOpen} animationType="slide" transparent onRequestClose={() => setMoreOpen(false)}>
         <View style={styles.modalMask}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMoreOpen(false)} />
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{t('pub.filterMore')}</Text>

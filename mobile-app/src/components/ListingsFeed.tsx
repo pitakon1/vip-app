@@ -19,7 +19,6 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   ScrollView,
   Animated,
   Platform,
@@ -32,12 +31,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { SCHOOL_RADIUS_OPTIONS } from '@/lib/publicSite';
+import { metroLineDisplayName, metroLineFullName } from '@/data/locationNames';
 import { AREA_PRESETS as AREA_PRESET_TIERS, PRICE_PRESETS } from '@/constants/filters';
-import { fmtMoney as formatRent, currencySymbol } from '@/utils/format';
+import { fmtMoney as formatRent, currencySymbol, formatArea } from '@/utils/format';
 import { joinFacts } from '@/lib/displayValue';
+import { notify } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import RemoteImage from '@/components/RemoteImage';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
 import { useI18n } from '@/i18n';
 import { getItem, setItem } from '@/lib/kv';
 import type { PublicSchool } from '@/services/publicApi';
@@ -190,6 +192,10 @@ export interface ListingsFeedProps {
   onEditItem?: (item: Listing) => void;
   /** 搜索框占位文案（业务线不同文案不同；不传用默认） */
   searchPlaceholder?: string;
+  /** 进入页面即聚焦搜索框（首页搜索条直达） */
+  autoFocusSearch?: boolean;
+  /** 聚焦触发时间戳：重复从首页进入时也能重新聚焦 */
+  searchFocusTs?: number;
 }
 
 // ==================== 选项数据（纯 UI 用，父级可复用价格/面积预设做筛选） ====================
@@ -485,7 +491,7 @@ const ListingCard = React.memo(function ListingCard({
           {(() => {
             const facts = joinFacts([
               item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
-              item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+              item.size_sqm != null ? formatArea(item.size_sqm, t('pub.sqm')) : null,
             ])
             return facts ? <Text style={styles.tag}>{facts}</Text> : null
           })()}
@@ -569,6 +575,8 @@ export default function ListingsFeed({
   bizOptions,
   onEditItem,
   searchPlaceholder,
+  autoFocusSearch,
+  searchFocusTs,
 }: ListingsFeedProps) {
   const respContainer = useResponsiveContainerStyle();
   const { t, lang } = useI18n();
@@ -597,6 +605,8 @@ export default function ListingsFeed({
 
   // ---------- 组件自持的瞬时 UI 状态 ----------
   const [openTab, setOpenTab] = useState<OpenTab>(null);
+  // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
   const [metroLine, setMetroLine] = useState<string>(
     defaultMetroLineKey ?? metroLines[0]?.key ?? '',
@@ -604,6 +614,33 @@ export default function ListingsFeed({
   const [metroDraft, setMetroDraft] = useState<string[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
+  // 首页搜索条直达：延迟到页面转场结束后聚焦，避免键盘抢动画
+  const searchRef = useRef<TextInput>(null);
+  useEffect(() => {
+    if (!autoFocusSearch) return;
+    const timer = setTimeout(() => {
+      searchRef.current?.focus();
+      setSearchFocused(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [autoFocusSearch, searchFocusTs]);
+  // 收起最近搜索面板：失焦时延后关闭，避免点面板里的历史词时先被 blur 卸载导致点击丢失
+  const searchBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (searchBlurTimer.current) clearTimeout(searchBlurTimer.current);
+    },
+    [],
+  );
+  const closeSearchPanel = useCallback(() => {
+    if (searchBlurTimer.current) clearTimeout(searchBlurTimer.current);
+    searchBlurTimer.current = null;
+    setSearchFocused(false);
+  }, []);
+  const handleSearchBlur = useCallback(() => {
+    if (searchBlurTimer.current) clearTimeout(searchBlurTimer.current);
+    searchBlurTimer.current = setTimeout(() => setSearchFocused(false), 150);
+  }, []);
   // 列表 ref：点「查看 N 套房源」后回到列表顶部
   const listRef = useRef<FlatList<any>>(null);
 
@@ -649,6 +686,9 @@ export default function ListingsFeed({
 
   // ---------- 贝壳式 Tab 下拉面板：开合 / 重置 / 确定 ----------
   const hasPriceFilter = !!(filters.priceRange || filters.customMin || filters.customMax);
+  // 自定义价格区间：最低 > 最高时不下发（否则结果必空），面板内就地提示
+  const customPriceInvalid =
+    !!filters.customMin && !!filters.customMax && Number(filters.customMin) > Number(filters.customMax);
   const hasAreaFilter = !!(filters.areaRange || filters.areaCustomMin || filters.areaCustomMax);
   const activeTypeGroup = TYPE_CLASS_GROUPS.find(
     (g) => g.types.length > 0 && g.types.length === filters.filterTypes.length &&
@@ -1013,22 +1053,27 @@ export default function ListingsFeed({
     } catch {
       /* ignore */
     }
-  }, []);
+    notify(t('search.cleared'));
+  }, [t]);
 
   // 点击历史词：填入输入框并立即触发搜索，同时置顶该词
   const applyRecentSearch = useCallback(
     (kw: string) => {
       onFiltersChange({ keyword: kw });
       saveRecentSearch(kw);
+      Keyboard.dismiss();
+      closeSearchPanel();
     },
-    [onFiltersChange, saveRecentSearch],
+    [onFiltersChange, saveRecentSearch, closeSearchPanel],
   );
 
-  // 提交搜索：关键词写入历史
+  // 提交搜索：关键词写入历史，并收起历史面板 + 键盘
   const handleSearchSubmit = useCallback(() => {
     const kw = filters.keyword.trim();
     if (kw) saveRecentSearch(kw);
-  }, [filters.keyword, saveRecentSearch]);
+    Keyboard.dismiss();
+    closeSearchPanel();
+  }, [filters.keyword, saveRecentSearch, closeSearchPanel]);
 
   // 「查看 N 套房源」：筛选本就实时生效，这里只收起下拉面板并回到列表顶部
   const handleViewResults = useCallback(() => {
@@ -1057,7 +1102,9 @@ export default function ListingsFeed({
 
   // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
   const renderSaleItem = useCallback(
-    ({ item }: { item: Listing }) => (
+    ({ item }: { item: Listing }) => {
+      const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+      return (
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.85}
@@ -1065,14 +1112,18 @@ export default function ListingsFeed({
           if (item.id) {
             onOpenDetail(item);
           } else {
-            Alert.alert(t('common.hint'), t('list.noListingDetail'));
+            notify(t('common.hint'), t('list.noListingDetail'));
           }
         }}
       >
         <View style={styles.thumbWrap}>
-          <View style={[styles.thumb, styles.thumbPlaceholder]}>
-            <Ionicons name="pricetag-outline" size={28} color={colors.ink3} />
-          </View>
+          {photo ? (
+            <RemoteImage uri={photo} style={styles.thumb} resizeMode="cover" />
+          ) : (
+            <View style={[styles.thumb, styles.thumbPlaceholder]}>
+              <Ionicons name="pricetag-outline" size={28} color={colors.ink3} />
+            </View>
+          )}
           <View style={[styles.typeBadge, { backgroundColor: colors.badge.bg }]}>
             <Text style={[styles.typeBadgeText, { color: colors.badge.fg }]}>{t('prop.status.forSale')}</Text>
           </View>
@@ -1088,7 +1139,7 @@ export default function ListingsFeed({
             {(() => {
               const facts = joinFacts([
                 item.bedrooms != null ? t('prop.bedroomN', { n: item.bedrooms }) : null,
-                item.size_sqm != null ? `${item.size_sqm}㎡` : null,
+                item.size_sqm != null ? formatArea(item.size_sqm, t('pub.sqm')) : null,
               ])
               return facts ? <Text style={styles.tag}>{facts}</Text> : null
             })()}
@@ -1112,7 +1163,8 @@ export default function ListingsFeed({
           </View>
         </View>
       </TouchableOpacity>
-    ),
+      );
+    },
     [onOpenDetail, t, onEditItem],
   );
 
@@ -1124,18 +1176,8 @@ export default function ListingsFeed({
 
   const visibleCount = total ?? items.length;
 
-  // 加载态（统一 LoadingState，含文案说明）
-  // 与正常态一样要避开顶部安全区：否则首屏 loading 会贴在刘海/状态栏下面
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: topInset }]}>
-        <LoadingState label={t('list.loadingListings')} />
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.container, { paddingTop: topInset }]}>
+    <View ref={rootRef} style={[styles.container, { paddingTop: topInset }]}>
       {/* 顶部头部区：浅 teal 实底 + 大标题 + 城市定位 */}
       <View style={styles.heroBand}>
         <View style={styles.heroBandRow}>
@@ -1151,7 +1193,7 @@ export default function ListingsFeed({
           >
             <Ionicons name="location" size={13} color={colors.primary} />
             <Text style={styles.heroCityText} numberOfLines={1}>
-              {cityLabel || t('home.currentCity')}
+              {cityLabel || t('home.selectCity')}
             </Text>
             <Ionicons name="chevron-down" size={11} color={colors.primary} />
           </TouchableOpacity>
@@ -1163,6 +1205,7 @@ export default function ListingsFeed({
           <View style={styles.heroSearchRow}>
             <Ionicons name="search-outline" size={18} color={colors.ink3} />
             <TextInput
+              ref={searchRef}
               style={styles.heroSearchInput}
               placeholder={searchPlaceholder ?? t('list.searchPlaceholder')}
               placeholderTextColor={colors.ink3}
@@ -1170,8 +1213,19 @@ export default function ListingsFeed({
               onChangeText={(v) => onFiltersChange({ keyword: v })}
               returnKeyType="search"
               onFocus={() => setSearchFocused(true)}
+              onBlur={handleSearchBlur}
               onSubmitEditing={handleSearchSubmit}
             />
+            {filters.keyword ? (
+              <TouchableOpacity
+                onPress={() => onFiltersChange({ keyword: '' })}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.clear')}
+              >
+                <Ionicons name="close-circle" size={16} color={colors.ink3} />
+              </TouchableOpacity>
+            ) : null}
             {enableNearby ? (
               <>
                 <View style={styles.heroSearchSplit} />
@@ -1179,6 +1233,7 @@ export default function ListingsFeed({
                   style={styles.heroNearby}
                   onPress={onToggleNearby}
                   activeOpacity={0.8}
+                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                   accessibilityRole="button"
                   accessibilityLabel={t('list.nearby')}
                 >
@@ -1234,6 +1289,10 @@ export default function ListingsFeed({
                   style={styles.heroBedItem}
                   onPress={() => onFiltersChange({ bedFilter: b.key })}
                   activeOpacity={0.8}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={b.label}
                 >
                   {on ? (
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
@@ -1246,8 +1305,17 @@ export default function ListingsFeed({
             })}
           </View>
           <View style={styles.heroActions}>
-            <TouchableOpacity style={styles.heroPrimary} onPress={handleViewResults} activeOpacity={0.9}>
-              <Text style={styles.heroPrimaryText}>{t('list.viewCount', { n: visibleCount })}</Text>
+            <TouchableOpacity
+              style={styles.heroPrimary}
+              onPress={handleViewResults}
+              activeOpacity={0.9}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={styles.heroPrimaryText}>{t('list.viewCount', { n: visibleCount })}</Text>
+              )}
             </TouchableOpacity>
             {showMapButton ? (
               <TouchableOpacity style={styles.heroMapBtn} onPress={onOpenMap} activeOpacity={0.9}>
@@ -1261,7 +1329,7 @@ export default function ListingsFeed({
       {/* 链家式单行筛选栏（点击后从顶部下拉面板）—— C 端买卖挂牌不适用租赁筛选维度；
           销售端三条业务线都要能筛（售侧是总价/房龄等另一套面板） */}
       {(isEmployee || !isSaleBiz) && (
-        <View style={styles.filterZone}>
+        <View style={styles.filterZone} ref={anchorRef} onLayout={measureAnchor}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1385,14 +1453,14 @@ export default function ListingsFeed({
                                 numberOfLines={1}
                                 style={[styles.keRowText, metroLine === l.key && styles.keRowTextActive]}
                               >
-                                {l.name}
+                                {metroLineDisplayName(l.key, l.name, lang)}
                               </Text>
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
                         <ScrollView style={styles.keCol3} showsVerticalScrollIndicator={false}>
                           <Text style={styles.keSection}>
-                            {activeLine ? `${activeLine.cityLabel} · ${activeLine.name}` : ''}
+                            {activeLine ? metroLineFullName(activeLine, lang) : ''}
                             {metroDraft.length ? t('list.selectedN', { n: metroDraft.length }) : ''}
                           </Text>
                           {activeLine?.stations.map((s) => (
@@ -1559,6 +1627,9 @@ export default function ListingsFeed({
                       ) : null}
                     </View>
                   </View>
+                  {customPriceInvalid ? (
+                    <Text style={styles.priceInvalidHint}>{t('list.priceRangeInvalid')}</Text>
+                  ) : null}
                   {/* 二手房单价：总价/面积，和总价区间可组合 */}
                   {isEmployee && biz === 'resale' ? (
                     <>
@@ -1603,9 +1674,10 @@ export default function ListingsFeed({
                       <Text style={styles.resetText}>{t('pub.reset')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={styles.confirmBtn}
+                      style={[styles.confirmBtn, customPriceInvalid && styles.confirmBtnDisabled]}
                       onPress={() => confirmCurrent('price')}
                       activeOpacity={0.7}
+                      disabled={customPriceInvalid}
                     >
                       <Text style={styles.confirmText}>{t('common.confirm')}</Text>
                     </TouchableOpacity>
@@ -2058,7 +2130,11 @@ export default function ListingsFeed({
           </TouchableOpacity>
         </View>
       )}
-      {/* 列表：整租=真实租赁房源 / 买卖=真实在售挂牌 */}
+      {/* 列表：整租=真实租赁房源 / 买卖=真实在售挂牌。
+          首屏加载只替换列表区——页头、搜索卡与筛选栏保持可见，避免整页跳动 */}
+      {loading && (items as any[]).length === 0 ? (
+        <LoadingState label={t('list.loadingListings')} />
+      ) : (
       <FlatList
         ref={listRef}
         data={items as any[]}
@@ -2121,7 +2197,7 @@ export default function ListingsFeed({
                   actionLabel={t('retry')}
                   onAction={onRetry}
                 />
-              ) : isEmployee && activeChips.some((c) => c.key !== 'sort') ? (
+              ) : activeChips.some((c) => c.key !== 'sort') ? (
                 <EmptyState
                   icon="funnel-outline"
                   title={t('prop.emptyFiltered')}
@@ -2140,6 +2216,11 @@ export default function ListingsFeed({
           )
         }
       />
+      )}
+      {/* 面板展开时点击面板外的列表区即收起：与分类页筛选面板行为一致 */}
+      {openTab !== null ? (
+        <PanelBackdrop top={backdropTop} onClose={() => setOpenTab(null)} />
+      ) : null}
     </View>
   );
 }
@@ -2398,6 +2479,7 @@ const styles = StyleSheet.create({
   priceCustomField: { flex: 1, fontSize: 14, color: colors.text, padding: 4 },
   priceCustomUnit: { fontSize: 12, color: colors.ink2 },
   priceCustomDivider: { fontSize: colors.fontSize.sm, color: colors.ink2 },
+  priceInvalidHint: { fontSize: 12, color: colors.error, marginBottom: 8 },
   panelActions: {
     flexDirection: 'row',
     gap: 12,
@@ -2422,6 +2504,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: colors.primary,
   },
+  confirmBtnDisabled: { opacity: 0.45 },
   confirmText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600' },
   // ---------- 贝壳式三栏筛选面板 ----------
   keSheet: {

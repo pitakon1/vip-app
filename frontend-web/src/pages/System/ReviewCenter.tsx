@@ -51,7 +51,7 @@ const TYPE_META: Record<string, { label: string; badge: string; icon: string[]; 
     label: 'reviewCenter.typeLeave',
     badge: 'rent-badge--warning',
     icon: ['M8 2v4', 'M16 2v4', 'M3 10h18', 'M21 14V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9'],
-    style: { background: 'rgba(124,58,237,0.1)', color: '#7c3aed' },
+    style: { background: 'rgba(124,58,237,0.1)', color: '#7a5cd6' },
   },
 }
 const STATUS_LABEL: Record<string, string> = {

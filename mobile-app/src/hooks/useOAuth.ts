@@ -7,6 +7,7 @@ import { authApi } from '@/services/api';
 import { tokenStorage } from '@/lib/storage';
 import { useAuthStore } from '@/stores/auth';
 import { notifyError } from '@/utils/feedback';
+import { useI18n } from '@/i18n';
 
 // auth-session 在重定向回 App 时收尾
 WebBrowser.maybeCompleteAuthSession();
@@ -29,6 +30,7 @@ export type MockProvider = 'google' | 'apple';
  * 复用现有登录成功路径（存 token + 置 useAuthStore，RootNavigator 自动按角色跳转）。
  */
 export function useOAuth() {
+  const { t } = useI18n();
   const [oauthLoading, setOauthLoading] = useState(false);
   // mock 邮箱 Modal 状态
   const [mockVisible, setMockVisible] = useState(false);
@@ -41,7 +43,7 @@ export function useOAuth() {
     const token: string | undefined = data?.token ?? data?.access_token;
     const user = data?.user ?? data?.data?.user;
     if (!token || !user) {
-      throw new Error('登录响应格式异常');
+      throw new Error(t('login.badResponse'));
     }
     await tokenStorage.set(token);
     useAuthStore.setState({ user, token, isAuthenticated: true });
@@ -52,7 +54,7 @@ export function useOAuth() {
       const { data } = await authApi.oauthStatus();
       return data as OAuthStatus;
     } catch (err) {
-      notifyError('登录未配置', err);
+      notifyError(t('oauth.loginNotConfigured'), err);
       throw err;
     }
   };
@@ -68,7 +70,7 @@ export function useOAuth() {
   const submitMock = async () => {
     const email = mockEmail.trim();
     if (!email) {
-      notifyError('提示', new Error('请输入 mock 邮箱'));
+      notifyError(t('common.hint'), new Error(t('oauth.enterMockEmail')));
       return;
     }
     setMockBusy(true);
@@ -80,7 +82,7 @@ export function useOAuth() {
       setMockVisible(false);
       await applySession(data);
     } catch (err: any) {
-      notifyError('登录失败', err);
+      notifyError(t('login.failedTitle'), err);
     } finally {
       setMockBusy(false);
     }
@@ -94,7 +96,7 @@ export function useOAuth() {
       const s = await fetchStatus();
       if (s.google.enabled) {
         if (!GOOGLE_CLIENT_ID) {
-          notifyError('登录未配置', new Error('未配置 EXPO_PUBLIC_GOOGLE_CLIENT_ID'));
+          notifyError(t('oauth.loginNotConfigured'), new Error(t('oauth.googleNotConfigured')));
           return;
         }
         const redirectUri = AuthSession.makeRedirectUri();
@@ -113,7 +115,7 @@ export function useOAuth() {
         if (result.type === 'success') {
           const idToken = (result.params as any)?.id_token as string | undefined;
           if (!idToken) {
-            notifyError('登录未配置', new Error('未获取到 Google id_token'));
+            notifyError(t('oauth.loginNotConfigured'), new Error(t('oauth.googleMissingId')));
             return;
           }
           const { data } = await authApi.oauthGoogle({ id_token: idToken });
@@ -122,10 +124,10 @@ export function useOAuth() {
       } else if (s.google.mock) {
         openMock('google');
       } else {
-        notifyError('登录未配置', new Error('Google 登录未配置'));
+        notifyError(t('oauth.loginNotConfigured'), new Error(t('oauth.googleNotConfigured')));
       }
     } catch (err: any) {
-      notifyError('登录失败', err);
+      notifyError(t('login.failedTitle'), err);
     } finally {
       setOauthLoading(false);
     }
@@ -139,7 +141,7 @@ export function useOAuth() {
       const s = await fetchStatus();
       if (s.apple.enabled) {
         if (Platform.OS !== 'ios') {
-          notifyError('提示', new Error('Apple 登录仅 iOS 支持'));
+          notifyError(t('common.hint'), new Error(t('oauth.appleIosOnly')));
           return;
         }
         const cred = await AppleAuthentication.signInAsync({
@@ -155,10 +157,10 @@ export function useOAuth() {
       } else if (s.apple.mock) {
         openMock('apple');
       } else {
-        notifyError('登录未配置', new Error('Apple 登录未配置'));
+        notifyError(t('oauth.loginNotConfigured'), new Error(t('oauth.loginNotConfigured')));
       }
     } catch (err: any) {
-      notifyError('登录失败', err);
+      notifyError(t('login.failedTitle'), err);
     } finally {
       setOauthLoading(false);
     }

@@ -287,6 +287,8 @@ function TenantPaymentsView() {
       if (resolution.kind === 'url') {
         // 托管收银台渠道：直接跳转支付页面
         await WebBrowser.openBrowserAsync(resolution.url);
+        // 收银台关闭回到 App 后刷新，避免刚付完仍显示「待缴」
+        void q.refetch({ cancelRefetch: false });
       } else if (resolution.kind === 'qr') {
         // 扫码渠道：展示二维码供用户扫描
         setPayQr({
@@ -546,6 +548,21 @@ function OwnerPaymentsView() {
     return <View style={styles.center}><LoadingState label={t('pay.loadingBillsOwner')} /></View>;
   }
 
+  // 拉取失败且无缓存时不能显示「暂无账单」——那会把网络问题说成没数据
+  if (q.isError && !q.data) {
+    return (
+      <View style={styles.center}>
+        <EmptyState
+          icon="cloud-offline-outline"
+          title={t('loadFailed')}
+          sub={t('loadFailedSub')}
+          actionLabel={t('retry')}
+          onAction={refresh}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -568,7 +585,7 @@ function OwnerPaymentsView() {
                     <Text style={styles.type} numberOfLines={1}>{label}</Text>
                     <View style={[styles.badge, { backgroundColor: meta.bg }]}><Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.key)}</Text></View>
                   </View>
-                  <Text style={styles.meta} numberOfLines={1}>{t('pay.ownerCardMeta', { name: item.property || item.description || t('pay.bill'), date: item.due_date ? String(item.due_date).replace('T', ' ').slice(0, 10) : '-' })}</Text>
+                  <Text style={styles.meta} numberOfLines={1}>{t('pay.ownerCardMeta', { name: item.property || item.description || t('pay.bill'), date: item.due_date ? fmtDate(item.due_date) : '-' })}</Text>
                 </View>
               </View>
               <View style={styles.cardFoot}>
@@ -605,7 +622,15 @@ function OwnerPaymentsView() {
               {OWNER_FILTERS.map((f) => {
                 const active = filter === f.key;
                 return (
-                  <TouchableOpacity key={f.key} style={[styles.chip, active && styles.chipActive]} activeOpacity={0.8} onPress={() => setFilter(f.key)}>
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[styles.chip, active && styles.chipActive]}
+                    activeOpacity={0.8}
+                    onPress={() => setFilter(f.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={f.label}
+                  >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
                   </TouchableOpacity>
                 );

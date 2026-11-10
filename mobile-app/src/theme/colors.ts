@@ -7,29 +7,28 @@
  * 状态色的含义），具体尺度各自定义。
  *
  * 对比度（WCAG AA 正文 4.5:1）：
- * - 品牌绿 #14b8a6 保持原值，作为「面」使用（按钮底、Hero、选中底）。
- * - 主色底上的前景改为深墨 #0b2f2b：5.80:1（原白字仅 2.49:1，
- *   连大文本 3:1 都达不到，故主色底不再使用白字）。
+ * - 全站唯一青色是主题色 #14b8a6，不派生深青（#0f766e/#0d9488）或淡青（#e6f7f5/#d9f2ee）。
+ * - 需要色的地方直接用 #14b8a6；其余面一律中性灰，状态色另用绿/橙/红/蓝。
+ * - 主色底上的前景使用中性深墨 #1c2733（白字仅 2.49:1）。
  * - ink3 #5f6b78：白底 5.44:1、surface2 4.83:1（原 #98a1ab 白底 2.62:1，
  *   且 App 内被引用 665 次，多为 11/12px 辅助文字）
- * - 白字仅保留在深色底（照片压暗层、深色卡片）上，与品牌绿无关。
+ * - 白字仅保留在深色底（照片压暗层、深色卡片）上，与品牌青无关。
  *
  * 组件内禁止硬编码色值 / 字号 / 圆角，一律引用本对象。
  */
 export const colors = {
-  // ---- 主色（品牌绿保持原值，配深墨前景）----
+  // ---- 主色（全站唯一青色 = #14b8a6，不派生深青/淡青）----
   primary: '#14b8a6',
   primaryRgb: '20, 184, 166',
-  /** 主色底上的前景：深墨字 5.80:1（禁止再用白字） */
-  primaryForeground: '#0b2f2b',
-  /** 品牌绿作为「文字」落在白底时使用：5.42:1（原 primary 仅 2.49:1） */
-  primaryText: '#0f766e',
+  /** 主色底上的前景：中性深墨（不使用深青色） */
+  primaryForeground: '#1c2733',
+  /** 主色作为文字时与面同值：只用 #14b8a6 */
+  primaryText: '#14b8a6',
   /** 深色 / 照片压暗层 / 高饱和状态色底上的前景：白字 */
   onDark: '#ffffff',
-  /** 主色浅底：大面积实色色块（禁止渐变，故用实色） */
-  primarySoft: '#e6f7f5',
-  sidebarActive: '#d9f2ee',
-  accent: '#0d9488',
+  /** 中性浅底（原主色浅底改为中性，避免淡青） */
+  primarySoft: '#eef0f2',
+  sidebarActive: '#e8ebee',
   /** 品牌亮青：与主色同值，保留历史引用 */
   primaryBright: '#14b8a6',
   primaryBrightRgb: '20, 184, 166',
@@ -37,24 +36,24 @@ export const colors = {
   inkRgb: '28, 39, 51',
 
   // ---- 语义色 ----
-  background: '#fbf9f6',
+  background: '#f6fbfa',
   foreground: '#1c2733',
   card: '#ffffff',
 
-  // ---- 中性阶梯（暖调墨色）----
+  // ---- 中性阶梯（中性灰，不带青/暖色偏移）----
   ink: '#1c2733',
   ink2: '#55606c',
   ink3: '#5f6b78', // 辅助文字：所有底色面 ≥4.8:1
-  line: '#ece7df',
+  line: '#e2e5e8',
   surface: '#ffffff',
-  surface2: '#f4f1ec',
-  muted: '#f3f1ec',
+  surface2: '#eceef1',
+  muted: '#f3f4f6',
   mutedForeground: '#5f6b78',
-  border: '#ece7df',
-  input: '#ece7df',
-  // 输入填充 / 分段控件底（暖调浅灰，原 #F6F7F8 / #EDEFF1 为冷调）
-  fieldFill: '#F7F4EF',
-  fieldFillBorder: '#E6E0D8',
+  border: '#e2e5e8',
+  input: '#e2e5e8',
+  // 输入填充 / 分段控件底（中性浅灰）
+  fieldFill: '#f4f5f7',
+  fieldFillBorder: '#dfe2e5',
 
   // 兼容别名（历史组件使用 colors.text）
   text: '#1c2733',
@@ -90,9 +89,9 @@ export const colors = {
    * 底比中性 chip（surface2）亮一档，保证层级但不抢眼；8.32:1。
    */
   badge: {
-    bg: '#F7F5F1',
-    border: '#ECE7DF',
-    fg: '#3F4A54',
+    bg: '#f4f5f7',
+    border: '#e2e5e8',
+    fg: '#3f4a54',
   },
 
   // ---- 第三方品牌色（OAuth 按钮）----
@@ -105,9 +104,9 @@ export const colors = {
   wechatGreenRgb: '7, 193, 96',
   black: '#000000',
 
-  // ---- 浅色强调底 / 描边（选中态、错误态）：主色/错误色的暖调浅底，不再用 antd 蓝 ----
-  tint: '#e6f7f5',
-  tintBorder: '#9fdcd4',
+  // ---- 浅色强调底 / 描边（选中态、错误态）：中性浅底，不再用淡青 ----
+  tint: '#eef0f2',
+  tintBorder: '#c9cfd5',
   errorBorder: 'rgba(220, 38, 38, 0.28)',
 
   // ---- 代码 / JSON 查看器（开发调试页）----

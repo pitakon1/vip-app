@@ -1,35 +1,39 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { leasesApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
-import { fmtMoney as fmtRent } from '@/utils/format';
+import { fmtMoney as fmtRent, fmtDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type Route = RouteProp<RootStackParamList, 'MyLeaseDetail'>;
 
 const DAY_MS = 86400000;
-const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
 
-const LEASE_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  active: { text: '生效中', color: colors.success, bg: colors.successLight },
-  pending: { text: '待生效', color: colors.warning, bg: colors.warningLight },
-  expired: { text: '已到期', color: colors.ink3, bg: colors.surface2 },
-  terminated: { text: '已终止', color: colors.error, bg: colors.errorLight },
+const LEASE_STATUS: Record<string, { key: string; color: string; bg: string }> = {
+  active: { key: 'lease.status.active', color: colors.success, bg: colors.successLight },
+  pending: { key: 'lease.status.pending', color: colors.warning, bg: colors.warningLight },
+  expired: { key: 'lease.status.expired', color: colors.ink3, bg: colors.surface2 },
+  terminated: { key: 'lease.status.terminated', color: colors.error, bg: colors.errorLight },
 };
 
 const DEPOSIT_STATUS: Record<string, string> = {
-  held: '托管中',
-  refunded: '已退还',
-  forfeited: '已没收',
+  held: 'lease.deposit.held',
+  refunded: 'lease.deposit.refunded',
+  forfeited: 'lease.deposit.forfeited',
 };
 
-const leaseTitle = (l: any) =>
-  l?.property_name || l?.room_number || l?.address || `租约 #${String(l?.id ?? '').slice(0, 8)}`;
+const leaseTitle = (l: any, t: (k: string) => string) =>
+  l?.property_name ||
+  l?.room_number ||
+  l?.address ||
+  `${t('lease.idPrefix')} #${String(l?.id ?? '').slice(0, 8)}`;
 
 /**
  * 租约详情（全屏下钻子页）。
@@ -50,11 +54,22 @@ export default function MyLeaseDetailScreen() {
   });
   const lease = q.data ?? null;
   const loaded = q.isSuccess;
+  const loading = q.isPending && !q.data;
+  const loadError = q.isError && !q.data;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
 
+  if (loading) {
+    return <ListState loading />;
+  }
+  if (loadError) {
+    return <ListState error={t('lease.loadFailed')} retryLabel={t('common.retry')} onRetry={retry} />;
+  }
   if (loaded && !lease) {
     return (
       <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
-        <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub="租约不存在或已删除" />
+        <EmptyState icon="document-text-outline" title={t('profile.noLease')} sub={t('lease.notFound')} />
       </View>
     );
   }
@@ -62,7 +77,7 @@ export default function MyLeaseDetailScreen() {
     return <View style={styles.emptyWrap} />;
   }
 
-  const meta = LEASE_STATUS[String(lease?.status ?? '')] ?? LEASE_STATUS.pending;
+  const meta = LEASE_STATUS[String(lease?.status ?? '')];
   const startTs = lease?.start_date ? new Date(lease.start_date).getTime() : 0;
   const endTs = lease?.end_date ? new Date(lease.end_date).getTime() : 0;
   const totalDays = startTs && endTs > startTs ? Math.round((endTs - startTs) / DAY_MS) : 0;
@@ -72,14 +87,23 @@ export default function MyLeaseDetailScreen() {
   const remainDays = endTs ? Math.max(0, Math.round((endTs - Date.now()) / DAY_MS)) : 0;
   const progress = totalDays > 0 ? Math.max(0, Math.min(passedDays / totalDays, 1)) : 0;
 
+  // 电子合同：仅展示入口时不可点曾是「假按钮」，这里真实打开（浏览器，失败降级系统链接）
+  const openContract = (url: string) => {
+    WebBrowser.openBrowserAsync(url).catch(() => {
+      Linking.openURL(url).catch(() => undefined);
+    });
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
       {/* 租期卡 */}
       <View style={styles.card}>
         <View style={styles.leaseHead}>
-          <Text style={styles.leaseTitle} numberOfLines={1}>{leaseTitle(lease)}</Text>
-          <View style={[styles.leaseBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.leaseBadgeText, { color: meta.color }]}>{meta.text}</Text>
+          <Text style={styles.leaseTitle} numberOfLines={1}>{leaseTitle(lease, t)}</Text>
+          <View style={[styles.leaseBadge, { backgroundColor: meta?.bg ?? colors.surface2 }]}>
+            <Text style={[styles.leaseBadgeText, { color: meta?.color ?? colors.ink3 }]}>
+              {meta ? t(meta.key) : t('common.unknown')}
+            </Text>
           </View>
         </View>
         <Text style={styles.leaseMeta}>
@@ -91,7 +115,7 @@ export default function MyLeaseDetailScreen() {
         </View>
         <View style={styles.leaseFoot}>
           <Text style={styles.leaseFootText}>
-            {fmtDate(lease?.start_date)} 至 {fmtDate(lease?.end_date)}
+            {fmtDate(lease?.start_date)} {t('lease.until')} {fmtDate(lease?.end_date)}
           </Text>
           {remainDays > 0 ? (
             <Text style={styles.leaseRemain}>
@@ -101,14 +125,14 @@ export default function MyLeaseDetailScreen() {
         </View>
         {totalDays > 0 && (
           <Text style={styles.leaseSub}>
-            已过 {passedDays} / 共 {totalDays} {t('profile.dayUnit')}
+            {t('lease.passedOf', { a: passedDays, b: totalDays })}
           </Text>
         )}
       </View>
 
       {/* 明细卡 */}
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>租约明细</Text>
+        <Text style={styles.sectionLabel}>{t('lease.details')}</Text>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>{t('profile.monthlyRent')}</Text>
           <Text style={styles.detailValue}>
@@ -116,29 +140,39 @@ export default function MyLeaseDetailScreen() {
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>押金</Text>
+          <Text style={styles.detailLabel}>{t('lease.deposit')}</Text>
           <Text style={styles.detailValue}>
             {fmtRent(Number(lease?.deposit_amount || 0), lease?.currency)}
-            {lease?.deposit_status ? ` · ${DEPOSIT_STATUS[lease.deposit_status] ?? lease.deposit_status}` : ''}
+            {lease?.deposit_status
+              ? ` · ${DEPOSIT_STATUS[lease.deposit_status] ? t(DEPOSIT_STATUS[lease.deposit_status]) : t('common.unknown')}`
+              : ''}
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>租期开始</Text>
+          <Text style={styles.detailLabel}>{t('lease.startDate')}</Text>
           <Text style={styles.detailValue}>{fmtDate(lease?.start_date)}</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>租期结束</Text>
+          <Text style={styles.detailLabel}>{t('lease.endDate')}</Text>
           <Text style={styles.detailValue}>{fmtDate(lease?.end_date)}</Text>
         </View>
         {lease?.contract_url ? (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>电子合同</Text>
-            <Text style={[styles.detailValue, styles.linkValue]} numberOfLines={1}>查看合同</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.detailRow}
+            activeOpacity={0.7}
+            onPress={() => openContract(String(lease.contract_url))}
+            accessibilityRole="link"
+            accessibilityLabel={t('lease.viewContract')}
+          >
+            <Text style={styles.detailLabel}>{t('lease.contract')}</Text>
+            <Text style={[styles.detailValue, styles.linkValue]} numberOfLines={1}>
+              {t('lease.viewContract')}
+            </Text>
+          </TouchableOpacity>
         ) : null}
         {lease?.special_terms ? (
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>特殊条款</Text>
+            <Text style={styles.detailLabel}>{t('lease.specialTerms')}</Text>
             <Text style={[styles.detailValue, { flex: 1, textAlign: 'right' }]}>{lease.special_terms}</Text>
           </View>
         ) : null}

@@ -33,7 +33,7 @@ const buildKindMeta = (
   viewing: { label: t('cal.kindViewing'), color: 'var(--primary)', bg: 'rgba(var(--primary-rgb), 0.12)' },
   rent: { label: t('cal.kindRent'), color: 'var(--warning)', bg: 'rgba(var(--warning-rgb), 0.12)' },
   contract: { label: t('cal.kindContract'), color: 'var(--info, #0ea5e9)', bg: 'rgba(14, 165, 233, 0.12)' },
-  user: { label: t('cal.kindUser'), color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)' }
+  user: { label: t('cal.kindUser'), color: '#7a5cd6', bg: 'rgba(124, 58, 237, 0.12)' }
 })
 
 const buildWeekdays = (t: (k: string, p?: Record<string, string | number>) => string): string[] =>

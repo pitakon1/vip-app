@@ -37,7 +37,7 @@ export default function SignFieldCard({ field: f, parties, canEdit, fieldsBusy, 
         </Text>
         {!!f?.signed_at && (
           <Text style={styles.fieldMeta}>
-            {t('contract.signedAt')}：{fmtDate(f.signed_at)}
+            {t('contract.signedAt')}{t('common.colon')}{fmtDate(f.signed_at)}
           </Text>
         )}
       </View>

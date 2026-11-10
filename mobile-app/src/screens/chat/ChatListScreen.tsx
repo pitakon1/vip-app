@@ -7,6 +7,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
 import { chatApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
+import { fmtDateTime } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { useI18n } from '@/i18n';
@@ -19,8 +20,6 @@ interface Conversation {
   created_at?: string;
   [key: string]: any;
 }
-
-const formatTime = (x?: string) => (x ? x.replace('T', ' ').slice(5, 16) : '');
 
 export default function ChatListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -44,12 +43,12 @@ export default function ChatListScreen() {
       setLoadError(false);
     } catch (err: any) {
       setLoadError(true);
-      notifyError('加载失败', err);
+      notifyError(t('loadFailed'), err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // 未登录不请求会话列表（匿名必 401），只展示访客引导
@@ -68,7 +67,7 @@ export default function ChatListScreen() {
         <View style={styles.guestIcon}>
           <Ionicons name="chatbubble-ellipses-outline" size={30} color={colors.primary} />
         </View>
-        <Text style={styles.guestTitle}>登录后查看消息</Text>
+        <Text style={styles.guestTitle}>{t('chat.guestTitle')}</Text>
         <Text style={styles.guestSub}>{t('pub.guestHint')}</Text>
         <TouchableOpacity
           style={styles.guestPrimaryBtn}
@@ -94,7 +93,7 @@ export default function ChatListScreen() {
       onPress={() =>
         navigation.navigate('ChatDetail', {
           conversationId: item.id,
-          title: item.title ?? '会话',
+          title: item.title ?? t('chat.sessionFallback'),
         })
       }
       activeOpacity={0.7}
@@ -103,9 +102,9 @@ export default function ChatListScreen() {
         <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.primary} />
       </View>
       <Text style={styles.msgTitle} numberOfLines={1}>
-        {item.title ?? '未命名会话'}
+        {item.title ?? t('chat.untitled')}
       </Text>
-      <Text style={styles.msgTime}>{formatTime(item.created_at)}</Text>
+      <Text style={styles.msgTime}>{fmtDateTime(item.created_at)}</Text>
     </TouchableOpacity>
   );
 
@@ -125,16 +124,20 @@ export default function ChatListScreen() {
           loadError ? (
             <EmptyState
               icon="cloud-offline-outline"
-              title="加载失败"
-              sub="无法获取会话列表，请检查网络"
-              actionLabel="重试"
+              title={t('loadFailed')}
+              sub={t('chat.loadListFailSub')}
+              actionLabel={t('retry')}
               onAction={() => {
                 setLoading(true);
                 load();
               }}
             />
           ) : (
-            <EmptyState icon="chatbubbles-outline" title="暂无会话" sub="从客户/房源发起咨询后会显示在这里" />
+            <EmptyState
+              icon="chatbubbles-outline"
+              title={t('chat.emptyTitle')}
+              sub={t('chat.emptySub')}
+            />
           )
         }
       />

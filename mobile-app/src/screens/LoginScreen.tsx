@@ -5,29 +5,32 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Modal,
   Image,
+  Linking,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
-import { authApi } from '@/services/api';
+import { authApi, companyApi } from '@/services/api';
 import { refreshTokenStorage, tokenStorage } from '@/lib/storage';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
-import { notify, notifyError } from '@/utils/feedback';
-import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
+import { notifyError } from '@/utils/feedback';
+import { useOtp, COUNTRY_CODES, useDefaultCountry, isValidPhone, phoneLengthHint } from '@/hooks/useOtp';
 import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
 
 const BRAND_LOGO = require('../../assets/haofang-logo.png');
+
+/** 邮箱格式：只做「有本地部分 + @ + 域名后缀」的轻校验，最终以后端为准 */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Stage = 'choose' | 'form';
 
@@ -40,13 +43,19 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [pwdVisible, setPwdVisible] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
   const [loading, setLoading] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
   // 手机号登录
-  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const { country, selectCountry } = useDefaultCountry();
   const [countryVisible, setCountryVisible] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  // 忘记密码：走客服（电话/邮箱），不做自助重置
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [supportInfo, setSupportInfo] = useState<{ phone: string; email: string } | null>(null);
+  const [supportLoading, setSupportLoading] = useState(false);
   const { sending, secondsLeft, sendOtp } = useOtp();
   const {
     oauthLoading,
@@ -65,13 +74,50 @@ export default function LoginScreen() {
   const { t, lang, setLang } = useI18n();
   const navigation = useNavigation<any>();
 
-  const handleSendCode = async () => {
+  /** 手机号字段校验：空值与位数/纯数字统一回填到字段下方 */
+  const checkPhone = (): boolean => {
     if (!phone.trim()) {
-      notifyError(t('common.hint'), new Error(t('login.phoneRequired')));
-      return;
+      setPhoneError(t('login.phoneRequired'));
+      return false;
     }
+    if (!isValidPhone(country.value, phone.trim())) {
+      setPhoneError(t('login.phoneInvalid', { n: phoneLengthHint(country.value) }));
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
+  const handleSendCode = async () => {
+    if (!checkPhone()) return;
     const dev = await sendOtp(`${country.value}${phone.trim()}`, 'sms');
     if (dev) setCode(dev);
+  };
+
+  /** 忘记密码：拉取公司客服联系方式（电话/邮箱），没有自助重置流程 */
+  const openForgot = async () => {
+    setForgotOpen(true);
+    if (supportInfo || supportLoading) return;
+    setSupportLoading(true);
+    try {
+      const { data } = await companyApi.info();
+      const d = (data as any)?.data ?? data ?? {};
+      setSupportInfo({
+        phone: String(d.phone ?? d.hotline ?? '').trim(),
+        email: String(d.email ?? '').trim(),
+      });
+    } catch {
+      setSupportInfo({ phone: '', email: '' });
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const contactSupport = (url: string) => {
+    setForgotOpen(false);
+    void Linking.openURL(url).catch(() =>
+      notifyError(t('actionFailed'), new Error(t('login.forgotNoChannel'))),
+    );
   };
 
   const handleLogin = async () => {
@@ -79,6 +125,9 @@ export default function LoginScreen() {
     if (method === 'email') {
       if (!email.trim()) {
         setEmailError(t('login.emailRequired'));
+        ok = false;
+      } else if (!EMAIL_RE.test(email.trim())) {
+        setEmailError(t('login.emailInvalid'));
         ok = false;
       } else {
         setEmailError('');
@@ -90,10 +139,7 @@ export default function LoginScreen() {
         setPasswordError('');
       }
     } else {
-      if (!phone.trim()) {
-        notifyError(t('common.hint'), new Error(t('login.phoneRequired')));
-        ok = false;
-      }
+      if (!checkPhone()) ok = false;
       if (!code.trim()) {
         notifyError(t('common.hint'), new Error(t('login.codeRequired')));
         ok = false;
@@ -130,17 +176,42 @@ export default function LoginScreen() {
       // errorText 对 401 的统一文案是「登录已过期，请重新登录」，用在登录页会误导用户。
       const status = err?.response?.status;
       if (method === 'email' && (status === 400 || status === 401)) {
-        notify(t('login.failedTitle'), t('login.invalidCredentials'));
+        // 凭证错误定位到密码字段：保留已输入内容，不再用 toast 遮挡表单
+        setPasswordError(t('login.invalidCredentials'));
         return;
       }
       notifyError(t('login.failedTitle'), err);
     }
   };
 
+  /** 登录页底部协议说明：两个可点入口，进协议页后可正常返回 */
+  const legalNote = (
+    <View style={styles.legalRow}>
+      <Text style={styles.legalText}>{t('login.agreementPrefix')}</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Agreement', { type: 'terms' })}
+        activeOpacity={0.7}
+        accessibilityRole="link"
+        accessibilityLabel={t('legal.termsTitle')}
+      >
+        <Text style={styles.legalLink}>{t('legal.termsTitle')}</Text>
+      </TouchableOpacity>
+      <Text style={styles.legalText}>{t('legal.and')}</Text>
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Agreement', { type: 'privacy' })}
+        activeOpacity={0.7}
+        accessibilityRole="link"
+        accessibilityLabel={t('legal.privacyTitle')}
+      >
+        <Text style={styles.legalLink}>{t('legal.privacyTitle')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
       {/* 右上角语言切换按钮 */}
       <TouchableOpacity
@@ -154,6 +225,17 @@ export default function LoginScreen() {
         <Ionicons name="globe-outline" size={18} color={colors.ink2} />
       </TouchableOpacity>
 
+      {/* 左上角关闭：从收藏/预约等入口跳来时可直接退出，不强制登录 */}
+      <TouchableOpacity
+        style={[styles.closeBtn, { top: insets.top + 6 }]}
+        onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+      >
+        <Ionicons name="close" size={22} color={colors.ink2} />
+      </TouchableOpacity>
+
       {stage === 'choose' ? (
         /* ---------------- 方式选择屏 ---------------- */
         <ScrollView
@@ -161,8 +243,10 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* 品牌 logo（保留图形，不含营销文案） */}
+          {/* 品牌区：图形 logo + 产品名 + 一句定位（不做营销长文） */}
           <Image source={BRAND_LOGO} style={styles.brandLogo} accessibilityLabel="HaoFang.World" />
+          <Text style={styles.brandName}>HaoFang.World</Text>
+          <Text style={styles.brandTagline}>{t('login.brandTagline')}</Text>
 
           {/* 一列整宽白色胶囊：Google / Apple / 手机号 / 邮箱 */}
           <OAuthButtons
@@ -180,17 +264,18 @@ export default function LoginScreen() {
           />
 
           {/* 页脚：去注册 */}
-          <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.footer}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Register')}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('login.noAccount')} ${t('login.goRegister')}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.footerText}>{t('login.noAccount')}</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Register')}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={t('login.goRegister')}
-            >
-              <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
+          </TouchableOpacity>
+          {legalNote}
         </ScrollView>
       ) : (
         /* ---------------- 对应表单屏 ---------------- */
@@ -217,7 +302,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{t('login.email')}</Text>
               <TextInput
                 style={[styles.input, (email.length > 0 || emailError) && styles.inputFocused, !!emailError && styles.inputError]}
-                placeholder={t('login.emailRequired')}
+                placeholder={t('login.emailPlaceholder')}
                 placeholderTextColor={colors.ink3}
                 value={email}
                 onChangeText={(v) => {
@@ -227,25 +312,54 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
+                onBlur={() => {
+                  const v = email.trim();
+                  if (v && !EMAIL_RE.test(v)) setEmailError(t('login.emailInvalid'));
+                }}
               />
               {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
               <Text style={styles.label}>{t('login.password')}</Text>
-              <TextInput
-                style={[styles.input, (password.length > 0 || passwordError) && styles.inputFocused, !!passwordError && styles.inputError]}
-                placeholder={t('login.passwordRequired')}
-                placeholderTextColor={colors.ink3}
-                value={password}
-                onChangeText={(v) => {
-                  setPassword(v);
-                  if (passwordError) setPasswordError('');
-                }}
-                secureTextEntry
-                // 密码框必须关掉自动首字母大写/自动纠错：RN 的 autoCapitalize 默认 'sentences'，
-                // 手机键盘会把首字母自动大写、输入法还会改写字母，导致用户「明明输对了却登录失败」。
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="password"
-              />
+              <View
+                style={[
+                  styles.pwdWrap,
+                  (password.length > 0 || passwordError) && styles.inputFocused,
+                  !!passwordError && styles.inputError,
+                ]}
+              >
+                <TextInput
+                  style={styles.pwdInput}
+                  placeholder={t('login.passwordPlaceholder')}
+                  placeholderTextColor={colors.ink3}
+                  value={password}
+                  onChangeText={(v) => {
+                    setPassword(v);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  secureTextEntry={!pwdVisible}
+                  // 密码框必须关掉自动首字母大写/自动纠错：RN 的 autoCapitalize 默认 'sentences'，
+                  // 手机键盘会把首字母自动大写、输入法还会改写字母，导致用户「明明输对了却登录失败」。
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="password"
+                  onBlur={() => {
+                    if (!password) setPasswordError(t('login.passwordRequired'));
+                  }}
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setPwdVisible((v) => !v)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={pwdVisible ? t('login.hidePassword') : t('login.showPassword')}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons
+                    name={pwdVisible ? 'eye-off-outline' : 'eye-outline'}
+                    size={20}
+                    color={colors.ink3}
+                  />
+                </TouchableOpacity>
+              </View>
               {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
             </>
           ) : (
@@ -257,21 +371,28 @@ export default function LoginScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('login.selectCountryCode')}
               >
-                <Text style={styles.countryText}>{country.label}</Text>
+                <Text style={styles.countryText}>{t(country.labelKey)}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
 
               <Text style={styles.label}>{t('login.phoneLabel')}</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, !!phoneError && styles.inputError]}
                 placeholder={t('login.phoneRequired')}
                 placeholderTextColor={colors.ink3}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(v) => {
+                  setPhone(v);
+                  if (phoneError) setPhoneError('');
+                }}
                 keyboardType="phone-pad"
                 textContentType="telephoneNumber"
                 accessibilityLabel={t('login.phoneLabel')}
+                onBlur={() => {
+                  if (phone.trim()) checkPhone();
+                }}
               />
+              {!!phoneError && <Text style={styles.fieldError}>{phoneError}</Text>}
 
               <Text style={styles.label}>{t('login.codeLabel')}</Text>
               <View style={styles.codeRow}>
@@ -298,7 +419,7 @@ export default function LoginScreen() {
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={styles.codeBtnText}>
-                      {secondsLeft > 0 ? `${secondsLeft}s` : t('login.getCode')}
+                      {secondsLeft > 0 ? t('login.resendCountdown', { n: secondsLeft }) : t('login.getCode')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -311,6 +432,10 @@ export default function LoginScreen() {
               style={styles.rememberRow}
               activeOpacity={0.8}
               onPress={() => setRemember((v) => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: remember }}
+              accessibilityLabel={t('login.remember')}
             >
               <Ionicons
                 name={remember ? 'checkbox' : 'square-outline'}
@@ -321,9 +446,9 @@ export default function LoginScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() =>
-                Alert.alert(t('login.forgotTitle'), t('login.forgotMsg'))
-              }
+              onPress={openForgot}
+              accessibilityRole="button"
+              accessibilityLabel={t('login.forgot')}
             >
               <Text style={styles.forgotText}>{t('login.forgot')}</Text>
             </TouchableOpacity>
@@ -342,17 +467,18 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           {/* 页脚：去注册 */}
-          <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.footer}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Register')}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('login.noAccount')} ${t('login.goRegister')}`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.footerText}>{t('login.noAccount')}</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Register')}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={t('login.goRegister')}
-            >
-              <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
-            </TouchableOpacity>
-          </View>
+            <Text style={styles.footerLink}>{t('login.goRegister')}</Text>
+          </TouchableOpacity>
+          {legalNote}
         </ScrollView>
       )}
 
@@ -415,12 +541,12 @@ export default function LoginScreen() {
                   key={c.value}
                   style={styles.langOption}
                   onPress={() => {
-                    setCountry(c);
+                    selectCountry(c);
                     setCountryVisible(false);
                   }}
                 >
                   <Text style={[styles.langOptionText, active && styles.langOptionActive]}>
-                    {c.label}
+                    {t(c.labelKey)}
                   </Text>
                   {active ? (
                     <Ionicons name="checkmark" size={18} color={colors.primary} />
@@ -428,6 +554,60 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 忘记密码：客服渠道（电话/邮箱），不做自助重置 */}
+      <Modal
+        visible={forgotOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setForgotOpen(false)}
+      >
+        <TouchableOpacity
+          style={styles.langOverlay}
+          activeOpacity={1}
+          onPress={() => setForgotOpen(false)}
+        >
+          <View style={styles.langSheet}>
+            <Text style={styles.langSheetTitle}>{t('login.forgotTitle')}</Text>
+            <Text style={styles.forgotHint}>{t('login.forgotChannelHint')}</Text>
+            {supportLoading ? (
+              <ActivityIndicator color={colors.primary} style={styles.forgotLoading} />
+            ) : (
+              <>
+                {supportInfo?.phone ? (
+                  <TouchableOpacity
+                    style={styles.supportOption}
+                    activeOpacity={0.7}
+                    onPress={() => contactSupport(`tel:${supportInfo.phone}`)}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="call-outline" size={20} color={colors.primary} />
+                    <Text style={styles.supportOptionText}>
+                      {t('login.forgotCall', { phone: supportInfo.phone })}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                {supportInfo?.email ? (
+                  <TouchableOpacity
+                    style={styles.supportOption}
+                    activeOpacity={0.7}
+                    onPress={() => contactSupport(`mailto:${supportInfo.email}`)}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="mail-outline" size={20} color={colors.primary} />
+                    <Text style={styles.supportOptionText}>
+                      {t('login.forgotEmail', { email: supportInfo.email })}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+                {!supportInfo?.phone && !supportInfo?.email ? (
+                  <Text style={styles.forgotHint}>{t('login.forgotNoChannel')}</Text>
+                ) : null}
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -461,7 +641,47 @@ const styles = StyleSheet.create({
     height: 168,
     alignSelf: 'center',
     resizeMode: 'contain',
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  brandName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.ink,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 6,
+  },
+  brandTagline: {
+    fontSize: 13,
+    color: colors.ink3,
+    textAlign: 'center',
+    marginBottom: 28,
+    paddingHorizontal: 12,
+  },
+  /* 密码可见性开关 */
+  pwdWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: colors.radius.lg,
+    paddingLeft: 16,
+    paddingRight: 4,
+    marginBottom: 18,
+  },
+  pwdInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '400',
+  },
+  eyeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // 表单屏头部：返回 + 标题
   formHeader: {
@@ -526,10 +746,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
+    minHeight: 44,
     marginTop: 22,
   },
   footerText: { fontSize: 14, color: colors.ink3 },
   footerLink: { fontSize: 14, color: colors.primary, fontWeight: '700' },
+  closeBtn: {
+    position: 'absolute',
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 3,
+    marginTop: 14,
+    paddingHorizontal: 12,
+  },
+  legalText: { fontSize: 12, color: colors.ink3 },
+  legalLink: { fontSize: 12, color: colors.primary },
+  forgotHint: {
+    fontSize: 13,
+    color: colors.ink3,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+  },
+  forgotLoading: { marginVertical: 18 },
+  supportOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  supportOptionText: { flex: 1, fontSize: 14, color: colors.text, lineHeight: 20 },
   label: {
     fontSize: 14,
     color: colors.ink,

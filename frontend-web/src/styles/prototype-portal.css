@@ -893,7 +893,7 @@ body {
     
 
       /* ===== 任务驱动首页扩展（租客待办区） ===== */
-      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(20,184,166,0.28); background: var(--rent-tint-warm); }
+      .rent-todo-pay { position: relative; overflow: hidden; border: 1px solid rgba(20,184,166,0.28); background: var(--rent-tint-teal); }
       .rent-todo-pay::after { content: ""; position: absolute; right: -46px; top: -46px; width: 150px; height: 150px; border-radius: 50%; background: none; pointer-events: none; }
       .rent-todo-pay__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; position: relative; z-index: 1; }
       .rent-todo-pay__due { font-size: var(--rent-fs-sm); font-weight: 600; color: var(--state-warning); }

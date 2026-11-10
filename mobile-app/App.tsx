@@ -9,7 +9,9 @@ import { useAuthStore } from './src/stores/auth';
 import { useLocationStore } from './src/stores/location';
 import { initI18n } from './src/i18n';
 import { ToastProvider } from './src/components/Toast';
+import { ConfirmProvider } from './src/components/ConfirmDialog';
 import { queryClient } from './src/lib/queryClient';
+import { colors } from './src/theme/colors';
 import type { RootStackParamList } from './src/navigation/RootNavigator';
 
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
@@ -49,10 +51,13 @@ function AppShell() {
       <SafeAreaProvider>
         {/* ToastProvider 需位于 SafeAreaProvider 内部（依赖顶部安全区）且覆盖全局导航 */}
         <ToastProvider>
-          <NavigationContainer ref={navigationRef}>
-            <StatusBar style="auto" />
-            <RootNavigator />
-          </NavigationContainer>
+          {/* 全局确认弹窗：承接删除/下线等危险操作，Web 与原生行为一致 */}
+          <ConfirmProvider>
+            <NavigationContainer ref={navigationRef}>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </NavigationContainer>
+          </ConfirmProvider>
         </ToastProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
@@ -83,7 +88,7 @@ const styles = StyleSheet.create({
   webPhone: {
     flex: 1,
     maxWidth: 480,
-    backgroundColor: '#f2faf8',
+    backgroundColor: colors.background,
     boxShadow: '0 0 40px rgba(15,23,42,0.12)',
   },
 });

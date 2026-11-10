@@ -69,6 +69,14 @@ export default function ListingsMapModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.mapWrap}>
+        {/* 点遮罩关闭：此前只能点右上角 × */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+        />
         <View style={[styles.mapCard, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.mapHead}>
             <View style={styles.mapHeadText}>
@@ -79,6 +87,8 @@ export default function ListingsMapModal({
               onPress={onClose}
               activeOpacity={0.7}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
             >
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
@@ -86,6 +96,7 @@ export default function ListingsMapModal({
           {loading ? (
             <View style={styles.mapCenter}>
               <ActivityIndicator color={colors.primary} />
+              <Text style={styles.mapLoadingText}>{t('pub.loading')}</Text>
             </View>
           ) : error ? (
             <View style={styles.mapCenter}>
@@ -116,6 +127,8 @@ export default function ListingsMapModal({
                       style={styles.mapRow}
                       activeOpacity={0.85}
                       onPress={() => onOpenPoint(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.project_name || item.room_number || item.address || t('pub.listingsTitle')}
                     >
                       <View style={styles.mapBody}>
                         <Text style={styles.mapRowTitle} numberOfLines={1}>
@@ -126,7 +139,9 @@ export default function ListingsMapModal({
                         </Text>
                         <View style={styles.mapFactRow}>
                           {item.bedrooms != null ? (
-                            <Text style={styles.mapFact}>{item.bedrooms} BED</Text>
+                            <Text style={styles.mapFact}>
+                              {t('prop.bedroomN', { n: item.bedrooms })}
+                            </Text>
                           ) : null}
                           {item.size_sqm != null ? (
                             <Text style={styles.mapFact}>
@@ -191,11 +206,12 @@ const styles = StyleSheet.create({
   mapTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   mapHint: { fontSize: 12, color: colors.ink3, marginTop: 4 },
   mapCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  mapLoadingText: { fontSize: 13, color: colors.ink3, marginTop: 10 },
   mapEmpty: { fontSize: 14, color: colors.ink2 },
   mapRetry: {
     marginTop: 12,
     paddingHorizontal: 18,
-    height: 38,
+    minHeight: colors.touch.min,
     borderRadius: 6,
     backgroundColor: colors.primary,
     alignItems: 'center',

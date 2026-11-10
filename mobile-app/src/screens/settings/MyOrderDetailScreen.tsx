@@ -3,26 +3,25 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 import EmptyState from '@/components/EmptyState';
+import ListState from '@/components/ListState';
 import { propertyDealApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
-import { fmtMoney as fmtRent } from '@/utils/format';
+import { fmtMoney as fmtRent, fmtDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
 type Route = RouteProp<RootStackParamList, 'MyOrderDetail'>;
 
-const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
-
-// 交易订单状态（PropertyDealStatus，与 MyOrders 一致）
-const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  drafted: { text: '洽谈中', color: colors.ink2, bg: colors.surface2 },
-  escrow_pending: { text: '定金托管中', color: colors.warning, bg: colors.warningLight },
-  signed: { text: '已签约', color: colors.primary, bg: colors.sidebarActive },
-  transferring: { text: '过户中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
-  failed: { text: '交易失败', color: colors.error, bg: colors.errorLight },
-  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
+// 交易订单状态（PropertyDealStatus，与 MyOrders 一致）；文案走 i18n，未知状态不猜
+const DEAL_STATUS: Record<string, { key: string; color: string; bg: string }> = {
+  drafted: { key: 'deal.status.drafted', color: colors.ink2, bg: colors.surface2 },
+  escrow_pending: { key: 'deal.status.escrow_pending', color: colors.warning, bg: colors.warningLight },
+  signed: { key: 'deal.status.signed', color: colors.primary, bg: colors.sidebarActive },
+  transferring: { key: 'deal.status.transferring', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  completed: { key: 'deal.status.completed', color: colors.success, bg: colors.successLight },
+  failed: { key: 'deal.status.failed', color: colors.error, bg: colors.errorLight },
+  cancelled: { key: 'deal.status.cancelled', color: colors.ink3, bg: colors.surface2 },
 };
 
 /**
@@ -44,11 +43,22 @@ export default function MyOrderDetailScreen() {
   });
   const deal = q.data ?? null;
   const loaded = q.isSuccess;
+  const loading = q.isPending && !q.data;
+  const loadError = q.isError && !q.data;
+  const retry = () => {
+    void q.refetch({ cancelRefetch: false });
+  };
 
+  if (loading) {
+    return <ListState loading />;
+  }
+  if (loadError) {
+    return <ListState error={t('deal.loadFailed')} retryLabel={t('common.retry')} onRetry={retry} />;
+  }
   if (loaded && !deal) {
     return (
       <View style={[styles.emptyWrap, { paddingTop: insets.top + 24 }]}>
-        <EmptyState icon="pricetag-outline" title={t('profile.noOrders')} sub="订单不存在或已删除" />
+        <EmptyState icon="pricetag-outline" title={t('profile.noOrders')} sub={t('deal.notFound')} />
       </View>
     );
   }
@@ -56,15 +66,18 @@ export default function MyOrderDetailScreen() {
     return <View style={styles.emptyWrap} />;
   }
 
-  const meta = DEAL_STATUS[String(deal?.status ?? '')] ?? DEAL_STATUS.drafted;
-  const title = deal?.listing_title || deal?.property_name || `交易订单 #${String(deal?.id ?? '').slice(0, 8)}`;
+  const meta = DEAL_STATUS[String(deal?.status ?? '')];
+  const title =
+    deal?.listing_title ||
+    deal?.property_name ||
+    `${t('deal.idPrefix')} #${String(deal?.id ?? '').slice(0, 8)}`;
 
   // 关键节点（按时间先后）
   const timeline: Array<{ label: string; value: string }> = (
     [
-      { label: '创建订单', value: deal?.created_at ?? '' },
-      { label: '签约时间', value: deal?.signed_at ?? '' },
-      { label: '过户日期', value: deal?.transfer_date ?? '' },
+      { label: t('deal.created'), value: deal?.created_at ?? '' },
+      { label: t('deal.signedAt'), value: deal?.signed_at ?? '' },
+      { label: t('deal.transferDate'), value: deal?.transfer_date ?? '' },
     ] as Array<{ label: string; value: string }>
   ).filter((x) => !!x.value);
 
@@ -74,8 +87,10 @@ export default function MyOrderDetailScreen() {
       <View style={styles.card}>
         <View style={styles.dealHead}>
           <Text style={styles.dealTitle} numberOfLines={2}>{title}</Text>
-          <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
-            <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
+          <View style={[styles.dealBadge, { backgroundColor: meta?.bg ?? colors.surface2 }]}>
+            <Text style={[styles.dealBadgeText, { color: meta?.color ?? colors.ink3 }]}>
+              {meta ? t(meta.key) : t('common.unknown')}
+            </Text>
           </View>
         </View>
         <Text style={styles.dealPrice}>
@@ -86,7 +101,7 @@ export default function MyOrderDetailScreen() {
 
       {/* 关键节点卡 */}
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>交易节点</Text>
+        <Text style={styles.sectionLabel}>{t('deal.timeline')}</Text>
         {timeline.map((node, idx) => (
           <View key={node.label} style={styles.timelineRow}>
             <View style={styles.timelineDot} />

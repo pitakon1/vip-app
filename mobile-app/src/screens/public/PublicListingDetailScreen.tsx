@@ -21,9 +21,11 @@ import {
   Linking,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RemoteImage from '@/components/RemoteImage';
@@ -42,8 +44,8 @@ import {
   convertFromThb,
   type TFunction,
 } from '@/lib/publicSite';
-import { formatUnitPrice, fmtMoney } from '@/utils/format';
-import { notify } from '@/utils/feedback';
+import { formatUnitPrice, fmtMoney, currencySymbol } from '@/utils/format';
+import { notify, getErrorMessage } from '@/utils/feedback';
 import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
 import PublicListingRow from './PublicListingRow';
@@ -56,6 +58,9 @@ function quickIsoAt10(daysFromNow: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00:00`;
 }
 
+/** 吸底操作栏高度（不含安全区），正文底部留白按此计算，避免遮挡 */
+const ACTION_BAR_HEIGHT = 64;
+
 export default function PublicListingDetailScreen() {
   const { t } = useI18n();
   const navigation = useNavigation<any>();
@@ -66,6 +71,9 @@ export default function PublicListingDetailScreen() {
   const id: string = route.params?.id;
   const [data, setData] = useState<PublicListingDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  // 网络/服务失败与「房源不存在」要分开：失败给重试，404 才说不存在
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // 猜你喜欢：相似房源列表，接口失败时静默隐藏
   const [similar, setSimilar] = useState<PublicListing[]>([]);
@@ -86,12 +94,26 @@ export default function PublicListingDetailScreen() {
   // 降价提醒（贝壳口径：关注/降价通知需登录）
   const [priceAlertOn, setPriceAlertOn] = useState(false);
   const [priceAlertBusy, setPriceAlertBusy] = useState(false);
+  const [photoIdx, setPhotoIdx] = useState(0);
   const [priceAlertLoaded, setPriceAlertLoaded] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favBusy, setFavBusy] = useState(false);
+  // 长描述折叠：超 6 行时给展开/收起
+  const [descExpanded, setDescExpanded] = useState(false);
   // 收藏失败要给出可见反馈：此前只回滚红心，用户以为「点了没反应」
   const [favError, setFavError] = useState<string | null>(null);
   const [contactBusy, setContactBusy] = useState(false);
+  // 未登录点击需要身份的动作：先登录，登录返回后继续执行（意图不丢）
+  const [pendingAction, setPendingAction] = useState<
+    'fav' | 'contact' | 'priceAlert' | 'book' | null
+  >(null);
+  const requireLogin = useCallback(
+    (action: 'fav' | 'contact' | 'priceAlert' | 'book') => {
+      setPendingAction(action);
+      navigation.navigate('Login');
+    },
+    [navigation],
+  );
 
   // 收藏状态：详情页写「收藏后可接收降价通知」，就必须真的有收藏入口
   useEffect(() => {
@@ -115,7 +137,7 @@ export default function PublicListingDetailScreen() {
   const toggleFavorite = useCallback(async () => {
     if (favBusy) return;
     if (!isLoggedIn) {
-      navigation.navigate('Login');
+      requireLogin('fav');
       return;
     }
     if (!data?.property_id) return;
@@ -132,13 +154,13 @@ export default function PublicListingDetailScreen() {
     } finally {
       setFavBusy(false);
     }
-  }, [favBusy, isLoggedIn, navigation, data?.property_id, favorited, t]);
+  }, [favBusy, isLoggedIn, requireLogin, data?.property_id, favorited, t]);
 
   // 联系经纪人：按房源建会话后进入 ChatDetail（原来固定跳 ChatList，用户看到空列表）
   const contactBroker = useCallback(async () => {
     if (contactBusy) return;
     if (!isLoggedIn) {
-      navigation.navigate('Login');
+      requireLogin('contact');
       return;
     }
     if (!data?.id) return;
@@ -153,16 +175,16 @@ export default function PublicListingDetailScreen() {
         navigation.navigate('ChatDetail', { conversationId: String(conv.id) });
       }
     } catch {
-      // 建会话失败时给出可见反馈，而不是跳去空列表
-      setBookingMsg({ tone: 'error', text: t('actionFailed') });
+      // 建会话失败时给出可见反馈（Toast），而不是写进预约表单的错误状态里
+      notify(t('actionFailed'));
     } finally {
       setContactBusy(false);
     }
-  }, [contactBusy, isLoggedIn, navigation, data?.id, data?.room_number, data?.project_name, t]);
+  }, [contactBusy, isLoggedIn, requireLogin, navigation, data?.id, data?.room_number, data?.project_name, t]);
 
   const togglePriceAlert = useCallback(async () => {
     if (!isLoggedIn) {
-      navigation.navigate('Login');
+      requireLogin('priceAlert');
       return;
     }
     if (priceAlertBusy || !data?.property_id) return;
@@ -179,11 +201,12 @@ export default function PublicListingDetailScreen() {
         setPriceAlertOn(true);
       }
     } catch (err: any) {
-      console.warn('toggle price alert failed', err);
+      // 失败必须给可见反馈：此前只 console.warn，用户以为「点了没反应」
+      notify(t('actionFailed'), getErrorMessage(err));
     } finally {
       setPriceAlertBusy(false);
     }
-  }, [isLoggedIn, navigation, priceAlertBusy, priceAlertOn, data?.property_id, data?.id]);
+  }, [isLoggedIn, requireLogin, priceAlertBusy, priceAlertOn, data?.property_id, data?.id]);
 
   useEffect(() => {
     if (!isLoggedIn || !data?.property_id || priceAlertLoaded) return;
@@ -229,6 +252,11 @@ export default function PublicListingDetailScreen() {
         setBookingMsg({ tone: 'error', text: t('pub.bookPhoneRequired') });
         return;
       }
+      // 只做格式兜底：允许 +、空格、括号、连字符，至少 6 位数字
+      if (!/^\+?\d{6,}$/.test(bookingPhone.replace(/[\s()-]/g, ''))) {
+        setBookingMsg({ tone: 'error', text: t('pub.bookPhoneInvalid') });
+        return;
+      }
     }
     if (!data?.id) return;
     setBookingBusy(true);
@@ -262,6 +290,20 @@ export default function PublicListingDetailScreen() {
     }
   }, [bookingTime, bookingNote, bookingName, bookingPhone, isLoggedIn, data?.id, data?.property_id, t]);
 
+  // 登录返回本页继续执行登录前点击的动作（收藏 / 联系 / 降价提醒 / 预约看房）
+  // 用 useFocusEffect：等 Login 被弹掉、本页重新获得焦点后再执行，避免和返回动画抢导航
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoggedIn || !pendingAction) return;
+      const action = pendingAction;
+      setPendingAction(null);
+      if (action === 'book') openBooking();
+      else if (action === 'contact') void contactBroker();
+      else if (action === 'fav') void toggleFavorite();
+      else if (action === 'priceAlert') void togglePriceAlert();
+    }, [isLoggedIn, pendingAction, openBooking, contactBroker, toggleFavorite, togglePriceAlert]),
+  );
+
   useEffect(() => {
     void loadRates();
   }, []);
@@ -270,6 +312,7 @@ export default function PublicListingDetailScreen() {
     if (!id) return;
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     publicApi
       .listing(id)
       .then((res: any) => {
@@ -291,7 +334,10 @@ export default function PublicListingDetailScreen() {
         }
       })
       .catch(() => {
-        if (!cancelled) setData(null);
+        if (!cancelled) {
+          setData(null);
+          setLoadError(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -303,7 +349,7 @@ export default function PublicListingDetailScreen() {
     // （见 /public/listings/{id} 的 permissive auth）。游客点「登录后拨打」
     // 登录回来时，若不重新拉取，按钮会因为 isLoggedIn 变 true 而解锁，
     // 但数据里仍是打码号码 —— 用户会拨出一个废号。
-  }, [id, isLoggedIn]);
+  }, [id, isLoggedIn, reloadKey]);
 
   // 猜你喜欢：相似房源（失败静默，不阻塞详情页）
   useEffect(() => {
@@ -328,9 +374,19 @@ export default function PublicListingDetailScreen() {
   }, []);
 
   if (loading) {
+    // 加载中保留悬浮返回：此前整页只有转圈，用户想退出只能等或用手势
     return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.container}>
+        <View style={[styles.center, { paddingTop: insets.top }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+        <TouchableOpacity
+          style={[styles.floatBack, { top: insets.top + 8 }]}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel={t('pub.back')}
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.ink} />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -338,10 +394,21 @@ export default function PublicListingDetailScreen() {
   if (!data) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
-        <Text style={styles.emptyText}>{t('pub.listingNotFound')}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>{t('pub.backToList')}</Text>
-        </TouchableOpacity>
+        <Text style={styles.emptyText}>
+          {loadError ? t('loadFailed') : t('pub.listingNotFound')}
+        </Text>
+        {loadError ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setReloadKey((k) => k + 1)}
+          >
+            <Text style={styles.backButtonText}>{t('pub.retry')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>{t('pub.backToList')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -352,14 +419,33 @@ export default function PublicListingDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + ACTION_BAR_HEIGHT + 32 }}
+      >
         {/* ---- 相册 ---- */}
         {photos.length > 0 ? (
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {photos.map((url) => (
-              <RemoteImage key={url} uri={url} style={{ width, height: 260 }} resizeMode="cover" />
-            ))}
-          </ScrollView>
+          <View>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) =>
+                setPhotoIdx(Math.round(e.nativeEvent.contentOffset.x / width))
+              }
+              accessibilityLabel={`${photoIdx + 1}/${photos.length}`}
+            >
+              {photos.map((url) => (
+                <RemoteImage key={url} uri={url} style={{ width, height: 260 }} resizeMode="cover" />
+              ))}
+            </ScrollView>
+            {photos.length > 1 ? (
+              <View style={styles.photoBadge}>
+                <Text style={styles.photoBadgeText}>
+                  {photoIdx + 1}/{photos.length}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         ) : (
           <View style={{ width, height: 200, backgroundColor: colors.surface2, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={styles.emptyText}>{t('pub.noPhoto')}</Text>
@@ -369,7 +455,7 @@ export default function PublicListingDetailScreen() {
         <View style={styles.block}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>
-              {data.project_name || data.room_number || t('pub.listingsTitle')}
+              {data.project_name || data.room_number || t('list.unnamed')}
             </Text>
             {data.listing_type ? (
               <View style={[styles.typeTag, isSell ? styles.typeTagSell : styles.typeTagRent]}>
@@ -381,7 +467,7 @@ export default function PublicListingDetailScreen() {
 
           <View style={styles.priceRow}>
             <Text style={styles.price}>{fmtMoney(price, data.currency || 'THB')}</Text>
-            {isSell ? null : <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>}
+            {isSell || !price ? null : <Text style={styles.priceUnit}>{t('pub.perMonth')}</Text>}
           </View>
           {price ? (
             <Text style={styles.priceSub}>
@@ -392,9 +478,12 @@ export default function PublicListingDetailScreen() {
           {price && data.size_sqm ? (
             <Text style={styles.priceSub}>
               ≈ {t('pub.unitPrice')} {formatUnitPrice(price / data.size_sqm, data.currency || 'THB')}
+              {isSell ? '' : t('pub.perMonth')}
               {' · '}≈ {formatUnitPrice(convertFromThb(price / data.size_sqm), 'CNY')}
+              {isSell ? '' : t('pub.perMonth')}
             </Text>
           ) : null}
+          {price ? <Text style={styles.fxHint}>{t('pub.fxHint')}</Text> : null}
 
           {/* 收藏：详情页提示「收藏后可接收降价通知」，这里提供真实红心 */}
           <TouchableOpacity
@@ -409,8 +498,9 @@ export default function PublicListingDetailScreen() {
               color={favorited ? colors.primary : colors.ink2}
             />
             <Text style={[styles.priceAlertText, favorited && styles.priceAlertTextOn]}>
-              {t('pub.myFollow')}
+              {t('pub.favorite')}
             </Text>
+            {favBusy ? <ActivityIndicator size="small" color={colors.primary} /> : null}
           </TouchableOpacity>
           {favError ? <Text style={[styles.msg, styles.msgError]}>{favError}</Text> : null}
           {/* 降价提醒：贝壳式关注/降价通知，未登录引导登录 */}
@@ -437,7 +527,7 @@ export default function PublicListingDetailScreen() {
           <View style={styles.priceHistoryRow}>
             <Ionicons name="trending-down-outline" size={13} color={colors.ink3} />
             <Text style={styles.priceHistoryText}>
-              {priceAlertOn ? t('pub.priceAlertOn') : t('pub.priceHistoryHint')}
+              {priceAlertOn ? t('pub.priceAlertOnHint') : t('pub.priceHistoryHint')}
             </Text>
           </View>
         </View>
@@ -457,7 +547,10 @@ export default function PublicListingDetailScreen() {
               label={t('pub.layout')}
               value={
                 data.bedrooms != null || data.bathrooms != null
-                  ? `${data.bedrooms ?? '-'} BED · ${data.bathrooms ?? '-'} BATH`
+                  ? t('prop.bedBath', {
+                      bed: String(data.bedrooms ?? '-'),
+                      bath: String(data.bathrooms ?? '-'),
+                    })
                   : ''
               }
             />
@@ -484,22 +577,22 @@ export default function PublicListingDetailScreen() {
             <Text style={styles.projectName}>{data.project.name}</Text>
             {data.project.developer_name ? (
               <Text style={styles.projectLine}>
-                {t('pub.developer')}：{data.project.developer_name}
+                {t('pub.developer')}{t('common.colon')}{data.project.developer_name}
               </Text>
             ) : null}
             {data.project.total_units ? (
               <Text style={styles.projectLine}>
-                {t('pub.totalUnits')}：{data.project.total_units}
+                {t('pub.totalUnits')}{t('common.colon')}{data.project.total_units}
               </Text>
             ) : null}
             {data.project.completion_year ? (
               <Text style={styles.projectLine}>
-                {t('pub.completionYear')}：{data.project.completion_year}
+                {t('pub.completionYear')}{t('common.colon')}{data.project.completion_year}
               </Text>
             ) : null}
             {data.project.nearest_subway ? (
               <Text style={styles.projectLine}>
-                {t('pub.transport')}：{data.project.nearest_subway}
+                {t('pub.transport')}{t('common.colon')}{data.project.nearest_subway}
               </Text>
             ) : null}
             {/* 楼盘核心指标网格（楼层数/车位/产权/外配/物业费/均价，字段为 null 不渲染） */}
@@ -523,14 +616,14 @@ export default function PublicListingDetailScreen() {
                 {data.project.management_fee_per_sqm != null ? (
                   <KV
                     label={t('pub.mgmtFee')}
-                    value={`${data.project.management_fee_per_sqm} THB/㎡${t('pub.perMonth')}`
+                    value={`${currencySymbol(data.currency || 'THB')}${data.project.management_fee_per_sqm}/㎡${t('pub.perMonth')}`
                       + ` · ≈ ${fmtMoney(convertFromThb(data.project.management_fee_per_sqm), 'CNY')}/㎡`}
                   />
                 ) : null}
                 {data.project.avg_price != null ? (
                   <KV
                     label={t('pub.avgPrice')}
-                    value={`≈ ${fmtMoney(data.project.avg_price, 'THB')}/㎡`}
+                    value={`≈ ${fmtMoney(data.project.avg_price, data.currency || 'THB')}/㎡`}
                   />
                 ) : null}
                 {data.project.parking_spaces != null ? (
@@ -564,6 +657,9 @@ export default function PublicListingDetailScreen() {
                 key={school.id ?? school.name ?? ''}
                 style={styles.schoolRow}
                 onPress={() => school.id && navigation.navigate('PublicSchoolDetail', { id: school.id })}
+                disabled={!school.id}
+                activeOpacity={school.id ? 0.7 : 1}
+                accessibilityRole={school.id ? 'button' : undefined}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.schoolName}>{school.name}</Text>
@@ -573,7 +669,7 @@ export default function PublicListingDetailScreen() {
                 </View>
                 {school.distance_km != null ? (
                   <Text style={styles.schoolDistance}>
-                    {school.distance_km} {t('pub.km')}
+                    {Number(school.distance_km).toFixed(1)} {t('pub.km')}
                   </Text>
                 ) : null}
               </TouchableOpacity>
@@ -585,7 +681,26 @@ export default function PublicListingDetailScreen() {
         {data.description ? (
           <View style={styles.block}>
             <Text style={styles.sectionTitle}>{t('pub.description')}</Text>
-            <Text style={styles.description}>{data.description}</Text>
+            <Text style={styles.description} numberOfLines={descExpanded ? undefined : 6}>
+              {data.description}
+            </Text>
+            {String(data.description).length > 120 ? (
+              <TouchableOpacity
+                onPress={() => setDescExpanded((v) => !v)}
+                activeOpacity={0.7}
+                style={styles.descToggle}
+                accessibilityRole="button"
+              >
+                <Text style={styles.descToggleText}>
+                  {descExpanded ? t('common.collapse') : t('common.expand')}
+                </Text>
+                <Ionicons
+                  name={descExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={13}
+                  color={colors.primary}
+                />
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : null}
 
@@ -617,11 +732,15 @@ export default function PublicListingDetailScreen() {
 
               {data.broker.phone ? (
                 <TouchableOpacity
-                  style={styles.callRow}
+                  style={[styles.callRow, !isLoggedIn && styles.callRowLocked]}
                   onPress={() => isLoggedIn && call(data.broker?.phone)}
                   disabled={!isLoggedIn}
                 >
-                  <Ionicons name="call-outline" size={16} color={colors.primary} />
+                  <Ionicons
+                    name="call-outline"
+                    size={16}
+                    color={isLoggedIn ? colors.primary : colors.ink3}
+                  />
                   <Text style={[styles.callText, !isLoggedIn && styles.callTextLocked]}>
                     {data.broker.phone} · {isLoggedIn ? t('pub.call') : t('pub.callLocked')}
                   </Text>
@@ -629,19 +748,19 @@ export default function PublicListingDetailScreen() {
               ) : null}
               {data.broker.wechat ? (
                 <Text style={styles.projectLine}>
-                  WeChat：{data.broker.wechat}
+                  WeChat{t('common.colon')}{data.broker.wechat}
                   {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
                 </Text>
               ) : null}
               {data.broker.line ? (
                 <Text style={styles.projectLine}>
-                  LINE：{data.broker.line}
+                  LINE{t('common.colon')}{data.broker.line}
                   {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
                 </Text>
               ) : null}
               {data.broker.whatsapp ? (
                 <Text style={styles.projectLine}>
-                  WhatsApp：{data.broker.whatsapp}
+                  WhatsApp{t('common.colon')}{data.broker.whatsapp}
                   {!isLoggedIn ? <Text style={styles.lockedValue}>{t('pub.lockedSuffix')}</Text> : null}
                 </Text>
               ) : null}
@@ -651,14 +770,6 @@ export default function PublicListingDetailScreen() {
           )}
         </View>
 
-        {/* ---- 预约看房 CTA（未登录也可匿名预约，登录后走站内预约） ---- */}
-        <View style={{ paddingHorizontal: 16 }}>
-          <TouchableOpacity style={styles.bookBtn} onPress={openBooking}>
-            <Ionicons name="calendar-outline" size={18} color={colors.primaryForeground} />
-            <Text style={styles.bookText}>{t('pub.bookViewing')}</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* 预约看房弹层 */}
         <Modal
           visible={bookingOpen}
@@ -666,7 +777,10 @@ export default function PublicListingDetailScreen() {
           animationType="slide"
           onRequestClose={() => setBookingOpen(false)}
         >
-          <View style={styles.modalWrap}>
+          <KeyboardAvoidingView
+            style={styles.modalWrap}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <View style={[styles.modalCard, { paddingBottom: insets.bottom + 24 }]}>
               <View style={styles.modalHead}>
                 <Text style={styles.modalTitle}>{t('pub.bookViewing')}</Text>
@@ -753,7 +867,7 @@ export default function PublicListingDetailScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* ---- 留资 ---- */}
@@ -764,7 +878,9 @@ export default function PublicListingDetailScreen() {
             note={t('pub.inquireNote')}
             context={{ listing_id: data.id, property_id: data.property_id ?? undefined }}
             source="listing_detail"
-            defaultMessage={`Inquiry: ${data.project_name ?? ''} ${data.room_number ?? ''}`.trim()}
+            defaultMessage={t('pub.inquiryDefault', {
+              name: `${data.project_name ?? ''} ${data.room_number ?? ''}`.trim(),
+            })}
           />
         </View>
 
@@ -785,6 +901,50 @@ export default function PublicListingDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* ---- 吸底操作栏：收藏 / 联系经纪人 / 预约看房 ---- */}
+      <View style={[styles.actionBar, { paddingBottom: insets.bottom + 6 }]}>
+        <TouchableOpacity
+          style={styles.favIconBtn}
+          onPress={toggleFavorite}
+          disabled={favBusy}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('pub.myFollow')}
+          accessibilityState={{ selected: favorited }}
+        >
+          <Ionicons
+            name={favorited ? 'heart' : 'heart-outline'}
+            size={22}
+            color={favorited ? colors.primary : colors.ink2}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryAction}
+          onPress={contactBroker}
+          disabled={contactBusy}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('prop.contactBroker')}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.primary} />
+          <Text style={styles.secondaryActionText} numberOfLines={1}>
+            {t('prop.contactBroker')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.primaryAction}
+          onPress={() => (isLoggedIn ? openBooking() : requireLogin('book'))}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('pub.bookViewing')}
+        >
+          <Ionicons name="calendar-outline" size={18} color={colors.primaryForeground} />
+          <Text style={styles.primaryActionText} numberOfLines={1}>
+            {t('pub.bookViewing')}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ---- 悬浮返回 ---- */}
       <TouchableOpacity
@@ -820,6 +980,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   emptyText: { fontSize: colors.fontSize.base, color: colors.ink3 },
+  photoBadge: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: colors.radius.full,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  photoBadgeText: { fontSize: colors.fontSize.xs, color: '#FFFFFF', fontWeight: '600' },
   backButton: {
     marginTop: 16,
     paddingHorizontal: 20,
@@ -849,6 +1019,9 @@ const styles = StyleSheet.create({
   price: { fontSize: 26, fontWeight: '800', color: colors.primary },
   priceUnit: { fontSize: colors.fontSize.base, color: colors.ink3 },
   priceSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4 },
+  fxHint: { fontSize: 10, color: colors.ink3, marginTop: 2 },
+  descToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, alignSelf: 'flex-start' },
+  descToggleText: { fontSize: colors.fontSize.sm, color: colors.primary, fontWeight: '600' },
   priceAlert: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -884,9 +1057,10 @@ const styles = StyleSheet.create({
   },
   schoolName: { fontSize: colors.fontSize.base, color: colors.ink, fontWeight: '600' },
   schoolSub: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 2 },
-  schoolDistance: { fontSize: colors.fontSize.base, color: colors.accent, fontWeight: '600' },
+  schoolDistance: { fontSize: colors.fontSize.base, color: colors.primary, fontWeight: '600' },
   description: { fontSize: colors.fontSize.base, color: colors.ink2, lineHeight: 22, marginTop: 8 },
   callRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  callRowLocked: { opacity: 0.55 },
   callText: { fontSize: colors.fontSize.base, color: colors.primary, fontWeight: '600' },
   callTextLocked: { color: colors.ink3 },
   lockBanner: {
@@ -960,12 +1134,59 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fieldFill,
   },
   textarea: { height: 72, textAlignVertical: 'top' },
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    ...colors.shadow.lg,
+  },
+  favIconBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.fieldFill,
+  },
+  secondaryAction: {
+    flex: 1,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: colors.radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  secondaryActionText: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  primaryAction: {
+    flex: 1.3,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.primary,
+  },
+  primaryActionText: { fontSize: 14, fontWeight: '800', color: colors.primaryForeground },
   floatBack: {
     position: 'absolute',
     left: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -974,9 +1195,9 @@ const styles = StyleSheet.create({
   floatHome: {
     position: 'absolute',
     right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',

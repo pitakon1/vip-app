@@ -29,7 +29,7 @@
   cursor: pointer;
 }
 .rent-v17-entry:hover { transform: translateY(-2px); box-shadow: var(--rent-shadow-2); }
-.rent-v17-entry--rent { background: #d9f2ee; border: 1px solid rgba(20,184,166,.28); }
+.rent-v17-entry--rent { background: var(--rent-accent-soft); border: 1px solid rgba(20,184,166,.28); }
 .rent-v17-entry--sale { background: var(--state-warning-soft); border: 1px solid rgba(217,119,6,.30); }
 .rent-v17-entry__icon {
   width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;

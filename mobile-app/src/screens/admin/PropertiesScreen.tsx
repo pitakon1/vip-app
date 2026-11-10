@@ -28,6 +28,7 @@ import colors from '@/theme/colors';
 import { filterStyles } from '@/theme/filterStyles';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import ListState from '@/components/ListState';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
 import { notify, notifyError } from '@/utils/feedback';
 import { propertiesApi, usersAdminApi, listingApi } from '@/services/api';
 import { publicApi, type PublicSchool } from '@/services/publicApi';
@@ -39,6 +40,7 @@ import { currencySymbol } from '@/lib/currency';
 import { propertyCoverUrl } from '@/lib/property';
 import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
+import { cityDisplayName, countryDisplayName, metroLineFullName } from '@/data/locationNames';
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
 
@@ -140,7 +142,7 @@ export default function AdminPropertiesScreen() {
   const respContainer = useResponsiveContainerStyle();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const TYPE_META = useMemo(() => typeMeta(t), [t]);
   const STATUS_META = useMemo(() => statusMeta(t), [t]);
   const CHIPS = useMemo(() => chips(t), [t]);
@@ -180,6 +182,8 @@ export default function AdminPropertiesScreen() {
   const [metroDraft, setMetroDraft] = useState<string[]>([]);
   // 链家式单行筛选栏：当前展开的下拉 Tab（'region' | 'price' | 'sort' | 'more' | null）
   const [openTab, setOpenTab] = useState<string | null>(null);
+  // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   // C 端维度：学校（空间筛选，与 C 端找房口径一致）
   const [schoolId, setSchoolId] = useState('');
   const [schoolKm, setSchoolKm] = useState<number>(3);
@@ -691,7 +695,7 @@ export default function AdminPropertiesScreen() {
   }
 
   return (
-    <>
+    <View ref={rootRef} style={styles.container}>
     <FlatList
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top }, respContainer]}
@@ -757,7 +761,7 @@ export default function AdminPropertiesScreen() {
       </View>
 
       {/* ---- 链家式单行筛选栏 + 顶部下拉面板（对齐租客端 ListingsScreen）---- */}
-      <View style={styles.filterZone}>
+      <View style={styles.filterZone} ref={anchorRef} onLayout={measureAnchor}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -836,7 +840,7 @@ export default function AdminPropertiesScreen() {
                           onPress={() => pickAreaCountry(c)}
                         >
                           <Text style={[styles.locAreaColText, areaCountry === c && styles.locAreaColTextActive]}>
-                            {c}
+                            {countryDisplayName(c, lang)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -851,9 +855,11 @@ export default function AdminPropertiesScreen() {
                               onPress={() => setAreaDrill('')}
                             >
                               <Ionicons name="chevron-back" size={12} color={colors.ink3} />
-                              <Text style={styles.locAreaBackText}>{areaCountry}</Text>
+                              <Text style={styles.locAreaBackText}>{countryDisplayName(areaCountry, lang)}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.locAreaHeadTitle}>{activeAreaGroup.cityLabel}</Text>
+                            <Text style={styles.locAreaHeadTitle}>
+                              {cityDisplayName(activeAreaGroup.cityKey, activeAreaGroup.cityLabel, lang)}
+                            </Text>
                           </View>
                           <View style={styles.locAreaChips}>
                             <TouchableOpacity
@@ -881,7 +887,7 @@ export default function AdminPropertiesScreen() {
                         </>
                       ) : (
                         <>
-                          <Text style={styles.locAreaHeadTitle}>{areaCountry}</Text>
+                          <Text style={styles.locAreaHeadTitle}>{countryDisplayName(areaCountry, lang)}</Text>
                           <View style={styles.locAreaChips}>
                             {countryGroups.map((g) => (
                               <TouchableOpacity
@@ -897,7 +903,7 @@ export default function AdminPropertiesScreen() {
                                 }}
                               >
                                 <Text style={[styles.optChipText, areaDrill === g.cityKey && styles.optChipTextActive]}>
-                                  {g.cityLabel}
+                                  {cityDisplayName(g.cityKey, g.cityLabel, lang)}
                                 </Text>
                               </TouchableOpacity>
                             ))}
@@ -918,7 +924,7 @@ export default function AdminPropertiesScreen() {
                           onPress={() => setMetroLine(l.key)}
                         >
                           <Text style={[styles.optChipText, metroLine === l.key && styles.optChipTextActive]}>
-                            {l.cityLabel} · {l.name}
+                            {metroLineFullName(l, lang)}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -1222,6 +1228,11 @@ export default function AdminPropertiesScreen() {
       }
     />
 
+      {/* 面板展开时点击面板外的列表区即收起：与分类页筛选面板行为一致 */}
+      {openTab !== null ? (
+        <PanelBackdrop top={backdropTop} onClose={() => setOpenTab(null)} />
+      ) : null}
+
       {/* 指派归属人：选中内部员工（销售/经纪/管理员）后，该房源即归其名下维护 */}
       <Modal visible={!!assignTarget} transparent animationType="fade" onRequestClose={closeAssign}>
         <View style={styles.modalBackdrop}>
@@ -1301,7 +1312,7 @@ export default function AdminPropertiesScreen() {
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 }
 

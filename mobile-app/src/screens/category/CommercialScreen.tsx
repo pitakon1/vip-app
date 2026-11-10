@@ -11,6 +11,7 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { cityDisplayName } from '@/data/locationNames';
 import { useLocationStore } from '@/stores/location';
 import { publicApi, unwrapPage, type PublicListing } from '@/services/publicApi';
 import {
@@ -51,9 +52,13 @@ const TAB_PARAMS: Record<TabKey, { listing_type: 'rent' | 'sell'; property_type:
 };
 
 export default function CommercialScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigation = useNavigation<any>();
-  const city = useLocationStore((s) => s.selection.cityLabel);
+  const city = cityDisplayName(
+    useLocationStore((s) => s.selection.cityKey),
+    useLocationStore((s) => s.selection.cityLabel),
+    lang,
+  );
   const cityKey = useLocationStore((s) => s.selection.cityKey);
   const [tab, setTab] = useState<TabKey>('rent-office');
   // 区域下拉：随 Tab 的 listing_type × property_type 口径走后端真实区域

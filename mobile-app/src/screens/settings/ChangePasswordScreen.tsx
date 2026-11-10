@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 
 import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
 
 /**
@@ -11,6 +12,7 @@ import { notify, getErrorMessage } from '@/utils/feedback';
  * 迁移自 ProfileScreen 的修改密码弹层逻辑：改密后旧令牌失效，需重新登录。
  */
 export default function ChangePasswordScreen() {
+  const { t } = useI18n();
   const logout = useAuthStore((s) => s.logout);
   const [oldPwd, setOldPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
@@ -19,15 +21,15 @@ export default function ChangePasswordScreen() {
 
   const save = async () => {
     if (!oldPwd || !newPwd) {
-      notify('请填写完整');
+      notify(t('settings.pwdIncomplete'));
       return;
     }
     if (newPwd.length < 6) {
-      notify('新密码至少 6 位');
+      notify(t('settings.pwdTooShort'));
       return;
     }
     if (newPwd !== confirmPwd) {
-      notify('两次输入的新密码不一致');
+      notify(t('settings.pwdMismatch'));
       return;
     }
     setSaving(true);
@@ -36,11 +38,11 @@ export default function ChangePasswordScreen() {
       setOldPwd('');
       setNewPwd('');
       setConfirmPwd('');
-      // 改密后所有旧令牌失效，建议重新登录
+      // 改密后所有旧令牌失效，建议重新登录（先提示再退出，避免提示随页面卸载丢失）
+      notify(t('settings.pwdChanged'));
       logout();
-      notify('密码已修改，请重新登录');
     } catch (e: any) {
-      notify(getErrorMessage(e, '修改失败'));
+      notify(getErrorMessage(e, t('settings.pwdChangeFailed')));
     } finally {
       setSaving(false);
     }
@@ -48,30 +50,30 @@ export default function ChangePasswordScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>当前密码</Text>
+      <Text style={styles.label}>{t('settings.currentPassword')}</Text>
       <TextInput
         style={styles.input}
         value={oldPwd}
         onChangeText={setOldPwd}
-        placeholder="请输入当前密码"
+        placeholder={t('settings.currentPasswordPh')}
         placeholderTextColor={colors.ink3}
         secureTextEntry
       />
-      <Text style={styles.label}>新密码</Text>
+      <Text style={styles.label}>{t('settings.newPassword')}</Text>
       <TextInput
         style={styles.input}
         value={newPwd}
         onChangeText={setNewPwd}
-        placeholder="至少 6 位"
+        placeholder={t('settings.newPasswordPh')}
         placeholderTextColor={colors.ink3}
         secureTextEntry
       />
-      <Text style={styles.label}>确认新密码</Text>
+      <Text style={styles.label}>{t('settings.confirmPassword')}</Text>
       <TextInput
         style={styles.input}
         value={confirmPwd}
         onChangeText={setConfirmPwd}
-        placeholder="再次输入新密码"
+        placeholder={t('settings.confirmPasswordPh')}
         placeholderTextColor={colors.ink3}
         secureTextEntry
       />
@@ -82,7 +84,9 @@ export default function ChangePasswordScreen() {
         disabled={saving}
         onPress={save}
       >
-        <Text style={styles.saveText}>{saving ? '提交中...' : '确认修改'}</Text>
+        <Text style={styles.saveText}>
+          {saving ? t('settings.pwdSubmitting') : t('settings.pwdSubmit')}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

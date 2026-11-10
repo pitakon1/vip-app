@@ -15,7 +15,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -34,6 +33,8 @@ import {
 import PublicListingRow from './PublicListingRow';
 import PublicInquiryForm from './PublicInquiryForm';
 import { Badge } from './PublicFilterChip';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
 
 export default function PublicSchoolDetailScreen() {
   const { t } = useI18n();
@@ -44,22 +45,38 @@ export default function PublicSchoolDetailScreen() {
 
   const [school, setSchool] = useState<PublicSchoolDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     void loadRates();
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
+    setFailed(false);
+    setNotFound(false);
     publicApi
       .school(id, { radius_km: DEFAULT_SCHOOL_RADIUS_KM, limit: NEARBY_LIMIT })
       .then((res: any) => {
-        if (!cancelled) setSchool(res?.data ?? null);
+        if (cancelled) return;
+        const data = res?.data ?? null;
+        setSchool(data);
+        if (!data) setNotFound(true);
       })
-      .catch(() => {
-        if (!cancelled) setSchool(null);
+      .catch((err: any) => {
+        if (cancelled) return;
+        setSchool(null);
+        // 404 是「学校不存在」，网络/服务失败要能重试，不能都糊成「未找到」
+        if (err?.response?.status === 404) setNotFound(true);
+        else setFailed(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -67,17 +84,26 @@ export default function PublicSchoolDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (loading) {
+    return <LoadingState label={t('pub.loading')} />;
+  }
+
+  if (failed) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.center}>
+        <EmptyState
+          tone="error"
+          title={t('loadFailed')}
+          actionLabel={t('retry')}
+          onAction={() => setReloadKey((k) => k + 1)}
+        />
       </View>
     );
   }
 
-  if (!school) {
+  if (notFound || !school) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
         <Text style={styles.emptyText}>{t('pub.schoolNotFound')}</Text>
@@ -122,6 +148,9 @@ export default function PublicSchoolDetailScreen() {
             <TouchableOpacity
               style={styles.callRow}
               onPress={() => void Linking.openURL(`tel:${school.phone}`)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={`${school.phone} · ${t('pub.call')}`}
             >
               <Ionicons name="call-outline" size={16} color={colors.primary} />
               <Text style={styles.callText}>
@@ -130,7 +159,12 @@ export default function PublicSchoolDetailScreen() {
             </TouchableOpacity>
           ) : null}
           {school.website ? (
-            <TouchableOpacity onPress={() => school.website && void Linking.openURL(school.website)}>
+            <TouchableOpacity
+              onPress={() => school.website && void Linking.openURL(school.website)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="link"
+              accessibilityLabel={school.website}
+            >
               <Text style={styles.link}>{school.website}</Text>
             </TouchableOpacity>
           ) : null}
@@ -174,7 +208,9 @@ export default function PublicSchoolDetailScreen() {
       <TouchableOpacity
         style={[styles.floatBack, { top: insets.top + 8 }]}
         onPress={() => navigation.goBack()}
+        accessibilityRole="button"
         accessibilityLabel={t('pub.back')}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <Ionicons name="chevron-back" size={22} color={colors.ink} />
       </TouchableOpacity>
@@ -199,7 +235,7 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 16,
     paddingHorizontal: 20,
-    height: 42,
+    height: 44,
     borderRadius: colors.radius.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -232,9 +268,9 @@ const styles = StyleSheet.create({
   floatBack: {
     position: 'absolute',
     left: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',

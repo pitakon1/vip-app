@@ -29,6 +29,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi, listingApi } from '@/services/api';
@@ -390,6 +391,8 @@ export default function PropertiesScreen() {
   const [areaCustomMax, setAreaCustomMax] = useState('');
   const [sort, setSort] = useState('default');
   const [activeFilter, setActiveFilter] = useState('');
+  // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   // C 端维度：学校（空间筛选，与 C 端找房口径一致）
   const [schoolId, setSchoolId] = useState('');
   const [schoolKm, setSchoolKm] = useState<number>(3);
@@ -853,7 +856,7 @@ export default function PropertiesScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View ref={rootRef} style={styles.container}>
       <ScrollView
         contentContainerStyle={[styles.content, respContainer]}
         showsVerticalScrollIndicator={false}
@@ -912,6 +915,7 @@ export default function PropertiesScreen() {
         </ScrollView>
 
         {/* 筛选：房型 / 价格 / 面积 / 排序 */}
+        <View ref={anchorRef} onLayout={measureAnchor}>
         <View style={styles.filterRow}>
           <TouchableOpacity
             style={[styles.filterChip, activeFilter === 'bedrooms' && styles.filterChipActive]}
@@ -1148,6 +1152,7 @@ export default function PropertiesScreen() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
 
         {/* 统计行 */}
         <View style={styles.statRow}>
@@ -1348,6 +1353,11 @@ export default function PropertiesScreen() {
           })
         )}
       </ScrollView>
+
+      {/* 面板展开时点击面板外的列表区即收起：与分类页筛选面板行为一致 */}
+      {activeFilter !== '' ? (
+        <PanelBackdrop top={backdropTop} onClose={() => setActiveFilter('')} />
+      ) : null}
 
       {/* 新增 / 编辑弹窗 */}
       <Modal

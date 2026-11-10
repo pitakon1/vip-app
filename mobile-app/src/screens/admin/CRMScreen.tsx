@@ -16,7 +16,6 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
-  Alert,
   Linking,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -27,13 +26,13 @@ import colors from '../../theme/colors';
 import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '../../components/EmptyState';
 import ListState from '../../components/ListState';
+import { confirm } from '../../components/ConfirmDialog';
 import { notify, notifyError } from '../../utils/feedback';
 import { chatApi, leadsApi } from '../../services/api';
 import { useI18n } from '../../i18n';
 import { useRefreshList } from '../../hooks/useRefreshList';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
-import { errorText } from '@/lib/errorText'
 
 const STAGES: { key: string; labelKey: string; color: string; rgb: string }[] = [
   { key: 'inquiring', labelKey: 'crm.stage.inquiring', color: colors.info, rgb: colors.infoRgb },
@@ -132,23 +131,21 @@ export default function AdminCRMScreen() {
       setSaving(false);
     }
   };
-  const confirmDelete = (l: Lead) => {
-    Alert.alert(t('crm.delete'), `${t('crm.deleteConfirm')}「${l.name || t('crm.unnamed')}」？`, [
-      { text: t('crm.cancel'), style: 'cancel' },
-      {
-        text: t('crm.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await leadsApi.delete(l.id);
-            notify(t('crm.delete'), t('crm.deleted'));
-            load();
-          } catch (e: any) {
-            notifyError(t('crm.delete'), e);
-          }
-        },
-      },
-    ]);
+  const confirmDelete = async (l: Lead) => {
+    const ok = await confirm({
+      title: t('crm.delete'),
+      message: `${t('crm.deleteConfirm')}「${l.name || t('crm.unnamed')}」？`,
+      confirmLabel: t('crm.delete'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await leadsApi.delete(l.id);
+      notify(t('crm.delete'), t('crm.deleted'));
+      load();
+    } catch (e: any) {
+      notifyError(t('crm.delete'), e);
+    }
   };
 
   const { loading, refreshControl } = useRefreshList(load);
@@ -159,11 +156,11 @@ export default function AdminCRMScreen() {
   const callCustomer = (l: Lead) => {
     const phone = (l.phone || '').trim();
     if (!phone) {
-      Alert.alert(t('crm.contactCustomer'), t('crm.noPhone'));
+      notify(t('crm.contactCustomer'), t('crm.noPhone'));
       return;
     }
     Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
-      Alert.alert(t('crm.contactCustomer'), t('crm.callFail'));
+      notify(t('crm.contactCustomer'), t('crm.callFail'));
     });
   };
 
@@ -172,23 +169,22 @@ export default function AdminCRMScreen() {
     const phone = (l.phone || '').trim();
     const email = (l.email || '').trim();
     if (!phone && !email) {
-      Alert.alert(t('crm.contactCustomer'), t('crm.noContactInfo'));
+      notify(t('crm.contactCustomer'), t('crm.noContactInfo'));
       return;
     }
     try {
       const res = await chatApi.createConversation({
-        title: l.name?.trim() || '客户咨询',
+        title: l.name?.trim() || t('crm.leadTitle'),
         ...(phone ? { participant_phones: [phone] } : {}),
         ...(email ? { participant_emails: [email] } : {}),
       });
       const conv = res.data?.data ?? res.data;
       navigation.navigate('ChatDetail', {
         conversationId: conv?.id,
-        title: conv?.title ?? l.name ?? '会话',
+        title: conv?.title ?? l.name ?? t('crm.conversation'),
       });
     } catch (e: any) {
-      Alert.alert(
-        t('crm.cannotSend'),errorText(e, t('crm.notRegistered')));
+      notifyError(t('crm.cannotSend'), e);
     }
   };
 
@@ -226,7 +222,7 @@ export default function AdminCRMScreen() {
                   {l.name || t('crm.unnamed')}
                 </Text>
                 <View style={[styles.stageBadge, { backgroundColor: colors.alpha(metaRgb, 0.12) }]}>
-                  <Text style={[styles.stageBadgeText, { color: metaColor }]}>{metaLabel}</Text>
+                  <Text style={[styles.stageBadgeText, { color: metaColor }]} numberOfLines={1}>{metaLabel}</Text>
                 </View>
               </View>
               <View style={styles.contactRow}>
@@ -250,7 +246,7 @@ export default function AdminCRMScreen() {
 
           <View style={styles.followRow}>
             <Ionicons name="time-outline" size={12} color={colors.ink3} />
-            <Text style={styles.followText}>
+            <Text style={styles.followText} numberOfLines={1}>
               {lastFollow ? `${t('crm.lastFollow')}: ${dayjs(lastFollow).format('MM-DD')}` : t('crm.noFollow')}
               {owner ? ` · ${t('crm.owner')} ${owner}` : ''}
             </Text>
@@ -651,10 +647,10 @@ const styles = StyleSheet.create({
     gap: colors.spacing.sm,
   },
   leadName: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink },
-  stageBadge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
+  stageBadge: { flexShrink: 1, borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
   stageBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  contactText: { fontSize: 13, color: colors.ink3, fontVariant: ['tabular-nums'] },
+  contactText: { flexShrink: 1, fontSize: 13, color: colors.ink3, fontVariant: ['tabular-nums'] },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: colors.spacing.md },
   tag: {
     backgroundColor: colors.surface2,
@@ -664,5 +660,5 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: colors.fontSize.xs, color: colors.ink2, fontWeight: '500' },
   followRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: colors.spacing.md },
-  followText: { fontSize: colors.fontSize.xs, color: colors.ink3 },
+  followText: { flexShrink: 1, fontSize: colors.fontSize.xs, color: colors.ink3 },
 });

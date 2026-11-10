@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 
 interface Props {
   loading: boolean;
@@ -55,15 +56,16 @@ export default function OAuthButtons({
   onPhone,
   onEmail,
 }: Props) {
-  const goog = mode === 'register' ? '使用 Google 注册' : '使用 Google 登录';
-  const apple = mode === 'register' ? '使用 Apple 注册' : '使用 Apple 登录';
-  const phone = mode === 'register' ? '使用手机号注册' : '使用手机号登录';
-  const email = mode === 'register' ? '使用邮箱注册' : '使用邮箱登录';
+  const { t } = useI18n();
+  const goog = t(mode === 'register' ? 'oauth.googleRegister' : 'oauth.googleLogin');
+  const apple = t(mode === 'register' ? 'oauth.appleRegister' : 'oauth.appleLogin');
+  const phone = t(mode === 'register' ? 'oauth.phoneRegister' : 'oauth.phoneLogin');
+  const email = t(mode === 'register' ? 'oauth.emailRegister' : 'oauth.emailLogin');
 
   return (
     <View style={styles.group}>
       <TouchableOpacity
-        style={styles.btn}
+        style={[styles.btn, loading && styles.btnDisabled]}
         onPress={onGoogle}
         disabled={loading}
         activeOpacity={0.7}
@@ -78,21 +80,25 @@ export default function OAuthButtons({
         <Text style={styles.text}>{goog}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.btn}
-        onPress={onApple}
-        disabled={loading}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={apple}
-      >
-        <Ionicons name="logo-apple" size={18} color={colors.black} style={styles.icon} />
-        <Text style={styles.text}>{apple}</Text>
-      </TouchableOpacity>
+      {/* Apple 登录仅 iOS 原生支持（Android/Web 点击必定失败），非 iOS 不展示避免死入口 */}
+      {Platform.OS === 'ios' ? (
+        <TouchableOpacity
+          style={[styles.btn, loading && styles.btnDisabled]}
+          onPress={onApple}
+          disabled={loading}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={apple}
+        >
+          <Ionicons name="logo-apple" size={18} color={colors.black} style={styles.icon} />
+          <Text style={styles.text}>{apple}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <TouchableOpacity
-        style={styles.btn}
+        style={[styles.btn, loading && styles.btnDisabled]}
         onPress={onPhone}
+        disabled={loading}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={phone}
@@ -102,8 +108,9 @@ export default function OAuthButtons({
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.btn}
+        style={[styles.btn, loading && styles.btnDisabled]}
         onPress={onEmail}
+        disabled={loading}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={email}
@@ -128,6 +135,8 @@ const styles = StyleSheet.create({
     borderColor: colors.fieldFillBorder,
   },
   icon: { position: 'absolute', left: 16 },
+  // OAuth 进行中四个入口统一变淡，避免「看起来还能点」
+  btnDisabled: { opacity: 0.5 },
   text: {
     fontSize: 15,
     fontWeight: '700',

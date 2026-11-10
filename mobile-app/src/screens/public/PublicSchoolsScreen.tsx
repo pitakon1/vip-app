@@ -15,6 +15,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
+  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,7 +32,9 @@ import {
   schoolStageLabel,
 } from '@/lib/publicSite';
 import ListState from '@/components/ListState';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
 import { Badge } from './PublicFilterChip';
+import { notifyError } from '@/utils/feedback';
 const PAGE_SIZE = BROWSE_PAGE_SIZE;
 
 export default function PublicSchoolsScreen() {
@@ -44,6 +48,8 @@ export default function PublicSchoolsScreen() {
   const [curriculum, setCurriculum] = useState('');
   /** 当前展开的筛选下拉面板（null = 全部收起） */
   const [openTab, setOpenTab] = useState<null | 'stage' | 'curriculum'>(null);
+  // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   const [items, setItems] = useState<PublicSchool[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,6 +93,8 @@ export default function PublicSchoolsScreen() {
       } catch {
         if (seq !== requestSeq.current) return;
         if (targetPage === 1) setLoadError(t('loadFailed'));
+        // 第 2 页起失败此前被静默吞掉，用户只会看到列表停住
+        else notifyError(t('common.hint'), new Error(t('loadFailedSub')));
       } finally {
         if (seq === requestSeq.current) {
           setLoading(false);
@@ -128,14 +136,22 @@ export default function PublicSchoolsScreen() {
       active: !!curriculum,
     },
   ];
+  const hasFilter = !!(debounced || stage || curriculum);
+  const clearFilters = () => {
+    setKeyword('');
+    setDebounced('');
+    setStage('');
+    setCurriculum('');
+    setOpenTab(null);
+  };
 
   return (
-    <View style={styles.container}>
+    <View ref={rootRef} style={styles.container}>
       <BeikeHeader title={t('pub.schoolsTitle')} hideHome />
       <Text style={styles.hint}>{t('pub.schoolsHint')}</Text>
 
       {/* 与房源列表对齐：一张卡内「搜索行 + 单行筛选栏 + 顶部下拉面板」 */}
-      <View style={styles.filterCard}>
+      <View style={styles.filterCard} ref={anchorRef} onLayout={measureAnchor}>
         <View style={styles.searchRow}>
           <Ionicons name="search-outline" size={18} color={colors.ink3} />
           <TextInput
@@ -145,7 +161,19 @@ export default function PublicSchoolsScreen() {
             placeholder={t('pub.schoolSearchPlaceholder')}
             placeholderTextColor={colors.ink3}
             returnKeyType="search"
+            onSubmitEditing={() => Keyboard.dismiss()}
+            accessibilityLabel={t('pub.schoolSearchPlaceholder')}
           />
+          {keyword ? (
+            <TouchableOpacity
+              onPress={() => setKeyword('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('pub.clearSearch')}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.ink3} />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.filterBar}>
@@ -159,6 +187,9 @@ export default function PublicSchoolsScreen() {
               ]}
               onPress={() => setOpenTab(openTab === f.key ? null : f.key)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: openTab === f.key, selected: f.active }}
+              accessibilityLabel={f.label}
             >
               <Text
                 numberOfLines={1}
@@ -192,6 +223,9 @@ export default function PublicSchoolsScreen() {
                     else setCurriculum(opt.value);
                     setOpenTab(null);
                   }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={opt.label}
                 >
                   <Text style={[styles.optionText, selected && styles.optionTextActive]}>
                     {opt.label}
@@ -212,9 +246,11 @@ export default function PublicSchoolsScreen() {
           loadingLabel={t('pub.loading')}
           error={loadError}
           empty={items.length === 0}
-          filtered={!!(debounced || stage || curriculum)}
+          filtered={hasFilter}
           emptyTitle={t('pub.schoolsEmpty')}
-          emptySub={t('pub.schoolsHint')}
+          emptySub={hasFilter ? t('pub.emptyFilteredSub') : t('pub.schoolsHint')}
+          emptyActionLabel={hasFilter ? t('pub.clearFilters') : undefined}
+          onEmptyAction={hasFilter ? clearFilters : undefined}
           retryLabel={t('retry')}
           onRetry={() => {
             setLoadError(null);
@@ -231,11 +267,20 @@ export default function PublicSchoolsScreen() {
             if (loading || loadingMore || items.length >= total) return;
             void fetchPage(page + 1);
           }}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading && !loadingMore}
+              onRefresh={() => void fetchPage(1)}
+              tintColor={colors.primary}
+            />
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
               activeOpacity={0.85}
               onPress={() => navigation.navigate('PublicSchoolDetail', { id: item.id })}
+              accessibilityRole="button"
+              accessibilityLabel={item.name ?? undefined}
             >
               <View style={styles.cardMain}>
                 <Text style={styles.schoolName}>{item.name}</Text>
@@ -257,10 +302,16 @@ export default function PublicSchoolsScreen() {
           ListFooterComponent={
             loadingMore ? (
               <ActivityIndicator style={{ paddingVertical: 16 }} color={colors.primary} />
+            ) : items.length > 0 && items.length >= total ? (
+              <Text style={styles.noMore}>{t('pub.noMore')}</Text>
             ) : null
           }
         />
       )}
+      {/* 面板展开时点击面板外的列表区即收起：与分类页筛选面板行为一致 */}
+      {openTab !== null ? (
+        <PanelBackdrop top={backdropTop} onClose={() => setOpenTab(null)} />
+      ) : null}
     </View>
   );
 }
@@ -340,6 +391,12 @@ const styles = StyleSheet.create({
   optionText: { fontSize: 14, color: colors.ink },
   optionTextActive: { color: colors.primary, fontWeight: '600' },
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
+  noMore: {
+    fontSize: colors.fontSize.xs,
+    color: colors.ink3,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   card: {
     flexDirection: 'row',

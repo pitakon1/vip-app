@@ -1,5 +1,4 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { errorText } from '@/lib/errorText';
 import {
   View,
   Text,
@@ -9,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Alert,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +16,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { documentsApi } from '@/services/api';
 import { documentFileUrl } from '@/lib/api';
+import { notify, notifyError } from '@/utils/feedback';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
@@ -42,13 +41,13 @@ interface DocItem {
  * 文档类型元数据（合并业主 + 租客两类文档类型）。
  * 统一一套页面结构，仅按用户能力决定上传入口的显隐。
  */
-const TYPE_META: Record<string, { label: string; color: string; bg: string; icon: IoniconName }> = {
-  contract: { label: '合同', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
-  receipt: { label: '收据', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
-  inspection_photo: { label: '验房照片', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'image-outline' },
-  tax_invoice: { label: '税务发票', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
-  wht_certificate: { label: '代扣税凭证', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
-  other: { label: '其他', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
+const TYPE_META: Record<string, { labelKey: string; color: string; bg: string; icon: IoniconName }> = {
+  contract: { labelKey: 'docType.contract', color: colors.primary, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'document-text-outline' },
+  receipt: { labelKey: 'docType.receipt', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), icon: 'receipt-outline' },
+  inspection_photo: { labelKey: 'docType.inspectionPhoto', color: colors.primaryText, bg: colors.alpha(colors.primaryRgb, 0.1), icon: 'image-outline' },
+  tax_invoice: { labelKey: 'docType.taxInvoice', color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1), icon: 'document-outline' },
+  wht_certificate: { labelKey: 'docType.whtCertificate', color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1), icon: 'document-outline' },
+  other: { labelKey: 'docType.other', color: colors.ink3, bg: colors.surface2, icon: 'folder-outline' },
 };
 
 const metaOf = (type?: string) => TYPE_META[type ?? ''] ?? TYPE_META.other;
@@ -95,7 +94,7 @@ export default function DocumentsScreen() {
   // 加载失败提示（保留原行为）
   useEffect(() => {
     if (q.isError) {
-      Alert.alert(t('loadFailed'), t('doc.loadFailMsg'));
+      notify(t('loadFailed'), t('doc.loadFailMsg'));
     }
   }, [q.isError]);
 
@@ -138,8 +137,8 @@ export default function DocumentsScreen() {
   const filters = useMemo(() => {
     const types = Array.from(new Set(docs.map((d) => d.type ?? 'other')));
     return [
-      { key: 'all', label: '全部' },
-      ...types.map((t) => ({ key: t, label: metaOf(t).label })),
+      { key: 'all', labelKey: 'common.all' },
+      ...types.map((type) => ({ key: type, labelKey: metaOf(type).labelKey })),
     ];
   }, [docs]);
 
@@ -148,17 +147,17 @@ export default function DocumentsScreen() {
   // 打开 / 下载文档：统一走带鉴权的 /documents/{id}/file 取件，避免直接使用前端落库地址
   const openDoc = async (doc: DocItem, mode: 'file' | 'download' = 'file') => {
     if (!doc.id) {
-      Alert.alert(t('doc.openFailTitle'), t('doc.noFile'));
+      notify(t('doc.openFailTitle'), t('doc.noFile'));
       return;
     }
     const url = await documentFileUrl(doc.id, mode);
     if (!url) {
-      Alert.alert(t('doc.openFailTitle'), t('doc.sessionExpired'));
+      notify(t('doc.openFailTitle'), t('doc.sessionExpired'));
       return;
     }
     const supported = await Linking.canOpenURL(url).catch(() => false);
     if (!supported) {
-      Alert.alert(t('doc.openFailTitle'), t('doc.unsupported'));
+      notify(t('doc.openFailTitle'), t('doc.unsupported'));
       return;
     }
     Linking.openURL(url);
@@ -185,7 +184,7 @@ export default function DocumentsScreen() {
       });
       loadDocs();
     } catch (err: any) {
-      Alert.alert(t('prop.uploadFail'), errorText(err, t('doc.loadFailMsg')));
+      notifyError(t('prop.uploadFail'), err);
     } finally {
       setUploading(false);
       setUploadPct(0);
@@ -200,10 +199,10 @@ export default function DocumentsScreen() {
           <Ionicons name={meta.icon} size={20} color={meta.color} />
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{item.title || '未命名文档'}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>{item.title || t('doc.untitled')}</Text>
           <View style={styles.cardMetaRow}>
             <View style={[styles.badge, { backgroundColor: meta.bg }]}>
-              <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+              <Text style={[styles.badgeText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
             </View>
           </View>
           <Text style={styles.cardSub} numberOfLines={1}>
@@ -225,7 +224,7 @@ export default function DocumentsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载文档…" />
+        <LoadingState label={t('doc.loading')} />
       </View>
     );
   }
@@ -264,7 +263,7 @@ export default function DocumentsScreen() {
                   ) : (
                     <>
                       <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryForeground} />
-                      <Text style={styles.actionText}>上传合同 / 凭证</Text>
+                      <Text style={styles.actionText}>{t('doc.upload')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -274,20 +273,20 @@ export default function DocumentsScreen() {
             {/* 统计行：文档总数 / 存储已用 */}
             <View style={styles.statRow}>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>文档总数</Text>
+                <Text style={styles.statLabel}>{t('doc.statTotal')}</Text>
                 <Text style={styles.statValue}>{stats.total}</Text>
                 <View style={[styles.miniBadge, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
                   <Text style={[styles.miniBadgeText, { color: colors.primary }]}>
-                    {stats.monthAdded} 份本月新增
+                    {t('doc.statMonthAdded', { count: stats.monthAdded })}
                   </Text>
                 </View>
               </View>
               <View style={styles.statCell}>
-                <Text style={styles.statLabel}>存储已用</Text>
+                <Text style={styles.statLabel}>{t('doc.statStorage')}</Text>
                 <Text style={styles.statValue}>{formatSize(stats.usedBytes)}</Text>
                 <View style={[styles.miniBadge, { backgroundColor: colors.surface2 }]}>
                   <Text style={[styles.miniBadgeText, { color: colors.ink3 }]}>
-                    {stats.total} 份文件
+                    {t('doc.statFiles', { count: stats.total })}
                   </Text>
                 </View>
               </View>
@@ -296,7 +295,7 @@ export default function DocumentsScreen() {
             {/* 存储空间使用情况 */}
             <View style={styles.card2}>
               <View style={styles.storageHead}>
-                <Text style={styles.storageLabel}>存储空间使用情况</Text>
+                <Text style={styles.storageLabel}>{t('doc.storageUsage')}</Text>
                 <Text style={styles.storageValue}>{formatSize(stats.usedBytes)}</Text>
               </View>
               <View style={styles.progressTrack}>
@@ -304,7 +303,10 @@ export default function DocumentsScreen() {
               </View>
               {stats.topType && stats.usedBytes > 0 && (
                 <Text style={styles.storageNote}>
-                  主要来源：{metaOf(stats.topType).label} · 占比 {stats.topPct}%
+                  {t('doc.storageNote', {
+                    type: t(metaOf(stats.topType).labelKey),
+                    pct: stats.topPct,
+                  })}
                 </Text>
               )}
             </View>
@@ -320,23 +322,23 @@ export default function DocumentsScreen() {
                     activeOpacity={0.8}
                     onPress={() => setFilter(f.key)}
                   >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(f.labelKey)}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>全部文档</Text>
-              <Text style={styles.sectionHint}>{filtered.length} 份</Text>
+              <Text style={styles.sectionTitle}>{t('doc.sectionTitle')}</Text>
+              <Text style={styles.sectionHint}>{t('doc.sectionCount', { count: filtered.length })}</Text>
             </View>
           </View>
         }
         ListEmptyComponent={
           <EmptyState
             icon="folder-open-outline"
-            title="暂无文档"
-            sub="合同、收据、验房与税务文件都会归档在这里"
+            title={t('doc.emptyTitle')}
+            sub={t('doc.emptySub')}
           />
         }
       />

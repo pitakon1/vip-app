@@ -19,7 +19,7 @@ export const token = (name: string, fallback: string): string => {
  */
 export const chartTheme = {
   get primary(): string {
-    return token('--chart-1', '#0d9488')
+    return token('--chart-1', '#14b8a6')
   },
   get ink2(): string {
     return token('--rent-ink-2', '#55606c')
@@ -28,7 +28,7 @@ export const chartTheme = {
     return token('--rent-ink-3', '#5f6b78')
   },
   get line(): string {
-    return token('--rent-line', '#ece7df')
+    return token('--rent-line', '#e2e5e8')
   },
   get surface(): string {
     return token('--rent-card', '#ffffff')
@@ -53,7 +53,7 @@ export const chartTheme = {
   /** 按序取色，色板缺失时回退到主色，避免 undefined 传到 Chart.js。 */
   chart(index: number): string {
     const colors = this.palette
-    if (!colors.length) return '#0d9488'
+    if (!colors.length) return '#14b8a6'
     return colors[Math.abs(index) % colors.length]
   },
 }

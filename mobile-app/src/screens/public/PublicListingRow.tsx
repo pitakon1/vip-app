@@ -11,7 +11,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
-import { fmtMoney } from '@/utils/format';
+import { fmtMoney, formatArea } from '@/utils/format';
 import { coverOf, listingTypeLabel, type TFunction } from '@/lib/publicSite';
 import type { PublicListing } from '@/services/publicApi';
 
@@ -35,9 +35,12 @@ export default function PublicListingRow({ item, t, onPress }: Props) {
     item.address,
   ].filter(Boolean).join(' · ');
   const facts = [
-    item.bedrooms != null ? `${item.bedrooms} BED` : null,
-    item.bathrooms != null ? `${item.bathrooms} BATH` : null,
-    item.size_sqm != null ? `${item.size_sqm} ${t('pub.sqm')}` : null,
+    item.bedrooms != null && item.bathrooms != null
+      ? t('prop.bedBath', { bed: item.bedrooms, bath: item.bathrooms })
+      : item.bedrooms != null
+        ? t('prop.bedroomN', { n: item.bedrooms })
+        : null,
+    item.size_sqm != null ? formatArea(item.size_sqm, t('pub.sqm')) : null,
   ].filter(Boolean).join(' · ');
 
   return (

@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Linking,
   RefreshControl,
 } from 'react-native';
@@ -22,6 +21,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
 import { useI18n } from '@/i18n';
+import { toast } from '@/components/Toast';
+import { notify } from '@/utils/feedback';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 type Tone = 'primary' | 'success' | 'info' | 'warning';
@@ -53,6 +54,9 @@ const TONE_RGB: Record<Tone, string> = {
   info: colors.infoRgb,
   warning: colors.warningRgb,
 };
+
+// 后端未归类部门时的兜底分组名（渲染期取当前语言）
+const OTHER_DEPT = '__other__';
 
 export default function ContactScreen() {
   const { t } = useI18n();
@@ -102,7 +106,7 @@ export default function ContactScreen() {
     });
     const byDept = new Map<string, Colleague[]>();
     visible.forEach((e) => {
-      const key = e.department || '其他';
+      const key = e.department || OTHER_DEPT;
       if (!byDept.has(key)) byDept.set(key, []);
       byDept.get(key)!.push(e);
     });
@@ -119,20 +123,23 @@ export default function ContactScreen() {
 
   const callPhone = async (phone?: string | null, name?: string | null) => {
     if (!phone) {
-      Alert.alert(t('contact.noPhoneTitle'), t('contact.noPhoneMsg', { name: name || t('contact.unnamed') }));
+      notify(
+        t('contact.noPhoneTitle'),
+        t('contact.noPhoneMsg', { name: name || t('contact.unnamed') }),
+      );
       return;
     }
     try {
       await Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
     } catch {
-      Alert.alert(name || '联系电话', phone);
+      toast.show({ type: 'error', title: t('contact.callFail'), message: phone });
     }
   };
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <LoadingState label="正在加载通讯录…" />
+        <LoadingState label={t('contact.loading')} />
       </View>
     );
   }
@@ -153,7 +160,7 @@ export default function ContactScreen() {
           style={styles.searchInput}
           value={keyword}
           onChangeText={setKeyword}
-          placeholder="搜索姓名/部门"
+          placeholder={t('contact.searchPlaceholder')}
           placeholderTextColor={colors.ink3}
         />
         {keyword ? (
@@ -174,35 +181,37 @@ export default function ContactScreen() {
             backgroundColor: colors.alpha(colors.errorRgb, 0.08),
           }}
         >
-          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>通讯录刷新失败</Text>
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('contact.refreshFail')}</Text>
           <TouchableOpacity onPress={() => load()} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       {failed && total === 0 ? (
         <EmptyState
           icon="cloud-offline-outline"
-          title="通讯录加载失败"
-          sub="请检查网络后下拉刷新重试"
-          actionLabel="重新加载"
+          title={t('contact.loadFailTitle')}
+          sub={t('contact.loadFailSub')}
+          actionLabel={t('contact.reload')}
           onAction={() => load()}
         />
       ) : total === 0 ? (
         <EmptyState
           icon="people-outline"
-          title={keyword ? '没有找到同事' : '暂无同事信息'}
-          sub={keyword ? '换个关键词试试' : '组织内同事登记后会展示在这里'}
+          title={keyword ? t('contact.searchEmptyTitle') : t('contact.emptyTitle')}
+          sub={keyword ? t('contact.searchEmptySub') : t('contact.emptySub')}
         />
       ) : (
         <>
           {groups.map((g) => (
             <View key={g.dept} style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{g.dept}</Text>
+              <Text style={styles.cardTitle}>
+                {g.dept === OTHER_DEPT ? t('contact.otherDept') : g.dept}
+              </Text>
               <View style={[styles.countBadge, { backgroundColor: colors.alpha(TONE_RGB[g.tone], 0.12) }]}>
                 <Text style={[styles.countBadgeText, { color: TONE_COLOR[g.tone] }]}>
-                  {g.members.length} 人
+                  {t('contact.memberCount', { count: g.members.length })}
                 </Text>
               </View>
             </View>
@@ -223,10 +232,10 @@ export default function ContactScreen() {
                       {e.full_name || '—'}
                     </Text>
                     <Text style={styles.position} numberOfLines={1}>
-                      {e.position || e.employee_no || '同事'}
+                      {e.position || e.employee_no || t('contact.colleague')}
                     </Text>
                     <Text style={styles.phone} numberOfLines={1}>
-                      {e.phone || '未登记电话'}
+                      {e.phone || t('contact.noPhone')}
                     </Text>
                   </View>
                   <View style={styles.actions}>

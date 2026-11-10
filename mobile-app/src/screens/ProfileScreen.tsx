@@ -361,17 +361,17 @@ export default function ProfileScreen() {
     if (item.key === 'permissions') {
       // 系统权限（定位 / 相机 / 通知）只能在系统设置里改；Web 无此能力，给明确提示
       if (Platform.OS === 'web') {
-        Alert.alert(t('common.hint'), t('profile.permissionsHint'));
+        showInfo(t('profile.permissionsHint'));
         return;
       }
       Linking.openSettings().catch(() => {
-        Alert.alert(t('common.hint'), t('profile.permissionsHint'));
+        showInfo(t('profile.permissionsHint'));
       });
       return;
     }
     if (item.key === 'clearCache') {
       // 只清页面数据缓存（cache: 前缀），不触碰登录态与用户偏好
-      clearCache().then(() => Alert.alert(t('common.hint'), t('profile.cacheCleared')));
+      clearCache().then(() => showInfo(t('profile.cacheCleared')));
       return;
     }
     if (item.key === 'checkUpdate') {
@@ -649,7 +649,7 @@ export default function ProfileScreen() {
       const res = await chatApi.support();
       const conv = Array.isArray(res?.data) ? res.data[0] : res?.data;
       if (!conv?.id) {
-        Alert.alert(t('common.hint'), t('profile.supportUnavailable'));
+        showInfo(t('profile.supportUnavailable'));
         return;
       }
       navigation.navigate('ChatDetail', {
@@ -657,7 +657,7 @@ export default function ProfileScreen() {
         title: conv.title ?? t('profile.support'),
       });
     } catch {
-      Alert.alert(t('common.hint'), t('profile.supportUnavailable'));
+      showInfo(t('profile.supportUnavailable'));
     }
   };
 
@@ -686,10 +686,10 @@ export default function ProfileScreen() {
       if (updated && updated.id) {
         setUser(updated);
       } else {
-        Alert.alert(t('common.hint'), t('profile.avatarOk'));
+        showInfo(t('profile.avatarOk'));
       }
     } catch {
-      Alert.alert(t('common.hint'), t('profile.avatarFail'));
+      showInfo(t('profile.avatarFail'));
     }
   };
 
@@ -763,7 +763,7 @@ export default function ProfileScreen() {
                 </View>
                 {/* 用户卡统一展示掩码手机号（无手机号降级邮箱），与 Web/小程序「我的」用户卡一致 */}
                 <Text style={styles.userMeta} numberOfLines={1}>
-                  {user?.phone ? maskPhone(user.phone) : user?.email ?? '-'}
+                  {user?.phone ? maskPhone(user.phone) : user?.email ?? '—'}
                 </Text>
               </View>
             </View>

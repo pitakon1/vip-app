@@ -18,12 +18,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import { tokenStorage } from '@/lib/storage';
-import { notifyError } from '@/utils/feedback';
-import { useOtp, COUNTRY_CODES, DEFAULT_COUNTRY } from '@/hooks/useOtp';
+import { notify, notifyError } from '@/utils/feedback';
+import { useOtp, COUNTRY_CODES, useDefaultCountry } from '@/hooks/useOtp';
 import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 
 const BRAND_LOGO = require('../../assets/haofang-logo.png');
 
@@ -55,12 +56,13 @@ export default function RegisterScreen() {
     closeMock,
     mockBusy,
   } = useOAuth();
+  const { t } = useI18n();
 
   // Reddit 式分步：choose = 方式选择屏，form = 对应表单屏
   const [stage, setStage] = useState<Stage>('choose');
   const [method, setMethod] = useState<Method>('phone');
   // 手机号模式
-  const [country, setCountry] = useState(DEFAULT_COUNTRY);
+  const { country, selectCountry } = useDefaultCountry();
   const [countryVisible, setCountryVisible] = useState(false);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -72,12 +74,14 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('tenant');
   const [error, setError] = useState('');
+  const [errorField, setErrorField] = useState<FocusField | 'agree' | null>(null);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<FocusField | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   const handleSendCode = async () => {
     if (!phone.trim()) {
-      setError('请输入手机号');
+      setError(t('login.phoneRequired'));
       return;
     }
     setError('');
@@ -88,36 +92,50 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     let ok = true;
     let msg = '';
+    let field: FocusField | 'agree' | null = null;
     if (method === 'phone' && !phone.trim()) {
-      msg = '请输入手机号';
+      msg = t('login.phoneRequired');
+      field = 'phone';
       ok = false;
     }
     if (method === 'email' && !email.trim()) {
-      msg = '请输入邮箱';
+      msg = t('login.emailRequired');
+      field = 'email';
       ok = false;
     }
     if (!code && method === 'phone') {
-      msg = '请输入验证码';
+      msg = t('login.codeRequired');
+      field = 'code';
       ok = false;
     }
     if (method === 'email' && !password) {
-      msg = '请输入密码';
+      msg = t('login.passwordRequired');
+      field = 'password';
       ok = false;
     }
     if (method === 'email' && password !== confirm) {
-      msg = '两次输入的密码不一致';
+      msg = t('register.passwordMismatch');
+      field = 'confirm';
       ok = false;
     }
     if (!name.trim()) {
-      msg = '请输入姓名';
+      msg = t('register.nameRequired');
+      field = 'name';
+      ok = false;
+    }
+    if (ok && !agreed) {
+      msg = t('legal.mustAgree');
+      field = 'agree';
       ok = false;
     }
     if (!ok) {
+      // 单一提示：字段描边 + 一条行内错误，不再同时弹 toast 重复一遍
       setError(msg);
-      notifyError('请检查填写内容', new Error(msg));
+      setErrorField(field);
       return;
     }
     setError('');
+    setErrorField(null);
     setLoading(true);
     try {
       const payload =
@@ -128,26 +146,39 @@ export default function RegisterScreen() {
       const token: string | undefined = data?.token ?? data?.access_token;
       const user = data?.user ?? data?.data?.user;
       if (!token || !user) {
-        throw new Error('注册响应格式异常');
+        throw new Error(t('register.badResponse'));
       }
       await tokenStorage.set(token);
       useAuthStore.setState({ user, token, isAuthenticated: true });
+      // 注册成功轻量欢迎：不拦截导航，只在角色首页之上浮一条 toast
+      notify(t('register.welcomeTitle'), t('register.welcomeBody', { name: name.trim() }));
     } catch (err: any) {
       setLoading(false);
-      notifyError('注册失败', err);
+      notifyError(t('register.failedTitle'), err);
     }
   };
 
   const focusedStyle = (f: FocusField) => [
     styles.input,
     focused === f ? styles.inputFocused : undefined,
+    errorField === f ? styles.inputError : undefined,
   ];
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
+      {/* 左上角关闭：与登录页一致，任何阶段都能直接退出，不强制注册 */}
+      <TouchableOpacity
+        style={[styles.closeBtn, { top: insets.top + 6 }]}
+        onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main'))}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+      >
+        <Ionicons name="close" size={22} color={colors.ink2} />
+      </TouchableOpacity>
       {stage === 'choose' ? (
         /* ---------------- 方式选择屏 ---------------- */
         <ScrollView
@@ -178,9 +209,9 @@ export default function RegisterScreen() {
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>已有账号？</Text>
+            <Text style={styles.footerText}>{t('register.hasAccount')}</Text>
             <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
-              <Text style={styles.footerLink}>去登录</Text>
+              <Text style={styles.footerLink}>{t('register.goLogin')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -200,11 +231,11 @@ export default function RegisterScreen() {
               onPress={() => setStage('choose')}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityRole="button"
-              accessibilityLabel="返回方式选择"
+              accessibilityLabel={t('login.backToMethods')}
             >
               <Ionicons name="arrow-back" size={22} color={colors.ink} />
             </TouchableOpacity>
-            <Text style={styles.formTitle}>创建你的账号</Text>
+            <Text style={styles.formTitle}>{t('register.createAccount')}</Text>
           </View>
 
           {method === 'phone' ? (
@@ -218,15 +249,15 @@ export default function RegisterScreen() {
                 ]}
                 onPress={() => setCountryVisible(true)}
                 accessibilityRole="button"
-                accessibilityLabel="选择国家码"
+                accessibilityLabel={t('login.selectCountryCode')}
               >
-                <Text style={styles.countryText}>{country.label}</Text>
+                <Text style={styles.countryText}>{t(country.labelKey)}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
 
               <TextInput
                 style={focusedStyle('phone')}
-                placeholder="手机号"
+                placeholder={t('login.phoneLabel')}
                 placeholderTextColor={colors.ink3}
                 value={phone}
                 onChangeText={setPhone}
@@ -234,21 +265,25 @@ export default function RegisterScreen() {
                 textContentType="telephoneNumber"
                 onFocus={() => setFocused('phone')}
                 onBlur={() => setFocused(null)}
-                accessibilityLabel="手机号"
+                accessibilityLabel={t('login.phoneLabel')}
               />
 
               {/* 验证码 输入 + 获取验证码文字按钮 */}
               <View style={styles.codeRow}>
                 <TextInput
-                  style={[styles.codeInput, focused === 'code' ? styles.inputFocused : undefined]}
-                  placeholder="验证码"
+                  style={[
+                    styles.codeInput,
+                    focused === 'code' ? styles.inputFocused : undefined,
+                    errorField === 'code' ? styles.inputError : undefined,
+                  ]}
+                  placeholder={t('login.codeLabel')}
                   placeholderTextColor={colors.ink3}
                   value={code}
                   onChangeText={setCode}
                   keyboardType="number-pad"
                   onFocus={() => setFocused('code')}
                   onBlur={() => setFocused(null)}
-                  accessibilityLabel="验证码"
+                  accessibilityLabel={t('login.codeLabel')}
                 />
                 <TouchableOpacity
                   style={styles.codeBtn}
@@ -256,13 +291,15 @@ export default function RegisterScreen() {
                   disabled={secondsLeft > 0 || sending}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={secondsLeft > 0 ? `重新获取，${secondsLeft}秒` : '获取验证码'}
+                  accessibilityLabel={
+                    secondsLeft > 0 ? t('login.resendIn', { n: secondsLeft }) : t('login.getCode')
+                  }
                 >
                   {sending ? (
                     <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <Text style={[styles.codeBtnText, secondsLeft > 0 && styles.codeBtnTextMuted]}>
-                      {secondsLeft > 0 ? `${secondsLeft}s` : '获取验证码'}
+                      {secondsLeft > 0 ? `${secondsLeft}s` : t('login.getCode')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -272,7 +309,7 @@ export default function RegisterScreen() {
             <>
               <TextInput
                 style={focusedStyle('email')}
-                placeholder="邮箱"
+                placeholder={t('login.email')}
                 placeholderTextColor={colors.ink3}
                 value={email}
                 onChangeText={setEmail}
@@ -281,11 +318,11 @@ export default function RegisterScreen() {
                 textContentType="emailAddress"
                 onFocus={() => setFocused('email')}
                 onBlur={() => setFocused(null)}
-                accessibilityLabel="邮箱"
+                accessibilityLabel={t('login.email')}
               />
               <TextInput
                 style={focusedStyle('password')}
-                placeholder="密码"
+                placeholder={t('login.password')}
                 placeholderTextColor={colors.ink3}
                 value={password}
                 onChangeText={setPassword}
@@ -294,11 +331,13 @@ export default function RegisterScreen() {
                 autoCorrect={false}
                 onFocus={() => setFocused('password')}
                 onBlur={() => setFocused(null)}
-                accessibilityLabel="密码"
+                accessibilityLabel={t('login.password')}
               />
+              {/* 密码规则常驻提示：占位文案，正式规则待法务/产品确认 */}
+              <Text style={styles.fieldHint}>{t('register.pwdRule')}</Text>
               <TextInput
                 style={focusedStyle('confirm')}
-                placeholder="确认密码"
+                placeholder={t('register.confirmPassword')}
                 placeholderTextColor={colors.ink3}
                 value={confirm}
                 onChangeText={setConfirm}
@@ -307,41 +346,75 @@ export default function RegisterScreen() {
                 autoCorrect={false}
                 onFocus={() => setFocused('confirm')}
                 onBlur={() => setFocused(null)}
-                accessibilityLabel="确认密码"
+                accessibilityLabel={t('register.confirmPassword')}
               />
             </>
           )}
 
           <TextInput
             style={focusedStyle('name')}
-            placeholder="姓名"
+            placeholder={t('register.name')}
             placeholderTextColor={colors.ink3}
             value={name}
             onChangeText={setName}
             onFocus={() => setFocused('name')}
             onBlur={() => setFocused(null)}
-            accessibilityLabel="姓名"
+            accessibilityLabel={t('register.name')}
           />
 
           {/* 角色 两个紧凑胶囊 */}
           <View style={styles.roleRow}>
             {(
               [
-                ['tenant', '租客'],
-                ['owner', '房东'],
-              ] as [Role, string][]
-            ).map(([r, label]) => (
+                ['tenant', t('register.tenant'), t('register.tenantHint')],
+                ['owner', t('register.owner'), t('register.ownerHint')],
+              ] as [Role, string, string][]
+            ).map(([r, label, hint]) => (
               <TouchableOpacity
                 key={r}
                 style={[styles.roleItem, role === r && styles.roleItemActive]}
                 onPress={() => setRole(r)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: role === r }}
-                accessibilityLabel={`注册为${label}`}
+                accessibilityLabel={`${label} · ${hint}`}
               >
                 <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{label}</Text>
+                <Text style={[styles.roleHint, role === r && styles.roleHintActive]}>{hint}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          {/* 协议勾选：未勾选不阻止填写，提交时提示 */}
+          <View style={styles.consentRow}>
+            <TouchableOpacity
+              onPress={() => setAgreed((v) => !v)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreed }}
+              accessibilityLabel={t('legal.agreePrefix')}
+            >
+              <Ionicons
+                name={agreed ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={agreed ? colors.primary : colors.ink3}
+              />
+            </TouchableOpacity>
+            <Text style={styles.consentText}>
+              {t('legal.agreePrefix')}
+              <Text
+                style={styles.consentLink}
+                onPress={() => navigation.navigate('Agreement', { type: 'terms' })}
+              >
+                {t('legal.termsTitle')}
+              </Text>
+              {t('legal.and')}
+              <Text
+                style={styles.consentLink}
+                onPress={() => navigation.navigate('Agreement', { type: 'privacy' })}
+              >
+                {t('legal.privacyTitle')}
+              </Text>
+            </Text>
           </View>
 
           {!!error && <Text style={styles.fieldError}>{error}</Text>}
@@ -356,14 +429,14 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color={colors.primaryForeground} />
             ) : (
-              <Text style={styles.buttonText}>注册</Text>
+              <Text style={styles.buttonText}>{t('register.submit')}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>已有账号？</Text>
+            <Text style={styles.footerText}>{t('register.hasAccount')}</Text>
             <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
-              <Text style={styles.footerLink}>去登录</Text>
+              <Text style={styles.footerLink}>{t('register.goLogin')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -382,7 +455,7 @@ export default function RegisterScreen() {
           onPress={() => setCountryVisible(false)}
         >
           <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>选择国家 / 地区</Text>
+            <Text style={styles.sheetTitle}>{t('login.selectCountry')}</Text>
             {COUNTRY_CODES.map((c) => {
               const active = c.value === country.value;
               return (
@@ -390,11 +463,13 @@ export default function RegisterScreen() {
                   key={c.value}
                   style={styles.option}
                   onPress={() => {
-                    setCountry(c);
+                    selectCountry(c);
                     setCountryVisible(false);
                   }}
                 >
-                  <Text style={[styles.optionText, active && styles.optionTextActive]}>{c.label}</Text>
+                  <Text style={[styles.optionText, active && styles.optionTextActive]}>
+                    {t(c.labelKey)}
+                  </Text>
                   {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
                 </TouchableOpacity>
               );
@@ -419,6 +494,16 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  closeBtn: {
+    position: 'absolute',
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
   scroll: {
     paddingHorizontal: 24,
     justifyContent: 'center',
@@ -492,16 +577,32 @@ const styles = StyleSheet.create({
   roleRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   roleItem: {
     flex: 1,
-    height: 44,
+    minHeight: 60,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: colors.radius.full,
+    gap: 4,
+    borderRadius: 18,
     backgroundColor: colors.fieldFill,
   },
   roleItemActive: { backgroundColor: colors.sidebarActive },
   roleText: { fontSize: 15, color: colors.ink2, fontWeight: '600' },
   roleTextActive: { color: colors.primary },
+  roleHint: { fontSize: 11, lineHeight: 15, color: colors.ink3, textAlign: 'center' },
+  roleHintActive: { color: colors.primary },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 14,
+    paddingRight: 4,
+  },
+  consentText: { flex: 1, fontSize: 12, color: colors.ink3, lineHeight: 20 },
+  consentLink: { color: colors.primary },
   fieldError: { fontSize: 12, color: colors.error, marginBottom: 12 },
+  fieldHint: { fontSize: 12, color: colors.ink3, marginTop: -6, marginBottom: 12, paddingHorizontal: 4 },
+  inputError: { borderColor: colors.error },
   button: {
     backgroundColor: colors.primary,
     borderRadius: colors.radius.full,

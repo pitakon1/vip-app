@@ -1,4 +1,4 @@
-/* 加载顺序只负责“分层”：tokens → 共享原语 → 布局 → 场景增量。
+﻿/* 加载顺序只负责“分层”：tokens → 共享原语 → 布局 → 场景增量。
    卡片/按钮等基础件的规格只在 primitives.css 定义一次，
    后续文件不得再写同名基础规格，避免靠 import 顺序取胜。 */
 @import './styles/tokens.css';
@@ -65,14 +65,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--rent-s-5);
-  background: var(--rent-surface-2, #f4f1ec);
+  background: var(--rent-surface-2, #eceef1);
 }
 
 .app-error__card {
   width: 100%;
   max-width: 520px;
   background: var(--rent-surface, #fff);
-  border: 1px solid var(--rent-border, #e6e0d8);
+  border: 1px solid var(--rent-border, #e2e5e8);
   border-radius: var(--rent-radius-lg, 14px);
   padding: var(--rent-s-6) var(--rent-s-5);
   text-align: center;
@@ -105,21 +105,21 @@ body {
   margin: 0 0 var(--rent-s-4);
   font-size: var(--rent-fs-base);
   line-height: var(--rent-lh-body);
-  color: var(--rent-ink-2, #5b6672);
+  color: var(--rent-ink-2, #55606c);
 }
 
 .app-error__detail {
   margin-bottom: var(--rent-s-5);
   padding: var(--rent-s-2) var(--rent-s-3);
   text-align: left;
-  background: var(--rent-surface-2, #f4f1ec);
+  background: var(--rent-surface-2, #eceef1);
   border-radius: var(--rent-radius-sm, 8px);
   overflow-x: auto;
 }
 
 .app-error__detail-label {
   font-size: var(--rent-fs-xs);
-  color: var(--rent-ink-2, #5b6672);
+  color: var(--rent-ink-2, #55606c);
   margin-bottom: var(--rent-s-1);
 }
 

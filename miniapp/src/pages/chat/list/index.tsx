@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
+import { fmtDateTime } from '@/utils/format'
 import './index.scss'
 
 interface Conversation {
@@ -26,8 +27,6 @@ function pickList<T>(res: any): T[] {
   if (Array.isArray(res?.data?.list)) return res.data.list
   return []
 }
-
-const formatTime = (x?: string) => (x ? String(x).replace('T', ' ').slice(5, 16) : '')
 
 export default function ChatListPage() {
   const { t } = useI18n()
@@ -103,7 +102,7 @@ export default function ChatListPage() {
                 </View>
                 <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
                 <Text className='conv-time'>
-                  {formatTime(c.created_at || c.updated_at)}
+                  {fmtDateTime(c.created_at || c.updated_at)}
                 </Text>
               </View>
             ))}

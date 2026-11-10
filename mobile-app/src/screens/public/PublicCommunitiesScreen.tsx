@@ -5,7 +5,7 @@ import { BROWSE_PAGE_SIZE } from '@/lib/pagination';
  * 楼盘字典的对外展示面。卡片带「在售 N 套 / 在租 N 套 + 价格区间」聚合——
  * 这是用户判断一个小区"有没有货"的最快方式，也是老站的做法。
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Keyboard,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import RemoteImage from '@/components/RemoteImage';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
@@ -27,6 +29,7 @@ import { convertFromThb, loadRates, tenureLabel, type TFunction } from '@/lib/pu
 import { fmtMoney } from '@/utils/format';
 import ListState from '@/components/ListState';
 import { Badge } from './PublicFilterChip';
+import { notifyError } from '@/utils/feedback';
 const PAGE_SIZE = BROWSE_PAGE_SIZE;
 
 export default function PublicCommunitiesScreen() {
@@ -43,6 +46,8 @@ export default function PublicCommunitiesScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // 请求序列守卫：连续输入时丢弃仍在途的旧响应，避免旧结果覆盖新关键字
+  const requestSeq = useRef(0);
 
   useEffect(() => {
     void loadRates();
@@ -63,20 +68,27 @@ export default function PublicCommunitiesScreen() {
       } else {
         setLoadingMore(true);
       }
+      const seq = ++requestSeq.current;
       try {
         const res: any = await publicApi.projects({ page: targetPage, ...params });
+        if (seq !== requestSeq.current) return;
         const pageData = unwrapPage<PublicProject>(res?.data);
         setTotal(pageData.total);
         setPage(targetPage);
         setItems((prev) => (targetPage === 1 ? pageData.items : [...prev, ...pageData.items]));
       } catch {
+        if (seq !== requestSeq.current) return;
         if (targetPage === 1) setLoadError(t('loadFailed'));
+        // 第 2 页起失败此前无任何提示，列表只是停住
+        else notifyError(t('common.hint'), new Error(t('loadFailedSub')));
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (seq === requestSeq.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [params],
+    [params, t],
   );
 
   useEffect(() => {
@@ -88,14 +100,29 @@ export default function PublicCommunitiesScreen() {
       <BeikeHeader title={t('pub.communitiesTitle')} hideHome />
       <View style={styles.header}>
         <Text style={styles.hint}>{t('pub.communitiesHint')}</Text>
-        <TextInput
-          style={styles.search}
-          value={keyword}
-          onChangeText={setKeyword}
-          placeholder={t('pub.communitySearchPlaceholder')}
-          placeholderTextColor={colors.ink3}
-          returnKeyType="search"
-        />
+        <View style={styles.searchWrap}>
+          <TextInput
+            style={styles.search}
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder={t('pub.communitySearchPlaceholder')}
+            placeholderTextColor={colors.ink3}
+            returnKeyType="search"
+            onSubmitEditing={() => Keyboard.dismiss()}
+            accessibilityLabel={t('pub.communitySearchPlaceholder')}
+          />
+          {keyword ? (
+            <TouchableOpacity
+              style={styles.searchClear}
+              onPress={() => setKeyword('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('pub.clearSearch')}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.ink3} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
@@ -108,7 +135,16 @@ export default function PublicCommunitiesScreen() {
           empty={items.length === 0}
           filtered={!!debounced}
           emptyTitle={t('pub.communitiesEmpty')}
-          emptySub={t('pub.communitiesHint')}
+          emptySub={debounced ? t('pub.emptyFilteredSub') : t('pub.communitiesHint')}
+          emptyActionLabel={debounced ? t('pub.clearFilters') : undefined}
+          onEmptyAction={
+            debounced
+              ? () => {
+                  setKeyword('');
+                  setDebounced('');
+                }
+              : undefined
+          }
           retryLabel={t('retry')}
           onRetry={() => {
             setLoadError(null);
@@ -146,6 +182,8 @@ export default function PublicCommunitiesScreen() {
           ListFooterComponent={
             loadingMore ? (
               <ActivityIndicator style={{ paddingVertical: 16 }} color={colors.primary} />
+            ) : items.length > 0 && items.length >= total ? (
+              <Text style={styles.noMore}>{t('pub.noMore')}</Text>
             ) : null
           }
         />
@@ -167,7 +205,13 @@ function ProjectCard({
   const rentRange = priceRange(item.rent_price_min, item.rent_price_max);
 
   return (
-    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.name ?? undefined}
+    >
       {item.cover ? (
         <RemoteImage
           uri={item.cover}
@@ -201,7 +245,7 @@ function ProjectCard({
 
         {saleRange ? (
           <Text style={styles.priceLine}>
-            {t('pub.salePrice')}：{saleRange}
+            {t('pub.salePrice')}{t('common.colon')}{saleRange}
             {item.sale_price_min ? (
               <Text style={styles.priceSub}>
                 {'  '}≈ {fmtMoney(convertFromThb(item.sale_price_min), 'CNY')}
@@ -212,7 +256,7 @@ function ProjectCard({
         ) : null}
         {rentRange ? (
           <Text style={styles.priceLine}>
-            {t('pub.rentPrice')}：{rentRange}
+            {t('pub.rentPrice')}{t('common.colon')}{rentRange}
             <Text style={styles.priceSub}>{t('pub.perMonth')}</Text>
           </Text>
         ) : null}
@@ -236,16 +280,25 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16 },
   title: { fontSize: colors.fontSize['2xl'], fontWeight: '800', color: colors.ink },
   hint: { fontSize: colors.fontSize.sm, color: colors.ink3, marginTop: 4, lineHeight: 19 },
+  searchWrap: { position: 'relative' },
   search: {
-    height: 42,
+    height: 44,
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.fieldFillBorder,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 40,
     fontSize: colors.fontSize.base,
     color: colors.ink,
     marginTop: 10,
+  },
+  searchClear: { position: 'absolute', right: 14, top: 22 },
+  noMore: {
+    fontSize: colors.fontSize.xs,
+    color: colors.ink3,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

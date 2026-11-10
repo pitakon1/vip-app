@@ -439,7 +439,7 @@ export default function MyContractsScreen() {
           {!signed && <Text style={styles.fieldMeta}>{t('contract.tapFieldToSign')}</Text>}
           {!!f?.signed_at && (
             <Text style={styles.fieldMeta}>
-              {t('contract.signedAt')}：{fmtDate(f.signed_at)}
+              {t('contract.signedAt')}{t('common.colon')}{fmtDate(f.signed_at)}
             </Text>
           )}
         </View>
@@ -473,7 +473,13 @@ export default function MyContractsScreen() {
   };
 
   const renderRow = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.row} activeOpacity={0.8} onPress={() => openDetail(item.id)}>
+    <TouchableOpacity
+      style={styles.row}
+      activeOpacity={0.8}
+      onPress={() => openDetail(item.id)}
+      accessibilityRole="button"
+      accessibilityLabel={item.title || t('contract.unknown')}
+    >
       <View style={styles.rowIcon}>
         <Ionicons
           name={(SOURCE_META[item.source ?? ''] ?? SOURCE_META.generated).icon as any}
@@ -536,6 +542,9 @@ export default function MyContractsScreen() {
                     activeOpacity={0.8}
                     disabled={signed || !myParty}
                     onPress={() => signOnField(f)}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: signed || !myParty }}
+                    accessibilityLabel={signed ? t('contract.signed') : `${t(meta.labelKey)} · ${t('contract.tapFieldToSign')}`}
                     style={[
                       styles.fieldOverlay,
                       { left: `${Number(f?.x) || 0}%`, top: `${Number(f?.y) || 0}%`, width: `${w}%`, height: `${h}%` },
@@ -576,7 +585,14 @@ export default function MyContractsScreen() {
                       <SvgXml xml={s.svg} width="100%" height="100%" />
                     ) : null}
                   </View>
-                  <TouchableOpacity style={styles.stampDel} activeOpacity={0.8} onPress={() => removeStamp(s.id)}>
+                  <TouchableOpacity
+                    style={styles.stampDel}
+                    activeOpacity={0.8}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    onPress={() => removeStamp(s.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('contract.deleteField')}
+                  >
                     <Ionicons name="close" size={12} color="#fff" />
                   </TouchableOpacity>
                 </View>
@@ -644,9 +660,11 @@ export default function MyContractsScreen() {
         </View>
         <TouchableOpacity
           style={styles.trayRedo}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.8}
           onPress={openMaker}
+          accessibilityRole="button"
+          accessibilityLabel={kind === 'seal' ? t('contract.makeSeal') : t('contract.makeSign')}
         >
           <Ionicons name="refresh-outline" size={compact ? 15 : 17} color={colors.ink3} />
         </TouchableOpacity>
@@ -751,7 +769,7 @@ export default function MyContractsScreen() {
           {!!myParty && !myParty?.signed && !myParty?.declined_at && (
             <TouchableOpacity
               activeOpacity={0.8}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => {
                 setDeclinePartyId(String(myParty.id));
                 setDeclineReason('');
@@ -790,7 +808,7 @@ export default function MyContractsScreen() {
   if (loading && list.length === 0) {
     return (
       <View style={styles.center}>
-        <LoadingState label={t('contract.loadFail')} />
+        <LoadingState label={t('pub.loading')} />
       </View>
     );
   }
@@ -826,14 +844,20 @@ export default function MyContractsScreen() {
       <Modal visible={!!detail} animationType="slide" onRequestClose={() => setDetail(null)}>
         <View style={styles.detailWrap}>
           <View style={styles.detailHead}>
-            <TouchableOpacity style={styles.detailBack} onPress={() => setDetail(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              style={styles.detailBack}
+              onPress={() => setDetail(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('pub.back')}
+            >
               <Ionicons name="chevron-back" size={24} color={colors.ink} />
             </TouchableOpacity>
             <Text style={styles.detailTitle} numberOfLines={1}>{detail?.title || t('contract.my')}</Text>
             <View style={{ width: 32 }} />
           </View>
           {detailLoading ? (
-            <View style={styles.center}><LoadingState label={t('contract.loadFail')} /></View>
+            <View style={styles.center}><LoadingState label={t('pub.loading')} /></View>
           ) : (
             <ScrollView contentContainerStyle={styles.detailContent}>
               <View style={styles.detailStatusRow}>
@@ -945,7 +969,12 @@ export default function MyContractsScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>{t('contract.makeSign')}</Text>
-              <TouchableOpacity onPress={() => setMakeSignVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={() => setMakeSignVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+              >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
@@ -978,7 +1007,12 @@ export default function MyContractsScreen() {
       <Modal visible={studioVisible} animationType="slide" onRequestClose={closeStudio}>
         <View style={styles.studio}>
           <View style={styles.studioHead}>
-            <TouchableOpacity onPress={closeStudio} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={closeStudio}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('pub.back')}
+            >
               <Ionicons name="chevron-back" size={24} color={colors.ink} />
             </TouchableOpacity>
             <View style={styles.studioHeadTitle}>
@@ -986,7 +1020,12 @@ export default function MyContractsScreen() {
             </View>
             <Text style={styles.studioVer}>v2</Text>
             {renderStatus(detail?.status)}
-            <TouchableOpacity onPress={closeStudio} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={closeStudio}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            >
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
           </View>
@@ -1027,7 +1066,12 @@ export default function MyContractsScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
               <Text style={styles.modalTitle}>{t('contract.declineTitle')}</Text>
-              <TouchableOpacity onPress={() => setShowDecline(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShowDecline(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+              >
                 <Ionicons name="close" size={22} color={colors.ink2} />
               </TouchableOpacity>
             </View>
@@ -1038,7 +1082,9 @@ export default function MyContractsScreen() {
               value={declineReason}
               onChangeText={setDeclineReason}
               multiline
+              maxLength={200}
               placeholderTextColor={colors.ink3}
+              accessibilityLabel={t('contract.declineReasonPh')}
             />
             <TouchableOpacity
               style={[styles.signBtn, declineBusy && styles.btnDisabled, styles.declineBtn]}

@@ -201,7 +201,7 @@ export default function PlaceFieldsModal({
                 <div className="kf-parties">
                   {sigAssets.filter((a) => a.asset_type === 'seal').map((a) => (
                     <div key={a.id} className="kf-party">
-                      <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 6 }} />
+                      <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e2e5e8)', borderRadius: 6 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
                         <div className="rent-text-sm rent-text-muted">{sigSourceLabel(a.source)}</div>
@@ -226,7 +226,7 @@ export default function PlaceFieldsModal({
                 <div className="kf-parties">
                   {sigAssets.filter((a) => a.asset_type === 'handwrite').map((a) => (
                     <div key={a.id} className="kf-party">
-                      <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 6 }} />
+                      <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 36, height: 36, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e2e5e8)', borderRadius: 6 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
                         <div className="rent-text-sm rent-text-muted">{sigSourceLabel(a.source)}</div>
@@ -254,7 +254,7 @@ export default function PlaceFieldsModal({
                 onDrop={(e) => placeFieldDrop(e, 1)}
                 style={{
                   position: 'relative',
-                  border: '1px solid var(--rent-line, #e6eaf0)',
+                  border: '1px solid var(--rent-line, #e2e5e8)',
                   maxHeight: 520,
                   overflow: 'auto',
                   background: '#fff',

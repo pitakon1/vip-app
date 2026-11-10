@@ -37,11 +37,11 @@ export default function AdminBusinessSettingsScreen() {
       setLeaseDays(String(business.lease_reminder_days ?? 30));
       setAutoDunning(business.auto_dunning !== false);
     } catch (e) {
-      setLoadError(errorText(e, '加载业务设置失败'));
+      setLoadError(errorText(e, t('settings.loadBizFailed')));
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void load();
@@ -81,7 +81,7 @@ export default function AdminBusinessSettingsScreen() {
         <EmptyState
           tone="error"
           title={loadError}
-          sub="读取失败时不会保存，避免覆盖原配置"
+          sub={t('settings.noOverwriteBiz')}
           actionLabel={t('common.retry')}
           onAction={() => void load()}
         />

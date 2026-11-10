@@ -7,22 +7,20 @@ import ListState from '@/components/ListState';
 import { propertyDealApi, saleListingApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import colors from '@/theme/colors';
-import { fmtMoney as fmtRent } from '@/utils/format';
+import { fmtMoney as fmtRent, fmtDate } from '@/utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 
-const fmtDate = (v?: string) => (v ? String(v).slice(0, 10) : '-');
-
-// 交易订单状态（PropertyDealStatus）
-const DEAL_STATUS: Record<string, { text: string; color: string; bg: string }> = {
-  drafted: { text: '洽谈中', color: colors.ink2, bg: colors.surface2 },
-  escrow_pending: { text: '定金托管中', color: colors.warning, bg: colors.warningLight },
-  signed: { text: '已签约', color: colors.primary, bg: colors.sidebarActive },
-  transferring: { text: '过户中', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
-  completed: { text: '已完成', color: colors.success, bg: colors.successLight },
-  failed: { text: '交易失败', color: colors.error, bg: colors.errorLight },
-  cancelled: { text: '已取消', color: colors.ink3, bg: colors.surface2 },
+// 交易订单状态（PropertyDealStatus）；文案走 i18n，未知状态不猜
+const DEAL_STATUS: Record<string, { key: string; color: string; bg: string }> = {
+  drafted: { key: 'deal.status.drafted', color: colors.ink2, bg: colors.surface2 },
+  escrow_pending: { key: 'deal.status.escrow_pending', color: colors.warning, bg: colors.warningLight },
+  signed: { key: 'deal.status.signed', color: colors.primary, bg: colors.sidebarActive },
+  transferring: { key: 'deal.status.transferring', color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
+  completed: { key: 'deal.status.completed', color: colors.success, bg: colors.successLight },
+  failed: { key: 'deal.status.failed', color: colors.error, bg: colors.errorLight },
+  cancelled: { key: 'deal.status.cancelled', color: colors.ink3, bg: colors.surface2 },
 };
 
 /**
@@ -66,7 +64,7 @@ export default function MyOrdersScreen() {
   const deals = q.data ?? [];
   const loaded = q.isSuccess;
   const loading = q.isPending && !q.data;
-  const loadError = q.isError && deals.length === 0 ? '交易订单加载失败' : null;
+  const loadError = q.isError && deals.length === 0 ? t('deal.loadFailed') : null;
   const retry = () => {
     void q.refetch({ cancelRefetch: false });
   };
@@ -85,7 +83,7 @@ export default function MyOrdersScreen() {
   }
 
   if (loadError) {
-    return <ListState error={loadError} retryLabel="重试" onRetry={retry} />;
+    return <ListState error={loadError} retryLabel={t('common.retry')} onRetry={retry} />;
   }
 
   if (loaded && deals.length === 0) {
@@ -94,7 +92,7 @@ export default function MyOrdersScreen() {
         <EmptyState
           icon="pricetag-outline"
           title={t('profile.noOrders')}
-          sub="提交看房约谈或认购后在这里跟进进度"
+          sub={t('deal.emptySub')}
         />
       </View>
     );
@@ -118,15 +116,15 @@ export default function MyOrdersScreen() {
             backgroundColor: colors.alpha(colors.errorRgb, 0.08),
           }}
         >
-          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>交易订单加载失败</Text>
+          <Text style={{ flex: 1, fontSize: 12, color: colors.error }}>{t('deal.loadFailed')}</Text>
           <TouchableOpacity onPress={retry} activeOpacity={0.7}>
-            <Text style={{ fontSize: 12, color: colors.primary }}>重试</Text>
+            <Text style={{ fontSize: 12, color: colors.primary }}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
       <View style={styles.card}>
         {deals.map((d, idx) => {
-          const meta = DEAL_STATUS[String(d.status ?? '')] ?? DEAL_STATUS.drafted;
+          const meta = DEAL_STATUS[String(d.status ?? '')];
           return (
             <TouchableOpacity
               key={d.id}
@@ -136,15 +134,17 @@ export default function MyOrdersScreen() {
             >
               <View style={styles.dealLeft}>
                 <Text style={styles.dealTitle} numberOfLines={1}>
-                  {d.listing_title || `交易订单 ${String(d.id ?? '').slice(0, 8)}`}
+                  {d.listing_title || `${t('deal.idPrefix')} ${String(d.id ?? '').slice(0, 8)}`}
                 </Text>
                 <Text style={styles.dealMeta} numberOfLines={1}>
                   {d.sale_price ? `${fmtRent(d.sale_price, d.currency)} · ` : ''}
                   {fmtDate(d.created_at)}
                 </Text>
               </View>
-              <View style={[styles.dealBadge, { backgroundColor: meta.bg }]}>
-                <Text style={[styles.dealBadgeText, { color: meta.color }]}>{meta.text}</Text>
+              <View style={[styles.dealBadge, { backgroundColor: meta?.bg ?? colors.surface2 }]}>
+                <Text style={[styles.dealBadgeText, { color: meta?.color ?? colors.ink3 }]}>
+                  {meta ? t(meta.key) : t('common.unknown')}
+                </Text>
               </View>
             </TouchableOpacity>
           );

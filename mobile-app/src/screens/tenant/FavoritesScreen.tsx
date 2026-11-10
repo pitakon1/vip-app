@@ -157,7 +157,7 @@ export default function FavoritesScreen() {
                 </Text>
               ) : null}
               {it.monthly_rent ? (
-                <Text style={styles.price}>{fmtMoney(it.monthly_rent, it.currency)}<Text style={styles.priceUnit}>/月</Text></Text>
+                <Text style={styles.price}>{fmtMoney(it.monthly_rent, it.currency)}<Text style={styles.priceUnit}>{t('pub.perMonth')}</Text></Text>
               ) : null}
             </View>
             <TouchableOpacity

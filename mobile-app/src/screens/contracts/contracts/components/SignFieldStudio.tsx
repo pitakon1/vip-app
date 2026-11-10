@@ -255,7 +255,7 @@ export default function SignFieldStudio({ studio, detail, parties, canEdit, onAd
                   <View key={idx} style={styles.keywordHitRow}>
                     <Ionicons name="location-outline" size={15} color={colors.primary} />
                     <Text style={styles.keywordHitText}>
-                      {t('contract.hitOnPage', { page: hit?.page ?? 1 })}：{hit?.text ?? ''}
+                      {t('contract.hitOnPage', { page: hit?.page ?? 1 })}{t('common.colon')}{hit?.text ?? ''}
                     </Text>
                     <TouchableOpacity
                       style={styles.keywordAddBtn}

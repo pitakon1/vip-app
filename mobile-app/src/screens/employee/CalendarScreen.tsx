@@ -11,7 +11,6 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
@@ -21,6 +20,7 @@ import colors from '@/theme/colors';
 import BeikeHeader from '@/components/BeikeHeader';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
+import { confirm } from '@/components/ConfirmDialog';
 import {
   employeesApi,
   viewingsApi,
@@ -28,6 +28,8 @@ import {
   propertiesApi,
   calendarEventsApi,
 } from '@/services/api';
+import { useI18n } from '@/i18n';
+import { notify, notifyError } from '@/utils/feedback';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type EventKind = 'viewing' | 'rent' | 'contract' | 'user';
@@ -44,35 +46,32 @@ interface CalEvent {
   actionRoute?: string;
 }
 
-const KIND_META: Record<EventKind, { label: string; color: string; bg: string; icon: IoniconName }> = {
+const KIND_META: Record<EventKind, { labelKey: string; color: string; bg: string; icon: IoniconName }> = {
   viewing: {
-    label: '带看',
+    labelKey: 'emp.kind.viewing',
     color: colors.primary,
     bg: colors.alpha(colors.primaryRgb, 0.12),
     icon: 'eye-outline',
   },
   rent: {
-    label: '租金',
+    labelKey: 'emp.kind.rent',
     color: colors.warning,
     bg: colors.alpha(colors.warningRgb, 0.12),
     icon: 'wallet-outline',
   },
   contract: {
-    label: '合同',
+    labelKey: 'emp.kind.contract',
     color: colors.info,
     bg: colors.alpha(colors.infoRgb, 0.12),
     icon: 'document-text-outline',
   },
   user: {
-    label: '自定义',
+    labelKey: 'emp.kind.custom',
     color: colors.success,
     bg: colors.alpha(colors.successRgb, 0.12),
     icon: 'calendar-outline',
   },
 };
-
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
-const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
 
 const keyOf = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -83,8 +82,6 @@ const hhmm = (iso?: string | null) => {
   if (Number.isNaN(d.getTime())) return '--:--';
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
-
-const dateLabel = (d: Date) => `${d.getMonth() + 1}月${d.getDate()}日`;
 
 const symOf = (c?: string | null) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
@@ -220,6 +217,7 @@ function Wheel({
 
 export default function CalendarScreen() {
   const navigation = useNavigation<any>();
+  const { t } = useI18n();
   const now = new Date();
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(now.getMonth());
@@ -234,6 +232,7 @@ export default function CalendarScreen() {
   const [propNames, setPropNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // 「添加自定义事件」弹窗
   const [modalVisible, setModalVisible] = useState(false);
@@ -259,6 +258,7 @@ export default function CalendarScreen() {
 
     const myEmpId =
       meRes.status === 'fulfilled' ? ((meRes.value as any)?.data?.id as string | undefined) : undefined;
+    let viewingsFailed = false;
     if (myEmpId) {
       try {
         const vwRes = await viewingsApi.list({
@@ -271,6 +271,7 @@ export default function CalendarScreen() {
         const items = Array.isArray(raw) ? raw : raw?.items ?? [];
         setViewings(items as ViewingItem[]);
       } catch {
+        viewingsFailed = true;
         setViewings([]);
       }
     } else {
@@ -309,6 +310,11 @@ export default function CalendarScreen() {
       setUserEvents(items as CalendarEventItem[]);
     }
 
+    // 失败当空态会让「本月暂无安排」变成误导：任一接口失败都给出可重试提示
+    setLoadFailed(
+      viewingsFailed || [meRes, lsRes, wbRes, pvRes, ceRes].some((r) => r.status === 'rejected'),
+    );
+
     setLoading(false);
     setRefreshing(false);
   }, [currentYear, currentMonth]);
@@ -324,12 +330,31 @@ export default function CalendarScreen() {
 
   const today = useMemo(() => new Date(), []);
 
+  // 月份、星期、日期口径随语言切换
+  const monthNames = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => t(`emp.month.${i + 1}`)),
+    [t],
+  );
+  const weekdays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => t(`emp.weekday.${i}`)),
+    [t],
+  );
+  const dateLabel = useCallback(
+    (d: Date) => t('emp.dateMD', { month: d.getMonth() + 1, day: d.getDate() }),
+    [t],
+  );
+
   const leaseName = useCallback(
     (l: LeaseItem) => {
       const fromMap = l.property_id ? propNames[l.property_id] : '';
-      return fromMap || (l.property_id ? `房源 ${String(l.property_id).slice(0, 6)}` : '房源');
+      return (
+        fromMap ||
+        (l.property_id
+          ? t('emp.propertyIdShort', { id: String(l.property_id).slice(0, 6) })
+          : t('emp.propertyFallback'))
+      );
     },
-    [propNames]
+    [propNames, t]
   );
 
   // 全部日程事件（带看 / 租金到期 / 合同到期）
@@ -343,8 +368,8 @@ export default function CalendarScreen() {
       list.push({
         id: `viewing-${v.id}`,
         kind: 'viewing',
-        title: `${v.visitor_name || '待定客户'} 看房`,
-        sub: v.property_title || v.property_address || '房源',
+        title: t('emp.viewingTitle', { name: v.visitor_name || t('emp.tbdCustomer') }),
+        sub: v.property_title || v.property_address || t('emp.propertyFallback'),
         date: d,
         timeLabel: hhmm(v.scheduled_at),
         statusLabel: v.status || undefined,
@@ -358,11 +383,13 @@ export default function CalendarScreen() {
       list.push({
         id: `rent-${r.payment_id}`,
         kind: 'rent',
-        title: r.is_overdue ? '租金催收' : '租金到期',
-        sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()} · ${dateLabel(d)}到期`,
+        title: r.is_overdue ? t('emp.rentOverdue') : t('emp.rentDue'),
+        sub: `${symOf(r.currency)}${Number(r.amount || 0).toLocaleString()} · ${t('emp.dueOn', {
+          date: dateLabel(d),
+        })}`,
         date: d,
-        statusLabel: r.is_overdue ? '已逾期' : '待收',
-        actionLabel: '去催收',
+        statusLabel: r.is_overdue ? t('emp.overdueStatus') : t('emp.pendingCollect'),
+        actionLabel: t('emp.goCollect'),
         actionRoute: 'CRM',
       });
     });
@@ -375,10 +402,14 @@ export default function CalendarScreen() {
       list.push({
         id: `contract-${l.id}`,
         kind: 'contract',
-        title: '合同到期提醒',
-        sub: `${leaseName(l)} · ${dateLabel(d)}到期${days >= 0 ? `（剩 ${days} 天）` : `（已过期 ${-days} 天）`}`,
+        title: t('emp.contractDueReminder'),
+        sub: `${leaseName(l)} · ${t('emp.dueOn', { date: dateLabel(d) })}${
+          days >= 0
+            ? ` (${t('emp.remainingDays', { n: days })})`
+            : ` (${t('emp.expiredOn', { n: -days })})`
+        }`,
         date: d,
-        statusLabel: days >= 0 ? `${days} 天后` : '已到期',
+        statusLabel: days >= 0 ? t('emp.daysLater', { n: days }) : t('emp.expired'),
       });
     });
 
@@ -389,15 +420,15 @@ export default function CalendarScreen() {
       list.push({
         id: `user-${u.id}`,
         kind: 'user',
-        title: u.title || '自定义事件',
-        sub: u.note || '自定义日程',
+        title: u.title || t('emp.customEventFallback'),
+        sub: u.note || t('emp.customEvent'),
         date: d,
         timeLabel: hhmm(u.start_at),
       });
     });
 
     return list.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [viewings, receivables, leases, userEvents, leaseName, today]);
+  }, [viewings, receivables, leases, userEvents, leaseName, today, t, dateLabel]);
 
   // 今日待跟进（逾期/7 日内到期/今日带看）
   const todayFollowUps = useMemo(() => {
@@ -529,47 +560,48 @@ export default function CalendarScreen() {
       setEventTitle('');
       setSaving(false);
       load();
-    } catch {
+    } catch (err) {
       setSaving(false);
+      notifyError(t('emp.calSaveFail'), err);
     }
-  }, [eventTitle, saving, eventDate, eventHour, eventMinute, load]);
+  }, [eventTitle, saving, eventDate, eventHour, eventMinute, load, t]);
 
   // 当前事件所在月份的「日」滚轮选项
   const dayOptions = useMemo(() => {
     const totalDays = new Date(eventDate.getFullYear(), eventDate.getMonth() + 1, 0).getDate();
-    return Array.from({ length: totalDays }, (_, i) => `${eventDate.getMonth() + 1}月${i + 1}日`);
-  }, [eventDate]);
+    return Array.from({ length: totalDays }, (_, i) =>
+      t('emp.dateMD', { month: eventDate.getMonth() + 1, day: i + 1 }),
+    );
+  }, [eventDate, t]);
 
   const minuteOptions = [0, 15, 30, 45];
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <LoadingState label="正在加载日程…" />
+        <LoadingState label={t('emp.calLoading')} />
       </View>
     );
   }
 
   // 删除自定义日程（user 事件）：剥离 user- 前缀取真实 id
-  const confirmDelete = (e: CalEvent) => {
+  const confirmDelete = async (e: CalEvent) => {
     if (e.kind !== 'user') return;
     const realId = e.id.replace(/^user-/, '');
-    Alert.alert('删除日程', `确定删除「${e.title}」吗？`, [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () => {
-          calendarEventsApi
-            .remove(realId)
-            .then(() => {
-              load();
-              Alert.alert('已删除', '自定义日程已删除');
-            })
-            .catch(() => Alert.alert('删除失败', '请稍后重试'));
-        },
-      },
-    ]);
+    const ok = await confirm({
+      title: t('emp.calDeleteTitle'),
+      message: t('emp.calDeleteConfirm', { title: e.title }),
+      confirmLabel: t('common.confirm'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await calendarEventsApi.remove(realId);
+      load();
+      notify(t('emp.calDeleted'));
+    } catch (err) {
+      notifyError(t('emp.calDeleteFail'), err);
+    }
   };
 
   const renderEventItem = (e: CalEvent) => {
@@ -618,17 +650,29 @@ export default function CalendarScreen() {
 
   return (
     <View style={styles.container}>
-      <BeikeHeader title="我的日程" />
+      <BeikeHeader title={t('emp.calTitle')} />
       {/* 顶部月份导航 */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.navBtn} onPress={prevMonth}>
+        <TouchableOpacity
+          style={styles.navBtn}
+          onPress={prevMonth}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('emp.prevMonth')}
+        >
           <Ionicons name="chevron-back" size={20} color={colors.ink} />
         </TouchableOpacity>
         <View style={styles.monthInfo}>
           <Text style={styles.monthText}>{monthNames[currentMonth]}</Text>
           <Text style={styles.yearText}>{currentYear}</Text>
         </View>
-        <TouchableOpacity style={styles.navBtn} onPress={nextMonth}>
+        <TouchableOpacity
+          style={styles.navBtn}
+          onPress={nextMonth}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('emp.nextMonth')}
+        >
           <Ionicons name="chevron-forward" size={20} color={colors.ink} />
         </TouchableOpacity>
       </View>
@@ -645,13 +689,34 @@ export default function CalendarScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {loadFailed ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.error} />
+            <Text style={styles.errorText} numberOfLines={2}>
+              {t('loadFailed')}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                setLoadFailed(false);
+                setRefreshing(true);
+                load();
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.errorRetry}>{t('common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {/* 今日待跟进（置顶） */}
         <View style={styles.followCard}>
           <View style={styles.followHead}>
             <View style={styles.followHeadLeft}>
-              <Text style={styles.followHeadTitle}>今日待跟进</Text>
+              <Text style={styles.followHeadTitle}>{t('emp.todayFollowUps')}</Text>
               <View style={styles.warnBadge}>
-                <Text style={styles.warnBadgeText}>{todayFollowUps.length} 项</Text>
+                <Text style={styles.warnBadgeText}>
+                  {t('emp.itemsCount', { n: todayFollowUps.length })}
+                </Text>
               </View>
             </View>
             <View style={styles.dateBadge}>
@@ -661,8 +726,8 @@ export default function CalendarScreen() {
           {todayFollowUps.length === 0 ? (
             <EmptyState
               icon="checkmark-done-outline"
-              title="今天没有待跟进事项"
-              sub="逾期租金、近期到期合同与今日带看会集中在这里"
+              title={t('emp.todayNoFollowUps')}
+              sub={t('emp.todayNoFollowUpsSub')}
             />
           ) : (
             todayFollowUps.map(renderEventItem)
@@ -673,7 +738,7 @@ export default function CalendarScreen() {
         <View style={styles.calendarCard}>
           <View style={styles.calCardHead}>
             <Text style={styles.calCardTitle}>
-              {currentYear} 年 {currentMonth + 1} 月
+              {t('emp.yearMonth', { year: currentYear, month: currentMonth + 1 })}
             </Text>
             <View style={styles.tabs}>
               <TouchableOpacity
@@ -681,14 +746,18 @@ export default function CalendarScreen() {
                 activeOpacity={0.8}
                 onPress={() => setViewMode('month')}
               >
-                <Text style={[styles.tabText, viewMode === 'month' && styles.tabTextActive]}>月视图</Text>
+                <Text style={[styles.tabText, viewMode === 'month' && styles.tabTextActive]}>
+                  {t('emp.monthView')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.tab, viewMode === 'list' && styles.tabActive]}
                 activeOpacity={0.8}
                 onPress={() => setViewMode('list')}
               >
-                <Text style={[styles.tabText, viewMode === 'list' && styles.tabTextActive]}>列表</Text>
+                <Text style={[styles.tabText, viewMode === 'list' && styles.tabTextActive]}>
+                  {t('emp.listView')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -697,14 +766,14 @@ export default function CalendarScreen() {
             <View style={styles.calBody}>
               <View style={styles.todayRow}>
                 <TouchableOpacity style={styles.todayBtn} onPress={goToday} activeOpacity={0.8}>
-                  <Text style={styles.todayBtnText}>今天</Text>
+                  <Text style={styles.todayBtnText}>{t('emp.today')}</Text>
                 </TouchableOpacity>
                 <View style={styles.legendRow}>
                   {(['rent', 'contract', 'viewing', 'user'] as EventKind[]).map((k) => (
                     <View key={k} style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: KIND_META[k].color }]} />
                       <Text style={styles.legendLabel}>
-                        {k === 'rent' ? '租金' : k === 'contract' ? '合同' : k === 'viewing' ? '带看' : '自定义'}
+                        {t(KIND_META[k].labelKey)}
                       </Text>
                     </View>
                   ))}
@@ -712,7 +781,7 @@ export default function CalendarScreen() {
               </View>
 
               <View style={styles.weekHeader}>
-                {WEEKDAYS.map((w, i) => (
+                {weekdays.map((w, i) => (
                   <Text key={i} style={styles.weekDay}>{w}</Text>
                 ))}
               </View>
@@ -759,25 +828,30 @@ export default function CalendarScreen() {
               {/* 选中日期的日程 */}
               <View style={styles.selectedHead}>
                 <Text style={styles.selectedTitle}>
-                  {selectedDate.getMonth() + 1}月{selectedDate.getDate()}日 安排
+                  {t('emp.selectedDaySchedule', {
+                    month: selectedDate.getMonth() + 1,
+                    day: selectedDate.getDate(),
+                  })}
                 </Text>
-                <Text style={styles.selectedCount}>{selectedItems.length} 项</Text>
+                <Text style={styles.selectedCount}>
+                  {t('emp.itemsCount', { n: selectedItems.length })}
+                </Text>
               </View>
               {selectedItems.length === 0 ? (
-                <Text style={styles.selectedEmpty}>这一天没有带看与到期跟进</Text>
+                <Text style={styles.selectedEmpty}>{t('emp.dayNoFollowUps')}</Text>
               ) : (
                 selectedItems.map(renderEventItem)
               )}
             </View>
           ) : monthEvents.length === 0 ? (
-            <EmptyState icon="calendar-outline" title="本月暂无安排" sub="带看、租金与合同到期会按日期汇总在这里" />
+            <EmptyState icon="calendar-outline" title={t('emp.monthNoEvents')} sub={t('emp.monthNoEventsSub')} />
           ) : (
             <View style={styles.calBody}>
               {monthEvents.map((e) => (
                 <View key={e.id} style={styles.listEventRow}>
                   <View style={[styles.listEventTag, { backgroundColor: KIND_META[e.kind].bg }]}>
                     <Text style={[styles.listEventTagText, { color: KIND_META[e.kind].color }]}>
-                      {KIND_META[e.kind].label}
+                      {t(KIND_META[e.kind].labelKey)}
                     </Text>
                   </View>
                   <View style={styles.listEventBody}>
@@ -789,6 +863,30 @@ export default function CalendarScreen() {
                       {dateLabel(e.date)} · {e.sub}
                     </Text>
                   </View>
+                  {/* 列表视图与月视图一致可操作：催收类给「去催收」，自定义事件给删除 */}
+                  {e.actionLabel && e.actionRoute ? (
+                    <TouchableOpacity
+                      style={styles.listEventAction}
+                      activeOpacity={0.8}
+                      onPress={() => navigation.navigate(e.actionRoute!)}
+                      accessibilityRole="button"
+                      accessibilityLabel={e.actionLabel}
+                    >
+                      <Text style={styles.listEventActionText} numberOfLines={1}>
+                        {e.actionLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : e.kind === 'user' ? (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => confirmDelete(e)}
+                      hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.delete')}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={colors.error} />
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -798,10 +896,14 @@ export default function CalendarScreen() {
         {/* 问候行（日历提醒） */}
         <View style={styles.hero}>
           <View style={styles.heroLeft}>
-            <Text style={styles.heroTitle}>日历提醒</Text>
+            <Text style={styles.heroTitle}>{t('emp.calReminder')}</Text>
             <Text style={styles.heroSub}>
-              {currentYear} 年 {currentMonth + 1} 月 · 今日 {todayFollowUps.length} 项待跟进 · 本月租金到期{' '}
-              {monthStats.total} 户
+              {t('emp.calReminderSub', {
+                year: currentYear,
+                month: currentMonth + 1,
+                n: todayFollowUps.length,
+                total: monthStats.total,
+              })}
             </Text>
           </View>
           <View style={styles.heroAvatar}>
@@ -810,17 +912,20 @@ export default function CalendarScreen() {
         </View>
 
         {/* 本月重点 */}
-        <Text style={styles.sectionTitle}>本月重点</Text>
+        <Text style={styles.sectionTitle}>{t('emp.monthFocus')}</Text>
         <View style={styles.stripCard}>
           <View style={styles.stripRow}>
             <View style={styles.stripCell}>
               <Text style={styles.stripValue}>
                 {monthStats.total}
-                <Text style={styles.stripUnit}> 户</Text>
+                <Text style={styles.stripUnit}> {t('emp.householdsUnit')}</Text>
               </Text>
-              <Text style={styles.stripLabel}>本月租金到期</Text>
+              <Text style={styles.stripLabel}>{t('emp.rentDueMonth')}</Text>
               <Text style={styles.stripSub}>
-                待收 {monthStats.pending} · 逾期 {monthStats.overdue}
+                {t('emp.pendingOverdue', {
+                  pending: monthStats.pending,
+                  overdue: monthStats.overdue,
+                })}
               </Text>
             </View>
             <View style={styles.stripDivider} />
@@ -828,19 +933,23 @@ export default function CalendarScreen() {
               <Text style={[styles.stripValue, { color: monthStats.total === 0 ? colors.ink : colors.primary }]}>
                 {monthStats.total > 0 ? `${monthStats.onTimeRate}%` : '—'}
               </Text>
-              <Text style={styles.stripLabel}>按时率</Text>
+              <Text style={styles.stripLabel}>{t('emp.onTimeRate')}</Text>
               <Text style={styles.stripSub}>
-                {monthStats.total > 0 ? `逾期 ${monthStats.overdue} 单` : '暂无待收租金单'}
+                {monthStats.total > 0
+                  ? t('emp.overdueOrders', { n: monthStats.overdue })
+                  : t('emp.noPendingRent')}
               </Text>
             </View>
             <View style={styles.stripDivider} />
             <View style={styles.stripCell}>
               <Text style={styles.stripValue}>
                 {monthStats.contractsThisMonth}
-                <Text style={styles.stripUnit}> 份</Text>
+                <Text style={styles.stripUnit}> {t('emp.contractsUnit')}</Text>
               </Text>
-              <Text style={styles.stripLabel}>本月合同到期</Text>
-              <Text style={styles.stripSub}>下月预告 {monthStats.contractsNextMonth} 份</Text>
+              <Text style={styles.stripLabel}>{t('emp.contractsDueMonth')}</Text>
+              <Text style={styles.stripSub}>
+                {t('emp.nextMonthNotice', { n: monthStats.contractsNextMonth })}
+              </Text>
             </View>
           </View>
           <View style={styles.progressWrap}>
@@ -849,23 +958,32 @@ export default function CalendarScreen() {
             </View>
             <Text style={styles.progressLabel}>
               {monthStats.total > 0
-                ? `本月待收租金按时率 ${monthStats.onTimeRate}% · 待收 ${monthStats.pending} 户建议优先跟进`
-                : '暂无待收租金单'}
+                ? t('emp.onTimeSummary', {
+                    rate: monthStats.onTimeRate,
+                    pending: monthStats.pending,
+                  })
+                : t('emp.noPendingRent')}
             </Text>
           </View>
         </View>
 
         {/* 下月到期预告 */}
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionHeadTitle}>下月到期预告</Text>
+          <Text style={styles.sectionHeadTitle}>{t('emp.nextMonthExpiry')}</Text>
           {nextMonthExpiries.length > 0 ? (
             <View style={styles.infoBadge}>
-              <Text style={styles.infoBadgeText}>{nextMonthExpiries.length} 份</Text>
+              <Text style={styles.infoBadgeText}>
+                {t('emp.nextMonthNotice', { n: nextMonthExpiries.length })}
+              </Text>
             </View>
           ) : null}
         </View>
         {nextMonthExpiries.length === 0 ? (
-          <EmptyState icon="document-text-outline" title="下月暂无到期合同" sub="负责租约的到期日会提前在这里汇总" />
+          <EmptyState
+            icon="document-text-outline"
+            title={t('emp.nextMonthNoExpiry')}
+            sub={t('emp.nextMonthNoExpirySub')}
+          />
         ) : (
           <View style={styles.listCard}>
             {nextMonthExpiries.map((l, idx) => {
@@ -876,13 +994,15 @@ export default function CalendarScreen() {
                   <View style={styles.simpleBody}>
                     <Text style={styles.simpleTitle} numberOfLines={1}>{leaseName(l)}</Text>
                     <Text style={styles.simpleSub}>
-                      {dateLabel(d)} 到期 · {symOf(l.currency)}
-                      {Number(l.monthly_rent || 0).toLocaleString()}/月
+                      {t('emp.contractDueMeta', {
+                        date: dateLabel(d),
+                        amount: `${symOf(l.currency)}${Number(l.monthly_rent || 0).toLocaleString()}`,
+                      })}
                     </Text>
                   </View>
                   <View style={[styles.expireBadge, daysLeft <= 30 && styles.expireBadgeWarn]}>
                     <Text style={[styles.expireBadgeText, daysLeft <= 30 && { color: colors.error }]}>
-                      {daysLeft >= 0 ? `${daysLeft} 天后` : '已到期'}
+                      {daysLeft >= 0 ? t('emp.daysLater', { n: daysLeft }) : t('emp.expired')}
                     </Text>
                   </View>
                 </View>
@@ -892,9 +1012,13 @@ export default function CalendarScreen() {
         )}
 
         {/* 近期带看 */}
-        <Text style={styles.sectionTitle}>近期带看</Text>
+        <Text style={styles.sectionTitle}>{t('emp.upcomingViewings')}</Text>
         {upcomingViewings.length === 0 ? (
-          <EmptyState icon="eye-outline" title="暂无近期带看" sub="客户预约的看房行程会展示在这里" />
+          <EmptyState
+            icon="eye-outline"
+            title={t('emp.noUpcomingViewings')}
+            sub={t('emp.noUpcomingViewingsSub')}
+          />
         ) : (
           <View style={styles.listCard}>
             {upcomingViewings.map((e, idx) => (
@@ -917,7 +1041,13 @@ export default function CalendarScreen() {
       </ScrollView>
 
       {/* 添加自定义事件入口 */}
-      <TouchableOpacity style={styles.fab} activeOpacity={0.85} onPress={openModal}>
+      <TouchableOpacity
+        style={styles.fab}
+        activeOpacity={0.85}
+        onPress={openModal}
+        accessibilityRole="button"
+        accessibilityLabel={t('emp.addEvent')}
+      >
         <Ionicons name="add" size={26} color={colors.primaryForeground} />
       </TouchableOpacity>
 
@@ -933,21 +1063,21 @@ export default function CalendarScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>添加自定义事件</Text>
+            <Text style={styles.modalTitle}>{t('emp.addEventTitle')}</Text>
 
             <TextInput
               style={styles.eventInput}
               value={eventTitle}
               onChangeText={setEventTitle}
-              placeholder="事件内容，如：跟进客户 / 续签沟通"
+              placeholder={t('emp.eventPlaceholder')}
               placeholderTextColor={colors.ink3}
               maxLength={60}
             />
 
-            <Text style={styles.modalLabel}>日期与时间</Text>
+            <Text style={styles.modalLabel}>{t('emp.dateTime')}</Text>
             <View style={styles.wheelRow}>
               <View style={styles.wheelCol}>
-                <Text style={styles.wheelColLabel}>日期</Text>
+                <Text style={styles.wheelColLabel}>{t('emp.date')}</Text>
                 <Wheel
                   items={dayOptions}
                   index={Math.max(0, eventDate.getDate() - 1)}
@@ -957,7 +1087,7 @@ export default function CalendarScreen() {
                 />
               </View>
               <View style={styles.wheelCol}>
-                <Text style={styles.wheelColLabel}>时</Text>
+                <Text style={styles.wheelColLabel}>{t('emp.hour')}</Text>
                 <Wheel
                   items={Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))}
                   index={eventHour}
@@ -965,7 +1095,7 @@ export default function CalendarScreen() {
                 />
               </View>
               <View style={styles.wheelCol}>
-                <Text style={styles.wheelColLabel}>分</Text>
+                <Text style={styles.wheelColLabel}>{t('emp.minute')}</Text>
                 <Wheel
                   items={minuteOptions.map((m) => String(m).padStart(2, '0'))}
                   index={Math.max(0, minuteOptions.indexOf(eventMinute))}
@@ -975,8 +1105,13 @@ export default function CalendarScreen() {
             </View>
 
             <Text style={styles.eventPreview}>
-              时间：{eventDate.getMonth() + 1}月{eventDate.getDate()}日{' '}
-              {String(eventHour).padStart(2, '0')}:{String(eventMinute).padStart(2, '0')}
+              {t('emp.timePreview', {
+                date: t('emp.dateMD', {
+                  month: eventDate.getMonth() + 1,
+                  day: eventDate.getDate(),
+                }),
+                time: `${String(eventHour).padStart(2, '0')}:${String(eventMinute).padStart(2, '0')}`,
+              })}
             </Text>
 
             <View style={styles.modalActions}>
@@ -985,7 +1120,7 @@ export default function CalendarScreen() {
                 activeOpacity={0.8}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.modalCancelText}>取消</Text>
+                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalSave, (saving || !eventTitle.trim()) && styles.modalSaveDisabled]}
@@ -993,7 +1128,9 @@ export default function CalendarScreen() {
                 disabled={saving || !eventTitle.trim()}
                 onPress={saveEvent}
               >
-                <Text style={styles.modalSaveText}>{saving ? '保存中…' : '保存'}</Text>
+                <Text style={styles.modalSaveText}>
+                  {saving ? t('emp.saving') : t('emp.save')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1007,6 +1144,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 32 },
   center: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+
+  /* 失败提示条 */
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: colors.radius.lg,
+    backgroundColor: colors.alpha(colors.errorRgb, 0.08),
+  },
+  errorText: { flex: 1, fontSize: 12, color: colors.error, lineHeight: 17 },
+  errorRetry: { fontSize: 12, fontWeight: '700', color: colors.error },
 
   /* 顶部月份导航 */
   header: {
@@ -1236,6 +1388,14 @@ const styles = StyleSheet.create({
   listEventBody: { flex: 1, minWidth: 0 },
   listEventTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
   listEventSub: { fontSize: 12, color: colors.ink3, marginTop: 3 },
+  listEventAction: {
+    paddingHorizontal: 10,
+    minHeight: 30,
+    justifyContent: 'center',
+    borderRadius: colors.radius.full,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
+  },
+  listEventActionText: { fontSize: 12, fontWeight: '600', color: colors.primary },
 
   /* 区块标题 */
   sectionTitle: {

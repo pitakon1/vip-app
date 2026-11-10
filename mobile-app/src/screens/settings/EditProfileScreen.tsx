@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 
 import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import colors from '@/theme/colors';
+import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
 
 /**
@@ -11,6 +12,7 @@ import { notify, getErrorMessage } from '@/utils/feedback';
  * 迁移自 ProfileScreen 的编辑资料弹层逻辑，选项仅提交发生变化的字段。
  */
 export default function EditProfileScreen() {
+  const { t } = useI18n();
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
   const [name, setName] = useState(user?.full_name ?? '');
@@ -21,19 +23,26 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
 
   const phoneChanged = phone !== (user?.phone ?? '');
+  // 只做格式门槛（国际号码 6-15 位数字，可带前导 +），真实有效性仍由后端验证码兜底
+  const isPhoneValid = /^\+?\d{6,15}$/.test(phone.trim());
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   // 修改手机号必须先向新手机号发送验证码（后端 PATCH /auth/me 校验 code，否则 400）
   const sendCode = async () => {
     if (!phone.trim()) {
-      notify('请先填写新手机号');
+      notify(t('settings.profilePhonePh'));
+      return;
+    }
+    if (!isPhoneValid) {
+      notify(t('settings.phoneInvalid'));
       return;
     }
     setSendingCode(true);
     try {
       await authApi.requestOtp(phone.trim(), 'sms');
-      notify('验证码已发送');
+      notify(t('settings.codeSent'));
     } catch (e: any) {
-      notify(getErrorMessage(e, '验证码发送失败'));
+      notify(getErrorMessage(e, t('settings.codeSendFailed')));
     } finally {
       setSendingCode(false);
     }
@@ -41,11 +50,19 @@ export default function EditProfileScreen() {
 
   const save = async () => {
     if (!name.trim()) {
-      notify('请填写姓名');
+      notify(t('settings.nameRequired'));
+      return;
+    }
+    if (phoneChanged && !isPhoneValid) {
+      notify(t('settings.phoneInvalid'));
+      return;
+    }
+    if (email.trim() && !isEmailValid) {
+      notify(t('settings.emailInvalid'));
       return;
     }
     if (phoneChanged && !code.trim()) {
-      notify('请先获取并填写验证码');
+      notify(t('settings.codeRequired'));
       return;
     }
     setSaving(true);
@@ -58,9 +75,9 @@ export default function EditProfileScreen() {
       if (email !== (user?.email ?? '')) payload.email = email.trim();
       const { data } = await authApi.updateMe(payload);
       setUser({ ...user, ...(data ?? {}) } as any);
-      notify('已保存');
+      notify(t('settings.saved'));
     } catch (e: any) {
-      notify(getErrorMessage(e, '保存失败'));
+      notify(getErrorMessage(e, t('settings.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -68,21 +85,21 @@ export default function EditProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={styles.label}>姓名</Text>
+      <Text style={styles.label}>{t('settings.profileName')}</Text>
       <TextInput
         style={styles.input}
         value={name}
         onChangeText={setName}
-        placeholder="请输入姓名"
+        placeholder={t('settings.profileNamePh')}
         placeholderTextColor={colors.ink3}
       />
-      <Text style={styles.label}>手机号</Text>
+      <Text style={styles.label}>{t('settings.profilePhone')}</Text>
       <View style={styles.phoneRow}>
         <TextInput
           style={[styles.input, styles.phoneInput]}
           value={phone}
           onChangeText={setPhone}
-          placeholder="请输入手机号"
+          placeholder={t('settings.profilePhonePh')}
           placeholderTextColor={colors.ink3}
           keyboardType="phone-pad"
         />
@@ -92,24 +109,26 @@ export default function EditProfileScreen() {
           disabled={sendingCode}
           onPress={sendCode}
         >
-          <Text style={styles.codeButtonText}>{sendingCode ? '发送中...' : '发送验证码'}</Text>
+          <Text style={styles.codeButtonText}>
+            {sendingCode ? t('settings.codeSending') : t('settings.sendCode')}
+          </Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.label}>验证码</Text>
+      <Text style={styles.label}>{t('settings.profileCode')}</Text>
       <TextInput
         style={styles.input}
         value={code}
         onChangeText={setCode}
-        placeholder="修改手机号需填写新手机号收到的验证码"
+        placeholder={t('settings.profileCodePh')}
         placeholderTextColor={colors.ink3}
         keyboardType="number-pad"
       />
-      <Text style={styles.label}>邮箱</Text>
+      <Text style={styles.label}>{t('settings.profileEmail')}</Text>
       <TextInput
         style={styles.input}
         value={email}
         onChangeText={setEmail}
-        placeholder="请输入邮箱"
+        placeholder={t('settings.profileEmailPh')}
         placeholderTextColor={colors.ink3}
         keyboardType="email-address"
         autoCapitalize="none"
@@ -121,7 +140,7 @@ export default function EditProfileScreen() {
         disabled={saving}
         onPress={save}
       >
-        <Text style={styles.saveText}>{saving ? '保存中...' : '保存'}</Text>
+        <Text style={styles.saveText}>{saving ? t('settings.saving') : t('settings.save')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

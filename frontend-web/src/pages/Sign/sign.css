@@ -1,7 +1,7 @@
 /* 公共签署页：待签覆盖框 + 进度行 */
 .rent-sign-slot {
   box-sizing: border-box;
-  border: 2px dashed #ef4444;
+  border: 2px dashed #dc2626;
   border-radius: var(--rent-radius-sm);
   background: rgba(239, 68, 68, 0.12);
   cursor: pointer;
@@ -55,7 +55,7 @@
   height: 72px;
   object-fit: contain;
   background: #fff;
-  border: 1px solid var(--rent-line, #e6eaf0);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: 8px;
 }
 .kf-parties {
@@ -69,7 +69,7 @@
   justify-content: space-between;
   gap: var(--rent-s-2);
   padding: 8px 10px;
-  border: 1px solid var(--rent-line, #e6eaf0);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: 8px;
   background: #fff;
 }
@@ -91,7 +91,7 @@
 .kf-stage__bg {
   width: 100%;
   display: block;
-  border: 1px solid var(--rent-line, #dfe5ea);
+  border: 1px solid var(--rent-line, #e2e5e8);
   user-select: none;
 }
 
@@ -129,7 +129,7 @@
   width: 100%;
   height: 100%;
   font-size: var(--rent-fs-xs);
-  color: var(--rent-ink-2, #374151);
+  color: var(--rent-ink-2, #1c2733);
   pointer-events: none;
   white-space: nowrap;
 }
@@ -143,7 +143,7 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: #ef4444;
+  background: #dc2626;
   color: #fff;
   font-size: var(--rent-fs-base);
   cursor: pointer;
@@ -185,7 +185,7 @@
 }
 .kf-tray-item {
   position: relative;
-  border: 1px solid var(--rent-line, #e6eaf0);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: var(--rent-radius-md);
   padding: 10px;
   background: #fff;
@@ -225,7 +225,7 @@
   align-items: center;
   justify-content: center;
   background: #fff;
-  border: 1px solid var(--rent-line, #e6eaf0);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -251,7 +251,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--rent-line, #e6eaf0);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: var(--rent-radius-sm);
   background: var(--rent-surface, #fff);
   color: var(--rent-ink-2, #55606c);
@@ -268,8 +268,8 @@
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
-  color: var(--rent-ink-3, #9ca3af);
-  border: 1px solid var(--rent-line, #e6eaf0);
+  color: var(--rent-ink-3, #98a1ab);
+  border: 1px solid var(--rent-line, #e2e5e8);
   border-radius: 4px;
   padding: 2px 5px;
 }
@@ -280,7 +280,7 @@
   bottom: 0;
   margin-top: var(--rent-s-4);
   padding: var(--rent-s-3) 0;
-  background: var(--rent-canvas, #f5f7fa);
+  background: var(--rent-canvas, #f3f4f6);
 }
 
 /* 拖拽跟手浮层：跟随光标/手指，半透明便于观察落点（fixed 用窗口坐标） */

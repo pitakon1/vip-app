@@ -15,7 +15,6 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -28,6 +27,8 @@ import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite';
 import { fmtMoney } from '@/utils/format';
 import PublicListingRow from './PublicListingRow';
 import { Badge } from './PublicFilterChip';
+import LoadingState from '@/components/LoadingState';
+import EmptyState from '@/components/EmptyState';
 
 export default function PublicCommunityDetailScreen() {
   const { t } = useI18n();
@@ -38,22 +39,38 @@ export default function PublicCommunityDetailScreen() {
 
   const [project, setProject] = useState<PublicProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     void loadRates();
   }, []);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
+    setFailed(false);
+    setNotFound(false);
     publicApi
       .project(id, { listing_limit: BROWSE_PAGE_SIZE })
       .then((res: any) => {
-        if (!cancelled) setProject(res?.data ?? null);
+        if (cancelled) return;
+        const data = res?.data ?? null;
+        setProject(data);
+        if (!data) setNotFound(true);
       })
-      .catch(() => {
-        if (!cancelled) setProject(null);
+      .catch((err: any) => {
+        if (cancelled) return;
+        setProject(null);
+        // 404 是「楼盘不存在」，网络/服务失败要能重试，不能都糊成「未找到」
+        if (err?.response?.status === 404) setNotFound(true);
+        else setFailed(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -61,17 +78,26 @@ export default function PublicCommunityDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, reloadKey]);
 
   if (loading) {
+    return <LoadingState label={t('pub.loading')} />;
+  }
+
+  if (failed) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.center}>
+        <EmptyState
+          tone="error"
+          title={t('loadFailed')}
+          actionLabel={t('retry')}
+          onAction={() => setReloadKey((k) => k + 1)}
+        />
       </View>
     );
   }
 
-  if (!project) {
+  if (notFound || !project) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
         <Text style={styles.emptyText}>{t('pub.communityNotFound')}</Text>
@@ -98,8 +124,12 @@ export default function PublicCommunityDetailScreen() {
           </Text>
 
           <View style={styles.badgeRow}>
-            <Badge text={t('pub.saleCount', { n: project.sale_count ?? 0 })} primary />
-            <Badge text={t('pub.rentCount', { n: project.rent_count ?? 0 })} />
+            {(project.sale_count ?? 0) > 0 ? (
+              <Badge text={t('pub.saleCount', { n: project.sale_count ?? 0 })} primary />
+            ) : null}
+            {(project.rent_count ?? 0) > 0 ? (
+              <Badge text={t('pub.rentCount', { n: project.rent_count ?? 0 })} />
+            ) : null}
             {project.tenure ? <Badge text={tenureLabel(project.tenure, t)} /> : null}
           </View>
 
@@ -114,7 +144,7 @@ export default function PublicCommunityDetailScreen() {
               label={t('pub.managementFee')}
               value={
                 project.management_fee_per_sqm
-                  ? `${project.management_fee_per_sqm} THB/${t('pub.sqm')}`
+                  ? `${fmtMoney(project.management_fee_per_sqm, 'THB')}/${t('pub.sqm')}`
                   : ''
               }
             />
@@ -185,7 +215,7 @@ const styles = StyleSheet.create({
   backButton: {
     marginTop: 16,
     paddingHorizontal: 20,
-    height: 42,
+    height: 44,
     borderRadius: colors.radius.md,
     backgroundColor: colors.primary,
     alignItems: 'center',
@@ -215,9 +245,9 @@ const styles = StyleSheet.create({
   floatBack: {
     position: 'absolute',
     left: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',

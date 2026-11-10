@@ -55,7 +55,7 @@ export default function SignAssetLibraryModal({
           <div className="rent-grid rent-grid--3" style={{ gap: 12 }}>
             {sigAssets.map((a) => (
               <div key={a.id} className="rent-contract-party" style={{ padding: 8, alignItems: 'center' }}>
-                <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 72, height: 72, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e6eaf0)', borderRadius: 8 }} />
+                <img src={a.data_url} alt={a.name} loading="lazy" decoding="async" style={{ width: 72, height: 72, objectFit: 'contain', background: '#fff', border: '1px solid var(--rent-line, #e2e5e8)', borderRadius: 8 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="rent-text-sm rent-text-bold" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.name}</div>
                   <div className="rent-text-sm rent-text-muted">

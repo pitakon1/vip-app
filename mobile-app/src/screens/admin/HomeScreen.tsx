@@ -1,4 +1,5 @@
 import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { fmtDate } from '@/utils/format';
 /**
  * 管理员工作台：运营概览 / 财务对账
  */
@@ -45,8 +46,8 @@ interface TrendRow {
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : '฿');
 const fmtMoney = (v?: number, c?: string) => `${cur(c)}${Number(v ?? 0).toLocaleString()}`;
 
-const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'overview', label: '运营概览', icon: 'grid-outline' },
+const TABS: { key: Tab; labelKey: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'overview', labelKey: 'admHome.tabOverview', icon: 'grid-outline' },
 ];
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -88,7 +89,7 @@ export default function AdminHomeScreen() {
         const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
         if (failed.length > 0) {
           const reason = failed[0].reason;
-          setLoadError(errorText(reason, '工作台加载失败'));
+          setLoadError(errorText(reason, t('admHome.loadFail')));
           setLoadErrorKind(errorKind(reason));
           return;
         }
@@ -109,13 +110,13 @@ export default function AdminHomeScreen() {
         setRecentPayments(Array.isArray(recentItems) ? recentItems.slice(0, 4) : []);
       }
     } catch (e) {
-      setLoadError(errorText(e, '工作台加载失败'));
+      setLoadError(errorText(e, t('admHome.loadFail')));
       setLoadErrorKind(errorKind(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -161,12 +162,15 @@ export default function AdminHomeScreen() {
       tone: colors.errorInk,
       toneRgb: colors.errorRgb,
       icon: 'cash-outline' as IoniconName,
-      title: '欠租与逾期',
+      title: t('admHome.overdueTitle'),
       value: fmtMoney(overdue),
       unit: '',
       // 待收款 = 全部未结清账单（pending+processing），与欠租金额同一口径；
       // upcoming_payments 只算 7 天内 pending，会导致「欠租 3.5 万 / 待收款 0 笔」
-      desc: `逾期占比 ${Math.round(ratio(overdue, totalBilling) * 100)}% · 待收款 ${num(summary.outstanding_payments ?? summary.upcoming_payments)} 笔`,
+      desc: t('admHome.overdueDesc', {
+        pct: Math.round(ratio(overdue, totalBilling) * 100),
+        n: num(summary.outstanding_payments ?? summary.upcoming_payments),
+      }),
       bar: ratio(overdue, totalBilling),
       onPress: () => navigation.navigate('AdminPayments'),
     },
@@ -175,10 +179,10 @@ export default function AdminHomeScreen() {
       tone: colors.infoInk,
       toneRgb: colors.infoRgb,
       icon: 'bar-chart-outline' as IoniconName,
-      title: '空置率',
+      title: t('admHome.vacancyTitle'),
       value: `${vacantRate}`,
       unit: ' %',
-      desc: `空置 ${vacant} 套 / 共 ${totalProps} 套 · 警戒线 10%`,
+      desc: t('admHome.vacancyDesc', { vacant, total: totalProps }),
       bar: ratio(vacant, totalProps),
       onPress: () => navigation.navigate('AdminProperties'),
     },
@@ -198,7 +202,7 @@ export default function AdminHomeScreen() {
   const statCards = [
     {
       key: 'revenue',
-      label: '本月营收',
+      label: t('admHome.revenueThisMonth'),
       value: fmtMoney(summary.monthly_revenue),
       badge: momRevenue === null ? '' : `${momRevenue >= 0 ? '+' : ''}${momRevenue.toFixed(1)}%`,
       tone: momRevenue !== null && momRevenue < 0 ? colors.errorInk : colors.primaryText,
@@ -206,27 +210,27 @@ export default function AdminHomeScreen() {
     },
     {
       key: 'occupancy',
-      label: '出租率',
+      label: t('admHome.occupancy'),
       value: `${num(summary.occupancy_rate)}%`,
-      badge: `空置 ${vacant} 套`,
+      badge: t('admHome.vacantN', { n: vacant }),
       tone: colors.warningInk,
       toneRgb: colors.warningRgb,
     },
     {
       key: 'leases',
-      label: '在租合同',
+      label: t('admHome.activeLeases'),
       // 用生效租约笔数，而不是房源 status=rented 的数量：软删房源上的生效租约
       // 仍产生营收（active_lease_revenue），用 rented 会出现「0 合同但营收 5.5 万」
       value: `${num(summary.active_leases ?? summary.rented)}`,
-      badge: `+${newLeasesThisMonth} 本月`,
+      badge: t('admHome.newThisMonth', { n: newLeasesThisMonth }),
       tone: colors.primaryText,
       toneRgb: colors.primaryRgb,
     },
     {
       key: 'staff',
-      label: '员工数',
+      label: t('admHome.staffCount'),
       value: `${employeeCount}`,
-      badge: `+${newHiresThisMonth} 本月`,
+      badge: t('admHome.newThisMonth', { n: newHiresThisMonth }),
       tone: colors.primaryText,
       toneRgb: colors.primaryRgb,
     },
@@ -237,8 +241,8 @@ export default function AdminHomeScreen() {
       {/* 顶部欢迎区 */}
       <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
         <View style={styles.heroLeft}>
-          <Text style={styles.heroTitle}>管理员首页</Text>
-          <Text style={styles.heroSub}>系统管理权限 · 全局数据概览</Text>
+          <Text style={styles.heroTitle}>{t('admHome.heroTitle')}</Text>
+          <Text style={styles.heroSub}>{t('admHome.heroSub')}</Text>
         </View>
         <View style={styles.heroBadge}>
           <Ionicons name="shield" size={14} color={colors.primaryForeground} />
@@ -248,19 +252,21 @@ export default function AdminHomeScreen() {
 
       {/* Tab 导航 */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabRow}>
-        {TABS.map((t) => (
+        {TABS.map((tabItem) => (
           <TouchableOpacity
-            key={t.key}
-            style={[styles.tabItem, tab === t.key && styles.tabItemActive]}
-            onPress={() => switchTab(t.key)}
+            key={tabItem.key}
+            style={[styles.tabItem, tab === tabItem.key && styles.tabItemActive]}
+            onPress={() => switchTab(tabItem.key)}
             activeOpacity={0.7}
           >
             <Ionicons
-              name={t.icon}
+              name={tabItem.icon}
               size={18}
-              color={tab === t.key ? colors.primaryForeground : colors.ink2}
+              color={tab === tabItem.key ? colors.primaryForeground : colors.ink2}
             />
-            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
+            <Text style={[styles.tabLabel, tab === tabItem.key && styles.tabLabelActive]}>
+              {t(tabItem.labelKey)}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -313,13 +319,13 @@ export default function AdminHomeScreen() {
                           {!!r.unit && <Text style={styles.riskUnit}>{r.unit}</Text>}
                         </Text>
                       </View>
-                      <Text style={styles.riskDesc} numberOfLines={1}>{r.desc}</Text>
+                      <Text style={styles.riskDesc} numberOfLines={2}>{r.desc}</Text>
                       <View style={styles.riskTrack}>
                         <View style={[styles.riskBar, { flex: Math.max(r.bar, 0.02), backgroundColor: r.tone }]} />
                         <View style={{ flex: Math.max(1 - r.bar, 0) }} />
                       </View>
                     </View>
-                    <Text style={styles.riskCta}>去处理</Text>
+                    <Text style={styles.riskCta}>{t('admHome.goHandle')}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -327,8 +333,8 @@ export default function AdminHomeScreen() {
 
             {/* 经营指标（4 项 + 徽标） */}
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>经营指标</Text>
-              <Text style={styles.sectionHint}>实时汇总</Text>
+              <Text style={styles.sectionTitle}>{t('admHome.metrics')}</Text>
+              <Text style={styles.sectionHint}>{t('admHome.realtime')}</Text>
             </View>
             <View style={styles.statRow}>
               {statCards.map((s) => {
@@ -365,10 +371,10 @@ export default function AdminHomeScreen() {
             {revenueTrend.length > 0 && (
               <View style={styles.trendChartCard}>
                 <View style={styles.chartHeaderRow}>
-                  <View>
-                    <Text style={styles.chartCardTitle}>经营趋势 · 收入</Text>
+                  <View style={styles.chartHeaderLeft}>
+                    <Text style={styles.chartCardTitle}>{t('admHome.trendTitle')}</Text>
                     <Text style={styles.chartCardSub}>
-                      近 7 个月营收 · 在租合同营收 {fmtMoney(summary.active_lease_revenue)}
+                      {t('admHome.trendSub', { amount: fmtMoney(summary.active_lease_revenue) })}
                     </Text>
                   </View>
                   {momRevenue !== null && (
@@ -390,22 +396,22 @@ export default function AdminHomeScreen() {
 
             {/* 待办汇总（数字与工单审核 / 财务对账 / 合同数据一致） */}
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>待办汇总</Text>
+              <Text style={styles.sectionTitle}>{t('admHome.todo')}</Text>
             </View>
             <View style={styles.todoRow}>
               <TouchableOpacity style={styles.todoCard} activeOpacity={0.7} onPress={() => navigation.navigate('AdminPayments')}>
-                <Text style={styles.todoLabel}>对账差异</Text>
+                <Text style={styles.todoLabel}>{t('admHome.reconDiff')}</Text>
                 <Text style={[styles.todoNum, { color: colors.error }]}>{reconDiff}</Text>
               </TouchableOpacity>
             </View>
 
             {/* 最近动态（取最近付款记录，无数据给空态） */}
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>最近动态</Text>
-              <Text style={styles.sectionHint}>最近 4 条</Text>
+              <Text style={styles.sectionTitle}>{t('admHome.recent')}</Text>
+              <Text style={styles.sectionHint}>{t('admHome.recentHint')}</Text>
             </View>
             {recentPayments.length === 0 && !loading && (
-              <EmptyState icon="time-outline" title="暂无动态" sub="收款到账后这里会生成动态记录" />
+              <EmptyState icon="time-outline" title={t('admHome.empty')} sub={t('admHome.emptySub')} />
             )}
             {recentPayments.map((p: any) => (
               <View key={p.id} style={styles.activityItem}>
@@ -414,10 +420,12 @@ export default function AdminHomeScreen() {
                 </View>
                 <View style={styles.activityBody}>
                   <Text style={styles.activityTitle} numberOfLines={1}>
-                    {p.payer_name ? `${p.payer_name} 收款到账` : '收款到账'}
+                    {p.payer_name
+                      ? t('admHome.payerReceived', { name: p.payer_name })
+                      : t('admHome.paymentReceived')}
                   </Text>
                   <Text style={styles.activitySub} numberOfLines={1}>
-                    {[p.description || '租金', String(p.paid_at || p.created_at || '').slice(0, 10)]
+                    {[p.description || t('pay.type.rent'), fmtDate(p.paid_at || p.created_at)]
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>
@@ -675,7 +683,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  sectionTitle: { fontSize: colors.fontSize.title, fontWeight: '700', color: colors.ink, letterSpacing: -0.2, flexShrink: 1 },
   sectionHint: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
 
   /* ===== 风险预警（数字 + 占比条） ===== */
@@ -789,6 +797,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
+  chartHeaderLeft: { flex: 1, marginRight: 8 },
   chartCardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   chartCardSub: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   chartLegend: { flexDirection: 'row', alignItems: 'center' },

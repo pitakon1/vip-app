@@ -518,7 +518,7 @@ export default function OwnerPropertiesPage() {
       title: t('prop.deleteTitle'),
       content: t('op.deleteContent', { name: title }),
       confirmText: t('common.delete'),
-      confirmColor: '#ef4444',
+      confirmColor: '#dc2626',
       success: async (res) => {
         if (!res.confirm) return
         try {

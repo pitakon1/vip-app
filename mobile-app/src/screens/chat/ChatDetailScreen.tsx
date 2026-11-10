@@ -16,6 +16,7 @@ import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { chatApi, authApi } from '@/services/api';
 import { notifyError } from '@/utils/feedback';
+import { fmtDateTime } from '@/utils/format';
 import EmptyState from '@/components/EmptyState';
 import type { RootStackParamList } from '@/navigation/RootNavigator';
 
@@ -45,6 +46,7 @@ export default function ChatDetailScreen() {
   const [sending, setSending] = useState(false);
   const [myId, setMyId] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
+  const listRef = useRef<FlatList<Message>>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,11 +59,11 @@ export default function ChatDetailScreen() {
       setLoadError(false);
     } catch (err: any) {
       setLoadError(true);
-      notifyError('加载失败', err);
+      notifyError(t('loadFailed'), err);
     } finally {
       setLoading(false);
     }
-  }, [conversationId]);
+  }, [conversationId, t]);
 
   // 建立实时接收通道：发送走 REST，WebSocket 仅接收对端消息（服务端已排除发送者回声）
   useEffect(() => {
@@ -107,6 +109,12 @@ export default function ChatDetailScreen() {
     load();
   }, [load]);
 
+  // 新消息（首次加载 / 发送 / 实时接收）后滚到最新一条，避免停在历史顶部
+  useEffect(() => {
+    if (messages.length === 0) return;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, [messages.length]);
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -121,9 +129,10 @@ export default function ChatDetailScreen() {
       // 成功后刷新真实列表（拿到服务端 id，替换乐观消息）
       await load();
     } catch (err: any) {
-      notifyError('发送失败', err);
-      // 失败回滚乐观消息，避免残留未入库的临时气泡
+      notifyError(t('chat.sendFail'), err);
+      // 失败回滚乐观消息，避免残留未入库的临时气泡；输入框恢复原文，不用重打
       setMessages((prev) => prev.filter((m) => m.tempKey !== tempKey));
+      setInput((prev) => (prev.trim() ? prev : text));
     } finally {
       setSending(false);
     }
@@ -137,7 +146,9 @@ export default function ChatDetailScreen() {
         <View style={[styles.bubble, isMine ? styles.mineBubble : styles.otherBubble]}>
           <Text style={[styles.msgText, isMine && styles.mineText]}>{content}</Text>
           {item.created_at ? (
-            <Text style={[styles.msgTime, isMine && styles.mineTime]}>{item.created_at}</Text>
+            <Text style={[styles.msgTime, isMine && styles.mineTime]}>
+              {fmtDateTime(item.created_at)}
+            </Text>
           ) : null}
         </View>
       </View>
@@ -162,9 +173,9 @@ export default function ChatDetailScreen() {
         <View style={[styles.center, { paddingTop: insets.top }]}>
           <EmptyState
             icon="cloud-offline-outline"
-            title="加载失败"
-            sub="无法获取消息记录，请检查网络"
-            actionLabel="重试"
+            title={t('loadFailed')}
+            sub={t('chat.loadMsgFailSub')}
+            actionLabel={t('retry')}
             onAction={() => {
               setLoading(true);
               load();
@@ -173,12 +184,17 @@ export default function ChatDetailScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={messages}
           keyExtractor={(item, index) => item.id ?? item.tempKey ?? String(index)}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <EmptyState icon="chatbubble-ellipses-outline" title="暂无消息" sub="开始第一个话题吧" />
+            <EmptyState
+              icon="chatbubble-ellipses-outline"
+              title={t('chat.msgEmptyTitle')}
+              sub={t('chat.msgEmptySub')}
+            />
           }
         />
       )}
@@ -195,13 +211,14 @@ export default function ChatDetailScreen() {
           style={[styles.sendBtn, sending && styles.btnDisabled]}
           onPress={handleSend}
           disabled={sending}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           accessibilityRole="button"
-          accessibilityLabel="发送消息"
+          accessibilityLabel={t('chat.sendA11y')}
         >
           {sending ? (
             <ActivityIndicator color={colors.primaryForeground} size="small" />
           ) : (
-            <Text style={styles.sendText}>发送</Text>
+            <Text style={styles.sendText}>{t('chat.send')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -245,13 +262,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   sendBtn: {
-    height: 40,
-    paddingHorizontal: 6,
-    borderRadius: 20,
+    height: 44,
+    minWidth: 64,
+    paddingHorizontal: 16,
+    borderRadius: 22,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnDisabled: { opacity: 0.6 },
-  sendText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600', paddingHorizontal: 12 },
+  sendText: { color: colors.primaryForeground, fontSize: 14, fontWeight: '600' },
 });

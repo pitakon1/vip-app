@@ -11,6 +11,7 @@ import { View, ScrollView, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { cityDisplayName } from '@/data/locationNames';
 import { useLocationStore } from '@/stores/location';
 import { publicApi, unwrapPage, type PublicListing } from '@/services/publicApi';
 import {
@@ -45,9 +46,13 @@ import {
 const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export default function RentCategoryScreen() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigation = useNavigation<any>();
-  const city = useLocationStore((s) => s.selection.cityLabel);
+  const city = cityDisplayName(
+    useLocationStore((s) => s.selection.cityKey),
+    useLocationStore((s) => s.selection.cityLabel),
+    lang,
+  );
   const cityKey = useLocationStore((s) => s.selection.cityKey);
   const [rail, setRail] = useState<PublicListing[]>([]);
   // 区域下拉：走后端真实区域（带当前城市 + 租房口径），无数据回退静态区域

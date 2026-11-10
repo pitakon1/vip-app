@@ -124,7 +124,7 @@ export default function AdminReviewCenterPage() {
     Taro.showModal({
       title: t('review.rejectTripTitle'),
       content: t('review.rejectTripConfirm'),
-      confirmColor: '#ef4444',
+      confirmColor: '#dc2626',
       success: (r) => {
         if (r.confirm) void approveTrip(id, 'rejected')
       }
