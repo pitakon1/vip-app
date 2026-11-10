@@ -10,28 +10,8 @@ import NotFound from '@/pages/NotFound'
 // 布局与鉴权壳保持首屏即时（任何页面都要用），页面组件全部懒加载。
 // 注意：antd/图表等大依赖由 vite manualChunks 拆成独立 vendor chunk，
 // 首屏只加载当前页用到的 chunk。
-const Home = lazy(() => import('@/pages/Home'))
-const Login = lazy(() => import('@/pages/Login'))
-const Register = lazy(() => import('@/pages/Register'))
-const PublicListings = lazy(() => import('@/pages/PublicListings'))
-const ListingDetail = lazy(() => import('@/pages/ListingDetail'))
-const Schools = lazy(() => import('@/pages/Schools'))
-const SchoolDetail = lazy(() => import('@/pages/SchoolDetail'))
-const Communities = lazy(() => import('@/pages/Communities'))
-const CommunityDetail = lazy(() => import('@/pages/CommunityDetail'))
-// 公共签署页（客户用 H5，匿名可访问）
-const Sign = lazy(() => import('@/pages/Sign'))
-
-// C 端贝壳式分类页（租房 / 新房 / 二手房 / 商铺办公 / 厂房 / 酒店 / 土地）
-const RentCategory = lazy(() => import('@/pages/category/RentCategory'))
-const NewHouse = lazy(() => import('@/pages/category/NewHouse'))
-const Resale = lazy(() => import('@/pages/category/Resale'))
-const Commercial = lazy(() => import('@/pages/category/Commercial'))
-const Factory = lazy(() => import('@/pages/category/Factory'))
-const Hotel = lazy(() => import('@/pages/category/Hotel'))
-const Land = lazy(() => import('@/pages/category/Land'))
-// 地图找房（匿名公开，按视野拉取点位）
-const MapFind = lazy(() => import('@/pages/MapFind'))
+// 匿名可访问的页面及其路由表统一在 routes/publicRoutes.tsx 声明（白名单也从那里推导）。
+import { PUBLIC_ROUTES, PublicListings } from '@/routes/publicRoutes'
 
 // 管理端页面
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
@@ -170,27 +150,11 @@ const App = () => {
         <Routes>
           {/* ===== 公共路由（无需登录，浏览全开放）=====
               产品原则：浏览不需要注册，只在收藏 / 发布 / 进入作业系统这类
-              需要「身份」的动作上才要求登录。内容资产必须先能被匿名看到。 */}
-          <Route path="/" element={<Home />} />
-          <Route path="/listings" element={<PublicListings />} />
-          <Route path="/listing/:id" element={<ListingDetail />} />
-          <Route path="/schools" element={<Schools />} />
-          <Route path="/school/:id" element={<SchoolDetail />} />
-          <Route path="/communities" element={<Communities />} />
-          <Route path="/community/:id" element={<CommunityDetail />} />
-          {/* C 端贝壳式分类页：首页黄金导航 7 入口各自落地页 */}
-          <Route path="/category/rent" element={<RentCategory />} />
-          <Route path="/category/new" element={<NewHouse />} />
-          <Route path="/category/resale" element={<Resale />} />
-          <Route path="/category/commercial" element={<Commercial />} />
-          <Route path="/category/factory" element={<Factory />} />
-          <Route path="/category/hotel" element={<Hotel />} />
-          <Route path="/category/land" element={<Land />} />
-          <Route path="/map" element={<MapFind />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          {/* 公共签署页：客户持链接即可匿名签署，无需登录 */}
-          <Route path="/sign/:token" element={<Sign />} />
+              需要「身份」的动作上才要求登录。内容资产必须先能被匿名看到。
+              路由与 401 白名单共用 routes/publicRoutes.tsx 的同一份表。 */}
+          {PUBLIC_ROUTES.map(({ path, element }) => (
+            <Route key={path} path={path} element={element} />
+          ))}
 
           {/* 业主端旧路径别名：/owner/* → /tenant/*（统一 C 端门户后，老链接/收藏不 404） */}
           <Route path="/owner/*" element={<OwnerAliasRedirect />} />

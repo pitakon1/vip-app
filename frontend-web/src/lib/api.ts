@@ -2,7 +2,7 @@ import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig 
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 import { cachedGetAdapter } from '@/lib/httpCache'
 import { clearCache, queryClient } from '@/lib/queryCache'
-import { isPublicPath } from '@/lib/publicRoutes'
+import { isPublicPath } from '@/routes/publicRoutes'
 
 /**
  * axios catch 里访问后端错误体的安全入口。
@@ -209,7 +209,7 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !isCredentialCall) {
       const pathname = window.location.pathname
-      // 公开路由清单集中在 lib/publicRoutes.ts，新增公开页只改那一处。
+      // 公开路由清单由 routes/publicRoutes.tsx 的路由表自动推导，新增公开页只改那一处。
       if (!isPublicPath(pathname)) {
         useAuthStore.getState().logout()
         // 避免已在 /login 时重复跳转
