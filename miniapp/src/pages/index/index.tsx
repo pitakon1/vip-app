@@ -16,10 +16,10 @@ export default function IndexPage() {
     const currentToken = useAuthStore.getState().token
     const currentUser = useAuthStore.getState().user
 
-    // 未登录不再跳登录页——直接进 C 端公开站（找房 / 学校 / 小区）。
-    // 内容全部来自匿名接口 `/public/*`，只有办自己的事时才会被要求登录。
+    // 未登录不再跳登录页——直接进 C 端公开内容首页（首页/发现的内容全部来自
+    // 匿名接口 `/public/*`，只有办自己的事时才会被要求登录），与 App 访客落点一致。
     if (!currentToken) {
-      Taro.redirectTo({ url: '/pages/public/listings/index' })
+      Taro.redirectTo({ url: '/pages/tenant/home/index' })
       return
     }
 
@@ -31,6 +31,9 @@ export default function IndexPage() {
       Taro.redirectTo({ url: '/pages/admin/home/index' })
     } else if (currentUser?.role === 'employee' || currentUser?.role === 'agent') {
       Taro.redirectTo({ url: '/pages/employee/home/index' })
+    } else if (currentUser?.role === 'partner_admin') {
+      // 合作公司管理员与登录页落点保持一致
+      Taro.redirectTo({ url: '/pages/admin/partner-members/index' })
     } else {
       // 有 token 但角色未知，跳转到我的页面
       Taro.redirectTo({ url: '/pages/profile/index' })

@@ -21,7 +21,8 @@ i18n
     supportedLngs: [...SUPPORTED_LANGS],
     interpolation: { escapeValue: false },
     detection: {
-      order: ['localStorage', 'navigator'],
+      // 只沿用用户持久化的语言选择；未选择时回落到 zh，不跟随浏览器/系统语言
+      order: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
       caches: ['localStorage'],
     },

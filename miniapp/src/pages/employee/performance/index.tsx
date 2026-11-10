@@ -1,11 +1,12 @@
 import { OPTION_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input, Picker } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { employeesApi, performanceApi, commissionsApi, leasesApi, propertiesApi, viewingsApi } from '@/services/api'
 import './index.scss'
 import { useI18n } from '@/i18n'
+import { errorText } from '@/lib/errorText'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 
@@ -76,6 +77,19 @@ interface Commission {
   created_at?: string
 }
 
+// 手工补录成交（/performance/deals）
+interface ManualDeal {
+  id: string
+  source?: string
+  deal_type?: string
+  deal_date?: string
+  deal_amount?: number
+  commission_amount?: number
+  customer_name?: string | null
+  note?: string | null
+  currency?: string
+}
+
 type ViewKey = 'mine' | 'agents' | 'partners'
 
 const buildDealTypeLabels = (
@@ -83,6 +97,7 @@ const buildDealTypeLabels = (
 ): Record<string, string> => ({
   new_rental: t('perf.dealNewRental'),
   renewal: t('perf.dealRenewal'),
+  sale_transaction: t('perf.dealSale'),
   management: t('perf.dealManagement')
 })
 
@@ -136,6 +151,22 @@ export default function EmployeePerformancePage() {
   const [agents, setAgents] = useState<AgentRow[]>([])
   const [partners, setPartners] = useState<PartnerRow[]>([])
   const [commissions, setCommissions] = useState<Commission[]>([])
+  // 手工补录成交（本月）
+  const [manualDeals, setManualDeals] = useState<ManualDeal[]>([])
+  const [dealFormOpen, setDealFormOpen] = useState(false)
+  const [dealSource, setDealSource] = useState<'platform_customer' | 'self_sourced'>(
+    'platform_customer'
+  )
+  const [dealType, setDealType] = useState('new_rental')
+  const [dealDate, setDealDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const [dealAmount, setDealAmount] = useState('')
+  const [dealCommission, setDealCommission] = useState('')
+  const [dealCustomer, setDealCustomer] = useState('')
+  const [dealNote, setDealNote] = useState('')
+  const [dealSaving, setDealSaving] = useState(false)
   const [leaseMap, setLeaseMap] = useState<Record<string, any>>({})
   const [propMap, setPropMap] = useState<Record<string, any>>({})
   const [viewingCount, setViewingCount] = useState<number | null>(null)
@@ -146,7 +177,8 @@ export default function EmployeePerformancePage() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [lbRes, meRes, pfRes, cmRes, vwRes, lsRes, ppRes, agRes, ptRes]: any[] =
+      const now = new Date()
+      const [lbRes, meRes, pfRes, cmRes, vwRes, lsRes, ppRes, agRes, ptRes, dlRes]: any[] =
         await Promise.all([
           employeesApi.leaderboard().catch(() => ({ data: [] })),
           employeesApi.me().catch(() => ({ data: {} })),
@@ -156,7 +188,10 @@ export default function EmployeePerformancePage() {
           leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
           propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: [] })),
           performanceApi.agents().catch(() => ({ data: [] })),
-          isAdminLike ? performanceApi.partners().catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
+          isAdminLike ? performanceApi.partners().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+          performanceApi
+            .deals({ year: now.getFullYear(), month: now.getMonth() + 1 })
+            .catch(() => ({ data: [] }))
         ])
 
       const lb = pick(lbRes)
@@ -173,6 +208,7 @@ export default function EmployeePerformancePage() {
       if (isAdminLike) setPartners(pickList(ptRes))
 
       setCommissions(pickList(cmRes))
+      setManualDeals(pickList(dlRes))
 
       const ls = pickList(lsRes)
       const lMap: Record<string, any> = {}
@@ -189,7 +225,6 @@ export default function EmployeePerformancePage() {
       setPropMap(pMap)
 
       // 本月带看次数（由真实带看记录聚合）
-      const now = new Date()
       const vw = pickList(vwRes).filter((v: any) => {
         const d = new Date(String(v.scheduled_at || ''))
         return (
@@ -215,6 +250,64 @@ export default function EmployeePerformancePage() {
     }
     fetchAll()
   })
+
+  // 手工补录成交：来源（平台对接客户 / 自主拓客）+ 类型 + 日期 + 金额
+  const submitDeal = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dealDate)) {
+      Taro.showToast({ title: t('perf.manualDateInvalid'), icon: 'none' })
+      return
+    }
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (dealDate > todayStr) {
+      Taro.showToast({ title: t('perf.manualDateFuture'), icon: 'none' })
+      return
+    }
+    const amount = Number(dealAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Taro.showToast({ title: t('perf.manualAmountRequired'), icon: 'none' })
+      return
+    }
+    setDealSaving(true)
+    try {
+      await performanceApi.createDeal({
+        source: dealSource,
+        deal_type: dealType,
+        deal_date: dealDate,
+        deal_amount: amount,
+        commission_amount: Number(dealCommission) || 0,
+        customer_name: dealCustomer.trim() || undefined,
+        note: dealNote.trim() || undefined
+      })
+      setDealFormOpen(false)
+      setDealAmount('')
+      setDealCommission('')
+      setDealCustomer('')
+      setDealNote('')
+      Taro.showToast({ title: t('perf.manualSaved'), icon: 'success' })
+      fetchAll()
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('perf.manualSaveFail')), icon: 'none' })
+    } finally {
+      setDealSaving(false)
+    }
+  }
+
+  const removeDeal = async (deal: ManualDeal) => {
+    const res = await Taro.showModal({
+      title: t('perf.manualDelete'),
+      content: t('perf.manualDeleteConfirm'),
+      confirmText: t('perf.manualDelete'),
+      confirmColor: '#d93f3f'
+    })
+    if (!res.confirm) return
+    try {
+      await performanceApi.deleteDeal(deal.id)
+      fetchAll()
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('perf.manualDeleteFail')), icon: 'none' })
+    }
+  }
 
   const myIndex = leaderboard.findIndex((r) => r.is_self)
   const myRank = myIndex >= 0 ? myIndex + 1 : 0
@@ -398,6 +491,16 @@ export default function EmployeePerformancePage() {
     </View>
   )
 
+  // 手工补录表单项（来源 / 类型）
+  const SOURCE_OPTS: { key: 'platform_customer' | 'self_sourced'; label: string }[] = [
+    { key: 'platform_customer', label: t('perf.manualSourcePlatform') },
+    { key: 'self_sourced', label: t('perf.manualSourceSelf') }
+  ]
+  const TYPE_OPTS = ['new_rental', 'renewal', 'sale_transaction', 'management'].map((k) => ({
+    key: k,
+    label: DEAL_TYPE_LABELS[k]
+  }))
+
   return (
     <View className='perf-page'>
       <ShellHeader title={t('nav.performance')} />
@@ -528,6 +631,118 @@ export default function EmployeePerformancePage() {
                 </View>
               </View>
             )}
+
+            {/* 手工补录成交（非平台成交，对齐 App PerformanceScreen） */}
+            <View className='perf-section'>
+              <View className='perf-section__head'>
+                <Text className='perf-section__title'>{t('perf.manualTitle')}</Text>
+                <View className='perf-manual__add' onClick={() => setDealFormOpen((v) => !v)}>
+                  <Text className='perf-manual__add-text'>
+                    {dealFormOpen ? t('common.cancel') : t('perf.manualAdd')}
+                  </Text>
+                </View>
+              </View>
+              <Text className='perf-manual__sub'>{t('perf.manualSub')}</Text>
+
+              {dealFormOpen && (
+                <View className='perf-form'>
+                  <Text className='perf-form__label'>{t('perf.manualSource')}</Text>
+                  <View className='perf-form__chips'>
+                    {SOURCE_OPTS.map((o) => (
+                      <View
+                        key={o.key}
+                        className={`perf-form__chip ${dealSource === o.key ? 'perf-form__chip--on' : ''}`}
+                        onClick={() => setDealSource(o.key)}
+                      >
+                        <Text>{o.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text className='perf-form__label'>{t('perf.manualType')}</Text>
+                  <View className='perf-form__chips'>
+                    {TYPE_OPTS.map((o) => (
+                      <View
+                        key={o.key}
+                        className={`perf-form__chip ${dealType === o.key ? 'perf-form__chip--on' : ''}`}
+                        onClick={() => setDealType(o.key)}
+                      >
+                        <Text>{o.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Text className='perf-form__label'>{t('perf.manualDate')}</Text>
+                  <Picker mode='date' value={dealDate} onChange={(e: any) => setDealDate(e.detail.value)}>
+                    <View className='perf-form__input perf-form__picker'>
+                      <Text>{dealDate}</Text>
+                    </View>
+                  </Picker>
+
+                  <Text className='perf-form__label'>{t('perf.manualAmount')}</Text>
+                  <Input
+                    className='perf-form__input'
+                    type='digit'
+                    value={dealAmount}
+                    placeholder={t('perf.manualAmount')}
+                    onInput={(e: any) => setDealAmount(e.detail.value)}
+                  />
+
+                  <Text className='perf-form__label'>{t('perf.manualCommission')}</Text>
+                  <Input
+                    className='perf-form__input'
+                    type='digit'
+                    value={dealCommission}
+                    placeholder={t('perf.manualCommission')}
+                    onInput={(e: any) => setDealCommission(e.detail.value)}
+                  />
+
+                  <Text className='perf-form__label'>{t('perf.manualCustomer')}</Text>
+                  <Input
+                    className='perf-form__input'
+                    value={dealCustomer}
+                    placeholder={t('perf.manualCustomer')}
+                    onInput={(e: any) => setDealCustomer(e.detail.value)}
+                  />
+
+                  <Text className='perf-form__label'>{t('perf.manualNote')}</Text>
+                  <Input
+                    className='perf-form__input'
+                    value={dealNote}
+                    placeholder={t('perf.manualNote')}
+                    onInput={(e: any) => setDealNote(e.detail.value)}
+                  />
+
+                  <View
+                    className={`perf-form__save ${dealSaving ? 'perf-form__save--busy' : ''}`}
+                    onClick={() => {
+                      if (!dealSaving) submitDeal()
+                    }}
+                  >
+                    <Text className='perf-form__save-text'>{t('perf.manualSave')}</Text>
+                  </View>
+                </View>
+              )}
+
+              {manualDeals.length === 0 ? (
+                <Text className='perf-manual__empty'>{t('perf.manualEmpty')}</Text>
+              ) : (
+                manualDeals.map((d) => (
+                  <View key={d.id} className='perf-manual__row'>
+                    <View className='perf-manual__body'>
+                      <Text className='perf-manual__name'>{d.customer_name || '—'}</Text>
+                      <Text className='perf-manual__meta'>
+                        {d.deal_date || '-'} · {DEAL_TYPE_LABELS[d.deal_type || ''] || d.deal_type || '-'} ·{' '}
+                        {fmtMoney(d.deal_amount, d.currency)}
+                      </Text>
+                    </View>
+                    <Text className='perf-manual__del' onClick={() => removeDeal(d)}>
+                      {t('common.delete')}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
 
             {/* 业绩排行榜（原型无此区块，保留真实功能） */}
             <View className='perf-section'>

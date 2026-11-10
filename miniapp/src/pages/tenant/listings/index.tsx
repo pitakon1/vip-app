@@ -401,7 +401,7 @@ export default function TenantListingsPage() {
         onGoMap={handleGoMap}
         onOpenDetail={openDetail}
       />
-      <BottomNav role='tenant' active='browse' />
+      <BottomNav role='tenant' active='' />
     </View>
   )
 }

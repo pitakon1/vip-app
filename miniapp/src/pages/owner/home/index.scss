@@ -1,4 +1,478 @@
-/* 业主首页 —— 与租客首页完全一致（统一页面内容）
-   直接复用租客首页样式（@import），根节点类名一致（tenant-home-page），
-   唯一差异是底部导航角色（BottomNav role='owner'）；业主差异内容已收进「我的」与「收益」Tab */
-@import '../../tenant/home/index.scss';
+/* 业主「资产管理」 —— 对齐 App screens/owner/HomeScreen.tsx（资产概览 / 收益趋势 / 房源 / 上架单 / 待办） */
+
+.owner-home-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  /* 底部固定导航占位 */
+  padding-bottom: 160rpx;
+
+  .page-container {
+    padding: 24rpx 28rpx 40rpx;
+  }
+}
+
+/* ===== 1. 资产概览卡 ===== */
+.asset-hero {
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  padding: 32rpx;
+  margin-bottom: 28rpx;
+  box-shadow: var(--shadow-card);
+}
+
+.asset-hero__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.asset-hero__label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.asset-hero__total {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 52rpx;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.asset-hero__link {
+  font-size: 26rpx;
+  color: var(--primary-text);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.asset-stats {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.asset-stat {
+  flex: 1;
+  min-width: 0;
+}
+
+.asset-stat__value {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.asset-stat__value--success {
+  color: var(--success-ink);
+}
+
+.asset-stat__value--warning {
+  color: var(--warning-ink);
+}
+
+.asset-stat__value--info {
+  color: var(--info-ink);
+}
+
+.asset-stat__value--primary {
+  color: var(--primary-text);
+}
+
+.asset-stat__label {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+/* 资产占用分布条 */
+.asset-stack {
+  margin-top: 32rpx;
+  padding-top: 24rpx;
+  border-top: 1rpx solid var(--border);
+}
+
+.asset-stack__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.asset-stack__label {
+  font-size: 26rpx;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.asset-stack__total {
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+.asset-stack__bar {
+  display: flex;
+  height: 16rpx;
+  border-radius: 999rpx;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.asset-stack__seg {
+  height: 100%;
+}
+
+.asset-stack__seg--success {
+  background: var(--success-ink);
+}
+
+.asset-stack__seg--warning {
+  background: var(--warning-ink);
+}
+
+.asset-stack__seg--info {
+  background: var(--info-ink);
+}
+
+.asset-stack__seg--other {
+  background: var(--ink-3);
+  opacity: 0.45;
+}
+
+.asset-stack__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx 24rpx;
+  margin-top: 18rpx;
+}
+
+.asset-stack__legend-item {
+  font-size: 22rpx;
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+}
+
+.dot {
+  display: inline-block;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  margin-right: 8rpx;
+}
+
+.dot--success {
+  background: var(--success-ink);
+}
+
+.dot--warning {
+  background: var(--warning-ink);
+}
+
+.dot--info {
+  background: var(--info-ink);
+}
+
+/* 无房源空态 */
+.asset-empty {
+  margin-top: 32rpx;
+  padding-top: 28rpx;
+  border-top: 1rpx solid var(--border);
+  text-align: center;
+}
+
+.asset-empty__title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.asset-empty__sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.asset-empty__btn {
+  margin: 20rpx auto 0;
+  width: 260rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-empty__btn-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--primary-foreground);
+}
+
+/* ===== 区块标题 ===== */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4rpx;
+  margin: 8rpx 0 16rpx;
+}
+
+.section-head__title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.section-head__hint {
+  font-size: 24rpx;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.section-head__link {
+  font-size: 24rpx;
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+/* ===== 通用卡片 ===== */
+.card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-bottom: 28rpx;
+  border: 1rpx solid var(--border);
+}
+
+.card--list {
+  padding: 4rpx 24rpx;
+}
+
+/* ===== 年度收益柱状 ===== */
+.trend-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12rpx;
+  height: 340rpx;
+  padding-top: 12rpx;
+}
+
+.trend-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.trend-col__value {
+  font-size: 20rpx;
+  color: var(--ink-3);
+  height: 30rpx;
+  line-height: 30rpx;
+}
+
+.trend-col__track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.trend-col__bar {
+  width: 60%;
+  min-height: 8rpx;
+  border-radius: 8rpx 8rpx 4rpx 4rpx;
+  background: var(--primary);
+}
+
+.trend-col__label {
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: var(--ink-3);
+}
+
+/* ===== 房源 / 上架单行 ===== */
+.entity-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--line, var(--border));
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+}
+
+.entity-row--hover {
+  opacity: 0.85;
+}
+
+.entity-row__icon {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+}
+
+.entity-row__icon--success {
+  background: rgba(var(--success-rgb), 0.12);
+}
+
+.entity-row__icon--warning {
+  background: rgba(var(--warning-rgb), 0.12);
+}
+
+.entity-row__icon--info {
+  background: rgba(var(--info-rgb), 0.12);
+}
+
+.entity-row__icon--error {
+  background: rgba(var(--error-rgb), 0.12);
+}
+
+.entity-row__icon--neutral {
+  background: var(--surface-2);
+}
+
+.entity-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.entity-row__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.entity-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.entity-row__badge {
+  flex-shrink: 0;
+  font-size: 20rpx;
+}
+
+.entity-row__meta {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+.entity-row__price {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--primary-text);
+}
+
+.entity-row__arrow {
+  flex-shrink: 0;
+  font-size: 34rpx;
+  color: var(--ink-3);
+}
+
+.more-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 18rpx 0 12rpx;
+}
+
+.more-row__link {
+  font-size: 24rpx;
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+/* ===== 待办 / 提醒 ===== */
+.alert-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 0 24rpx;
+  margin-bottom: 28rpx;
+  border: 1rpx solid var(--border);
+}
+
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-bottom: 1rpx solid var(--line, var(--border));
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.alert-row__icon {
+  width: 68rpx;
+  height: 68rpx;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-row__icon--error {
+  background: rgba(var(--error-rgb), 0.1);
+}
+
+.alert-row__icon--info {
+  background: rgba(var(--info-rgb), 0.1);
+}
+
+.alert-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-row__title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.alert-row__desc {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+
+.alert-row__arrow {
+  flex-shrink: 0;
+  font-size: 34rpx;
+  color: var(--ink-3);
+}

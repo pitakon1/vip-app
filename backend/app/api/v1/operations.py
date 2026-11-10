@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import String
 from sqlalchemy import case as sa_case
-from sqlalchemy import cast, func
+from sqlalchemy import cast, func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
@@ -167,9 +167,16 @@ def operations_overview(
             Lead.deleted_at.is_(None), Lead.stage == "closed"
         )
     ).one()
+    # 在租合同只算未软删房源上的生效租约（与 /dashboard/summary 同口径）。
+    live_property_ids = select(Property.id).where(Property.deleted_at.is_(None))
     active_leases = session.exec(
         select(func.count(Lease.id)).where(
-            Lease.deleted_at.is_(None), Lease.status == LeaseStatus.active
+            Lease.deleted_at.is_(None),
+            Lease.status == LeaseStatus.active,
+            or_(
+                Lease.property_id.is_(None),
+                Lease.property_id.in_(live_property_ids),
+            ),
         )
     ).one()
     month_paid = session.exec(

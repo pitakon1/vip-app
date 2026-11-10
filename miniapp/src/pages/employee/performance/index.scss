@@ -560,3 +560,143 @@
     to { transform: rotate(360deg); }
   }
 }
+
+/* ===== 手工补录成交 ===== */
+.perf-manual {
+  &__add {
+    padding: 8rpx 20rpx;
+    border-radius: var(--radius-full);
+    background: var(--primary);
+
+    &:active {
+      opacity: 0.85;
+    }
+
+    &-text {
+      font-size: 24rpx;
+      font-weight: 600;
+      color: var(--primary-foreground);
+    }
+  }
+
+  &__sub {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin: 4rpx 0 16rpx;
+    line-height: 1.5;
+  }
+
+  &__empty {
+    display: block;
+    padding: 28rpx 0;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    text-align: center;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    padding: 20rpx 0;
+    border-top: 1rpx solid var(--line);
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    display: block;
+    font-size: 28rpx;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-3);
+    margin-top: 4rpx;
+  }
+
+  &__del {
+    flex-shrink: 0;
+    font-size: 24rpx;
+    color: var(--error-ink);
+    padding: 8rpx 12rpx;
+  }
+}
+
+.perf-form {
+  padding: 20rpx 0 24rpx;
+
+  &__label {
+    display: block;
+    font-size: 24rpx;
+    color: var(--ink-2);
+    font-weight: 600;
+    margin: 16rpx 0 10rpx;
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12rpx;
+  }
+
+  &__chip {
+    padding: 10rpx 24rpx;
+    border-radius: var(--radius-full);
+    background: var(--surface-2);
+    font-size: 24rpx;
+    color: var(--ink-2);
+
+    &--on {
+      background: rgba(var(--primary-rgb), 0.12);
+      color: var(--primary-text);
+      font-weight: 600;
+    }
+  }
+
+  &__input {
+    width: 100%;
+    height: 76rpx;
+    padding: 0 24rpx;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    font-size: 28rpx;
+    color: var(--ink);
+    box-sizing: border-box;
+  }
+
+  &__picker {
+    display: flex;
+    align-items: center;
+  }
+
+  &__save {
+    margin-top: 24rpx;
+    height: 84rpx;
+    border-radius: var(--radius-md);
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--busy {
+      opacity: 0.6;
+    }
+
+    &-text {
+      font-size: 28rpx;
+      font-weight: 600;
+      color: var(--primary-foreground);
+    }
+  }
+}

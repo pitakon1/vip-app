@@ -47,6 +47,8 @@ class OwnerIncomeOut(BaseModel):
     property_count: int
     rented_count: int
     vacant_count: int
+    # 出租率：分子=有效租约房源数，分母=名下未软删房源总数
+    occupancy_rate: float = 0.0
     by_property: List[OwnerPropertyIncomeOut] = Field(default_factory=list)
     records: List[OwnerIncomeRecordOut] = Field(default_factory=list)
 

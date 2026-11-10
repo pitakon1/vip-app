@@ -13,7 +13,8 @@
 import { useEffect, useState } from 'react'
 import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { publicApi, type PublicListingDetail } from '@/services/publicApi'
+import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi'
+import { chatApi, favoritesApi, priceAlertsApi } from '@/services/api'
 import {
   convertFromThb,
   decorationLabel,
@@ -27,6 +28,7 @@ import { recordHistory } from '@/utils/browseHistory'
 import { useI18n } from '@/i18n'
 import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
+import PublicListingItem from '@/components/PublicListingItem'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
@@ -50,6 +52,14 @@ export default function PublicListingDetailPage() {
   const [vTime, setVTime] = useState<'tomorrow' | 'dayAfter' | 'in3' | ''>('')
   const [vSubmitting, setVSubmitting] = useState(false)
   const [vFeedback, setVFeedback] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  // 登录态动作：收藏 / 降价提醒 / 联系经纪人（与 App PublicListingDetailScreen 对齐）
+  const [favorited, setFavorited] = useState(false)
+  const [favBusy, setFavBusy] = useState(false)
+  const [priceAlertOn, setPriceAlertOn] = useState(false)
+  const [alertBusy, setAlertBusy] = useState(false)
+  const [contactBusy, setContactBusy] = useState(false)
+  const [similar, setSimilar] = useState<PublicListing[]>([])
 
   useEffect(() => {
     loadRates()
@@ -92,6 +102,51 @@ export default function PublicListingDetailPage() {
     // 登录成功后必须重拉一次，否则用户登录了看到的还是打码号码，
     // 照着打码值去拨号只会失败。
   }, [id, isLoggedIn])
+
+  // 猜你喜欢：与 App 同一公开接口，失败不影响主内容
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+    publicApi
+      .similar(id, 4)
+      .then((res) => {
+        if (cancelled) return
+        const list = Array.isArray(res) ? res : (res?.items ?? res?.data ?? [])
+        setSimilar(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        if (!cancelled) setSimilar([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  // 收藏 / 降价提醒状态：未登录一律复位，避免上一个房源的状态残留
+  useEffect(() => {
+    const propertyId = data?.property_id
+    if (!isLoggedIn || !propertyId) {
+      setFavorited(false)
+      setPriceAlertOn(false)
+      return
+    }
+    let cancelled = false
+    favoritesApi
+      .status(propertyId)
+      .then((res: any) => {
+        if (!cancelled) setFavorited(!!res?.favorited)
+      })
+      .catch(() => {})
+    priceAlertsApi
+      .status(propertyId)
+      .then((res) => {
+        if (!cancelled) setPriceAlertOn(!!res?.subscribed)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isLoggedIn, data?.property_id])
 
   if (loading) {
     return (
@@ -160,6 +215,71 @@ export default function PublicListingDetailPage() {
       ]
     : []
   const goLogin = () => Taro.navigateTo({ url: '/pages/login/index' })
+
+  const toggleFavorite = async () => {
+    if (!isLoggedIn) return goLogin()
+    const propertyId = data?.property_id
+    if (!propertyId || favBusy) return
+    const next = !favorited
+    setFavBusy(true)
+    setFavorited(next)
+    try {
+      if (next) await favoritesApi.add(propertyId)
+      else await favoritesApi.remove(propertyId)
+    } catch (err) {
+      console.error('[public favorite] 操作失败', err)
+      setFavorited(!next)
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    } finally {
+      setFavBusy(false)
+    }
+  }
+
+  const togglePriceAlert = async () => {
+    if (!isLoggedIn) return goLogin()
+    const propertyId = data?.property_id
+    if (!propertyId || alertBusy) return
+    const next = !priceAlertOn
+    setAlertBusy(true)
+    setPriceAlertOn(next)
+    try {
+      if (next) await priceAlertsApi.subscribe(propertyId, data?.id)
+      else await priceAlertsApi.unsubscribe(propertyId)
+      Taro.showToast({
+        title: next ? t('pub.priceAlertOn') : t('pub.priceAlertOff'),
+        icon: 'none'
+      })
+    } catch (err) {
+      console.error('[public price alert] 操作失败', err)
+      setPriceAlertOn(!next)
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    } finally {
+      setAlertBusy(false)
+    }
+  }
+
+  const contactBroker = async () => {
+    if (!isLoggedIn) return goLogin()
+    if (contactBusy) return
+    setContactBusy(true)
+    try {
+      const res: any = await chatApi.createConversation({
+        listing_id: data.id,
+        title: data.room_number || data.project_name || ''
+      })
+      const conv = res?.data?.data ?? res?.data ?? res
+      if (conv?.id) {
+        Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
+      } else {
+        Taro.navigateTo({ url: '/pages/chat/list/index' })
+      }
+    } catch (err) {
+      console.error('[public contact broker] 创建会话失败', err)
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    } finally {
+      setContactBusy(false)
+    }
+  }
 
   // 预约看房快捷时间 → 不含时区的 ISO 字符串（如 2026-10-18T10:00:00），
   // 后端要求 scheduled_at 必填且为未来时间，故最低从「明天」起选。
@@ -251,6 +371,32 @@ export default function PublicListingDetailPage() {
               {isSell ? '' : t('pub.perMonth')}
             </Text>
           ) : null}
+
+          <View className='pub-actions'>
+            <View
+              className={`pub-action${favorited ? ' pub-action--on' : ''}`}
+              onClick={toggleFavorite}
+            >
+              <Text className='pub-action__text'>
+                {favorited ? t('pub.favorited') : t('pub.favorite')}
+              </Text>
+            </View>
+            <View
+              className={`pub-action${priceAlertOn ? ' pub-action--on' : ''}`}
+              onClick={togglePriceAlert}
+            >
+              <Text className='pub-action__text'>
+                {priceAlertOn
+                  ? t('pub.priceAlertOn')
+                  : isLoggedIn
+                    ? t('pub.priceAlertOff')
+                    : t('pub.priceAlertGuest')}
+              </Text>
+            </View>
+            <View className='pub-action pub-action--primary' onClick={contactBroker}>
+              <Text className='pub-action__text'>{t('prop.contactBroker')}</Text>
+            </View>
+          </View>
         </View>
 
         {/* 关键参数 */}
@@ -436,6 +582,16 @@ export default function PublicListingDetailPage() {
             <Text>{vSubmitting ? t('pub.viewingSubmitting') : t('pub.viewingSubmit')}</Text>
           </View>
         </View>
+
+        {/* 猜你喜欢 */}
+        {similar.length > 0 ? (
+          <View className='pub-card'>
+            <Text className='pub-section__title'>{t('pub.youMayLike')}</Text>
+            {similar.map((item) => (
+              <PublicListingItem key={item.id} item={item} />
+            ))}
+          </View>
+        ) : null}
 
         {/* 留资 */}
         <PublicInquiryForm

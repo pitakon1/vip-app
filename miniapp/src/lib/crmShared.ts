@@ -79,7 +79,7 @@ export async function chatCustomer(l: { name?: string; phone?: string; email?: s
   }
   try {
     const res: any = await chatApi.createConversation({
-      title: (l.name || useI18n.getState().t('crm.chatTitle')).trim(),
+      title: (l.name || useI18n.getState().t('crm.leadTitle')).trim(),
       ...(phone ? { participant_phones: [phone] } : {}),
       ...(email ? { participant_emails: [email] } : {})
     })

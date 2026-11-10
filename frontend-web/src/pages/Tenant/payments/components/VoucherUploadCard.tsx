@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import dayjs from 'dayjs'
 import { formatMoney } from '@/lib/money'
 import { makeMethodLabelMap } from '../constants'
 import type { PaymentVoucher } from '../types'
@@ -64,7 +65,7 @@ const VoucherUploadCard = ({
             {pendingBills.map((b) => (
               <option key={b.id} value={String(b.id)}>
                 {formatMoney(b.amount, b.currency)} · {b.bill_type || b.payment_type || t('tenantPayments.typeRent')}
-                {b.due_date ? ` · ${b.due_date}` : ''}
+                {b.due_date ? ` · ${dayjs(b.due_date).format(t('tenantPayments.dateDisplayFormat'))}` : ''}
               </option>
             ))}
           </select>

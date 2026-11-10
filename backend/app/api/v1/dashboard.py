@@ -6,7 +6,7 @@ from sqlalchemy import case, func
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_agent, require_admin
+from app.core.auth import property_visibility_conditions, require_agent, require_admin
 from app.core.cache import get_cache, set_cache
 from app.schemas.dashboard import (
     DashboardSummaryOut,
@@ -112,21 +112,30 @@ def get_summary(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
 ):
-    """获取运营概览：房源总数、空置、已出租、即将到期合同、即将到期租金等。"""
-    cache_key = "cache:dashboard:summary"
+    """获取运营概览：房源总数、空置、已出租、即将到期合同、即将到期租金等。
+
+    统计范围与 `GET /properties` 同源：按当前用户的数据范围收窄，缓存键也按
+    用户隔离，避免「管理员/员工首页总房源 25，而房源列表只显示 0 套」。
+    """
+    scope_conditions = property_visibility_conditions(session, user)
+    cache_key = f"cache:dashboard:summary:{user.id}"
     cached = get_cache(cache_key)
     if cached is not None:
         return cached
 
-    # ---- 房源状态：只统计「在库」（未软删）房源，软删房源不进空置率 ----
+    # ---- 房源状态：只统计「在库」（未软删）且在数据范围内的房源 ----
     # 在租判定以「存在生效租约」为准，而不是 Property.status：房源状态字段经常
     # 没随租约回写，会出现「在租合同 2 / 在租合同营收 55,000 / 已出租 0」的矛盾。
-    # 软删房源虽不计入空置/在租，但其生效租约仍保留在 active_leases 里，
-    # 保证「在租合同」与「在租合同营收」不断链。
+    # 口径统一为：有生效租约 → 在租；无生效租约且非维修中 → 空置；维修中 → 维修。
+    # 软删房源整体不计入（总数 / 在租 / 空置 / 出租率），关联到软删房源的生效
+    # 租约也不再计入 active_leases 与在租合同营收。
+    visible_property_ids = select(Property.id).where(
+        Property.deleted_at.is_(None), *scope_conditions
+    )
     leased_property_ids = select(Lease.property_id).where(
         Lease.deleted_at.is_(None),
         Lease.status == LeaseStatus.active,
-        Lease.property_id.is_not(None),
+        Lease.property_id.in_(visible_property_ids),
     )
     prop_row = session.exec(
         select(
@@ -134,7 +143,7 @@ def get_summary(
             func.sum(
                 case(
                     (
-                        (Property.status == PropertyStatus.vacant)
+                        (Property.status != PropertyStatus.maintenance)
                         & (Property.id.not_in(leased_property_ids)),
                         1,
                     ),
@@ -152,31 +161,25 @@ def get_summary(
                 )
             ),
             func.sum(case((Property.id.in_(leased_property_ids), 1), else_=0)),
-        ).where(Property.deleted_at.is_(None))
+        ).where(Property.deleted_at.is_(None), *scope_conditions)
     ).one()
     total = int(prop_row[0] or 0)
     vacant = int(prop_row[1] or 0)
     maintenance = int(prop_row[2] or 0)
     rented = int(prop_row[3] or 0)
 
-    # 软删房源：不再计入空置统计，但仍在租的必须计入「在租」与总数，
-    # 否则会出现「空置率 100%（3/3）却在租合同 2 条 / 在租收入 55,000」的矛盾。
-    deleted_leased = int(
-        session.exec(
-            select(func.count(Property.id)).where(
-                Property.deleted_at.is_not(None),
-                Property.id.in_(leased_property_ids),
-            )
-        ).one()
-        or 0
-    )
-    total += deleted_leased
-    rented += deleted_leased
-
+    # M-06：已软删的业主房源整体不计入（总数 / 在租 / 空置 / 出租率），
+    # 不再把「仍有生效租约的软删房源」补回分子分母。
     now = datetime.utcnow()
     thirty_days_later = now + timedelta(days=30)
 
     # ---- 租约：即将到期数量 + 活跃租约月租金收入，合并为一次条件聚合 ----
+    # 只统计「数据范围内、未软删房源」上的租约：房源不可见/已删除时，
+    # 其合同也不再计入「在租合同 / 在租合同营收 / 即将到期」。
+    lease_scope = [
+        Lease.deleted_at.is_(None),
+        Lease.property_id.in_(visible_property_ids),
+    ]
     lease_row = session.exec(
         select(
             func.sum(
@@ -200,7 +203,7 @@ def get_summary(
                 0,
             ),
             func.sum(case((Lease.status == LeaseStatus.active, 1), else_=0)),
-        ).where(Lease.deleted_at.is_(None))
+        ).where(*lease_scope)
     ).one()
     expiring_leases = int(lease_row[0] or 0)
     active_lease_revenue = lease_row[1] or 0
@@ -359,9 +362,16 @@ def get_expiring_leases(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
 ):
-    """获取 30 天内即将到期的租约（附带房源与租客名称）。"""
+    """获取 30 天内即将到期的租约（附带房源与租客名称）。
+
+    与概览的「即将到期合同」同范围：只看当前数据范围内、未软删房源上的租约。
+    """
     now = datetime.utcnow()
     thirty_days_later = now + timedelta(days=30)
+    visible_property_ids = select(Property.id).where(
+        Property.deleted_at.is_(None),
+        *property_visibility_conditions(session, user),
+    )
     leases = session.exec(
         select(Lease)
         .where(
@@ -369,6 +379,7 @@ def get_expiring_leases(
             Lease.end_date >= now,
             Lease.status == LeaseStatus.active,
             Lease.deleted_at.is_(None),
+            Lease.property_id.in_(visible_property_ids),
         )
         .order_by(Lease.end_date.asc())
     ).all()
@@ -422,15 +433,38 @@ def get_property_status_distribution(
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
 ):
-    """获取房源状态分布。"""
+    """获取房源状态分布。
+
+    与 `/summary` 同口径：按数据范围收窄；有生效租约 → 在租，无租约且非维修中
+    → 空置，维修中（且无生效租约）→ 维修。直接按 `Property.status` 分组会让
+    「状态字段未随租约回写」的房源在图表与概览卡里对不上。
+    """
+    scope_conditions = property_visibility_conditions(session, user)
+    visible_property_ids = select(Property.id).where(
+        Property.deleted_at.is_(None), *scope_conditions
+    )
+    leased_property_ids = select(Lease.property_id).where(
+        Lease.deleted_at.is_(None),
+        Lease.status == LeaseStatus.active,
+        Lease.property_id.in_(visible_property_ids),
+    )
+    effective_status = case(
+        (Property.id.in_(leased_property_ids), PropertyStatus.rented),
+        (Property.status == PropertyStatus.maintenance, PropertyStatus.maintenance),
+        else_=PropertyStatus.vacant,
+    )
     statuses = session.exec(
-        select(Property.status, func.count(Property.id))
-        .where(Property.deleted_at.is_(None))
-        .group_by(Property.status)
+        select(effective_status, func.count(Property.id))
+        .where(Property.deleted_at.is_(None), *scope_conditions)
+        .group_by(effective_status)
     ).all()
     return {
         "items": [
-            {"status": str(s), "count": c} for s, c in statuses
+            {
+                "status": s.value if isinstance(s, PropertyStatus) else str(s),
+                "count": c,
+            }
+            for s, c in statuses
         ]
     }
 

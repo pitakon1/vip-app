@@ -145,6 +145,7 @@ export default function EmployeeCalendarPage() {
   const [userEvents, setUserEvents] = useState<UserEventItem[]>([])
   const [propNames, setPropNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [loadFailed, setLoadFailed] = useState(false)
   // 添加事件表单（弹层）
   const [addOpen, setAddOpen] = useState(false)
   const [evText, setEvText] = useState('')
@@ -156,44 +157,68 @@ export default function EmployeeCalendarPage() {
   const WEEKDAYS = buildWeekdays(t)
   const MONTH_NAMES = buildMonthNames(t)
 
-  const load = async () => {
+  // 日历只关心当前展示月：带看按「本人 + 当月区间」服务端筛，
+  // 避免拉固定条数后本地过滤导致月初/月末预约被截断
+  const load = async (year = currentYear, month = currentMonth) => {
     setLoading(true)
     try {
-      const [meRes, vwRes, lsRes, wbRes, pvRes, evRes]: any[] = await Promise.all([
-        employeesApi.me().catch(() => ({ data: {} })),
-        viewingsApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-        leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-        employeesApi.workbench().catch(() => ({ data: {} })),
-        propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-        calendarEventsApi.list().catch(() => ({ data: { items: [] } }))
+      const monthStart = new Date(year, month, 1, 0, 0, 0, 0)
+      const monthEnd = new Date(year, month + 1, 1, 0, 0, 0, 0)
+      monthEnd.setMilliseconds(-1)
+      const meRes: any = await employeesApi.me().catch(() => null)
+      const myId: any = meRes?.data?.id ?? meRes?.id
+      const [lsRes, wbRes, pvRes, evRes] = await Promise.allSettled([
+        leasesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+        employeesApi.workbench(),
+        propertiesApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }),
+        calendarEventsApi.list()
       ])
 
-      const pv = pickList(pvRes)
+      let viewingsFailed = false
+      if (myId) {
+        try {
+          const vwRes = await viewingsApi.list({
+            page_size: OPTION_PAGE_SIZE,
+            assigned_to: String(myId),
+            scheduled_from: monthStart.toISOString(),
+            scheduled_to: monthEnd.toISOString()
+          })
+          setViewings(pickList(vwRes) as ViewingItem[])
+        } catch {
+          viewingsFailed = true
+          setViewings([])
+        }
+      } else {
+        setViewings([])
+      }
+
+      const pv = pickList(pvRes.status === 'fulfilled' ? pvRes.value : null)
       const pMap: Record<string, string> = {}
       pv.forEach((p: any) => {
         if (p?.id) pMap[p.id] = p.room_number || p.address || ''
       })
       setPropNames(pMap)
 
-      setViewings(pickList(vwRes) as ViewingItem[])
-
       // 仅保留当前员工负责的租约（对齐 App：lease.agent_id === 我的 id）
-      const myId: any = meRes?.data?.id ?? meRes?.id
-      const ls = pickList(lsRes) as LeaseItem[]
-      const mine = myId ? ls.filter((l) => l.agent_id === myId) : ls
-      setLeases(mine)
+      const ls = pickList(lsRes.status === 'fulfilled' ? lsRes.value : null) as LeaseItem[]
+      setLeases(myId ? ls.filter((l) => l.agent_id === myId) : ls)
 
       // 租金应收：workbench.receivables 的 pending + overdue
-      const wb = wbRes?.data ?? wbRes ?? {}
-      const recv = wb?.receivables ?? {}
+      const wb: any = wbRes.status === 'fulfilled' ? wbRes.value : {}
+      const recv = (wb?.data ?? wb)?.receivables ?? {}
       const pending: ReceivableItem[] = recv?.pending ?? []
       const overdue: ReceivableItem[] = recv?.overdue ?? []
       setReceivables([...pending, ...overdue])
 
       // 员工自定义事件
-      setUserEvents(pickList(evRes) as UserEventItem[])
-    } catch (e) {
-      console.error('[EmployeeCalendar] 加载失败', e)
+      setUserEvents(pickList(evRes.status === 'fulfilled' ? evRes.value : null) as UserEventItem[])
+
+      // 失败当空态会让「本月暂无安排」变成误导：任一接口失败都给出可重试提示
+      setLoadFailed(
+        viewingsFailed ||
+          !myId ||
+          [lsRes, wbRes, pvRes, evRes].some((r) => r.status === 'rejected')
+      )
     } finally {
       setLoading(false)
     }
@@ -337,26 +362,25 @@ export default function EmployeeCalendarPage() {
   const dayKinds = (k: string) => Array.from(new Set((eventsByDate[k] ?? []).map((e) => e.kind)))
 
   const prevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentYear(currentYear - 1)
-      setCurrentMonth(11)
-    } else {
-      setCurrentMonth(currentMonth - 1)
-    }
+    const y = currentMonth === 0 ? currentYear - 1 : currentYear
+    const m = currentMonth === 0 ? 11 : currentMonth - 1
+    setCurrentYear(y)
+    setCurrentMonth(m)
+    load(y, m)
   }
   const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentYear(currentYear + 1)
-      setCurrentMonth(0)
-    } else {
-      setCurrentMonth(currentMonth + 1)
-    }
+    const y = currentMonth === 11 ? currentYear + 1 : currentYear
+    const m = currentMonth === 11 ? 0 : currentMonth + 1
+    setCurrentYear(y)
+    setCurrentMonth(m)
+    load(y, m)
   }
   const goToday = () => {
     const t = new Date()
     setCurrentYear(t.getFullYear())
     setCurrentMonth(t.getMonth())
     setSelectedDate(t)
+    load(t.getFullYear(), t.getMonth())
   }
   const isSelected = (d: Date) =>
     d.getFullYear() === selectedDate.getFullYear() &&
@@ -452,6 +476,13 @@ export default function EmployeeCalendarPage() {
     <View className='cal-page'>
       <ShellHeader title={t('nav.calendar')} />
       <View className='page-container'>
+        {/* 加载失败提示：避免接口异常被当成「本月暂无安排」 */}
+        {loadFailed && (
+          <View className='inline-error-bar' onClick={() => load()}>
+            <Text className='inline-error-bar__text'>{t('emp.workbenchFail')}</Text>
+            <Text className='inline-error-bar__retry'>{t('common.retry')}</Text>
+          </View>
+        )}
         {/* 顶部月份导航 */}
         <View className='cal-header'>
           <View className='cal-nav-btn' hoverClass='cal-nav-btn--hover' onClick={prevMonth}>

@@ -32,3 +32,42 @@
   color: var(--primary-foreground);
   font-weight: 600;
 }
+
+/* 详情动作：收藏 / 降价提醒 / 联系经纪人（与 App 底部操作栏语义一致） */
+.pub-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.pub-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  padding: 0 12rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.pub-action--on {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--card);
+}
+
+.pub-action--primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.pub-action__text {
+  font-size: 26rpx;
+  font-weight: 600;
+}

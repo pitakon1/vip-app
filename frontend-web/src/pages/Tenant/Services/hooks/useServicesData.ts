@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import api from '@/lib/api'
 import { useCachedQuery } from '@/lib/queryCache'
+import { useAuthStore } from '@/stores/auth'
 import { DETAIL_PAGE_SIZE } from '@/lib/pagination'
 import { normalizeBookingStatus } from '../constants'
 import type { Booking, CatalogItem, PropertyOption, ServicesPayload } from '../types'
@@ -13,10 +14,12 @@ import type { Booking, CatalogItem, PropertyOption, ServicesPayload } from '../t
 export function useServicesData(uid: string) {
   const { t, i18n } = useTranslation()
   const lang = (i18n.language || 'zh').slice(0, 2)
+  // /owners/me/properties 仅业主/管理员可读，租客与员工调用会稳定 403
+  const canReadOwnerProperties = useAuthStore((s) => s.user?.role === 'owner' || s.user?.role === 'admin')
 
   const q = useCachedQuery<ServicesPayload>({
-    queryKey: ['tenant-services', uid],
-    cacheKey: `tenant-services:${uid}`,
+    queryKey: ['tenant-services', uid, canReadOwnerProperties ? 'owner' : 'other'],
+    cacheKey: `tenant-services:${uid}:${canReadOwnerProperties ? 'owner' : 'other'}`,
     queryFn: async () => {
       const [cRes, oRes, lRes, pkgRes, tkRes, opRes] = await Promise.allSettled([
         api.get('/billing/pricing'),
@@ -24,7 +27,7 @@ export function useServicesData(uid: string) {
         api.get('/leases'),
         api.get('/service-packages/me'),
         api.get('/maintenance-tickets', { params: { page_size: DETAIL_PAGE_SIZE } }),
-        api.get('/owners/me/properties'),
+        canReadOwnerProperties ? api.get('/owners/me/properties') : Promise.resolve(null),
       ])
 
       // 真实价目表（不含税基准价），页面不再使用硬编码假价格
@@ -73,9 +76,9 @@ export function useServicesData(uid: string) {
         tickets = payload?.items ?? (Array.isArray(payload) ? payload : [])
       }
 
-      // 业主名下房源（租客无档案时后端返回空数组）
+      // 业主名下房源（仅业主/管理员请求；其他角色无档案时返回空数组）
       let ownerProperties: PropertyOption[] = []
-      if (opRes.status === 'fulfilled') {
+      if (opRes.status === 'fulfilled' && opRes.value) {
         const payload = opRes.value.data?.data ?? opRes.value.data
         const list: any[] = Array.isArray(payload) ? payload : (payload?.items ?? [])
         ownerProperties = list.map((p) => ({

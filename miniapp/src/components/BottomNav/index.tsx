@@ -16,12 +16,13 @@ interface NavItem {
 }
 
 /**
- * C 端（业主 + 租客）统一底部导航：业主与租客功能一致，共用同一组 4 项。
- * 首页即统一 C 端首页（`/pages/tenant/home/index`，所有人一致）。
+ * C 端（业主 + 租客 + 未登录访客）统一底部导航：与 App `MainTabNavigator` 的 C 端 Tab
+ * 一致 —— 首页 / 发现 / 消息 / 我的。找房列表不再占用底部 Tab（由首页搜索与分类磁贴进入），
+ * 与 App 的「浏览无需注册」结构对齐。
  */
 const C_NAV: NavItem[] = [
   { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/tenant/home/index' },
-  { key: 'browse', label: 'tab.listings', icon: 'search', path: '/pages/tenant/listings/index' },
+  { key: 'discover', label: 'tab.discover', icon: 'compass', path: '/pages/public/discover/index' },
   { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
   { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
 ]
@@ -45,17 +46,17 @@ const NAV_MAP: Record<NavRole, NavItem[]> = {
     { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
     { key: 'settings', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
   ],
-  // 业主与租客共用同一组 C 端导航（功能一致）
-  owner: C_NAV,
-  tenant: C_NAV,
-  // 未登录访客：内容全部来自匿名接口 `/public/*`，四个 Tab 都不需要 token。
-  // 「我的」与站内 profile 统一为同一访客态（对齐 App ProfileScreen 访客分支）。
-  guest: [
-    { key: 'browse', label: 'pub.tabListings', icon: 'search', path: '/pages/public/listings/index' },
-    { key: 'schools', label: 'pub.tabSchools', icon: 'school', path: '/pages/public/schools/index' },
-    { key: 'communities', label: 'pub.tabCommunities', icon: 'building', path: '/pages/public/communities/index' },
-    { key: 'me', label: 'pub.tabMe', icon: 'user', path: '/pages/profile/index' },
+  // 业主与租客共用同一组 C 端导航，但业主「首页」指向业主工作台
+  // （pages/owner/home）：名下房源 / 待收租金 / 空置提醒都在这里，
+  // 否则业主点「首页」会落到租客找房首页，看不到自己的资产。
+  owner: [
+    { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/owner/home/index' },
+    ...C_NAV.slice(1),
   ],
+  tenant: C_NAV,
+  // 未登录访客与登录用户使用同一组 C 端 Tab（对齐 App：访客同样看到 首页/发现/消息/我的，
+  // 只有「我的」和需要写操作的动作才要求登录）。
+  guest: C_NAV,
 }
 
 interface BottomNavProps {

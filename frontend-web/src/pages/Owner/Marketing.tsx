@@ -70,6 +70,7 @@ const Marketing = () => {
     vacants: VacantItem[]
     totalVacant: number
     totalProperties: number
+    occupancyRate: number
     pricing: PricingItem[]
   }
 
@@ -88,6 +89,7 @@ const Marketing = () => {
         vacants: mkPayload?.items ?? [],
         totalVacant: Number(mkPayload?.total_vacant ?? 0),
         totalProperties: Number(mkPayload?.total_properties ?? 0),
+        occupancyRate: Number(mkPayload?.occupancy_rate ?? 0),
         pricing: prPayload?.items ?? [],
       }
     },
@@ -95,6 +97,7 @@ const Marketing = () => {
   const vacants = q.data?.vacants ?? []
   const totalVacant = q.data?.totalVacant ?? 0
   const totalProperties = q.data?.totalProperties ?? 0
+  const occupancyRate = q.data?.occupancyRate ?? 0
   const pricing = q.data?.pricing ?? []
   const loading = q.isPending && !q.data
 
@@ -150,9 +153,8 @@ const Marketing = () => {
     }
   }
 
-  const occupancy = totalProperties > 0
-    ? Math.round(((totalProperties - totalVacant) / totalProperties) * 100)
-    : 0
+  // 入住率统一由后端按「有效租约 / 未软删房源」计算，前端不再用空置数反推
+  const occupancy = occupancyRate
 
   const pricingCount = pricing.filter((p) => p.suggestion).length
 

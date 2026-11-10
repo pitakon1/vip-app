@@ -436,6 +436,9 @@ export const publicApi = {
   },
   /** 公开房源详情 */
   listing: (id: string) => request<any>({ url: `${PUBLIC}/listings/${id}` }),
+  /** 相似房源（详情页「猜你喜欢」），与 App 端同一接口 */
+  similar: (id: string, limit = 4) =>
+    request<any>({ url: `${PUBLIC}/listings/${id}/similar`, data: { limit } }),
   /**
    * 区域聚合（找房/分类页「区域」筛选的真实数据面）。
    *
@@ -474,8 +477,10 @@ export const publicApi = {
   /** 小区详情（含该小区房源） */
   project: (id: string, params?: { listing_limit?: number }) =>
     request<any>({ url: `${PUBLIC}/projects/${id}`, method: 'GET', data: params }),
-  /**
-   * 分类页聚合摘要（数据胶囊 + 行情对比 + 分类计数）。
+  /** 首页聚合：租房 / 二手房 / 商铺办公 / 厂房 / 酒店 / 土地 / 新房 / 学校，一次请求返回 */
+  home: (params?: { city?: string }) =>
+    request<any>({ url: `${PUBLIC}/home`, method: 'GET', data: params }),
+  /** 分类页聚合摘要（数据胶囊 + 行情对比 + 分类计数）。
    * `city` 不传=全国口径：定位城市名为中文，与库内英文 city 不匹配，故默认不限定城市。
    */
   listingCategorySummary: (params?: { city?: string }) =>

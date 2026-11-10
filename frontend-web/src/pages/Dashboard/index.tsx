@@ -244,7 +244,7 @@ const Dashboard = () => {
       bg: 'rgba(20,184,166,0.1)',
       color: 'var(--rent-primary-text)',
       delta: () => revenueDelta,
-      hint: () => t('dashboardOps.vsLastMonth'),
+      hint: () => t('dashboardOps.noPreviousMonth'),
     },
     {
       label: t('dashboardOps.kpiOccupancy'),

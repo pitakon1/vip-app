@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { leadsApi, employeesApi } from '@/services/api'
 import { MAX_PAGE_SIZE } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
@@ -8,7 +8,6 @@ import BottomNav from '@/components/BottomNav'
 import {
   PAGE_SIZE,
   computeLeadStats,
-  filterLeads,
   fmtDate,
   fmtMoney,
   callPhone,
@@ -58,7 +57,14 @@ const FILTERS: { key: string; label: string }[] = [
 export default function AdminCrmPage() {
   const { t } = useI18n()
   const [leads, setLeads] = useState<LeadItem[]>([])
+  // 统计基准：不带 stage/keyword 的首屏数据（筛选不能影响总客户数）
+  const [allLeads, setAllLeads] = useState<LeadItem[]>([])
+  const [stageTotals, setStageTotals] = useState<Record<string, number>>({})
   const [total, setTotal] = useState(0)
+  const [listTotal, setListTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -132,21 +138,61 @@ export default function AdminCrmPage() {
     }
   }
 
-  const fetchLeads = async () => {
-    setLoading(true)
+  /**
+   * 阶段/关键词交给服务端筛选，并按服务端 total 分页加载：
+   * 原来只取第 1 页再本地过滤，超过一页的线索搜不到、统计也偏小。
+   */
+  const fetchLeads = async (
+    over: { stage?: string; query?: string } = {},
+    nextPage = 1,
+    append = false
+  ) => {
+    if (append && loadingMore) return
+    if (append) setLoadingMore(true)
+    else setLoading(true)
     setLoadError(false)
     try {
-      const res: any = await leadsApi.list({ page: 1, page_size: PAGE_SIZE })
-      const d = res?.data ?? res
+      const st = over.stage ?? stage
+      const kw = over.query ?? query
+      const params: Record<string, unknown> = { page: nextPage, page_size: PAGE_SIZE }
+      if (st) params.stage = st
+      if (kw) params.keyword = kw
+      const results = await Promise.allSettled([
+        append ? Promise.resolve(null) : leadsApi.list({ page: 1, page_size: PAGE_SIZE }),
+        leadsApi.list(params)
+      ])
+      if (!append && results[0].status === 'fulfilled') {
+        const d: any = (results[0].value as any)?.data ?? results[0].value
+        setAllLeads(Array.isArray(d) ? d : d?.items || [])
+        setTotal(Number(d?.total ?? 0))
+      }
+      if (results[1].status !== 'fulfilled') throw results[1].reason
+      const d: any = (results[1].value as any)?.data ?? results[1].value
       const items: LeadItem[] = Array.isArray(d) ? d : d?.items || []
-      setLeads(items)
-      setTotal(Number(d?.total ?? items.length))
+      const srvTotal = Number(d?.total)
+      setListTotal(Number.isFinite(srvTotal) ? srvTotal : items.length)
+      if (append) {
+        // 分页期间若有新增记录，简单追加会出现重复 key
+        setLeads((prev) => {
+          const seen = new Set(prev.map((l) => l.id))
+          return [...prev, ...items.filter((l) => !seen.has(l.id))]
+        })
+      } else {
+        setLeads(items)
+      }
+      setPage(nextPage)
+      setHasMore(
+        Number.isFinite(srvTotal) ? nextPage * PAGE_SIZE < srvTotal : items.length >= PAGE_SIZE
+      )
+      const sc = d?.stage_counts
+      if (sc && typeof sc === 'object') setStageTotals(sc)
     } catch (error) {
       console.error('[AdminCrm] 获取线索失败', error)
       setLoadError(true)
-      Taro.showToast({ title: t('crm.loadFailed'), icon: 'none' })
+      if (!append) Taro.showToast({ title: t('crm.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
 
@@ -174,13 +220,34 @@ export default function AdminCrmPage() {
     fetchAgents()
   })
 
-  const handleSearch = () => setQuery(keyword.trim())
+  useReachBottom(() => {
+    if (hasMore && !loading && !loadingMore) fetchLeads({}, page + 1, true)
+  })
 
-  // 阶段筛选（客户端，因接口一次拉全量；后端仅支持 stage 参数）
-  const visible = useMemo(() => filterLeads(leads, stage, query), [leads, stage, query])
+  const handleSearch = () => {
+    const kw = keyword.trim()
+    setQuery(kw)
+    fetchLeads({ query: kw })
+  }
 
-  // 统计：按已加载线索实时计算（接口不提供分阶段计数）
-  const stats = useMemo(() => computeLeadStats(leads, total), [leads, total])
+  const changeStage = (key: string) => {
+    setStage(key)
+    fetchLeads({ stage: key })
+  }
+
+  // 列表已由服务端按 stage/keyword 筛选，这里直接展示
+  const visible = leads
+
+  // 统计：总客户数与阶段计数取服务端口径，本月新增按首屏数据估算
+  const stats = useMemo(() => {
+    const base = computeLeadStats(allLeads, total)
+    if (!Object.keys(stageTotals).length) return base
+    return {
+      ...base,
+      intent: Number(stageTotals.inquiring || 0),
+      closed: Number(stageTotals.closed || 0)
+    }
+  }, [allLeads, total, stageTotals])
 
   return (
     <View className='crm-page'>
@@ -207,7 +274,7 @@ export default function AdminCrmPage() {
           <View
             key={f.key || 'all'}
             className={`crm-chip ${stage === f.key ? 'crm-chip--active' : ''}`}
-            onClick={() => setStage(f.key)}
+            onClick={() => changeStage(f.key)}
           >
             <Text className='crm-chip__text'>{t(f.label)}</Text>
           </View>
@@ -237,7 +304,7 @@ export default function AdminCrmPage() {
       <View className='crm-section-head'>
         <Text className='crm-section-head__title'>{t('crm.listTitle')}</Text>
         <View className='crm-section-head__right'>
-          <Text className='crm-section-head__count'>{t('crm.countUnit', { n: visible.length })}</Text>
+          <Text className='crm-section-head__count'>{t('crm.countUnit', { n: listTotal })}</Text>
           <View className='crm-addbox' onClick={openNew}>
             <Text className='crm-addbox__text'>{t('crm.newLead')}</Text>
           </View>
@@ -249,7 +316,7 @@ export default function AdminCrmPage() {
           <StateBlock loading text={t('pub.loading')} />
         )}
         {!loading && loadError && visible.length > 0 && (
-          <View className='inline-error-bar' onClick={fetchLeads}>
+          <View className='inline-error-bar' onClick={() => fetchLeads()}>
             <Text className='inline-error-bar__text'>{t('crm.loadFailed')}</Text>
             <Text className='inline-error-bar__retry'>{t('acc.retry')}</Text>
           </View>
@@ -319,7 +386,7 @@ export default function AdminCrmPage() {
                 <View className='crm-card__foot'>
                   <View className='icon-svg icon-svg--sm' style={iconStyle('calendar', 26)} />
                   <Text className='crm-card__foot-text'>
-                    {t('crm.followUp')} {fmtDate(l.updated_at || l.created_at)} · {t('crm.owner')}{' '}
+                    {t('crm.followUp', { date: fmtDate(l.updated_at || l.created_at) })} · {t('crm.owner')}{' '}
                     {agentMap[String(l.assigned_to || '')] || t('crm.unassigned')}
                   </Text>
                 </View>
@@ -338,6 +405,7 @@ export default function AdminCrmPage() {
             </View>
           )
         })}
+        {loadingMore && <StateBlock loading text={t('pub.loading')} />}
       </ScrollView>
       </View>
 

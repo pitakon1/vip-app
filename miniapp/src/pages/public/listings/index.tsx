@@ -19,7 +19,7 @@ import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useRouter } from '@tarojs/taro'
 import {
   publicApi,
   unwrapPage,
@@ -55,10 +55,16 @@ type FilterTab = '' | 'school' | 'more'
 
 export default function PublicListingsPage() {
   const { t } = useI18n()
+  const router = useRouter()
+  // 首页搜索条 / 学校卡片会带参进入：q 关键词、school_id + school_name + school_km 学区筛选
+  const initialQ = String(router.params?.q ?? '')
+  const initialSchoolId = String(router.params?.school_id ?? '')
+  const initialSchoolName = String(router.params?.school_name ?? '')
+  const initialSchoolKm = Number(router.params?.school_km) || 3
   // ---- 基础筛选 ----
   const [type, setType] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [debounced, setDebounced] = useState('')
+  const [keyword, setKeyword] = useState(initialQ)
+  const [debounced, setDebounced] = useState(initialQ.trim())
   const [sort, setSort] = useState('latest')
 
   // ---- 更多：价格 / 面积 / 户型（与 App 一致，直接输最值，无预设）----
@@ -69,9 +75,9 @@ export default function PublicListingsPage() {
   const [bedsMin, setBedsMin] = useState('')
 
   // ---- 学校筛选（空间筛选）----
-  const [schoolId, setSchoolId] = useState('')
-  const [schoolName, setSchoolName] = useState('')
-  const [schoolKm, setSchoolKm] = useState(3)
+  const [schoolId, setSchoolId] = useState(initialSchoolId)
+  const [schoolName, setSchoolName] = useState(initialSchoolName)
+  const [schoolKm, setSchoolKm] = useState(initialSchoolKm)
   const [schools, setSchools] = useState<PublicSchool[]>([])
   const [schoolKw, setSchoolKw] = useState('')
 
@@ -515,7 +521,7 @@ export default function PublicListingsPage() {
         )}
       </View>
 
-      <BottomNav role='guest' active='browse' />
+      <BottomNav role='guest' active='' />
     </View>
   )
 }

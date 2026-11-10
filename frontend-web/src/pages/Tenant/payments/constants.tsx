@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import dayjs from 'dayjs'
+import { formatMoney } from '@/lib/money'
 import type { FilterKey, StatusKey, StatusMeta, OnlinePayMethod } from './types'
 
 type Translate = (key: string, options?: any) => string
@@ -31,8 +32,7 @@ export const isOverdue = (bill: { status?: string; due_date?: string }): boolean
   return due.isValid() && due.startOf('day').isBefore(dayjs().startOf('day'))
 }
 
-export const fmtMoney = (v: number) =>
-  `RM ${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+export const fmtMoney = (v: number, currency = 'THB') => formatMoney(v, currency)
 
 export const makeChipLabelMap = (t: Translate): Record<FilterKey, string> => ({
   all: t('tenantPayments.chipAll'),

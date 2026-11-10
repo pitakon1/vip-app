@@ -2,7 +2,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request, currentToken, documentFileUrl } from '@/lib/api'
-import { leasesApi, paymentsApi, documentsApi } from '@/services/api'
+import { propertiesApi, paymentsApi, documentsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
@@ -33,6 +33,8 @@ interface OwnerLease {
   id: string
   property_id?: string
   tenant_id?: string
+  // 后端 /properties/{id}/leases 已 join 租客姓名，业主侧直接展示
+  tenant_name?: string
   start_date?: string
   end_date?: string
   monthly_rent?: number
@@ -214,7 +216,7 @@ export default function OwnerPropertyDetailPage() {
       if (!propertyId) throw new Error('missing property id')
       const [propRes, leaseRes, payRes, docRes] = await Promise.all([
         request<any>({ url: `/properties/${propertyId}`, method: 'GET' }),
-        leasesApi.list({ property_id: propertyId }).catch(() => null),
+        propertiesApi.leases(propertyId).catch(() => null),
         paymentsApi.mine().catch(() => null),
         documentsApi.list({ property_id: propertyId }).catch(() => null)
       ])
@@ -386,8 +388,7 @@ export default function OwnerPropertyDetailPage() {
                   <View className='metric-row'>
                     <View className='metric'>
                       <Text className='metric__label'>{t('prop.currentTenant')}</Text>
-                      {/* 后端 Lease 仅存 tenant_id，无租客姓名，此处如实留空 */}
-                      <Text className='metric__value'>—</Text>
+                      <Text className='metric__value'>{activeLease.tenant_name || '—'}</Text>
                     </View>
                     <View className='metric'>
                       <Text className='metric__label'>{t('opd.leaseEndDate')}</Text>

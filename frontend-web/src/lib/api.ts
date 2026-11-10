@@ -1,6 +1,7 @@
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { REFRESH_TOKEN_KEY, useAuthStore } from '@/stores/auth'
 import { cachedGetAdapter } from '@/lib/httpCache'
+import { clearCache, queryClient } from '@/lib/queryCache'
 import { isPublicPath } from '@/lib/publicRoutes'
 
 /**
@@ -172,7 +173,16 @@ const normalizeErrorBody = (error: AxiosError) => {
 }
 
 api.interceptors.response.use(
-  unwrapEnvelope,
+  (response) => {
+    // 写操作成功后统一失效列表缓存：内存查询 + localStorage 磁盘缓存。
+    // 之前只有收藏/凭证上传等少数页面手动失效，其余 mutation 返回列表仍是旧值。
+    const method = (response.config.method || 'get').toLowerCase()
+    if (method !== 'get') {
+      clearCache()
+      void queryClient.invalidateQueries()
+    }
+    return unwrapEnvelope(response)
+  },
   async (error: AxiosError) => {
     const original = error.config as RetriableConfig | undefined
     // 凭据类接口（登录/注册/刷新）自身 401 表示「凭据错误」：既不该静默续期，

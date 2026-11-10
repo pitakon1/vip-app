@@ -1,1 +1,5 @@
-export default { navigationBarTitleText: '我的房屋' }
+export default {
+  navigationBarTitleText: '资产管理',
+  navigationStyle: 'custom',
+  enablePullDownRefresh: true
+}

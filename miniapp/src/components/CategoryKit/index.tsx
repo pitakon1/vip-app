@@ -601,7 +601,7 @@ export function CategoryListScreen<T>({
         </View>
       </ScrollView>
 
-      <BottomNav role='tenant' active='browse' />
+      <BottomNav role='tenant' active='' />
     </View>
   )
 }

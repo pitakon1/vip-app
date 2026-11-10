@@ -8,6 +8,7 @@ import StatusTop from '@/components/StatusTop'
 import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import { fmtDateTime } from '@/utils/format'
+import { iconStyle } from '@/utils/icons'
 import './index.scss'
 
 interface Conversation {
@@ -34,6 +35,8 @@ export default function ChatListPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  // 访客态：浏览无需注册；消息是需登录的动作 → 站内引导登录（对齐 App ChatListScreen）
+  const [guest, setGuest] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -53,15 +56,17 @@ export default function ChatListPage() {
   useDidShow(() => {
     loadFromStorage()
     if (!useAuthStore.getState().token) {
-      Taro.redirectTo({ url: '/pages/login/index' })
+      setGuest(true)
+      setLoading(false)
       return
     }
+    setGuest(false)
     void load()
   })
 
-  // 下拉刷新（对齐 App 的 RefreshControl）
+  // 下拉刷新（对齐 App 的 RefreshControl）；访客没有会话可刷新
   usePullDownRefresh(async () => {
-    await load()
+    if (!guest) await load()
     Taro.stopPullDownRefresh()
   })
 
@@ -73,44 +78,68 @@ export default function ChatListPage() {
     <View className='chat-list-page'>
       <StatusTop />
       <View className='page-container'>
-        {loading && conversations.length === 0 && (
-          <StateBlock loading text={t('common.loading')} />
-        )}
-        {!loading && loadError && conversations.length === 0 && (
-          <StateBlock
-            error
-            text={t('chat.loadConvFailed')}
-            retryText={t('acc.retry')}
-            onRetry={() => void load()}
-          />
-        )}
-        {!loading && !loadError && conversations.length === 0 && (
-          <StateBlock empty text={t('chat.noConversations')} />
-        )}
-        {conversations.length > 0 && (
-          <View className='conversation-list'>
-            {conversations.map((c) => (
-              <View
-                key={c.id}
-                className='conversation-card'
-                onClick={() => openConversation(c.id)}
-              >
-                <View className='avatar'>
-                  <Text className='avatar-text'>
-                    {(c.peer_name || c.title || '?').charAt(0)}
-                  </Text>
-                </View>
-                <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
-                <Text className='conv-time'>
-                  {fmtDateTime(c.created_at || c.updated_at)}
-                </Text>
-              </View>
-            ))}
+        {guest ? (
+          <View className='chat-guest'>
+            <View className='chat-guest__icon'>
+              <View className='icon-svg' style={iconStyle('chat', 64)} />
+            </View>
+            <Text className='chat-guest__title'>{t('pub.meTitle')}</Text>
+            <Text className='chat-guest__sub'>{t('pub.guestHint')}</Text>
+            <View
+              className='chat-guest__primary'
+              onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}
+            >
+              {t('pub.login')}
+            </View>
+            <View
+              className='chat-guest__ghost'
+              onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}
+            >
+              {t('pub.registerAccount')}
+            </View>
           </View>
+        ) : (
+          <>
+            {loading && conversations.length === 0 && (
+              <StateBlock loading text={t('common.loading')} />
+            )}
+            {!loading && loadError && conversations.length === 0 && (
+              <StateBlock
+                error
+                text={t('chat.loadConvFailed')}
+                retryText={t('acc.retry')}
+                onRetry={() => void load()}
+              />
+            )}
+            {!loading && !loadError && conversations.length === 0 && (
+              <StateBlock empty text={t('chat.noConversations')} />
+            )}
+            {conversations.length > 0 && (
+              <View className='conversation-list'>
+                {conversations.map((c) => (
+                  <View
+                    key={c.id}
+                    className='conversation-card'
+                    onClick={() => openConversation(c.id)}
+                  >
+                    <View className='avatar'>
+                      <Text className='avatar-text'>
+                        {(c.peer_name || c.title || '?').charAt(0)}
+                      </Text>
+                    </View>
+                    <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
+                    <Text className='conv-time'>
+                      {fmtDateTime(c.created_at || c.updated_at)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </>
         )}
       </View>
 
-      <BottomNav role='tenant' active='messages' />
+      <BottomNav role={guest ? 'guest' : 'tenant'} active='messages' />
     </View>
   )
 }

@@ -448,7 +448,8 @@ def test_message_and_conversation_models_roundtrip(engine):
 _DASHBOARD_CONTRACT = {
     "/api/v1/dashboard/summary": {
         "total_properties", "vacant", "rented", "maintenance", "expiring_leases",
-        "upcoming_payments", "monthly_revenue", "active_lease_revenue",
+        "active_leases", "upcoming_payments", "outstanding_payments",
+        "monthly_revenue", "active_lease_revenue",
         "occupancy_rate", "active_leads", "closed_leads", "conversion_rate",
         "employee_count", "new_employees",
     },
@@ -553,6 +554,99 @@ def test_dashboard_response_models_do_not_truncate_fields(api):
         "property_id", "property", "received", "receivable", "overdue", "count",
     }
     assert set(recon["records"][0]) == _RECON_RECORD_KEYS
+
+
+def test_dashboard_lease_and_vacancy_scope(api):
+    """管理端口径：软删房源上的租约不计入在租/营收；无租约即空置。
+
+    - 软删房源整体不计入房源总数 / 在租 / 空置，其生效租约也不再计入
+      `active_leases` 与 `active_lease_revenue`；
+    - `Property.status=rented` 但没有生效租约的房源，按「无租约即空置」计入空置。
+    """
+    from datetime import datetime, timedelta
+
+    from app.models import Lease, LeaseStatus, Tenant
+
+    owner_user = api.mk_user(UserRole.owner)
+    tenant_user = api.mk_user(UserRole.tenant)
+    now = datetime.utcnow()
+    with Session(api.engine) as s:
+        owner = Owner(user_id=owner_user.id)
+        s.add(owner)
+        s.commit()
+        tenant = Tenant(user_id=tenant_user.id)
+        s.add(tenant)
+        s.commit()
+
+        live = Property(
+            owner_id=owner.id,
+            room_number="R1",
+            address="曼谷 A",
+            monthly_rent=12000,
+            currency="THB",
+            status=PropertyStatus.vacant,
+        )
+        stale = Property(
+            owner_id=owner.id,
+            room_number="R2",
+            address="曼谷 B",
+            monthly_rent=15000,
+            currency="THB",
+            status=PropertyStatus.rented,  # 状态未回写，实际没有租约
+        )
+        removed = Property(
+            owner_id=owner.id,
+            room_number="R3",
+            address="曼谷 C",
+            monthly_rent=9999,
+            currency="THB",
+            status=PropertyStatus.rented,
+            deleted_at=now,
+        )
+        s.add_all([live, stale, removed])
+        s.commit()
+        stale_id = str(stale.id)
+
+        for prop, rent in ((live, 12000), (removed, 9999)):
+            s.add(
+                Lease(
+                    property_id=prop.id,
+                    tenant_id=tenant.id,
+                    owner_id=owner.id,
+                    start_date=now - timedelta(days=30),
+                    end_date=now + timedelta(days=330),
+                    monthly_rent=rent,
+                    deposit_amount=rent * 2,
+                    status=LeaseStatus.active,
+                )
+            )
+        s.commit()
+
+    client = api.login(api.mk_user(UserRole.admin))
+    summary = client.get("/api/v1/dashboard/summary").json()
+    assert summary["total_properties"] == 2
+    assert summary["rented"] == 1
+    assert summary["vacant"] == 1
+    assert summary["maintenance"] == 0
+    assert summary["active_leases"] == 1
+    assert summary["active_lease_revenue"] == 12000
+    assert summary["occupancy_rate"] == 50.0
+
+    dist = client.get("/api/v1/dashboard/property-status-distribution").json()
+    assert {item["status"]: item["count"] for item in dist["items"]} == {
+        "rented": 1,
+        "vacant": 1,
+    }
+
+    owner_client = api.login(owner_user)
+    income = owner_client.get("/api/v1/owners/me/income").json()
+    assert income["property_count"] == 2
+    assert income["rented_count"] == 1
+    assert income["vacant_count"] == 1
+
+    marketing = owner_client.get("/api/v1/owners/me/marketing").json()
+    assert marketing["total_vacant"] == 1
+    assert [item["id"] for item in marketing["items"]] == [stale_id]
 
 
 def test_dashboard_trend_month_math_and_bounds(api):

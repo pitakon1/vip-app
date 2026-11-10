@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import exists, false, func, or_
+from sqlalchemy import and_, case, exists, false, func, or_
 from sqlalchemy.orm import aliased
 from sqlmodel import Session, select
 
@@ -271,6 +271,9 @@ _C_END_HIDDEN_FIELDS = (
     "deleted_at",
     "metadata_",
     "dedupe_key",
+    # 地址归一化串与去重类型只用于服务端判重，不属于对外展示字段。
+    "dedupe_type",
+    "address_norm",
 )
 
 
@@ -512,9 +515,31 @@ def list_properties(
         term_conditions = _keyword_conditions(terms)
         if term_conditions:
             conditions.append(or_(*term_conditions))
-    if status:
-        # status 过滤单独保存：分页查询用它，status_counts 需要「不含 status 维度」
-        # 的全状态分布（否则选「已出租」时另外两个状态的计数会变成 0）。
+    # 租态与 `/dashboard/summary` 同口径：有生效租约 → 在租；无租约且非维修中
+    # → 空置；维修中（且无租约）→ 维修。`Property.status` 可能未随租约回写，
+    # 若列表仍按存储字段筛选/统计，会和概览卡、业主端徽标对不上。
+    leased_property_ids = select(Lease.property_id).where(
+        Lease.status == LeaseStatus.active,
+        Lease.deleted_at.is_(None),
+    )
+    effective_status = case(
+        (Property.id.in_(leased_property_ids), PropertyStatus.rented.value),
+        (Property.status == PropertyStatus.maintenance, PropertyStatus.maintenance.value),
+        else_=PropertyStatus.vacant.value,
+    ).label("effective_status")
+    if status == PropertyStatus.rented:
+        status_condition = Property.id.in_(leased_property_ids)
+    elif status == PropertyStatus.vacant:
+        status_condition = and_(
+            Property.status != PropertyStatus.maintenance,
+            Property.id.not_in(leased_property_ids),
+        )
+    elif status == PropertyStatus.maintenance:
+        status_condition = and_(
+            Property.status == PropertyStatus.maintenance,
+            Property.id.not_in(leased_property_ids),
+        )
+    elif status:
         status_condition = Property.status == status
     else:
         status_condition = None
@@ -733,9 +758,9 @@ def list_properties(
         (s.value if isinstance(s, PropertyStatus) else str(s)): int(count or 0)
         # 多列聚合必须走 session.execute（SQLModel 的 exec 会把结果当标量只取首列）
         for s, count in session.execute(
-            base_stmt.with_only_columns(Property.status, func.count(Property.id))
+            base_stmt.with_only_columns(effective_status, func.count(Property.id))
             .order_by(None)
-            .group_by(Property.status)
+            .group_by(effective_status)
         ).all()
         if s is not None
     }
@@ -789,9 +814,30 @@ def list_properties(
         if page_ids
         else {}
     )
+    # 本页房源的「有效租态」：有生效租约即在租，否则按存储字段区分维修中/空置。
+    page_leased_ids = (
+        set(
+            session.exec(
+                select(Lease.property_id).where(
+                    Lease.property_id.in_(page_ids),
+                    Lease.status == LeaseStatus.active,
+                    Lease.deleted_at.is_(None),
+                )
+            ).all()
+        )
+        if page_ids
+        else set()
+    )
     result.items = [
         _trim_for_tenant(user, {
             **p.model_dump(),
+            "status": (
+                PropertyStatus.rented.value
+                if p.id in page_leased_ids
+                else PropertyStatus.maintenance.value
+                if p.status == PropertyStatus.maintenance
+                else PropertyStatus.vacant.value
+            ),
             "project_name": project_meta.get(p.project_id, {}).get("name"),
             # 房源本身无坐标，C 端「附近」排序与距离展示都取所属项目坐标
             "lat": project_meta.get(p.project_id, {}).get("lat"),

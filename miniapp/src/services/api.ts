@@ -84,6 +84,8 @@ export const propertiesApi = {
     return request({ url: `/properties${query ? `?${query}` : ''}`, method: 'GET', data: rest })
   },
   get: (id: string) => request({ url: `/properties/${id}`, method: 'GET' }),
+  // 关联租约：返回 tenant_name，是业主侧展示「当前租客」姓名的唯一来源
+  leases: (id: string) => request({ url: `/properties/${id}/leases`, method: 'GET' }),
   update: (id: string, data: any) =>
     request({ url: `/properties/${id}`, method: 'PATCH', data }),
   // 照片上传（multipart，后端先传后保存 url 列表到 photos）
@@ -169,6 +171,13 @@ export const documentsApi = {
   }
 }
 
+// 服务价目与报价：价格 / 规格系数只在服务端维护，客户端只展示，不本地算价
+export const billingApi = {
+  pricing: () => request({ url: '/billing/pricing', method: 'GET' }),
+  quote: (params: { code: string; qty?: number; billing_model?: string }) =>
+    request({ url: '/billing/pricing/quotes', method: 'GET', data: params })
+}
+
 export const serviceOrdersApi = {
   list: (params?: any) => request({ url: '/service-orders', method: 'GET', data: params }),
   create: (data: any) => request({ url: '/service-orders', method: 'POST', data }),
@@ -203,6 +212,17 @@ export const favoritesApi = {
 // 小程序此前缺这一层封装导致该入口只能提示「建设中」。
 export const priceAlertsApi = {
   list: (params?: any) => request({ url: '/price-alerts', method: 'GET', data: params }),
+  status: (propertyId: string) =>
+    request<{ subscribed: boolean }>({
+      url: `/price-alerts/status/${propertyId}`,
+      method: 'GET'
+    }),
+  subscribe: (propertyId: string, listingId?: string) =>
+    request({
+      url: '/price-alerts',
+      method: 'POST',
+      data: { property_id: propertyId, listing_id: listingId ?? null }
+    }),
   unsubscribe: (propertyId: string) =>
     request({ url: `/price-alerts/${propertyId}`, method: 'DELETE' })
 }
@@ -257,9 +277,23 @@ export const dashboardApi = {
 // 管理端：账号管理（列表 / 开通 / 编辑 / 启停 / 删除）
 export const adminUsersApi = {
   list: (params?: any) => request({ url: '/admin/users', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/admin/users', method: 'POST', data }),
   update: (id: string, data: any) =>
     request({ url: `/admin/users/${id}`, method: 'PATCH', data }),
-  deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' })
+  deleteUser: (id: string) => request({ url: `/admin/users/${id}`, method: 'DELETE' }),
+  // 平台管理员把账号分配到指定合作公司；partnerId=null 表示移回平台
+  assignPartner: (id: string, partnerId: string | null) =>
+    request({
+      url: `/admin/users/${id}/assign-partner`,
+      method: 'POST',
+      data: { partner_id: partnerId ?? null }
+    }),
+  resetPassword: (id: string, newPassword: string) =>
+    request({
+      url: `/admin/users/${id}/reset-password`,
+      method: 'POST',
+      data: { new_password: newPassword }
+    })
 }
 
 // 管理端：合作公司（平台管理员维护合作方，含开通 / 编辑 / 启停 / 指定管理员）
@@ -517,7 +551,11 @@ export const performanceApi = {
   agents: (params?: any) => request({ url: `/performance/agents${qs(params)}`, method: 'GET' }),
   partners: (params?: any) => request({ url: `/performance/partners${qs(params)}`, method: 'GET' }),
   leaderboard: (params?: any) =>
-    request({ url: `/performance/leaderboard${qs(params)}`, method: 'GET' })
+    request({ url: `/performance/leaderboard${qs(params)}`, method: 'GET' }),
+  // 手工补录成交（非平台成交）：source=platform_customer|self_sourced
+  deals: (params?: any) => request({ url: `/performance/deals${qs(params)}`, method: 'GET' }),
+  createDeal: (data: any) => request({ url: '/performance/deals', method: 'POST', data }),
+  deleteDeal: (id: string) => request({ url: `/performance/deals/${id}`, method: 'DELETE' })
 }
 
 // 我的佣金结算明细 / 管理端分佣结算记录
@@ -540,6 +578,8 @@ export const commissionSplitRulesApi = {
 // ============ 买卖交易闭环（挂牌 / 成交 / 托管） ============
 export const saleListingApi = {
   list: (params?: any) => request({ url: `/sale-listings${qs(params)}`, method: 'GET' }),
+  // 业主「委托出售」提交挂牌：sale_type='sell' + 标题 / 挂牌价 / 币种 / 地址
+  create: (data: any) => request({ url: '/sale-listings', method: 'POST', data }),
   valuations: (id: string) => request({ url: `/sale-listings/${id}/valuations`, method: 'GET' })
 }
 
@@ -589,6 +629,7 @@ export default {
   leasesApi,
   paymentsApi,
   documentsApi,
+  billingApi,
   serviceOrdersApi,
   maintenanceApi,
   favoritesApi,

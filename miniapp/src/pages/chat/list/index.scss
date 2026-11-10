@@ -8,6 +8,63 @@
     padding: 24rpx;
   }
 
+  /* ===== 访客引导（对齐 App ChatListScreen 访客分支）===== */
+  .chat-guest {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 120rpx 48rpx 0;
+
+    &__icon {
+      width: 128rpx;
+      height: 128rpx;
+      border-radius: 50%;
+      background-color: var(--sidebar-active);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24rpx;
+    }
+
+    &__title {
+      font-size: 34rpx;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 12rpx;
+    }
+
+    &__sub {
+      font-size: 26rpx;
+      color: var(--ink-3);
+      text-align: center;
+      margin-bottom: 48rpx;
+    }
+
+    &__primary,
+    &__ghost {
+      width: 100%;
+      height: 92rpx;
+      border-radius: 999rpx;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30rpx;
+      font-weight: 700;
+    }
+
+    &__primary {
+      background-color: var(--primary);
+      color: #ffffff;
+      margin-bottom: 20rpx;
+    }
+
+    &__ghost {
+      border: 1rpx solid var(--primary);
+      color: var(--primary-text);
+      box-sizing: border-box;
+    }
+  }
+
   /* ===== 纯对话列表（对齐 App ChatListScreen：白底、分隔线、无卡片描边）===== */
   .conversation-list {
     background-color: var(--card);

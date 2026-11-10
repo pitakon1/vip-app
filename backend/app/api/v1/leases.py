@@ -232,18 +232,16 @@ class LeaseRead(BaseModel):
     裸 UUID 渲染到「房源」「租客」列上。这里在返回结构里补齐可读名称。
 
     不能直接继承 `Lease`：SQLModel 会把继承来的字段当表字段解析（JSON 字段会
-    直接报错），所以按字段显式声明，序列化键与原 `Lease` 保持一一对应。
+    直接报错），所以按字段显式声明。软删标记、扩展元数据与归属账号属内部台账
+    字段，不在列表接口下发；其余键与原 `Lease` 保持一致。
     """
 
     id: uuid.UUID
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
-    metadata_: Optional[dict] = None
     version: int = 1
     property_id: uuid.UUID
     tenant_id: uuid.UUID
-    owner_id: uuid.UUID
     agent_id: Optional[uuid.UUID] = None
     start_date: datetime
     end_date: datetime

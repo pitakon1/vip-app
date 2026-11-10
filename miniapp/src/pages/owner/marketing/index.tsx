@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, ScrollView, Button } from '@tarojs/components'
+import { View, Text, ScrollView, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, saleListingApi } from '@/services/api'
@@ -15,8 +15,12 @@ import StateBlock from '@/components/StateBlock'
 interface VacantItem {
   id: string
   title?: string
+  name?: string
+  project_name?: string
+  room_number?: string
   address?: string
   monthly_rent?: number
+  sale_price?: number
   currency?: string
   property_type?: string
   size_sqm?: number
@@ -75,6 +79,15 @@ const pick = (res: any, key: string, fallback: any[] = []) => {
   const d = res?.data ?? res
   return Array.isArray(d?.[key]) ? d[key] : d?.items ?? fallback
 }
+
+/** 房源名称：/owners/me/properties 返回 name/project_name/room_number，marketing 返回 title */
+const propNameOf = (p: VacantItem) =>
+  p.title ||
+  p.name ||
+  (p.project_name ? `${p.project_name}${p.room_number ? `·${p.room_number}` : ''}` : '') ||
+  p.room_number ||
+  p.address ||
+  ''
 
 const propertyTypeText = (
   t: (k: string, p?: Record<string, string | number>) => string,
@@ -156,11 +169,23 @@ export default function OwnerMarketingPage() {
   const [activeTab, setActiveTab] = useState<'rent' | 'sale'>('rent')
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null)
   const [valuations, setValuations] = useState<Valuation[]>([])
+  // 委托出售表单（对齐 App MarketingScreen 的 Modal：名称 / 售价 / 地址 / 币种）
+  const [showForm, setShowForm] = useState(false)
+  const [formPropertyId, setFormPropertyId] = useState('')
+  const [saleProps, setSaleProps] = useState<VacantItem[]>([])
+  const [loadingProps, setLoadingProps] = useState(false)
+  const [formTitle, setFormTitle] = useState('')
+  const [formPrice, setFormPrice] = useState('')
+  const [formAddress, setFormAddress] = useState('')
+  const [formCcy, setFormCcy] = useState('THB')
+  const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   interface MarketingPayload {
     vacants: VacantItem[]
     totalVacant: number
     totalProperties: number
+    occupancyRate: number
     pricing: PricingItem[]
     annual: AnnualMonth[]
     annualTotals: { received: number; pending: number; overdue: number; count: number }
@@ -183,6 +208,7 @@ export default function OwnerMarketingPage() {
         vacants: pick(mkD, 'items'),
         totalVacant: Number(mkD?.total_vacant ?? 0),
         totalProperties: Number(mkD?.total_properties ?? 0),
+        occupancyRate: Number(mkD?.occupancy_rate ?? 0),
         pricing: pick(pr?.data ?? pr, 'items'),
         annual: pick(annD, 'by_month'),
         annualTotals: annD?.totals ?? { received: 0, pending: 0, overdue: 0, count: 0 },
@@ -194,6 +220,7 @@ export default function OwnerMarketingPage() {
   const vacants = data?.vacants ?? []
   const totalVacant = data?.totalVacant ?? 0
   const totalProperties = data?.totalProperties ?? 0
+  const occupancyRate = data?.occupancyRate ?? 0
   const pricing = data?.pricing ?? []
   const annual = data?.annual ?? []
   const annualTotals = data?.annualTotals ?? { received: 0, pending: 0, overdue: 0, count: 0 }
@@ -305,6 +332,82 @@ export default function OwnerMarketingPage() {
     })
   }
 
+  const openForm = async () => {
+    setFormPropertyId('')
+    setFormTitle('')
+    setFormPrice('')
+    setFormAddress('')
+    setFormCcy('THB')
+    setFormError('')
+    setShowForm(true)
+    // 后端要求卖单必须关联自己名下房源（property_id 必填），先取全量房源供选择
+    if (saleProps.length === 0) {
+      setLoadingProps(true)
+      try {
+        const res: any = await ownerApi.properties()
+        const items = Array.isArray(res) ? res : res?.items ?? []
+        setSaleProps(Array.isArray(items) ? items : [])
+      } catch {
+        setSaleProps([])
+      } finally {
+        setLoadingProps(false)
+      }
+    }
+  }
+
+  const pickProperty = (p: VacantItem) => {
+    setFormPropertyId(p.id)
+    setFormTitle(propNameOf(p))
+    setFormPrice(p.sale_price != null ? String(p.sale_price) : p.monthly_rent != null ? String(p.monthly_rent) : '')
+    setFormAddress(p.address || '')
+    setFormCcy(p.currency || 'THB')
+    setFormError('')
+  }
+
+  // 提交委托出售挂牌：后端要求 property_id（房源归属去重校验），成功后直接为 active
+  const submitForm = async () => {
+    const title = formTitle.trim()
+    const price = Number(formPrice)
+    if (!formPropertyId) {
+      setFormError(t('mkt.pickPropertyRequired'))
+      return
+    }
+    if (!title) {
+      setFormError(t('mkt.formRequired'))
+      return
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      setFormError(t('mkt.priceInvalid'))
+      return
+    }
+    setFormError('')
+    setSubmitting(true)
+    try {
+      await saleListingApi.create({
+        sale_type: 'sell',
+        property_id: formPropertyId,
+        title,
+        asking_price: price,
+        currency: formCcy.trim().toUpperCase() || 'THB',
+        address: formAddress.trim() || undefined
+      })
+      Taro.showModal({
+        title: t('mkt.submittedTitle'),
+        content: t('mkt.submittedMsg'),
+        showCancel: false,
+        confirmText: t('common.confirm')
+      })
+      setShowForm(false)
+      void refresh(true)
+    } catch (err: any) {
+      console.error('[OwnerMarketing] 委托出售提交失败', err)
+      // 后端会返回「该房源已有在售挂牌」等业务原因，优先展示真实文案
+      Taro.showToast({ title: err?.message || t('mkt.submitFail'), icon: 'none' })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const exportCsv = () => {
     const rows = [
       [t('mkt.colMonth'), t('mkt.colReceived'), t('mkt.colPending'), t('mkt.colOverdue'), t('mkt.colCount')],
@@ -328,10 +431,8 @@ export default function OwnerMarketingPage() {
     })
   }
 
-  const occupancy =
-    totalProperties > 0
-      ? Math.round(((totalProperties - totalVacant) / totalProperties) * 100)
-      : 0
+  // 入住率统一由后端按「有效租约 / 未软删房源」计算
+  const occupancy = occupancyRate
 
   const pricingCount = pricing.filter((p) => p.suggestion).length
 
@@ -647,6 +748,10 @@ export default function OwnerMarketingPage() {
                   <Text>{t('prop.countUnit', { n: saleListings.length })}</Text>
                 </View>
               </View>
+              {/* 委托出售入口：填写名称/售价后提交，后端生成 pending 挂牌 */}
+              <Button className='share-btn' onClick={openForm}>
+                {t('mkt.actionConsign')}
+              </Button>
               {saleListings.length === 0 ? (
                 <View className='empty-tip'>
                   <Text>{t('mkt.noSaleListings')}</Text>
@@ -863,6 +968,112 @@ export default function OwnerMarketingPage() {
           <StateBlock loading text={t('common.loading')} />
         )}
       </View>
+
+      {/* 委托出售表单（底部弹层） */}
+      {showForm && (
+        <View className='mkt-mask' onClick={() => !submitting && setShowForm(false)}>
+          <View className='mkt-sheet' onClick={(e) => e.stopPropagation()}>
+            <View className='mkt-sheet__head'>
+              <Text className='mkt-sheet__title'>{t('mkt.modalTitle')}</Text>
+              <Text className='mkt-sheet__close' onClick={() => !submitting && setShowForm(false)}>
+                ×
+              </Text>
+            </View>
+            <Text className='mkt-sheet__sub'>{t('mkt.modalSub')}</Text>
+
+            <Text className='mkt-form-label'>{t('mkt.formProperty')}</Text>
+            {loadingProps ? (
+              <Text className='mkt-form-hint'>{t('common.loading')}</Text>
+            ) : saleProps.length === 0 ? (
+              <Text className='mkt-form-hint'>{t('mkt.noProperties')}</Text>
+            ) : (
+              <ScrollView scrollX className='mkt-prop-rail'>
+                {saleProps.map((p) => {
+                  const active = formPropertyId === p.id
+                  return (
+                    <View
+                      key={p.id}
+                      className={`mkt-prop-chip ${active ? 'mkt-prop-chip--active' : ''}`}
+                      onClick={() => pickProperty(p)}
+                    >
+                      <Text
+                        className={`mkt-prop-chip__title ${active ? 'mkt-prop-chip__title--active' : ''}`}
+                        numberOfLines={1}
+                      >
+                        {propNameOf(p) || t('mkt.fieldProperty')}
+                      </Text>
+                      <Text className='mkt-prop-chip__sub' numberOfLines={1}>
+                        {p.address || (p.monthly_rent ? money(p.monthly_rent, p.currency || 'THB') : '')}
+                      </Text>
+                    </View>
+                  )
+                })}
+              </ScrollView>
+            )}
+
+            <Text className='mkt-form-label'>{t('mkt.formName')}</Text>
+            <Input
+              className='mkt-form-input'
+              value={formTitle}
+              maxlength={80}
+              placeholder={t('mkt.formNamePh')}
+              onInput={(e: any) => {
+                setFormTitle(e.detail.value)
+                if (formError) setFormError('')
+              }}
+            />
+
+            <Text className='mkt-form-label'>{t('mkt.formPrice')}</Text>
+            <View className='mkt-form-price'>
+              <Input
+                className='mkt-form-input mkt-form-input--price'
+                type='digit'
+                value={formPrice}
+                placeholder='0'
+                onInput={(e: any) => {
+                  setFormPrice(e.detail.value)
+                  if (formError) setFormError('')
+                }}
+              />
+              <Input
+                className='mkt-form-input mkt-form-input--ccy'
+                value={formCcy}
+                maxlength={3}
+                placeholder={t('mkt.formCcy')}
+                onInput={(e: any) => setFormCcy(String(e.detail.value || '').toUpperCase())}
+              />
+            </View>
+
+            <Text className='mkt-form-label'>{t('mkt.formAddress')}</Text>
+            <Input
+              className='mkt-form-input'
+              value={formAddress}
+              maxlength={120}
+              placeholder={t('mkt.formAddressPh')}
+              onInput={(e: any) => setFormAddress(e.detail.value)}
+            />
+
+            {!!formError && <Text className='mkt-form-error'>{formError}</Text>}
+
+            <View className='mkt-form-actions'>
+              <View
+                className='mkt-form-btn mkt-form-btn--ghost'
+                onClick={() => !submitting && setShowForm(false)}
+              >
+                <Text className='mkt-form-btn__text mkt-form-btn__text--ghost'>{t('common.cancel')}</Text>
+              </View>
+              <View
+                className={`mkt-form-btn mkt-form-btn--primary ${submitting ? 'mkt-form-btn--disabled' : ''}`}
+                onClick={() => {
+                  if (!submitting) void submitForm()
+                }}
+              >
+                <Text className='mkt-form-btn__text'>{submitting ? t('common.loading') : t('mkt.submit')}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
 
       <BottomNav role='owner' active='' />
     </View>

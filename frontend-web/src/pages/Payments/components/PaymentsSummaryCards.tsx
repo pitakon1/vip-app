@@ -18,22 +18,10 @@ export default function PaymentsSummaryCards({ summary }: Props) {
       <div className="rent-stat-card">
         <div className="rent-stat-card__label">{t('payments.statIncome')}</div>
         <div className="rent-stat-card__value">฿{Number(statIncome).toLocaleString()}</div>
-        <div className="rent-stat-card__delta rent-stat-card__delta--up">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="18 15 12 9 6 15" />
-          </svg>
-          {t('payments.statDeltaUp')}
-        </div>
       </div>
       <div className="rent-stat-card">
         <div className="rent-stat-card__label">{t('payments.statExpense')}</div>
         <div className="rent-stat-card__value">฿{Number(statExpense).toLocaleString()}</div>
-        <div className="rent-stat-card__delta rent-stat-card__delta--up">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-          {t('payments.statDeltaDown')}
-        </div>
       </div>
       <div className="rent-stat-card">
         <div className="rent-stat-card__label">{t('payments.statPending')}</div>

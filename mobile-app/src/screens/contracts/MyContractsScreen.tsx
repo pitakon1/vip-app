@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: colors.primary,
     backgroundColor: colors.alpha(colors.primaryRgb, 0.12),
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

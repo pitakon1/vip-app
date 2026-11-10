@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: colors.error,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
   },
   clearBtnText: {
     color: colors.primaryForeground,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
     fontSize: 13,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
   logoutBtn: {
     marginTop: 8,
     backgroundColor: colors.error,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     paddingVertical: 8,
     alignItems: 'center',
   },
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
   },
   runAllBtnText: {
     color: colors.primaryForeground,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     backgroundColor: colors.errorLight,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     padding: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   previewBtn: {
     flex: 1,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     alignItems: 'center',
   },
   previewBtnText: {

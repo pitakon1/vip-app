@@ -32,6 +32,7 @@ interface RowEntry {
 // 租客/游客不再看到业主专属入口。
 const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
   // 业主入口（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
+  { key: 'assetOverview', label: '资产管理', url: '/pages/owner/home/index', icon: 'chart' },
   { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home' },
   { key: 'incomeDetail', label: '收益明细', url: '/pages/owner/income/index', icon: 'chart' },
   // 租客入口（租客 = 在平台上租了房子）
@@ -39,7 +40,7 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> 
   { key: 'myDeals', label: '我的交易订单', url: '/pages/tenant/deals/index', icon: 'money' },
   { key: 'payments', label: '缴费中心', url: '/pages/tenant/payments/index', icon: 'card' },
   { key: 'maintenance', label: '服务工单', url: '/pages/tenant/maintenance/index', icon: 'edit' },
-  { key: 'services', label: '增值服务', url: '/pages/tenant/services/index', icon: 'clipboard' },
+  { key: 'services', label: '增值服务', url: '/pages/svc/services/index', icon: 'clipboard' },
   // 通用入口（文档中心：租房文档 + 我的文档 合并）
   { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc' },
   // 电子合同（业主/租客签署）
@@ -724,7 +725,7 @@ export default function ProfilePage() {
   const isActiveTenant = !isOwner && !isAdmin && !isStaff && (isTenant || !!lease)
   const cGrid = C_GRID.filter((e) => {
     if (!user) return ['favorites', 'history', 'priceAlerts'].includes(e.key)
-    if (e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty
+    if (e.key === 'assetOverview' || e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty
     if (e.key === 'myDeals' || e.key === 'maintenance' || e.key === 'services') return isActiveTenant
     if (e.key === 'myLeases' || e.key === 'payments' || e.key === 'documents' || e.key === 'myContracts') {
       return canManageProperty || isActiveTenant
@@ -1100,7 +1101,7 @@ export default function ProfilePage() {
 
       {isC && (user
         ? <BottomNav role={isOwner ? 'owner' : 'tenant'} active='profile' />
-        : <BottomNav role='guest' active='me' />
+        : <BottomNav role='guest' active='profile' />
       )}
       {isAdmin && <BottomNav role='admin' active='settings' />}
       {isStaff && <BottomNav role='employee' active='settings' />}

@@ -597,7 +597,12 @@ def list_my_payments(
         .order_by(Payment.created_at.desc(), Payment.id)
     ).all()
     items = [
-        {**p.model_dump(), "bucket": bill_bucket(p, now)}
+        {
+            # 软删标记与扩展元数据属于内部台账字段，不下发到 C 端 /
+            # 我的账单列表；其余字段保持原样以兼容三端映射。
+            **{k: v for k, v in p.model_dump().items() if k not in {"deleted_at", "metadata_"}},
+            "bucket": bill_bucket(p, now),
+        }
         for p in all_payments[offset : offset + limit]
     ]
     summary = {

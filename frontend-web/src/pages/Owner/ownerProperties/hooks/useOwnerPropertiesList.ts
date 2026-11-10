@@ -25,17 +25,30 @@ export function useOwnerPropertiesList() {
   const uid = user?.id ?? 'anon'
   const queryKey = useMemo(() => ownerPropertiesQueryKey(uid), [uid])
 
-  const q = useCachedQuery<OwnerProperty[]>({
+  const q = useCachedQuery<{ items: OwnerProperty[]; rentedCount?: number; occupancyRate?: number }>({
     queryKey,
     cacheKey: `owner-properties:list:${uid}`,
     queryFn: async () => {
-      const res = await api.get('/owners/me/properties')
-      const payload = res.data?.data ?? res.data
-      // 该接口返回裸数组，同时兼容 {items} 形态
-      return Array.isArray(payload) ? payload : (payload?.items ?? [])
+      // 出租率统一取后端「有效租约 / 未软删房源」口径；房源列表本身仍用同一接口。
+      const [propRes, incomeRes] = await Promise.allSettled([
+        api.get('/owners/me/properties'),
+        api.get('/owners/me/income'),
+      ])
+      const payload = propRes.status === 'fulfilled'
+        ? (propRes.value.data?.data ?? propRes.value.data)
+        : []
+      const items: OwnerProperty[] = Array.isArray(payload) ? payload : (payload?.items ?? [])
+      const income = incomeRes.status === 'fulfilled'
+        ? (incomeRes.value.data?.data ?? incomeRes.value.data)
+        : null
+      return {
+        items,
+        rentedCount: typeof income?.rented_count === 'number' ? income.rented_count : undefined,
+        occupancyRate: typeof income?.occupancy_rate === 'number' ? income.occupancy_rate : undefined,
+      }
     },
   })
-  const allItems = q.data ?? []
+  const allItems = q.data?.items ?? []
   const loading = q.isPending && !q.data
   const showError = q.isError && !q.data
   const refresh = useCallback(() => {
@@ -53,10 +66,21 @@ export function useOwnerPropertiesList() {
     [],
   )
 
-  // 统计（名下房源 / 在租 / 空置 / 在售）
-  const statusCount = useMemo(() => computeStatusCounts(allItems), [allItems])
+  // 统计（名下房源 / 在租 / 空置 / 在售）；在租与出租率以后端有效租约口径为准
+  const rawStatusCount = useMemo(() => computeStatusCounts(allItems), [allItems])
+  const statusCount = useMemo(
+    () => ({
+      ...rawStatusCount,
+      rented: q.data?.rentedCount ?? rawStatusCount.rented,
+    }),
+    [rawStatusCount, q.data?.rentedCount],
+  )
   const totalProps = allItems.length
-  const occupancyPct = totalProps > 0 ? Math.round((statusCount.rented / totalProps) * 100) : 0
+  const occupancyPct = q.data?.occupancyRate != null
+    ? Math.round(q.data.occupancyRate)
+    : totalProps > 0
+      ? Math.round((statusCount.rented / totalProps) * 100)
+      : 0
 
   // 前端筛选 + 排序（客户端过滤，与管理员端一致）
   const filteredItems = useMemo(

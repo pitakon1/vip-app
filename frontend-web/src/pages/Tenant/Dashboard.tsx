@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { message } from 'antd'
+import { message, Pagination } from 'antd'
 import api from '@/lib/api'
 import DataState from '@/components/DataState'
 import { errorKind, errorText } from '@/lib/errorText'
@@ -85,6 +85,8 @@ interface OwnerIncomeSummary {
   total_income: number
   monthly_income: number
   pending_amount: number
+  rented_count?: number
+  occupancy_rate?: number
 }
 
 // 业主端金额一律泰铢（后端 base currency = THB）
@@ -128,6 +130,8 @@ const OwnerAssetCard = () => {
           total_income: Number(iPayload?.total_income ?? 0),
           monthly_income: received + pending,
           pending_amount: pending,
+          rented_count: Number(iPayload?.rented_count ?? 0),
+          occupancy_rate: Number(iPayload?.occupancy_rate ?? 0),
         },
       }
     },
@@ -166,7 +170,15 @@ const OwnerAssetCard = () => {
     else if (s === 'rented' || s === 'active') statusCount.rented += 1
   })
   const totalProps = properties.length
-  const occupancyPct = totalProps > 0 ? Math.round((statusCount.rented / totalProps) * 100) : 0
+  // 出租率统一按后端「有效租约 / 未软删房源」口径，不再按房源 status 统计
+  const rentedCount = Number.isFinite(Number(income.rented_count))
+    ? Number(income.rented_count)
+    : statusCount.rented
+  const occupancyPct = Number.isFinite(Number(income.occupancy_rate))
+    ? Math.round(Number(income.occupancy_rate))
+    : totalProps > 0
+      ? Math.round((statusCount.rented / totalProps) * 100)
+      : 0
 
   const monthlyIncome = Number(income.monthly_income || 0)
   const pendingAmount = Number(income.pending_amount || 0)
@@ -200,7 +212,7 @@ const OwnerAssetCard = () => {
             <div className="rent-stat-card">
               <div className="rent-stat-card__label">{t('ownerDashboard.rentedProperties')}</div>
               <div className="rent-stat-card__value">
-                {statusCount.rented} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('ownerDashboard.unitSuffix')}</span>
+                {rentedCount} <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--rent-ink-2)' }}>{t('ownerDashboard.unitSuffix')}</span>
               </div>
               <div className="rent-stat-card__delta rent-stat-card__delta--up">{t('ownerDashboard.occupancyPct', { pct: occupancyPct })}</div>
             </div>
@@ -331,12 +343,20 @@ const TenantDashboard = () => {
 
   // 搜索走服务端：关键词只匹配公开接口的全量数据，而不是本地某一页
   const [searchKw, setSearchKw] = useState('')
+  // 搜索结果服务端分页：只取当前页 9 条，total 由服务端返回
+  const [searchPage, setSearchPage] = useState(1)
   useEffect(() => {
-    const timer = setTimeout(() => setSearchKw(keyword.trim()), 300)
+    const timer = setTimeout(() => {
+      setSearchKw(keyword.trim())
+      setSearchPage(1)
+    }, 300)
     return () => clearTimeout(timer)
   }, [keyword])
+  useEffect(() => {
+    setSearchPage(1)
+  }, [biz])
   const searchQ = useQuery({
-    queryKey: ['tenant-home-search', biz, searchKw],
+    queryKey: ['tenant-home-search', biz, searchKw, searchPage],
     enabled: !!searchKw,
     queryFn: async () => {
       const res = await api.get('/public/listings', {
@@ -344,10 +364,12 @@ const TenantDashboard = () => {
           q: searchKw,
           listing_type: biz === 'rent' ? 'rent' : 'sell',
           sort: 'relevance',
+          page: searchPage,
           page_size: 9,
         },
       })
-      return toItems(res).map((p: any) => ({
+      const payload = res.data?.data ?? res.data
+      const items = (payload?.items ?? []).map((p: any) => ({
         ...p,
         monthly_rent: Number(p.monthly_rent ?? (p.listing_type === 'rent' ? p.price : 0) ?? 0),
         sale_price: Number(p.sale_price ?? p.asking_price ?? (p.listing_type === 'sell' ? p.price : 0) ?? 0),
@@ -356,9 +378,11 @@ const TenantDashboard = () => {
         project_name: p.project_name || '',
         currency: p.currency || 'THB',
       })) as PropertyItem[]
+      return { items, total: Number(payload?.total ?? items.length) }
     },
   })
-  const searchResults = searchQ.data ?? []
+  const searchResults = searchQ.data?.items ?? []
+  const searchTotal = searchQ.data?.total ?? 0
 
   // ===== 收藏（真实接口，按 property_id 落库） =====
   const token = useAuthStore((s) => s.token)
@@ -573,7 +597,7 @@ const TenantDashboard = () => {
       {keyword.trim() && (
         <div className="rv17-sec" ref={searchResultRef}>
           <div className="rv17-sec__head">
-            <h2 className="rv17-sec__title">{t('common.search')}（{searchResults.length}）</h2>
+            <h2 className="rv17-sec__title">{t('common.search')}（{searchTotal}）</h2>
             <button type="button" className="rv17-sec__more" onClick={() => navigate('/tenant/listings')}>{t('browse.more')}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
           </div>
           <div className="rv17-rail">
@@ -591,6 +615,17 @@ const TenantDashboard = () => {
               </>
             )}
           </div>
+          {searchTotal > 9 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+              <Pagination
+                current={searchPage}
+                pageSize={9}
+                total={searchTotal}
+                showSizeChanger={false}
+                onChange={setSearchPage}
+              />
+            </div>
+          )}
         </div>
       )}
 

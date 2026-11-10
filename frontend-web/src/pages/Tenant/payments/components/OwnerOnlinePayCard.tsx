@@ -120,7 +120,7 @@ const OwnerOnlinePayCard = ({ onPaid }: { onPaid: () => void }) => {
           <div className="rent-form-group">
             <label className="rent-form-label">{t('ownerPayments.fAmount')}</label>
             <div className="pay-amount-wrap">
-              <span className="pay-amount-prefix">RM</span>
+              <span className="pay-amount-prefix">฿</span>
               <input
                 type="text"
                 className="pay-amount-input"
@@ -245,7 +245,7 @@ const OwnerOnlinePayCard = ({ onPaid }: { onPaid: () => void }) => {
           <div className="pay-summary-row">
             <span className="pay-summary-row__label">{t('ownerPayments.discount')}</span>
             <span className="pay-summary-row__value rent-mono" style={{ color: 'var(--state-success)' }}>
-              -RM 0.00
+              -{fmtMoney(0)}
             </span>
           </div>
           <hr className="rent-divider" />

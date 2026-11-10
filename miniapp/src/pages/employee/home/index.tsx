@@ -140,27 +140,49 @@ export default function EmployeeHomePage() {
   const [perf, setPerf] = useState<PerfSummary>({})
   const [monthly, setMonthly] = useState<MonthPerf[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [vw, ld, lb, pf] = await Promise.all([
-        viewingsApi.list({ page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-        leadsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }).catch(() => ({ data: { items: [] } })),
-        employeesApi.leaderboard().catch(() => ({ data: [] })),
-        performanceApi.me().catch(() => ({ data: {} }))
+      // 带看必须按「本人 + 今天」服务端筛选：默认列表会混入其他经纪人的预约，
+      // 且当天预约多时固定条数会被截断
+      const meRes: any = await employeesApi.me().catch(() => null)
+      const myEmpId = pick(meRes)?.id
+      const dayStart = new Date()
+      dayStart.setHours(0, 0, 0, 0)
+      const dayEnd = new Date(dayStart)
+      dayEnd.setDate(dayEnd.getDate() + 1)
+      dayEnd.setMilliseconds(-1)
+      const [vwRes, ldRes, lbRes, pfRes] = await Promise.allSettled([
+        viewingsApi.list({
+          page_size: OPTION_PAGE_SIZE,
+          ...(myEmpId ? { assigned_to: String(myEmpId) } : {}),
+          scheduled_from: dayStart.toISOString(),
+          scheduled_to: dayEnd.toISOString()
+        }),
+        // 线索只取本人负责的：不带 mine 时后端对员工返回全平台线索
+        leadsApi.list({ page: 1, page_size: OPTION_PAGE_SIZE, mine: true }),
+        employeesApi.leaderboard(),
+        performanceApi.me()
       ])
-      setViewings(pickList(pick(vw)))
-      const ldList = pickList(ld)
-      setLeads(ldList)
-      const lbRaw: any = pick(lb)
-      setBoard(Array.isArray(lbRaw) ? lbRaw : [])
-      const sum = pick(pf, 'summary') as PerfSummary | undefined
-      setPerf(sum && typeof sum === 'object' ? sum : {})
-      const mon = pick(pf, 'monthly')
-      setMonthly(Array.isArray(mon) ? mon : [])
-    } catch (error) {
-      console.error('[EmployeeHome] 加载失败', error)
+      if (vwRes.status === 'fulfilled') setViewings(pickList(pick(vwRes.value)))
+      if (ldRes.status === 'fulfilled') setLeads(pickList(pick(ldRes.value)))
+      if (lbRes.status === 'fulfilled') {
+        const lbRaw: any = pick(lbRes.value)
+        setBoard(Array.isArray(lbRaw) ? lbRaw : [])
+      }
+      if (pfRes.status === 'fulfilled') {
+        const pf: any = pick(pfRes.value)
+        const sum = pf?.summary as PerfSummary | undefined
+        setPerf(sum && typeof sum === 'object' ? sum : {})
+        setMonthly(Array.isArray(pf?.monthly) ? pf.monthly : [])
+      }
+      // 失败不能当成 0 数据：否则「今日 0 场带看 / 暂无待跟进」会误导
+      // 取不到本人 employee id 时带看会退回团队列表，同样视为降级
+      setLoadFailed(
+        !myEmpId || [vwRes, ldRes, lbRes, pfRes].some((r) => r.status === 'rejected')
+      )
     } finally {
       setLoading(false)
     }
@@ -212,22 +234,55 @@ export default function EmployeeHomePage() {
   const monthCommission = perf.month_commission ?? selfRow?.performance
   const hasPerf = monthDeals !== undefined || monthCommission !== undefined
 
-  // 柱图数据：近 6 个月佣金走势
-  const barData = useMemo(() => {
-    const six = monthly.slice(-6)
-    const max = Math.max(1, ...six.map((m) => Number(m.commission ?? 0)))
+  // 环比：以上月月度序列为基数（无上月记录时不展示）
+  const prevMonthRow = useMemo(() => {
     const now = new Date()
-    return six.map((m) => ({
-      label: t('home.monthShort', { m: m.month }),
-      value: fmtCompact(Number(m.commission ?? 0)),
-      height: `${Math.max(4, Math.round((Number(m.commission ?? 0) / max) * 64))}px`,
-      active: m.year === now.getFullYear() && m.month === now.getMonth() + 1
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    return monthly.find((m) => m.year === d.getFullYear() && m.month === d.getMonth() + 1)
+  }, [monthly])
+  const dealsDelta =
+    prevMonthRow && monthDeals !== undefined ? monthDeals - Number(prevMonthRow.deals || 0) : null
+  const prevCommission = Number(prevMonthRow?.commission || 0)
+  const commissionDelta =
+    prevCommission > 0 && monthCommission !== undefined
+      ? ((monthCommission - prevCommission) / prevCommission) * 100
+      : null
+
+  // 柱图数据：固定取最近 6 个自然月，缺失月份补 0（与 App 口径一致）
+  const barData = useMemo(() => {
+    const now = new Date()
+    const rows: { label: string; value: string; commission: number; active: boolean }[] = []
+    let max = 1
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const row = monthly.find((m) => m.year === d.getFullYear() && m.month === d.getMonth() + 1)
+      const commission = Number(row?.commission ?? 0)
+      if (commission > max) max = commission
+      rows.push({
+        label: t('common.monthN', { n: d.getMonth() + 1 }),
+        value: commission > 0 ? fmtCompact(commission) : '',
+        commission,
+        active: i === 0
+      })
+    }
+    return rows.map((r) => ({
+      label: r.label,
+      value: r.value,
+      active: r.active,
+      height: `${Math.max(4, Math.round((r.commission / max) * 64))}px`
     }))
   }, [monthly, t])
 
   return (
     <View className='emp-home'>
       <StatusTop />
+      {/* 加载失败提示：避免接口异常被当成「今天没有安排」 */}
+      {loadFailed && (
+        <View className='inline-error-bar' onClick={fetchAll}>
+          <Text className='inline-error-bar__text'>{t('emp.workbenchFail')}</Text>
+          <Text className='inline-error-bar__retry'>{t('common.retry')}</Text>
+        </View>
+      )}
       {/* 今日概览卡 */}
       <View className='emp-hero'>
         <View className='emp-hero__main'>
@@ -405,6 +460,26 @@ export default function EmployeeHomePage() {
                 <Text className='emp-strip__label'>{t('home.teamRank')}</Text>
               </View>
             </View>
+            {(dealsDelta !== null || commissionDelta !== null) && (
+              <View className='emp-delta'>
+                {dealsDelta !== null && (
+                  <Text className='emp-delta__text'>
+                    {t('home.monthDeals')}{' '}
+                    {t('emp.vsLastMonth', {
+                      value: `${dealsDelta >= 0 ? '+' : ''}${dealsDelta}${t('home.dealUnit')}`
+                    })}
+                  </Text>
+                )}
+                {commissionDelta !== null && (
+                  <Text className='emp-delta__text'>
+                    {t('home.commissionIncome')}{' '}
+                    {t('emp.vsLastMonth', {
+                      value: `${commissionDelta >= 0 ? '+' : ''}${commissionDelta.toFixed(1)}%`
+                    })}
+                  </Text>
+                )}
+              </View>
+            )}
             <View className='emp-chart-card'>
               <View className='emp-chart'>
                 {barData.map((b) => (

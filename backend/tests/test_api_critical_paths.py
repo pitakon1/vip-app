@@ -238,7 +238,8 @@ def test_payments_me_filters_by_type_and_paginates(api, engine):
     tenant = api.mk_user(UserRole.tenant)
     other = api.mk_user(UserRole.tenant)
 
-    # 2 笔本人支付的租金 + 1 笔他人支付但收款方是本人的租金 + 1 笔本人支付的押金
+    # 2 笔本人支付的租金 + 1 笔他人支付但收款方是本人的租金（租客视角不可见）
+    # + 1 笔本人支付的押金
     _mk_payment(engine, tenant.id, 1000, payment_type=PaymentType.rent)
     _mk_payment(engine, tenant.id, 2000, payment_type=PaymentType.rent)
     _mk_payment(
@@ -253,13 +254,15 @@ def test_payments_me_filters_by_type_and_paginates(api, engine):
     client = api.login(tenant)
     all_rows = client.get("/api/v1/payments/me")
     assert all_rows.status_code == 200, all_rows.text
-    assert all_rows.json()["total"] == 4
+    # 租客按角色收窄只看本人应付（payer）的账单，不看本人作为收款方的记录
+    assert all_rows.json()["total"] == 3
+    assert {item["payer_id"] for item in all_rows.json()["items"]} == {str(tenant.id)}
 
     rent_rows = client.get("/api/v1/payments/me", params={"payment_type": "rent"})
     assert rent_rows.status_code == 200, rent_rows.text
     body = rent_rows.json()
-    # 收/付两侧都要算：本人付 2 笔 + 本人收 1 笔
-    assert body["total"] == 3
+    # 本人支付的租金 2 笔（他人付给本人的 1 笔不计入租客视角）
+    assert body["total"] == 2
     assert {item["payment_type"] for item in body["items"]} == {"rent"}
 
     paged = client.get(
@@ -267,7 +270,7 @@ def test_payments_me_filters_by_type_and_paginates(api, engine):
     )
     assert paged.status_code == 200, paged.text
     assert len(paged.json()["items"]) == 1
-    assert paged.json()["total"] == 3
+    assert paged.json()["total"] == 2
 
     # 参数越界由 FastAPI 校验拦截（limit 上限 2000）
     assert client.get("/api/v1/payments/me", params={"limit": 5000}).status_code == 422
@@ -343,6 +346,35 @@ def test_owner_income_closed_loop(api, engine):
     other_prop = _mk_property(engine, other_owner.id)
     now = datetime.utcnow()
 
+    # 在租口径以「生效租约」为准：补一条生效租约，房源才算已出租
+    with Session(engine) as s:
+        tenant_user = User(
+            email=f"{uuid.uuid4().hex[:12]}@test.com",
+            hashed_password="x",
+            full_name="租客",
+            role=UserRole.tenant,
+        )
+        s.add(tenant_user)
+        s.commit()
+        s.refresh(tenant_user)
+        tenant = Tenant(user_id=tenant_user.id)
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        s.add(
+            Lease(
+                property_id=prop.id,
+                tenant_id=tenant.id,
+                owner_id=owner.id,
+                start_date=now - timedelta(days=30),
+                end_date=now + timedelta(days=335),
+                monthly_rent=12000,
+                deposit_amount=24000,
+                status=LeaseStatus.active,
+            )
+        )
+        s.commit()
+
     _mk_payment(
         engine,
         owner_user.id,
@@ -392,6 +424,7 @@ def test_owner_income_closed_loop(api, engine):
     assert body["overdue_total"] == 7000.0
     assert body["property_count"] == 1
     assert body["rented_count"] == 1
+    assert body["occupancy_rate"] == 100.0
     assert sorted(rec["status"] for rec in body["records"]) == [
         "overdue",
         "pending",
@@ -399,6 +432,64 @@ def test_owner_income_closed_loop(api, engine):
     ]
     assert body["by_property"][0]["property_id"] == str(prop.id)
     assert body["by_property"][0]["income"] == 12000.0
+
+
+def _unwrap(resp):
+    """兼容统一信封（{code,msg,data}）与裸响应体。"""
+    body = resp.json()
+    return body.get("data", body) if isinstance(body, dict) else body
+
+
+def test_soft_deleted_owner_property_excluded_from_assets(api, engine):
+    """M-06：软删房源不计入业主资产数、出租率分子与分母（即使仍有生效租约）。"""
+    owner_user, owner = _mk_owner(engine)
+    live = _mk_property(engine, owner.id, status=PropertyStatus.vacant)
+    deleted = _mk_property(engine, owner.id, status=PropertyStatus.rented)
+
+    now = datetime.utcnow()
+    with Session(engine) as s:
+        prop = s.get(Property, deleted.id)
+        prop.deleted_at = now
+        tenant_user = User(
+            email=f"{uuid.uuid4().hex[:12]}@test.com",
+            hashed_password="x",
+            full_name="租客",
+            role=UserRole.tenant,
+        )
+        s.add(tenant_user)
+        s.commit()
+        s.refresh(tenant_user)
+        tenant = Tenant(user_id=tenant_user.id)
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        s.add(
+            Lease(
+                property_id=deleted.id,
+                tenant_id=tenant.id,
+                owner_id=owner.id,
+                start_date=now - timedelta(days=10),
+                end_date=now + timedelta(days=355),
+                monthly_rent=12000,
+                deposit_amount=24000,
+                status=LeaseStatus.active,
+            )
+        )
+        s.commit()
+
+    client = api.login(owner_user)
+    props = _unwrap(client.get("/api/v1/owners/me/properties"))
+    assert [p["id"] for p in props] == [str(live.id)]
+
+    income = _unwrap(client.get("/api/v1/owners/me/income"))
+    assert income["property_count"] == 1
+    assert income["rented_count"] == 0
+    assert income["occupancy_rate"] == 0.0
+
+    marketing = _unwrap(client.get("/api/v1/owners/me/marketing"))
+    assert marketing["total_properties"] == 1
+    assert marketing["total_vacant"] == 1
+    assert marketing["occupancy_rate"] == 0.0
 
 
 def test_owner_annual_financial_summary_groups_by_month(api, engine):
@@ -456,7 +547,31 @@ def test_properties_pagination_filters_and_auth_required(api, engine):
     agent = api.mk_user(UserRole.agent)
     owner_user, owner = _mk_owner(engine)
     _mk_property(engine, owner.id, status=PropertyStatus.vacant, created_by=agent.id)
-    _mk_property(engine, owner.id, status=PropertyStatus.rented, created_by=agent.id)
+    rented = _mk_property(
+        engine, owner.id, status=PropertyStatus.rented, created_by=agent.id
+    )
+    # 租态以生效租约为准：只有挂了 active 租约的房源才算在租，
+    # 仅 `status=rented` 的字段值不再作为在租依据（无租约即空置）。
+    tenant_user = api.mk_user(UserRole.tenant)
+    with Session(engine) as s:
+        tenant = Tenant(user_id=tenant_user.id)
+        s.add(tenant)
+        s.commit()
+        s.refresh(tenant)
+        now = datetime.utcnow()
+        s.add(
+            Lease(
+                property_id=rented.id,
+                tenant_id=tenant.id,
+                owner_id=owner.id,
+                start_date=now - timedelta(days=10),
+                end_date=now + timedelta(days=355),
+                monthly_rent=12000,
+                deposit_amount=24000,
+                status=LeaseStatus.active,
+            )
+        )
+        s.commit()
 
     client = api.login(agent)
 
@@ -476,6 +591,14 @@ def test_properties_pagination_filters_and_auth_required(api, engine):
         item
     )
     assert item["status"] == "vacant"
+
+    rented_res = client.get("/api/v1/properties", params={"status": "rented"})
+    assert rented_res.status_code == 200, rented_res.text
+    assert rented_res.json()["total"] == 1
+    assert rented_res.json()["items"][0]["status"] == "rented"
+    # 两个筛选结果相加应等于全量，状态徽标与列表同源
+    assert vacant.json()["status_counts"]["vacant"] == 1
+    assert vacant.json()["status_counts"]["rented"] == 1
 
     # 移除登录态覆盖，走真实鉴权依赖
     app.dependency_overrides.pop(auth_module.get_current_user, None)

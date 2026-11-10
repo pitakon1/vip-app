@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
-import { propertiesApi, listingApi } from '@/services/api'
+import { propertiesApi, listingApi, leasesApi } from '@/services/api'
 import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { AREA_TIERS_5, PRICE_TIERS, SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
@@ -143,6 +143,9 @@ export default function EmployeePropertiesPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [listings, setListings] = useState<Property[]>([])
   const [total, setTotal] = useState(0)
+  // 空置总数与租客姓名都需全职口径：不能用已加载页的本地统计
+  const [vacantTotal, setVacantTotal] = useState<number | null>(null)
+  const [tenantMap, setTenantMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   // 分页
@@ -313,6 +316,44 @@ export default function EmployeePropertiesPage() {
       }
       setTotal(t)
       setPage(pg)
+      // 空置数：单独取服务端 total，避免只统计当前已加载页
+      propertiesApi
+        .list({ status: 'vacant', page: 1, page_size: 1 })
+        .then((r: any) => {
+          const dd = r?.data ?? r
+          setVacantTotal(Number(dd?.total ?? 0))
+        })
+        .catch(() => setVacantTotal(null))
+      // 在租房源补充租客姓名：一次批量取整页房源的租约，再按房源聚合
+      const rentedIds = items.filter((p: Property) => p.status === 'rented').map((p: Property) => p.id)
+      if (rentedIds.length > 0) {
+        try {
+          const lr: any = await leasesApi.list({
+            property_ids: rentedIds.join(','),
+            page: 1,
+            page_size: OPTION_PAGE_SIZE
+          })
+          const ld = lr?.data ?? lr
+          const rows: any[] = Array.isArray(ld) ? ld : ld?.items || []
+          const next: Record<string, string> = {}
+          const byProperty: Record<string, any[]> = {}
+          rows.forEach((l) => {
+            if (!l.property_id) return
+            ;(byProperty[l.property_id] ||= []).push(l)
+          })
+          Object.keys(byProperty).forEach((pid) => {
+            const list = byProperty[pid]
+            const primary = list.find((l) => l.status === 'active') ?? list[0]
+            if (primary?.tenant_name) next[pid] = primary.tenant_name
+          })
+          setTenantMap((prev) => (append ? { ...prev, ...next } : next))
+        } catch {
+          // 租客姓名属附加信息，批量失败不影响列表展示
+          if (!append) setTenantMap({})
+        }
+      } else if (!append) {
+        setTenantMap({})
+      }
       // 不能用闭包里的旧 listings.length 计算（刷新第 1 页时它代表上一批数据，
       // 会把"还有下一页"误判为 false）。按本次实际累计条数与服务端 total 比较。
       const loadedCount = append ? listings.length + items.length : items.length
@@ -732,10 +773,10 @@ export default function EmployeePropertiesPage() {
         <View className='p-count'>
           <Text className='p-count__text'>
             {t('prop.countTotal')}{' '}
-            <Text className='p-count__strong'>{listings.length}</Text> {t('prop.countUnitShort')} ·{' '}
+            <Text className='p-count__strong'>{total}</Text> {t('prop.countUnitShort')} ·{' '}
             {t('prop.countVacant')}{' '}
             <Text className='p-count__strong p-count__strong--vacant'>
-              {listings.filter((it) => it.status === 'vacant').length}
+              {vacantTotal ?? '-'}
             </Text>{' '}
             {t('prop.countUnitShort')}
           </Text>
@@ -792,7 +833,11 @@ export default function EmployeePropertiesPage() {
                     {t('prop.bathroomUnit', { n: it.bathrooms || 0 })}
                   </Text>
 
-                  {it.status === 'vacant' && (
+                  {tenantMap[String(it.id)] ? (
+                    <Text className='p-card__tenant'>
+                      {t('eprop.tenant', { name: tenantMap[String(it.id)] })}
+                    </Text>
+                  ) : (
                     <Text className='p-card__tenant p-card__tenant--vacant'>{t('prop.noLease')}</Text>
                   )}
 

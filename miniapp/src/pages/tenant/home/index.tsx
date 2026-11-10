@@ -1,370 +1,441 @@
-import { OPTION_PAGE_SIZE, collectAllPages } from '@/lib/pagination'
-import { useState } from 'react'
-import { View, Text, Input } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { OPTION_PAGE_SIZE } from '@/lib/pagination'
+/**
+ * C 端首页（业主 / 租客 / 未登录访客统一）。
+ *
+ * 对齐 App `screens/tenant/HomeScreen.tsx`：公开内容首页
+ * - 定位城市 + 搜索（找房，匿名可用）
+ * - 黄金导航 7 个分类磁贴（每项进各自分类页）
+ * - 当前分类房源 rail（数据来自 `/public/home`，一次取齐、切换无加载态）
+ * - 国际学校 rail（点学校带着学校筛选进找房）
+ * - 最近动态（账单 + 报修，登录后才有；访客为空态）
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
+import { paymentsApi, maintenanceApi } from '@/services/api'
 import {
-  notificationsApi,
-  translateApi,
-  propertiesApi,
-  favoritesApi
-} from '@/services/api'
-import { iconStyle } from '@/utils/icons'
-import { getCacheSync, isFreshSync, setCache } from '@/utils/cache'
-import { TYPE_MAP, notifCategory, notifTitle, pickList, type NotifRow } from '@/lib/homeShared'
-import BottomNav from '@/components/BottomNav'
-import StatusTop from '@/components/StatusTop'
+  publicApi,
+  type PublicListing,
+  type PublicProject,
+  type PublicSchool
+} from '@/services/publicApi'
+import { schoolStageLabel, curriculumLabel } from '@/lib/publicSite'
+import { fmtMoney, fmtDate } from '@/utils/format'
+import { iconStyle, type IconKey } from '@/utils/icons'
 import { useLocationStore } from '@/stores/location'
 import { useI18n } from '@/i18n'
-import PropertyRail from '@/components/PropertyRail'
-import StateBlock from '@/components/StateBlock'
+import BottomNav, { type NavRole } from '@/components/BottomNav'
+import StatusTop from '@/components/StatusTop'
 import './index.scss'
+
+interface PublicHome {
+  listings: PublicListing[]
+  sale: PublicListing[]
+  commercial: PublicListing[]
+  factory: PublicListing[]
+  hotel: PublicListing[]
+  land: PublicListing[]
+  projects: PublicProject[]
+  schools: PublicSchool[]
+}
+
+type BizKey = 'rent' | 'new' | 'resale' | 'commercial' | 'factory' | 'hotel' | 'land'
+
+interface BizItem {
+  key: BizKey
+  labelKey: string
+  titleKey: string
+  icon: IconKey
+  path: string
+}
+
+/** 黄金导航与下方房源 rail 共用这份定义：分类 / 顺序 / 文案两处永远一致（对齐 App BIZ_ITEMS）。 */
+const BIZ_ITEMS: BizItem[] = [
+  { key: 'rent', labelKey: 'home.goldRent', titleKey: 'home.featured', icon: 'navRent', path: '/pages/tenant/category-rent/index' },
+  { key: 'new', labelKey: 'home.goldNew', titleKey: 'category.newTitle', icon: 'navNew', path: '/pages/tenant/category-new/index' },
+  { key: 'resale', labelKey: 'home.goldResale', titleKey: 'home.hotSecondHand', icon: 'navResale', path: '/pages/tenant/category-resale/index' },
+  { key: 'commercial', labelKey: 'home.goldCommercial', titleKey: 'category.commTitle', icon: 'navShop', path: '/pages/tenant/category-commercial/index' },
+  { key: 'factory', labelKey: 'home.goldFactory', titleKey: 'category.factTitle', icon: 'navFactory', path: '/pages/tenant/category-factory/index' },
+  { key: 'hotel', labelKey: 'home.goldHotel', titleKey: 'category.hotelTitle', icon: 'navHotel', path: '/pages/tenant/category-hotel/index' },
+  { key: 'land', labelKey: 'home.goldLand', titleKey: 'category.landTitle', icon: 'navLand', path: '/pages/tenant/category-land/index' }
+]
+
+const PROPERTY_TYPE_LABEL: Record<string, string> = {
+  apartment: 'prop.typeApartment',
+  condo: 'prop.typeApartment',
+  villa: 'prop.typeVilla',
+  house: 'prop.typeVilla',
+  townhouse: 'prop.typeTownhouse',
+  office: 'prop.typeOffice',
+  shop: 'prop.typeCommercial',
+  factory: 'prop.typeFactory',
+  hotel: 'prop.typeHotel',
+  land: 'prop.typeLand'
+}
 
 export default function TenantHomePage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
+  const token = useAuthStore((state) => state.token)
+  const user = useAuthStore((state) => state.user)
+  const cityKey = useLocationStore((s) => s.selection.cityKey)
+  const cityLabel = useLocationStore((s) => s.selection.cityLabel)
+  const navRole: NavRole = !token ? 'guest' : user?.role === 'owner' ? 'owner' : 'tenant'
 
-  const [notifications, setNotifications] = useState<NotifRow[]>([])
-  const [properties, setProperties] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [biz, setBiz] = useState<'rent' | 'buy'>('rent')
+  const [biz, setBiz] = useState<BizKey>('rent')
   const [keyword, setKeyword] = useState('')
-  const [translateText, setTranslateText] = useState('')
-  const [translated, setTranslated] = useState('')
-  const [translating, setTranslating] = useState(false)
-  // 全局定位（国家 → 城市，主页左上角）
-  const locationSel = useLocationStore((s) => s.selection)
-  // 已收藏房源集合 + 请求中的房源（避免连点重复提交）
-  const [favSet, setFavSet] = useState<Set<string>>(new Set())
-  const [favPending, setFavPending] = useState<Set<string>>(new Set())
+  const [home, setHome] = useState<PublicHome | null>(null)
+  const [payments, setPayments] = useState<any[]>([])
+  const [tickets, setTickets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
 
-  const loadData = async (opts?: { force?: boolean }) => {
-    // SWR：同步读缓存先渲染（秒开），再后台请求刷新并回写缓存。
-    // 房源为公开数据缓存全局一份；通知按用户隔离。
-    const uid = String(useAuthStore.getState().user?.id ?? 'anon')
-    const propsKey = 'tenant-home:props'
-    const notifKey = `tenant-home:notifs:${uid}`
-
-    const cachedProps = getCacheSync<any[]>(propsKey)
-    const cachedNotifs = getCacheSync<NotifRow[]>(notifKey)
-    if (cachedProps && cachedProps.length) setProperties(cachedProps)
-    if (cachedNotifs && cachedNotifs.length) setNotifications(cachedNotifs)
-
-    // 缓存新鲜且非强制刷新：直接展示缓存，不发请求
-    if (!opts?.force && isFreshSync(propsKey) && isFreshSync(notifKey)) {
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    const [propsRes, notifRes] = await Promise.all([
-      propertiesApi.list({ page: 1, pageSize: OPTION_PAGE_SIZE }).catch(() => null),
-      notificationsApi.mine().catch(() => null)
+  const load = useCallback(async () => {
+    setFailed(false)
+    const [homeRes, payRes, mRes] = await Promise.allSettled([
+      publicApi.home({ city: cityKey || undefined }),
+      token ? paymentsApi.mine() : Promise.resolve(null),
+      token ? maintenanceApi.list({ page: 1, page_size: OPTION_PAGE_SIZE }) : Promise.resolve(null)
     ])
-    const props = pickList<any>(propsRes)
-    const notifs = pickList<NotifRow>(notifRes)
-    setProperties(props)
-    setNotifications(notifs)
-    if (props.length) setCache(propsKey, props)
-    if (notifRes) setCache(notifKey, notifs)
-    if (props.length === 0 && !propsRes) {
-      // 全部接口失败时给出提示，但不注入任何占位数据
-      Taro.showToast({ title: '加载失败，请下拉重试', icon: 'none' })
+    if (homeRes.status === 'fulfilled') {
+      const data: any = (homeRes.value as any)?.data ?? homeRes.value
+      setHome({
+        listings: data?.listings ?? [],
+        sale: data?.sale ?? [],
+        commercial: data?.commercial ?? [],
+        factory: data?.factory ?? [],
+        hotel: data?.hotel ?? [],
+        land: data?.land ?? [],
+        projects: data?.projects ?? [],
+        schools: data?.schools ?? []
+      })
+    } else {
+      setFailed(true)
     }
+    const payData: any =
+      payRes.status === 'fulfilled' ? (payRes.value as any)?.data ?? payRes.value : null
+    setPayments(Array.isArray(payData) ? payData : payData?.items ?? [])
+    const mData: any = mRes.status === 'fulfilled' ? (mRes.value as any)?.data ?? mRes.value : null
+    setTickets(Array.isArray(mData) ? mData : mData?.items ?? [])
     setLoading(false)
-  }
+  }, [cityKey, token])
+
+  useEffect(() => {
+    setLoading(true)
+    void load()
+  }, [load])
 
   useDidShow(() => {
     loadFromStorage()
-    if (!useAuthStore.getState().token) {
-      Taro.redirectTo({ url: '/pages/login/index' })
-      return
-    }
-    loadData()
-    fetchFavorites()
   })
 
-  // 收藏状态：与找房页保持一致，走真实接口
-  const fetchFavorites = async () => {
-    try {
-      // `limit` 不是后端分页参数（会被忽略），且 1000 已超过单页硬顶；
-      // 收藏 id 需要完整集合，按页累加取全量。
-      const list = await collectAllPages<any>(async (page, pageSize) => {
-        const res: any = await favoritesApi.list({ page, page_size: pageSize })
-        return pickList<any>(res)
-      })
-      setFavSet(new Set(list.map((f: any) => String(f.property_id ?? f.id)).filter(Boolean)))
-    } catch (error) {
-      console.error('[TenantHome] 加载收藏状态失败', error)
+  usePullDownRefresh(async () => {
+    await load()
+    Taro.stopPullDownRefresh()
+  })
+
+  // ---------- 派生数据 ----------
+  const bizItem = BIZ_ITEMS.find((b) => b.key === biz) ?? BIZ_ITEMS[0]
+  const railItems = useMemo(() => {
+    if (!home) return []
+    if (biz === 'new') return home.projects
+    if (biz === 'resale') return home.sale
+    if (biz === 'commercial') return home.commercial
+    if (biz === 'factory') return home.factory
+    if (biz === 'hotel') return home.hotel
+    if (biz === 'land') return home.land
+    // 推荐房源与 App 一致只取前 10 条（其余分类取全量）
+    return home.listings.slice(0, 10)
+  }, [biz, home])
+
+  // 最近动态：账单 + 报修按时间倒序合并（对齐 App 首页「最近动态」）
+  const activities = useMemo(() => {
+    interface ActivityRow {
+      id: string
+      type: 'pay' | 'ticket'
+      title: string
+      sub: string
+      badge: string
+      at: number
     }
-  }
-
-  const toggleFavorite = async (propertyId: string) => {
-    if (!propertyId || favPending.has(propertyId)) return
-    const isFav = favSet.has(propertyId)
-    setFavPending((prev) => new Set(prev).add(propertyId))
-    // 乐观更新，失败后回滚
-    setFavSet((prev) => {
-      const next = new Set(prev)
-      if (isFav) next.delete(propertyId)
-      else next.add(propertyId)
-      return next
-    })
-    try {
-      if (isFav) await favoritesApi.remove(propertyId)
-      else await favoritesApi.add(propertyId)
-    } catch (error) {
-      console.error('[TenantHome] 收藏操作失败', error)
-      setFavSet((prev) => {
-        const next = new Set(prev)
-        if (isFav) next.add(propertyId)
-        else next.delete(propertyId)
-        return next
-      })
-      Taro.showToast({ title: '操作失败，请重试', icon: 'none' })
-    } finally {
-      setFavPending((prev) => {
-        const next = new Set(prev)
-        next.delete(propertyId)
-        return next
-      })
-    }
-  }
-
-  const handleReadAll = async () => {
-    try {
-      await notificationsApi.readAll()
-      setNotifications((list) => list.map((n) => ({ ...n, read: true })))
-      Taro.showToast({ title: '已全部标记为已读', icon: 'success' })
-    } catch (error) {
-      console.error('[TenantHome] 标记已读失败', error)
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }
-
-  const goQuick = (url: string) => {
-    Taro.navigateTo({ url })
-  }
-
-  const handleTranslate = async () => {
-    const text = translateText.trim()
-    if (!text || translating) return
-    setTranslating(true)
-    try {
-      const res: any = await translateApi.translate(text, 'en')
-      const out = res?.translated_text ?? res?.translation ?? res?.text ?? res?.data?.translated_text
-      setTranslated(String(out || res))
-    } catch (error) {
-      console.error('[TenantHome] 翻译失败', error)
-      setTranslated('翻译失败，请稍后重试')
-    } finally {
-      setTranslating(false)
-    }
-  }
-
-  // ===== 派生数据 =====
-  const rentItems = properties
-    .filter((p) => !p?.sale_price || p?.monthly_rent)
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(b?.created_at || b?.published_at || 0).getTime() -
-        new Date(a?.created_at || a?.published_at || 0).getTime()
+    const rows: ActivityRow[] = payments.map((p) => ({
+      id: `pay-${p.id}`,
+      type: 'pay' as const,
+      title: p.payment_type
+        ? t('home.billOf', { type: t(`pay.type.${p.payment_type}`) })
+        : t('home.bill'),
+      sub: p.description || (p.due_date ? t('home.dueDate', { date: fmtDate(p.due_date) }) : t('home.dueTbd')),
+      badge: p.status ? t(`pay.status.${p.status}`) : '',
+      at: Date.parse(String(p.paid_at ?? p.due_date ?? '')) || 0
+    }))
+    rows.push(
+      ...tickets.map((tk) => ({
+        id: `maint-${tk.id}`,
+        type: 'ticket' as const,
+        title: t('home.maintTicket'),
+        sub: `${tk.title || t('home.repair')} · ${fmtDate(tk.created_at)}`,
+        badge: tk.status ? t(`ticket.status.${tk.status}`) : '',
+        at: Date.parse(String(tk.created_at ?? '')) || 0
+      }))
     )
-  const saleItems = properties
-    .filter((p) => Number(p?.sale_price) > 0)
-    .slice()
-    .sort((a, b) => Number(b?.sale_price || 0) - Number(a?.sale_price || 0))
+    return rows.sort((a, b) => b.at - a.at).slice(0, 5)
+  }, [payments, tickets, t])
 
-  const featuredItems = rentItems.slice(0, 6)
-  const newItems = rentItems.slice(0, 6)
-  const commItems = saleItems.slice(0, 3)
-
-  const cityLabel = locationSel?.cityLabel || '选择城市'
-
-  const feedItems = notifications.slice(0, 4)
+  // ---------- 交互 ----------
+  const openCity = () => Taro.navigateTo({ url: '/pages/location/index' })
 
   const handleSearch = () => {
-    const params = [`biz=${biz}`]
     const q = keyword.trim()
-    if (q) params.push(`q=${encodeURIComponent(q)}`)
-    Taro.navigateTo({ url: `/pages/tenant/listings/index?${params.join('&')}` })
+    Taro.navigateTo({
+      url: `/pages/public/listings/index${q ? `?q=${encodeURIComponent(q)}` : ''}`
+    })
   }
 
-  const handlePickCity = () => {
-    Taro.navigateTo({ url: '/pages/location/index' })
+  const openListing = (id?: string | null) => {
+    if (!id) return
+    Taro.navigateTo({ url: `/pages/public/listing-detail/index?id=${encodeURIComponent(id)}` })
+  }
+
+  const openProject = (id?: string | null) => {
+    if (!id) return
+    Taro.navigateTo({ url: `/pages/public/community-detail/index?id=${encodeURIComponent(id)}` })
+  }
+
+  // 学校卡片带着学校跳「找房」并预选学校筛选（默认 3km），与 App 跳转链路一致
+  const openSchoolListings = (s: PublicSchool) => {
+    const params = [
+      `school_id=${encodeURIComponent(s.id)}`,
+      `school_name=${encodeURIComponent(s.name ?? '')}`,
+      'school_km=3'
+    ]
+    Taro.navigateTo({ url: `/pages/public/listings/index?${params.join('&')}` })
+  }
+
+  const openBiz = (item: BizItem) => {
+    setBiz(item.key)
+    Taro.navigateTo({ url: item.path })
+  }
+
+  const listingPrice = (it: PublicListing): string => {
+    if (it.price == null) return t('discover.noPrice')
+    const unit = it.listing_type === 'rent' ? t('discover.rentUnit') : ''
+    return `${fmtMoney(it.price, it.currency || 'THB')}${unit}`
+  }
+
+  const listingTitle = (it: PublicListing): string =>
+    it.project_name || it.room_number || t('list.unnamed')
+
+  const listingFacts = (it: PublicListing): string =>
+    [
+      it.bedrooms ? t('prop.bedroomUnit', { n: it.bedrooms }) : '',
+      it.size_sqm ? `${it.size_sqm}${t('pub.sqm')}` : ''
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
+  const projectPrice = (p: PublicProject): string => {
+    if (p.rent_price_min != null) return `${fmtMoney(p.rent_price_min, 'THB')}${t('discover.rentUnit')}`
+    if (p.sale_price_min != null) return `${fmtMoney(p.sale_price_min, 'THB')}${t('discover.saleUnit')}`
+    return t('discover.noPrice')
+  }
+
+  const goActivity = (type: 'pay' | 'ticket') => {
+    Taro.navigateTo({
+      url: type === 'pay' ? '/pages/tenant/payments/index' : '/pages/tenant/maintenance/index'
+    })
   }
 
   return (
     <View className='tenant-home-page'>
-      <StatusTop />
-      <View className='page-container'>
-        <View className='rv-hero'>
-          <View className='rv-hero__loc' onClick={handlePickCity}>
-            <Text className='rv-hero__loc-text'>{cityLabel}</Text>
-            <Text className='rv-hero__loc-arrow'>▾</Text>
-          </View>
-          <View className='rv-hero__search'>
-            <View className='rv-hero__search-icon icon-svg' style={iconStyle('search', 32)} />
-            <Input
-              className='rv-hero__search-input'
-              value={keyword}
-              placeholder='区域 / 楼盘 / 关键词'
-              onInput={((e: any) => setKeyword(e.detail.value)) as any}
-              onConfirm={handleSearch}
-            />
-            <View className='rv-hero__search-btn' onClick={handleSearch}>
-              <Text className='rv-hero__search-btn-text'>›</Text>
-            </View>
-          </View>
-        </View>
+      <StatusTop background='var(--card)' />
 
-        {/* 黄金导航栏：7 个「浅灰底圆角磁贴 + 图标 + 深色标签」入口（对齐 App，无渐变）。
-            每项跳各自独立的「贝壳式分类页」（模块/卡片口径各自差异化），
-            不再共用找房列表页换参数。 */}
-        <View className='gold-nav'>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-rent/index')}>
-            <View className='gold-nav__icon gold-nav__icon--rent'>
-              <View className='icon-svg' style={iconStyle('navRent', 72)} />
-            </View>
-            <Text className='gold-nav__label'>租房</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-resale/index')}>
-            <View className='gold-nav__icon gold-nav__icon--resale'>
-              <View className='icon-svg' style={iconStyle('navResale', 72)} />
-            </View>
-            <Text className='gold-nav__label'>二手房</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-new/index')}>
-            <View className='gold-nav__icon gold-nav__icon--new'>
-              <View className='icon-svg' style={iconStyle('navNew', 72)} />
-            </View>
-            <Text className='gold-nav__label'>新房</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-commercial/index')}>
-            <View className='gold-nav__icon gold-nav__icon--shop'>
-              <View className='icon-svg' style={iconStyle('navShop', 72)} />
-            </View>
-            <Text className='gold-nav__label'>商铺办公</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-factory/index')}>
-            <View className='gold-nav__icon gold-nav__icon--factory'>
-              <View className='icon-svg' style={iconStyle('navFactory', 72)} />
-            </View>
-            <Text className='gold-nav__label'>厂房</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-hotel/index')}>
-            <View className='gold-nav__icon gold-nav__icon--hotel'>
-              <View className='icon-svg' style={iconStyle('navHotel', 72)} />
-            </View>
-            <Text className='gold-nav__label'>{t('prop.typeHotel')}</Text>
-          </View>
-          <View className='gold-nav__item' onClick={() => goQuick('/pages/tenant/category-land/index')}>
-            <View className='gold-nav__icon gold-nav__icon--land'>
-              <View className='icon-svg' style={iconStyle('navLand', 72)} />
-            </View>
-            <Text className='gold-nav__label'>{t('prop.typeLand')}</Text>
-          </View>
+      <View className='th-hero'>
+        <View className='th-hero__top' onClick={openCity}>
+          <Text className='th-hero__city'>
+            {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.selectCity')}
+          </Text>
+          <Text className='th-hero__caret'>▾</Text>
         </View>
-
-        <View className='rv-tabs'>
-          <View
-            className={`rv-tab ${biz === 'rent' ? 'rv-tab--active' : ''}`}
-            onClick={() => setBiz('rent')}
-          >
-            <Text className='rv-tab-text'>租房</Text>
-          </View>
-          <View
-            className={`rv-tab ${biz === 'buy' ? 'rv-tab--active' : ''}`}
-            onClick={() => setBiz('buy')}
-          >
-            <Text className='rv-tab-text'>买房</Text>
-          </View>
-        </View>
-
-        <View className='browse-banner' onClick={() => goQuick('/pages/tenant/listings/index')}>
-          <View className='browse-banner__icon icon-svg' style={iconStyle('home', 44)} />
-          <View className='browse-banner__body'>
-            <Text className='browse-banner__title'>找房源</Text>
-            <Text className='browse-banner__sub'>搜索房源 · 查看详情 · 预约看房</Text>
-          </View>
-          <Text className='browse-banner__arrow'>›</Text>
-        </View>
-
-        {/* C 端内容入口：国际学校 / 小区。
-            泰国买房租房的第一决策因子是国际学校（按距离反查房源），楼盘字典则是
-            判断一个小区"有没有货"的最快方式——两者都不该只有未登录访客能进。 */}
-        <View className='pub-entry-row'>
-          <View className='pub-entry' onClick={() => goQuick('/pages/public/schools/index')}>
-            <View className='icon-svg' style={iconStyle('school', 40)} />
-            <Text className='pub-entry__text'>国际学校</Text>
-            <Text className='pub-entry__arrow'>›</Text>
-          </View>
-          <View className='pub-entry' onClick={() => goQuick('/pages/public/communities/index')}>
-            <View className='icon-svg' style={iconStyle('building', 40)} />
-            <Text className='pub-entry__text'>小区</Text>
-            <Text className='pub-entry__arrow'>›</Text>
-          </View>
-        </View>
-
-        <PropertyRail title='精选房源' items={featuredItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
-        <PropertyRail title='新上房源' items={newItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
-        <PropertyRail title='热门二手房' items={commItems} favSet={favSet} onToggleFavorite={toggleFavorite} />
-
-        <View className='rv-block-head'>
-          <Text className='rv-block-title rv-block-title--inline'>最近动态</Text>
-          {notifications.length > 0 && (
-            <Text className='rv-block-link' onClick={handleReadAll}>全部已读</Text>
-          )}
-        </View>
-        <View className='feed-card'>
-          {loading && feedItems.length === 0 && (
-            <StateBlock loading text='加载中...' />
-          )}
-          {!loading && feedItems.length === 0 && (
-            <StateBlock empty icon='megaphone' text='暂无动态' />
-          )}
-          {feedItems.map((n) => {
-            const category = notifCategory(n)
-            const info = TYPE_MAP[category] || TYPE_MAP.system
-            return (
-              <View key={n.id} className='feed-item'>
-                <View
-                  className='feed-icon icon-svg'
-                  style={iconStyle(
-                    category === 'payment' ? 'card' : category === 'maintenance' ? 'edit' : 'megaphone',
-                    32
-                  )}
-                />
-                <View className='feed-body'>
-                  <Text className='feed-title'>{notifTitle(n)}</Text>
-                  <Text className='feed-desc'>{n.content || '—'}</Text>
-                </View>
-                <Text className='feed-badge' style={{ color: info.color, backgroundColor: info.bg }}>
-                  {info.text}
-                </Text>
-              </View>
-            )
-          })}
-        </View>
-
-        <View className='translate-section'>
-          <Text className='translate-title'>房源翻译</Text>
-          <Text className='translate-desc'>输入房源描述，一键翻译为英文</Text>
+        <View className='th-search'>
+          <View className='icon-svg' style={iconStyle('search', 32)} />
           <Input
-            className='translate-input'
-            value={translateText}
-            placeholder='输入要翻译的中文房源描述'
-            onInput={((e: any) => setTranslateText((e as any).detail.value)) as any}
+            className='th-search__input'
+            value={keyword}
+            placeholder={t('home.searchPlaceholder')}
+            onInput={((e: any) => setKeyword(e.detail.value)) as any}
+            onConfirm={handleSearch}
           />
-          <View className={`translate-btn ${translating ? 'disabled' : ''}`} onClick={handleTranslate}>
-            <Text className='translate-btn-text'>{translating ? '翻译中...' : 'Google 翻译'}</Text>
+          <View className='th-search__btn' onClick={handleSearch}>
+            <Text className='th-search__btn-text'>{t('home.goSearch')}</Text>
           </View>
-          {translated && <Text className='translate-result'>{translated}</Text>}
         </View>
       </View>
 
-      <BottomNav role='tenant' active='dashboard' />
+      {/* 黄金导航栏：7 个分类入口，每项跳各自独立的分类页（对齐 App BIZ_ITEMS） */}
+      <View className='gold-nav'>
+        {BIZ_ITEMS.map((item) => (
+          <View key={item.key} className='gold-nav__item' onClick={() => openBiz(item)}>
+            <View className={`gold-nav__icon gold-nav__icon--${item.key}`}>
+              <View className='icon-svg' style={iconStyle(item.icon, 72)} />
+            </View>
+            <Text className='gold-nav__label'>{t(item.labelKey)}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* 当前分类房源 rail */}
+      <View className='th-section'>
+        <View className='th-section__head'>
+          <Text className='th-section__title'>{t(bizItem.titleKey)}</Text>
+          <Text className='th-section__link' onClick={() => Taro.navigateTo({ url: bizItem.path })}>
+            {t('discover.viewAll')}
+          </Text>
+        </View>
+
+        {loading ? (
+          <Text className='th-hint'>{t('pub.loading')}</Text>
+        ) : failed ? (
+          <View className='th-empty'>
+            <Text className='th-empty__title'>{t('loadFailed')}</Text>
+            <Text className='th-empty__tag' onClick={() => { setLoading(true); void load() }}>
+              {t('common.retry')}
+            </Text>
+          </View>
+        ) : railItems.length === 0 ? (
+          <View className='th-empty'>
+            <Text className='th-empty__title'>{t('home.noListings')}</Text>
+            <Text className='th-empty__sub'>{t('home.noListingsSub')}</Text>
+            <Text className='th-empty__tag' onClick={() => Taro.navigateTo({ url: bizItem.path })}>
+              {t('home.goSearch')}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView className='th-rail' scrollX>
+            {biz === 'new'
+              ? (railItems as PublicProject[]).map((p) => (
+                  <View key={p.id} className='th-card' onClick={() => openProject(p.id)}>
+                    <View className='th-card__media'>
+                      {p.cover ? (
+                        <Image className='th-card__img' src={p.cover} mode='aspectFill' />
+                      ) : (
+                        <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
+                      )}
+                    </View>
+                    <Text className='th-card__price'>{projectPrice(p)}</Text>
+                    <Text className='th-card__title' numberOfLines={1}>
+                      {p.name || t('home.noListings')}
+                    </Text>
+                    <Text className='th-card__sub' numberOfLines={1}>
+                      {[p.district, p.city].filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                ))
+              : (railItems as PublicListing[]).map((it) => (
+                  <View key={it.id} className='th-card' onClick={() => openListing(it.id)}>
+                    <View className='th-card__media'>
+                      {it.cover ? (
+                        <Image className='th-card__img' src={it.cover} mode='aspectFill' />
+                      ) : (
+                        <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
+                      )}
+                      {it.property_type ? (
+                        <Text className='th-card__badge'>
+                          {t(PROPERTY_TYPE_LABEL[it.property_type] || 'tab.properties')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text className='th-card__price'>{listingPrice(it)}</Text>
+                    <Text className='th-card__title' numberOfLines={1}>
+                      {listingTitle(it)}
+                    </Text>
+                    <Text className='th-card__sub' numberOfLines={1}>
+                      {listingFacts(it)}
+                    </Text>
+                  </View>
+                ))}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* 国际学校 rail */}
+      {!loading && !failed && (home?.schools?.length ?? 0) > 0 && (
+        <View className='th-section'>
+          <View className='th-section__head'>
+            <Text className='th-section__title'>{t('pub.tabSchools')}</Text>
+            <Text
+              className='th-section__link'
+              onClick={() => Taro.navigateTo({ url: '/pages/public/schools/index' })}
+            >
+              {t('home.allSchools')}
+            </Text>
+          </View>
+          <ScrollView className='th-rail' scrollX>
+            {home!.schools.map((s) => (
+              <View key={s.id} className='th-card' onClick={() => openSchoolListings(s)}>
+                <View className='th-card__media'>
+                  {s.cover_url ? (
+                    <Image className='th-card__img' src={s.cover_url} mode='aspectFill' />
+                  ) : (
+                    <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
+                  )}
+                  {s.stage ? (
+                    <Text className='th-card__badge'>{schoolStageLabel(s.stage)}</Text>
+                  ) : null}
+                </View>
+                <Text className='th-card__title' numberOfLines={1}>
+                  {s.name || t('home.unnamedSchool')}
+                </Text>
+                <Text className='th-card__sub' numberOfLines={1}>
+                  {[s.name_en, s.district].filter(Boolean).join(' · ')}
+                </Text>
+                {s.curriculum ? (
+                  <View className='th-card__tags'>
+                    <Text className='th-card__tag'>{curriculumLabel(s.curriculum)}</Text>
+                  </View>
+                ) : null}
+                <Text className='th-card__price'>
+                  {s.tuition_range || t('home.tuitionNegotiable')}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 最近动态：账单 + 报修（访客为空态，与 App 一致） */}
+      <View className='th-section'>
+        <View className='th-section__head'>
+          <Text className='th-section__title'>{t('home.recentActivity')}</Text>
+        </View>
+        {activities.length === 0 ? (
+          <View className='th-empty'>
+            <Text className='th-empty__title'>{t('home.noActivity')}</Text>
+            <Text className='th-empty__sub'>{t('home.noActivitySub')}</Text>
+          </View>
+        ) : (
+          <View className='th-activity'>
+            {activities.map((a) => (
+              <View key={a.id} className='th-activity__row' onClick={() => goActivity(a.type)}>
+                <View
+                  className={`th-activity__dot th-activity__dot--${a.type}`}
+                />
+                <View className='th-activity__body'>
+                  <Text className='th-activity__title' numberOfLines={1}>
+                    {a.title}
+                  </Text>
+                  <Text className='th-activity__sub' numberOfLines={1}>
+                    {a.sub}
+                  </Text>
+                </View>
+                {a.badge ? <Text className='th-activity__badge'>{a.badge}</Text> : null}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      <BottomNav role={navRole} active='dashboard' />
     </View>
   )
 }

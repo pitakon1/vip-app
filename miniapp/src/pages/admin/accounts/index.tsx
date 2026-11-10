@@ -2,7 +2,7 @@ import { LIST_PAGE_SIZE, collectAllPages } from '@/lib/pagination'
 import { useEffect, useMemo, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { employeesApi, adminUsersApi } from '@/services/api'
+import { employeesApi, adminUsersApi, adminPartnersApi } from '@/services/api'
 import { fmtMoney } from '@/utils/format'
 import useAuthStore from '@/stores/auth'
 import { iconStyle } from '@/utils/icons'
@@ -84,6 +84,126 @@ export default function AdminEmployeesPage() {
     (useAuthStore((s) => s.user) as any | null)?.role ?? ''
   // 员工业绩（来源：/employees/leaderboard，按佣金结算累计核算）
   const [perfMap, setPerfMap] = useState<Record<string, { amount: number; deals: number }>>({})
+  // 新建账号（POST /admin/users）
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [form, setForm] = useState({
+    full_name: '',
+    email: '',
+    department: '',
+    position: '',
+    password: '123456',
+    role: 'employee'
+  })
+
+  const openCreate = () => {
+    setForm({
+      full_name: '',
+      email: '',
+      department: '',
+      position: '',
+      password: '123456',
+      role: 'employee'
+    })
+    setCreateOpen(true)
+  }
+
+  const doCreate = async () => {
+    if (!form.full_name.trim()) {
+      Taro.showToast({ title: t('acc.nameRequired'), icon: 'none' })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      Taro.showToast({
+        title: form.email.trim() ? t('acc.emailInvalid') : t('acc.emailRequired'),
+        icon: 'none'
+      })
+      return
+    }
+    if (!form.password || form.password.length < 6) {
+      Taro.showToast({ title: t('acc.initPwdError'), icon: 'none' })
+      return
+    }
+    setCreating(true)
+    try {
+      await adminUsersApi.create({
+        role: form.role,
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        department: form.department.trim() || undefined,
+        position: form.position.trim() || undefined,
+        password: form.password
+      })
+      Taro.showToast({ title: t('acc.created'), icon: 'success' })
+      setCreateOpen(false)
+      fetchEmployees()
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('acc.createFailed')), icon: 'none' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  /** 分配合作公司（平台管理员）：移回平台 / 选择一家合作公司 */
+  const assignCompany = async (e: EmployeeItem) => {
+    if (!e.user_id) {
+      Taro.showToast({ title: t('acc.noBoundAccount'), icon: 'none' })
+      return
+    }
+    let rows: any[] = []
+    try {
+      const res: any = await adminPartnersApi.list({ page: 1, page_size: LIST_PAGE_SIZE })
+      const d = res?.data ?? res
+      rows = Array.isArray(d) ? d : d?.items || []
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('acc.assignFailed')), icon: 'none' })
+      return
+    }
+    if (rows.length === 0) {
+      Taro.showToast({ title: t('partner.empty'), icon: 'none' })
+      return
+    }
+    const sheet = await Taro.showActionSheet({
+      itemList: [t('userType.platform'), ...rows.map((p) => p.name || t('acc.unnamed'))]
+    }).catch(() => null)
+    if (!sheet) return
+    const partner = sheet.tapIndex === 0 ? null : rows[sheet.tapIndex - 1]
+    try {
+      await adminUsersApi.assignPartner(e.user_id, partner ? String(partner.id) : null)
+      Taro.showToast({
+        title: t('acc.assigned', { name: partner ? partner.name : t('userType.platform') }),
+        icon: 'success'
+      })
+      fetchEmployees()
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('acc.assignFailed')), icon: 'none' })
+    }
+  }
+
+  /** 重置密码（POST /admin/users/{id}/reset-password） */
+  const resetPwd = async (e: EmployeeItem) => {
+    if (!e.user_id) {
+      Taro.showToast({ title: t('acc.noBoundAccount'), icon: 'none' })
+      return
+    }
+    const res = (await Taro.showModal({
+      title: t('acc.resetPwdTitle', { name: e.full_name || t('acc.unnamed') }),
+      editable: true,
+      placeholderText: t('acc.newPwdPlaceholder')
+    } as any)) as any
+    if (!res.confirm) return
+    const pwd = String(res.content || '').trim()
+    if (pwd.length < 6) {
+      Taro.showToast({ title: t('acc.newPwdError'), icon: 'none' })
+      return
+    }
+    try {
+      await adminUsersApi.resetPassword(e.user_id, pwd)
+      Taro.showToast({ title: t('acc.pwdReset'), icon: 'success' })
+    } catch (err) {
+      Taro.showToast({ title: errorText(err, t('acc.pwdResetFailed')), icon: 'none' })
+    }
+  }
 
   const remove = async (e: EmployeeItem) => {
     if (!e.user_id) return
@@ -314,6 +434,76 @@ export default function AdminEmployeesPage() {
         </View>
       </View>
 
+      {/* 新建账号：仅平台管理员（合作公司管理员由本公司成员接口维护） */}
+      {currentRole !== 'partner_admin' && (
+        <View className='ac-create'>
+          <View
+            className='ac-create__head'
+            onClick={() => (createOpen ? setCreateOpen(false) : openCreate())}
+          >
+            <Text className='ac-create__title'>{t('acc.createTitle')}</Text>
+            <Text className='ac-create__action'>
+              {createOpen ? t('acc.cancel') : t('acc.create')}
+            </Text>
+          </View>
+          {createOpen && (
+            <View className='ac-form'>
+              <Input
+                className='ac-form__input'
+                value={form.full_name}
+                placeholder={t('acc.namePlaceholder')}
+                onInput={(e: any) => setForm((f) => ({ ...f, full_name: e.detail.value }))}
+              />
+              <Input
+                className='ac-form__input'
+                value={form.email}
+                placeholder={t('acc.emailPlaceholder')}
+                onInput={(e: any) => setForm((f) => ({ ...f, email: e.detail.value }))}
+              />
+              <View className='ac-form__row'>
+                <Input
+                  className='ac-form__input ac-form__input--half'
+                  value={form.department}
+                  placeholder={t('acc.deptPlaceholder')}
+                  onInput={(e: any) => setForm((f) => ({ ...f, department: e.detail.value }))}
+                />
+                <Input
+                  className='ac-form__input ac-form__input--half'
+                  value={form.position}
+                  placeholder={t('acc.positionPlaceholder')}
+                  onInput={(e: any) => setForm((f) => ({ ...f, position: e.detail.value }))}
+                />
+              </View>
+              <Input
+                className='ac-form__input'
+                value={form.password}
+                placeholder={t('acc.initPwdPlaceholder')}
+                onInput={(e: any) => setForm((f) => ({ ...f, password: e.detail.value }))}
+              />
+              <View className='ac-form__roles'>
+                {ROLE_KEYS.map((k) => (
+                  <View
+                    key={k}
+                    className={`ac-chip ${form.role === k ? 'ac-chip--active' : ''}`}
+                    onClick={() => setForm((f) => ({ ...f, role: k }))}
+                  >
+                    <Text className='ac-chip__text'>{t(`perm.role.${k}`)}</Text>
+                  </View>
+                ))}
+              </View>
+              <View
+                className={`ac-form__submit ${creating ? 'ac-form__submit--busy' : ''}`}
+                onClick={() => {
+                  if (!creating) doCreate()
+                }}
+              >
+                <Text className='ac-form__submit-text'>{t('acc.createBtn')}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* 筛选 */}
       <ScrollView scrollX className='ac-chips'>
         {FILTERS.map((f) => (
@@ -448,6 +638,12 @@ export default function AdminEmployeesPage() {
                   <View className='ac-act ac-act--role' onClick={() => changeRole(e)}>
                     {t('acc.changeRole')}
                   </View>
+                  <View className='ac-act' onClick={() => resetPwd(e)}>{t('acc.resetPwd')}</View>
+                  {currentRole !== 'partner_admin' && (
+                    <View className='ac-act' onClick={() => assignCompany(e)}>
+                      {t('acc.assignCompany')}
+                    </View>
+                  )}
                   {String(e.user_id) !== String(currentUserId) && (
                     <View className='ac-act ac-act--del' onClick={() => remove(e)}>{t('acc.deleteAccount')}</View>
                   )}

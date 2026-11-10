@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     width: '100%',
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     overflow: 'hidden',
     backgroundColor: colors.surface2,
   },

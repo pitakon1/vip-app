@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 18,
     minHeight: colors.touch.min,
-    borderRadius: 6,
+    borderRadius: colors.radius.sm,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

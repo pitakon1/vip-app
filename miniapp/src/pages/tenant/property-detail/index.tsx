@@ -4,7 +4,7 @@ import { View, Text, ScrollView, Image, Input, Picker } from '@tarojs/components
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { request } from '@/lib/api'
-import { favoritesApi, saleListingApi, viewingsApi } from '@/services/api'
+import { chatApi, favoritesApi, priceAlertsApi, saleListingApi, viewingsApi } from '@/services/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as formatMoney } from '@/utils/format'
 import { ICONS, iconStyle } from '@/utils/icons'
@@ -133,6 +133,10 @@ export default function TenantPropertyDetailPage() {
   const [fav, setFav] = useState(false)
   // 收藏红心点击动效（仅视觉 class 切换，不动收藏数据流）
   const [favAnim, setFavAnim] = useState(false)
+  // 降价提醒 / 联系经纪人（与 App PropertyDetailScreen 底部操作栏对齐）
+  const [subscribed, setSubscribed] = useState(false)
+  const [alertBusy, setAlertBusy] = useState(false)
+  const [contactBusy, setContactBusy] = useState(false)
   const TYPE_LABELS = buildTypeLabels(t)
   const STATUS_LABELS = buildStatusLabels(t)
 
@@ -219,6 +223,9 @@ export default function TenantPropertyDetailPage() {
       favoritesApi.status(String(propertyId)).then((res: any) => {
         const body = toBody(res)
         setFav(!!(body as any)?.favorited)
+      }).catch(() => undefined)
+      priceAlertsApi.status(String(propertyId)).then((res) => {
+        setSubscribed(!!res?.subscribed)
       }).catch(() => undefined)
     }
   })
@@ -316,6 +323,57 @@ export default function TenantPropertyDetailPage() {
       console.error('[PropertyDetail] 收藏切换失败', error)
       setFav(!next)
       Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    }
+  }
+
+  // 降价提醒：与 App 同一 /price-alerts 订阅接口
+  const handleTogglePriceAlert = async () => {
+    const pid = String(propertyId)
+    if (!propertyId || alertBusy) return
+    const next = !subscribed
+    setAlertBusy(true)
+    setSubscribed(next)
+    try {
+      if (next) await priceAlertsApi.subscribe(pid)
+      else await priceAlertsApi.unsubscribe(pid)
+      Taro.showToast({
+        title: next ? t('pub.priceAlertOn') : t('pub.priceAlertOff'),
+        icon: 'none'
+      })
+    } catch (error) {
+      console.error('[PropertyDetail] 降价提醒切换失败', error)
+      setSubscribed(!next)
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    } finally {
+      setAlertBusy(false)
+    }
+  }
+
+  // 联系经纪人：按房源建会话后直接进会话详情（旧实现停留在空列表）
+  const handleContactBroker = async () => {
+    if (!propertyId || contactBusy) return
+    if (!useAuthStore.getState().token) {
+      Taro.showToast({ title: t('tpd.loginFirst'), icon: 'none' })
+      setTimeout(() => Taro.navigateTo({ url: '/pages/login/index' }), 600)
+      return
+    }
+    setContactBusy(true)
+    try {
+      const res: any = await chatApi.createConversation({
+        property_id: propertyId,
+        title: property?.room_number || property?.project_name || ''
+      })
+      const conv = res?.data?.data ?? res?.data ?? res
+      if (conv?.id) {
+        Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
+      } else {
+        Taro.navigateTo({ url: '/pages/chat/list/index' })
+      }
+    } catch (error) {
+      console.error('[PropertyDetail] 创建会话失败', error)
+      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+    } finally {
+      setContactBusy(false)
     }
   }
 
@@ -583,6 +641,22 @@ export default function TenantPropertyDetailPage() {
             style={{ backgroundImage: `url("${fav ? ICONS.heartFill : ICONS.heart}")` }}
           />
           <Text className='detail-bar__fav-text'>{fav ? t('prop.favOn') : t('prop.fav')}</Text>
+        </View>
+        <View className='detail-bar__fav' onClick={handleTogglePriceAlert}>
+          <View
+            className='icon-svg'
+            style={{ backgroundImage: `url("${ICONS.bell}")` }}
+          />
+          <Text className='detail-bar__fav-text'>
+            {subscribed ? t('pub.priceAlertOn') : t('pub.priceAlertOff')}
+          </Text>
+        </View>
+        <View className='detail-bar__fav' onClick={handleContactBroker}>
+          <View
+            className='icon-svg'
+            style={{ backgroundImage: `url("${ICONS.chat}")` }}
+          />
+          <Text className='detail-bar__fav-text'>{t('prop.contactBroker')}</Text>
         </View>
         {biz === 'buy' && salePrice > 0 && (
           <View className='detail-bar__loan' onClick={() => setShowLoan((s) => !s)}>

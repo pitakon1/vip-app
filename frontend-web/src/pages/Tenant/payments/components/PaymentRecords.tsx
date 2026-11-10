@@ -51,14 +51,17 @@ const PaymentRecords = ({ monthGroups, filter, keyword, isError, onRetry, onView
                 : recordStatusMap[statusKey]
               const method = methodLabelMap[bill.payment_method] || bill.payment_method || t('tenantPayments.otherMethod')
               const uploadDate = dayjs(bill.created_at || bill.payment_date).format('YYYY-MM-DD')
-              const recordNo = `PAY-${dayjs(bill.payment_date || bill.created_at).format('YYYY-MM')}${String(idx + 1).padStart(2, '0')}`
+              // 本地上传用月度序号；服务端记录用真实 ID 的短引用，避免整串 UUID 外露
+              const recordNo = bill.id.startsWith('local-')
+                ? `PAY-${dayjs(bill.payment_date || bill.created_at).format('YYYY-MM')}${String(idx + 1).padStart(2, '0')}`
+                : `PAY-${bill.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`
               return (
                 <div key={bill.id} className="rent-pay-record">
                   <div className="rent-pay-record__method">
                     {methodIconMap[bill.payment_method] || defaultMethodIcon}
                   </div>
                   <div className="rent-pay-record__main">
-                    <div className="rent-pay-record__id">{bill.id.startsWith('local-') ? recordNo : bill.id}</div>
+                    <div className="rent-pay-record__id">{recordNo}</div>
                     <div className="rent-pay-record__meta">
                       <span>{method}</span>
                       <span className="rent-pay-record__meta-sep"></span>

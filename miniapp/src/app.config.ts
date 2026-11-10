@@ -12,10 +12,12 @@ export default {
     'pages/public/listing-detail/index',
     // 地图找房（C 端匿名可进；找房页「去地图看」与分类页地图入口的落点）
     'pages/public/map/index',
+    // 发现（C 端底部 Tab）：城市行情 + 热门小区 + 国际学校，匿名可进
+    'pages/public/discover/index',
     // ===== 主包只留首屏 + 高频 C 端页（冷启动体积），低频作业页全部走分包 =====
     'pages/tenant/home/index',
     'pages/tenant/documents/index',
-    'pages/tenant/services/index',
+    // 增值服务（价目/报价/购买）体积较大，放独立分包，避免主包超 2MB
     'pages/tenant/maintenance/index',
     'pages/tenant/payments/index',
     'pages/tenant/listings/index',
@@ -47,6 +49,11 @@ export default {
     'pages/tenant/my-contracts/index'
   ],
   subPackages: [
+    // 增值服务：服务价目 / 服务端报价 / SKU 购买（低频，独立分包）
+    {
+      root: 'pages/svc',
+      pages: ['services/index']
+    },
     // 业主低频页：房源管理 / 收益 / 委托挂牌 / 房源详情 + 首页转发页（兼容历史分享路径）
     {
       root: 'pages/owner',

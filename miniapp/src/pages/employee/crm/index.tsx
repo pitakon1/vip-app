@@ -68,7 +68,8 @@ export default function EmployeeCrmPage() {
     setLoading(true)
     setLoadError(false)
     try {
-      const res: any = await leadsApi.list({ page: 1, page_size: PAGE_SIZE })
+      // 员工只看本人负责的线索：不带 mine 时后端会返回全平台线索
+      const res: any = await leadsApi.list({ page: 1, page_size: PAGE_SIZE, mine: true })
       const d = res?.data ?? res
       const items: LeadItem[] = Array.isArray(d) ? d : d?.items || []
       setLeads(items)
@@ -259,7 +260,7 @@ export default function EmployeeCrmPage() {
                 <View className='crm-card__foot'>
                   <View className='icon-svg icon-svg--sm' style={iconStyle('calendar', 26)} />
                   <Text className='crm-card__foot-text'>
-                     {t('crm.followUp')} {fmtDate(l.updated_at || l.created_at)}
+                     {t('crm.followUp', { date: fmtDate(l.updated_at || l.created_at) })}
                   </Text>
                   <View className='crm-card__edit' onClick={() => openEdit(l)}>
                     <Text className='crm-card__edit-text'>{t('crm.editStatus')}</Text>

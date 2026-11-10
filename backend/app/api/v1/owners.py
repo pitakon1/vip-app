@@ -39,6 +39,18 @@ from app.schemas.owners import AnnualFinancialSummaryOut, OwnerIncomeOut
 
 router = APIRouter(prefix="/owners", tags=["owners"])
 
+# 业主房源列表只下发展示字段。归属账号 / 创建人 / 软删标记 / 扩展元数据 /
+# 去重键与地址归一化串都属于内部台账字段，不在 C 端返回。
+_OWNER_PROPERTY_INTERNAL_FIELDS = {
+    "owner_id",
+    "created_by",
+    "deleted_at",
+    "metadata_",
+    "dedupe_key",
+    "dedupe_type",
+    "address_norm",
+}
+
 
 class MarketingItemOut(BaseModel):
     """`GET /owners/me/marketing` 中的单条可推广房源。"""
@@ -68,6 +80,8 @@ class MarketingOut(BaseModel):
     items: List[MarketingItemOut] = Field(default_factory=list)
     total_vacant: Optional[int] = None
     total_properties: Optional[int] = None
+    rented_count: Optional[int] = None
+    occupancy_rate: Optional[float] = None
 
 
 class PricingSuggestionDetailOut(BaseModel):
@@ -128,7 +142,7 @@ def _get_owner_or_none(session: Session, user: User) -> Optional[Owner]:
     ).first()
 
 
-@router.get("/me/properties", response_model=List[Property])
+@router.get("/me/properties", response_model=None)
 def get_my_properties(
     session: Session = Depends(get_session),
     user: User = Depends(require_owner),
@@ -153,9 +167,8 @@ def get_my_properties(
         # 放宽 guard 后非 admin 也可能调用本接口：未建档时必须显式置空，
         # 否则「没有 owner 条件」会退化成返回全平台房源（越权）。
         conditions.append(false())
-    # 生效租约关联的房源即使已软删也不能从业主资产里凭空消失：否则业主首页
-    # 「已出租」会算成 0，而租约页仍有生效租约，两处口径互相矛盾。这里把
-    # 「未删除」与「已软删但仍有生效租约」的房源一并纳入，并把状态校正为 rented。
+    # M-06：已软删的业主房源整体不计入业主资产（列表 / 统计 / 出租率），
+    # 即使它仍有生效租约也不再补回。生效租约只用于校正未软删房源的在租状态。
     active_lease_property_ids = set(
         session.exec(
             select(Lease.property_id).where(
@@ -164,13 +177,7 @@ def get_my_properties(
             )
         ).all()
     )
-    if active_lease_property_ids:
-        conditions.append(
-            Property.deleted_at.is_(None)
-            | Property.id.in_(active_lease_property_ids)
-        )
-    else:
-        conditions.append(Property.deleted_at.is_(None))
+    conditions.append(Property.deleted_at.is_(None))
     # 按学校找房（复用 /properties 的空间筛选逻辑，与 C 端口径对齐）
     if school_id:
         school = session.get(School, school_id)
@@ -204,12 +211,27 @@ def get_my_properties(
     properties = session.exec(
         stmt.order_by(Property.created_at.desc())
     ).all()
-    # 出租状态以「生效租约」为唯一口径（与租约页一致）：房源字段可能是历史
-    # 脏数据（如软删前仍是 vacant），这里只对内存对象校正，不写库。
-    for prop in properties:
+    # 出租状态以「生效租约」为唯一口径（与租约页一致）：有租约即在租；
+    # 无租约且非维修中一律视为空置（房源字段可能是历史脏数据，如租约结束后
+    # 仍停在 rented）。这里用 model_copy 生成脱离会话的副本再校正状态，避免
+    # 直接改 ORM 对象后被 get_session 的 commit 写回库里（GET 请求不应产生
+    # UPDATE，也不该把维修中/续租中的状态永久改成 rented）。
+    # 同时裁剪内部台账字段，只下发业主端展示所需字段。
+    def _effective_status(prop: Property) -> PropertyStatus:
         if prop.id in active_lease_property_ids:
-            prop.status = PropertyStatus.rented
-    return properties
+            return PropertyStatus.rented
+        if prop.status == PropertyStatus.maintenance:
+            return PropertyStatus.maintenance
+        return PropertyStatus.vacant
+
+    props = [
+        prop.model_copy(update={"status": _effective_status(prop)})
+        for prop in properties
+    ]
+    return [
+        p.model_dump(exclude=_OWNER_PROPERTY_INTERNAL_FIELDS)
+        for p in props
+    ]
 
 
 @router.get("/me/documents", response_model=List[Document])
@@ -267,6 +289,7 @@ def get_my_income(
             "property_count": 0,
             "rented_count": 0,
             "vacant_count": 0,
+            "occupancy_rate": 0.0,
             "by_property": [],
             "records": [],
         }
@@ -327,8 +350,26 @@ def get_my_income(
             }
         )
 
-    rented_count = sum(1 for p in properties if p.status == PropertyStatus.rented)
-    vacant_count = sum(1 for p in properties if p.status == PropertyStatus.vacant)
+    # 出租率统一口径（与 /dashboard/summary 一致）：
+    # 分子 = 名下「存在生效租约」的未软删房源数；分母 = 名下未软删房源总数。
+    # 不使用 Property.status（字段常未随租约回写，会出现 8 套 rented 但只有 2 条租约）。
+    active_lease_ids = set(
+        session.exec(
+            select(Lease.property_id).where(
+                Lease.status == LeaseStatus.active,
+                Lease.deleted_at.is_(None),
+                Lease.property_id.in_(property_ids),
+            )
+        ).all()
+    )
+    rented_count = sum(1 for p in properties if p.id in active_lease_ids)
+    # 无生效租约且非维修中即空置（与 /dashboard/summary、/me/marketing 同口径）。
+    vacant_count = sum(
+        1
+        for p in properties
+        if p.id not in active_lease_ids and p.status != PropertyStatus.maintenance
+    )
+    occupancy_rate = round(rented_count / len(properties) * 100, 1) if properties else 0.0
     currency = (payments[0].currency if payments else None) or "THB"
 
     by_property = [
@@ -352,6 +393,7 @@ def get_my_income(
         "property_count": len(properties),
         "rented_count": rented_count,
         "vacant_count": vacant_count,
+        "occupancy_rate": occupancy_rate,
         "by_property": by_property,
         "records": records,
     }
@@ -374,14 +416,38 @@ def get_marketing(
     """房源营销推广：空置房源一览并生成分享链接（链接由前端拼装）。"""
     owner = _get_owner_or_none(session, user)
     if not owner:
-        return {"items": [], "total_vacant": 0, "total_properties": 0}
+        return {
+            "items": [],
+            "total_vacant": 0,
+            "total_properties": 0,
+            "rented_count": 0,
+            "occupancy_rate": 0.0,
+        }
     properties = _my_properties(session, owner)
+    # 入住率与 /dashboard/summary、/owners/me/income 同口径：
+    # 分子 = 有生效租约的未软删房源数；分母 = 名下未软删房源总数。
+    property_ids = [p.id for p in properties]
+    active_lease_ids = set(
+        session.exec(
+            select(Lease.property_id).where(
+                Lease.status == LeaseStatus.active,
+                Lease.deleted_at.is_(None),
+                Lease.property_id.in_(property_ids),
+            )
+        ).all()
+    )
+    rented_count = sum(1 for p in properties if p.id in active_lease_ids)
+    occupancy_rate = round(rented_count / len(properties) * 100, 1) if properties else 0.0
+    # 空置待租：无生效租约且非维修中（维修中不可对外出租，不计入待推广）。
+    # 以租约判定而不是 `Property.status`，避免租约已结束但状态仍是 rented 的房源
+    # 被漏掉。
     vacant = [
-        p for p in properties if p.status in (PropertyStatus.vacant, PropertyStatus.maintenance)
+        p
+        for p in properties
+        if p.id not in active_lease_ids and p.status != PropertyStatus.maintenance
     ]
     # 分享链接必须指向 C 端真实可访问的 /listing/:id（listing id，不是 property id）。
     # 房源没上架/已下架时没有可分享的公开详情，返回 None 而不是一个必然 404 的链接。
-    property_ids = [p.id for p in vacant]
     listings = session.exec(
         select(Listing).where(
             Listing.property_id.in_(property_ids),
@@ -407,7 +473,8 @@ def get_marketing(
                 "bedrooms": p.bedrooms,
                 "bathrooms": p.bathrooms,
                 "photo": p.photos[0] if p.photos else None,
-                "status": p.status.value,
+                # 列表内均为「无生效租约且非维修中」的房源，对外状态统一为空置。
+                "status": PropertyStatus.vacant.value,
                 "share_url": (
                     f"/listing/{listing_by_property[p.id].id}"
                     if p.id in listing_by_property
@@ -418,6 +485,8 @@ def get_marketing(
         ],
         "total_vacant": len(vacant),
         "total_properties": len(properties),
+        "rented_count": rented_count,
+        "occupancy_rate": occupancy_rate,
     }
 
 

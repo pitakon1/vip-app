@@ -10,6 +10,22 @@
   padding-bottom: 160rpx;
 }
 
+/* ===== 业绩环比 ===== */
+.emp-delta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 12rpx;
+
+  &__text {
+    font-size: 24rpx;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border-radius: var(--radius-full);
+    padding: 6rpx 16rpx;
+  }
+}
+
 /* ===== 今日概览卡 ===== */
 .emp-hero {
   display: flex;
