@@ -8,9 +8,10 @@
  */
 import { useEffect, useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { companyApi } from '@/services/api'
 import { iconStyle } from '@/utils/icons'
+import { useI18n } from '@/i18n'
 import './index.scss'
 
 interface CompanyInfo {
@@ -25,7 +26,12 @@ interface CompanyInfo {
 }
 
 export default function AboutPage() {
+  const { t } = useI18n()
   const [info, setInfo] = useState<CompanyInfo>({})
+
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: t('profile.about') })
+  })
 
   useEffect(() => {
     let alive = true
@@ -53,13 +59,13 @@ export default function AboutPage() {
   const copyWebsite = () => {
     if (!website) return
     Taro.setClipboardData({ data: website })
-      .then(() => Taro.showToast({ title: '官网地址已复制，可在浏览器打开', icon: 'none' }))
+      .then(() => Taro.showToast({ title: t('about.websiteCopied'), icon: 'none' }))
       .catch(() => undefined)
   }
 
   const callSupport = () => {
     if (!canCall) {
-      Taro.showToast({ title: '客服电话暂未配置', icon: 'none' })
+      Taro.showToast({ title: t('profile.phoneUnset'), icon: 'none' })
       return
     }
     Taro.makePhoneCall({ phoneNumber: phone.replace(/[^\d+]/g, '') }).catch(() => undefined)
@@ -76,29 +82,29 @@ export default function AboutPage() {
             <View className='icon-svg' style={iconStyle('building', 72)} />
           </View>
         )}
-        <Text className='about-name'>{info.name || '关于我们'}</Text>
-        <Text className='about-slogan'>让租房更简单</Text>
+        <Text className='about-name'>{info.name || t('profile.about')}</Text>
+        <Text className='about-slogan'>{t('profile.slogan')}</Text>
       </View>
 
       {/* 信息列表：网址 / 电话 / 版本号 */}
       <View className='about-card'>
         {!!website && (
           <View className='about-row' onClick={copyWebsite}>
-            <Text className='about-row__label'>官方网址</Text>
+            <Text className='about-row__label'>{t('profile.website')}</Text>
             <Text className='about-row__value'>{website.replace(/^https?:\/\//i, '')}</Text>
             <View className='chevron' />
           </View>
         )}
         {canCall && (
           <View className='about-row' onClick={callSupport}>
-            <Text className='about-row__label'>客服电话</Text>
+            <Text className='about-row__label'>{t('profile.hotline')}</Text>
             <Text className='about-row__value'>{phone}</Text>
             <View className='chevron' />
           </View>
         )}
         {!!info.version && (
           <View className='about-row'>
-            <Text className='about-row__label'>版本号</Text>
+            <Text className='about-row__label'>{t('profile.versionNo')}</Text>
             <Text className='about-row__value about-row__value--static'>v{info.version}</Text>
           </View>
         )}
@@ -108,10 +114,10 @@ export default function AboutPage() {
       {(!!info.name || !!info.reg_no) && (
         <View className='about-footer'>
           {!!info.name && (
-            <Text className='about-footer__text'>{`© ${year} ${info.name} · 版权所有`}</Text>
+            <Text className='about-footer__text'>{`© ${year} ${info.name} · ${t('profile.copyright')}`}</Text>
           )}
           {!!info.reg_no && (
-            <Text className='about-footer__text'>{`注册号：${info.reg_no}`}</Text>
+            <Text className='about-footer__text'>{`${t('profile.regNo')} ${info.reg_no}`}</Text>
           )}
         </View>
       )}

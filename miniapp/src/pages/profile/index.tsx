@@ -10,7 +10,7 @@ import { useSwrCache } from '@/hooks/useSwrCache'
 import { clearCacheSync } from '@/utils/cache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
-import { useI18n } from '@/i18n'
+import { useI18n, LANG_LABELS } from '@/i18n'
 import type { User } from '@/types'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
@@ -32,90 +32,90 @@ interface RowEntry {
 // 租客/游客不再看到业主专属入口。
 const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
   // 业主入口（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
-  { key: 'assetOverview', label: '资产管理', url: '/pages/owner/home/index', icon: 'chart' },
-  { key: 'manageProperties', label: '房源管理', url: '/pages/owner/properties/index', icon: 'home' },
-  { key: 'incomeDetail', label: '收益明细', url: '/pages/owner/income/index', icon: 'chart' },
+  { key: 'assetOverview', label: 'nav.ownerHome', url: '/pages/owner/home/index', icon: 'chart' },
+  { key: 'manageProperties', label: 'nav.propertyManage', url: '/pages/owner/properties/index', icon: 'home' },
+  { key: 'incomeDetail', label: 'nav.ownerIncome', url: '/pages/owner/income/index', icon: 'chart' },
   // 租客入口（租客 = 在平台上租了房子）
-  { key: 'myLeases', label: '我的租约', url: '/pages/tenant/leases/index', icon: 'doc' },
-  { key: 'myDeals', label: '我的交易订单', url: '/pages/tenant/deals/index', icon: 'money' },
-  { key: 'payments', label: '缴费中心', url: '/pages/tenant/payments/index', icon: 'card' },
-  { key: 'maintenance', label: '服务工单', url: '/pages/tenant/maintenance/index', icon: 'edit' },
-  { key: 'services', label: '增值服务', url: '/pages/svc/services/index', icon: 'clipboard' },
+  { key: 'myLeases', label: 'nav.myLease', url: '/pages/tenant/leases/index', icon: 'doc' },
+  { key: 'myDeals', label: 'nav.myOrders', url: '/pages/tenant/deals/index', icon: 'money' },
+  { key: 'payments', label: 'nav.payments', url: '/pages/tenant/payments/index', icon: 'card' },
+  { key: 'maintenance', label: 'nav.maintenance', url: '/pages/tenant/maintenance/index', icon: 'edit' },
+  { key: 'services', label: 'nav.services', url: '/pages/svc/services/index', icon: 'clipboard' },
   // 通用入口（文档中心：租房文档 + 我的文档 合并）
-  { key: 'documents', label: '文档中心', url: '/pages/tenant/documents/index', icon: 'doc' },
+  { key: 'documents', label: 'nav.documents', url: '/pages/tenant/documents/index', icon: 'doc' },
   // 电子合同（业主/租客签署）
-  { key: 'myContracts', label: '我的合同', url: '/pages/tenant/my-contracts/index', icon: 'doc' },
+  { key: 'myContracts', label: 'contract.my', url: '/pages/tenant/my-contracts/index', icon: 'doc' },
   // C 端关注/浏览历史/降价提醒：登录即可用（未登录先进登录；对齐 App）
-  { key: 'favorites', label: '我的关注', url: '/pages/tenant/favorites/index', icon: 'heart' },
-  { key: 'history', label: '浏览历史', url: '/pages/tenant/history/index', icon: 'calendar' },
-  { key: 'priceAlerts', label: '降价提醒', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' }
+  { key: 'favorites', label: 'nav.favorites', url: '/pages/tenant/favorites/index', icon: 'heart' },
+  { key: 'history', label: 'nav.history', url: '/pages/tenant/history/index', icon: 'calendar' },
+  { key: 'priceAlerts', label: 'nav.priceAlerts', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' }
 ]
 
 // 管理端 / 业主端「账户设置」：后端无修改密码、绑定手机、绑定邮箱接口
 const ACCOUNT_ROWS: RowEntry[] = [
-  { key: 'password', label: '修改密码', icon: 'gear' },
-  { key: 'phone', label: '绑定手机', icon: 'user' },
-  { key: 'email', label: '绑定邮箱', icon: 'doc' }
+  { key: 'password', label: 'nav.changePassword', icon: 'gear' },
+  { key: 'phone', label: 'profile.bindPhone', icon: 'user' },
+  { key: 'email', label: 'profile.bindEmail', icon: 'doc' }
 ]
 
 // 管理端 / 业主端「系统设置」：后端无语言、时区、主题、通知配置接口
 const SYSTEM_ROWS: RowEntry[] = [
-  { key: 'language', label: '语言', icon: 'clipboard' },
-  { key: 'timezone', label: '时区', icon: 'calendar' },
-  { key: 'theme', label: '主题', icon: 'star' },
-  { key: 'notification', label: '通知设置', icon: 'megaphone' }
+  { key: 'language', label: 'profile.language', icon: 'clipboard' },
+  { key: 'timezone', label: 'profile.timezone', icon: 'calendar' },
+  { key: 'theme', label: 'profile.theme', icon: 'star' },
+  { key: 'notification', label: 'profile.notifySettings', icon: 'megaphone' }
 ]
 
 // 管理端「业务设置」：后端无提醒天数、自动催缴配置接口
 const BUSINESS_ROWS: RowEntry[] = [
-  { key: 'rent-reminder', label: '租金提醒天数', icon: 'calendar' },
-  { key: 'lease-reminder', label: '合同到期提醒', icon: 'doc' },
-  { key: 'auto-dunning', label: '自动催缴', icon: 'money' },
-  { key: 'commission', label: '佣金设置', icon: 'chart', url: '/pages/admin/commission-rules/index' }
+  { key: 'rent-reminder', label: 'profile.rentReminderDays', icon: 'calendar' },
+  { key: 'lease-reminder', label: 'profile.leaseReminder', icon: 'doc' },
+  { key: 'auto-dunning', label: 'profile.autoDunning', icon: 'money' },
+  { key: 'commission', label: 'profile.commissionSettings', icon: 'chart', url: '/pages/admin/commission-rules/index' }
 ]
 
 // 业主端「设置」：对齐 owner-mini-settings.html；右侧值均来自真实数据/用户信息
 // 末尾四项对齐贝壳设置页，均为真实能力（非占位）：权限设置 / 清理缓存 / 检查更新 / 举报与投诉
 const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
-  { key: 'account', label: '账号与安全', icon: 'user' },
-  { key: 'language', label: '语言设置', value: '简体中文', icon: 'clipboard' },
-  { key: 'notification', label: '通知提醒', badge: true, icon: 'megaphone' },
-  { key: 'help', label: '帮助中心', icon: 'calendar' },
-  { key: 'contactSupport', label: '联系客服', icon: 'headsetDark' },
-  { key: 'permissions', label: '权限设置', icon: 'gear' },
-  { key: 'clearCache', label: '清理缓存', icon: 'trash' },
-  { key: 'checkUpdate', label: '检查更新', icon: 'download' },
-  { key: 'report', label: '举报与投诉', icon: 'flag' },
-  { key: 'rate', label: '去评分', icon: 'star' },
-  { key: 'privacyRules', label: '用户隐私规则', icon: 'doc' },
+  { key: 'account', label: 'profile.account', icon: 'user' },
+  { key: 'language', label: 'profile.language', value: '', icon: 'clipboard' },
+  { key: 'notification', label: 'profile.notify', badge: true, icon: 'megaphone' },
+  { key: 'help', label: 'profile.help', icon: 'calendar' },
+  { key: 'contactSupport', label: 'profile.contactSupport', icon: 'headsetDark' },
+  { key: 'permissions', label: 'profile.permissions', icon: 'gear' },
+  { key: 'clearCache', label: 'profile.clearCache', icon: 'trash' },
+  { key: 'checkUpdate', label: 'profile.checkUpdate', icon: 'download' },
+  { key: 'report', label: 'profile.report', icon: 'flag' },
+  { key: 'rate', label: 'profile.rate', icon: 'star' },
+  { key: 'privacyRules', label: 'profile.privacyRules', icon: 'doc' },
   // 「关于我们 / 版权信息」均进同一个详情页（页脚即版权与注册号）
-  { key: 'about', label: '关于我们', icon: 'star', url: '/pages/about/index' },
-  { key: 'copyright', label: '版权信息', icon: 'clipboard', url: '/pages/about/index' }
+  { key: 'about', label: 'profile.about', icon: 'star', url: '/pages/about/index' },
+  { key: 'copyright', label: 'profile.copyrightInfo', icon: 'clipboard', url: '/pages/about/index' }
 ]
 
 // 员工 / 代理端：常用入口（客户 / 业绩已在底部导航，不再重复；通讯录移至「我的」）
 const STAFF_ROWS: RowEntry[] = [
-  { key: 'contacts', label: '通讯录', desc: '同事与部门通讯录', url: '/pages/employee/contacts/index', icon: 'user' },
-  { key: 'attendance', label: '考勤打卡', desc: '上下班 GPS 定位打卡', url: '/pages/attendance/index', icon: 'calendar' },
-  { key: 'manageProperties', label: '房源管理', desc: '我的房源与上下架管理', url: '/pages/employee/properties/index', icon: 'home' },
-  { key: 'contracts', label: '电子合同', desc: '生成、签署与归档电子合同', url: '/pages/admin/contracts/index', icon: 'doc' }
+  { key: 'contacts', label: 'nav.contacts', desc: 'profile.contactsDesc', url: '/pages/employee/contacts/index', icon: 'user' },
+  { key: 'attendance', label: 'nav.attendance', desc: 'profile.attendanceDesc', url: '/pages/attendance/index', icon: 'calendar' },
+  { key: 'manageProperties', label: 'nav.properties', desc: 'profile.staffPropertiesDesc', url: '/pages/employee/properties/index', icon: 'home' },
+  { key: 'contracts', label: 'lease.contract', desc: 'contract.entryManageDesc', url: '/pages/admin/contracts/index', icon: 'doc' }
 ]
 
 // 角色文案（与原型顶部身份标签一致）
 const ROLE_TEXT: Record<string, string> = {
-  admin: '系统管理员',
-  owner: '业主',
-  tenant: '租客',
-  agent: '经纪人',
-  employee: '员工'
+  admin: 'perm.role.admin',
+  owner: 'perm.role.owner',
+  tenant: 'perm.role.tenant',
+  agent: 'perm.role.agent',
+  employee: 'perm.role.employee'
 }
 
 // 租约状态文案与徽章样式
 const LEASE_STATUS: Record<string, { text: string; badge: string }> = {
-  active: { text: '生效中', badge: 'badge--success' },
-  pending: { text: '待生效', badge: 'badge--warning' },
-  expired: { text: '已到期', badge: 'badge--neutral' },
-  terminated: { text: '已终止', badge: 'badge--error' }
+  active: { text: 'lease.stActive', badge: 'badge--success' },
+  pending: { text: 'lease.stPending', badge: 'badge--warning' },
+  expired: { text: 'lease.stExpired', badge: 'badge--neutral' },
+  terminated: { text: 'lease.stTerminated', badge: 'badge--error' }
 }
 
 function pickList<T>(res: any): T[] {
@@ -165,7 +165,7 @@ const leaseTitle = (lease: any) =>
   lease?.propertyName ||
   lease?.room_number ||
   lease?.address ||
-  `租约 #${String(lease?.id ?? '').slice(0, 8)}`
+  ''
 
 /** 手机号脱敏：保留前 3 位与后 4 位 */
 const maskPhone = (phone?: string) =>
@@ -179,7 +179,7 @@ const maskEmail = (email?: string) => {
 }
 
 export default function ProfilePage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const user = useAuthStore((state) => state.user)
   const login = useAuthStore((state) => state.login)
   const logout = useAuthStore((state) => state.logout)
@@ -272,15 +272,15 @@ export default function ProfilePage() {
 
   const handleLogout = () => {
     Taro.showModal({
-      title: '提示',
-      content: '确定要退出登录吗？',
+      title: t('profile.tip'),
+      content: t('profile.logoutConfirm'),
       success: (res) => {
         if (res.confirm) {
           // 清除本地 token 与用户信息
           logout()
           Taro.removeStorageSync('token')
           Taro.removeStorageSync('user')
-          Taro.showToast({ title: '已退出登录', icon: 'success' })
+          Taro.showToast({ title: t('profile.loggedOut'), icon: 'success' })
           setTimeout(() => {
             Taro.redirectTo({ url: '/pages/login/index' })
           }, 500)
@@ -303,18 +303,18 @@ export default function ProfilePage() {
       const res: any = await chatApi.support()
       const conv = Array.isArray(res) ? res[0] : res?.data
       if (!conv?.id) {
-        Taro.showToast({ title: '客服暂未开通', icon: 'none' })
+        Taro.showToast({ title: t('profile.supportUnavailable'), icon: 'none' })
         return
       }
       Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
     } catch {
-      Taro.showToast({ title: '客服暂未开通', icon: 'none' })
+      Taro.showToast({ title: t('profile.supportUnavailable'), icon: 'none' })
     }
   }
 
   /** 无后端接口的入口：只做结构对齐，点击明确提示未开放，不伪造成功 */
   const handleTodo = (label: string) => {
-    Taro.showToast({ title: `「${label}」暂未开放`, icon: 'none' })
+    Taro.showToast({ title: t('profile.comingSoon', { name: label }), icon: 'none' })
   }
 
   /** 已登录头像：点击选图并上传；未登录引导登录 */
@@ -337,9 +337,9 @@ export default function ProfilePage() {
           if (latest && token) useAuthStore.getState().login(token, latest)
           Taro.setStorageSync('user', latest)
           loadFromStorage()
-          showToast('头像已更新')
+          showToast(t('profile.avatarUpdated'))
         } catch (e: any) {
-          showToast(errorText(e, '头像上传失败'))
+          showToast(errorText(e, t('profile.avatarUploadFailed')))
         }
       },
     })
@@ -372,15 +372,15 @@ export default function ProfilePage() {
   // 修改手机号必须先向新手机号发送验证码（后端 PATCH /auth/me 校验 code，否则 400）
   const sendEditCode = async () => {
     if (!editPhone.trim()) {
-      setEditErr('请先填写新手机号')
+      setEditErr(t('profile.newPhoneRequired'))
       return
     }
     setEditSendingCode(true)
     try {
       await authApi.requestOtp({ recipient: editPhone.trim(), channel: 'sms' })
-      Taro.showToast({ title: '验证码已发送', icon: 'success' })
+      Taro.showToast({ title: t('settings.codeSent'), icon: 'success' })
     } catch (e: any) {
-      Taro.showToast({ title:errorText(e, '验证码发送失败'), icon: 'none' })
+      Taro.showToast({ title: errorText(e, t('settings.codeSendFailed')), icon: 'none' })
     } finally {
       setEditSendingCode(false)
     }
@@ -389,12 +389,12 @@ export default function ProfilePage() {
   const saveEdit = async () => {
     setEditErr('')
     if (!editName.trim()) {
-      setEditErr('请填写姓名')
+      setEditErr(t('settings.nameRequired'))
       return
     }
     const phoneChanged = editPhone !== (user?.phone || '')
     if (phoneChanged && !editCode.trim()) {
-      setEditErr('请先获取并填写验证码')
+      setEditErr(t('settings.codeRequired'))
       return
     }
     setEditSaving(true)
@@ -413,9 +413,9 @@ export default function ProfilePage() {
       Taro.setStorageSync('user', latest)
       loadFromStorage()
       setEditVisible(false)
-      showToast('已保存')
+      showToast(t('settings.saved'))
     } catch (e: any) {
-      showToast(errorText(e, '保存失败'))
+      showToast(errorText(e, t('settings.saveFailed')))
     } finally {
       setEditSaving(false)
     }
@@ -439,15 +439,15 @@ export default function ProfilePage() {
   const savePwd = async () => {
     setPwdErr('')
     if (!oldPwd || !newPwd) {
-      setPwdErr('请填写完整')
+      setPwdErr(t('settings.pwdIncomplete'))
       return
     }
     if (newPwd.length < 6) {
-      setPwdErr('新密码至少 6 位')
+      setPwdErr(t('settings.pwdTooShort'))
       return
     }
     if (newPwd !== confirmPwd) {
-      setPwdErr('两次输入的新密码不一致')
+      setPwdErr(t('settings.pwdMismatch'))
       return
     }
     setPwdSaving(true)
@@ -458,10 +458,10 @@ export default function ProfilePage() {
       logout()
       Taro.removeStorageSync('token')
       Taro.removeStorageSync('user')
-      showToast('已修改，请重新登录')
+      showToast(t('settings.pwdChanged'))
       setTimeout(() => Taro.redirectTo({ url: '/pages/login/index' }), 800)
     } catch (e: any) {
-      showToast(errorText(e, '修改失败'))
+      showToast(errorText(e, t('settings.pwdChangeFailed')))
     } finally {
       setPwdSaving(false)
     }
@@ -496,9 +496,9 @@ export default function ProfilePage() {
         notify_push: prefPush
       })
       setPrefVisible(false)
-      showToast('已保存')
+      showToast(t('settings.saved'))
     } catch (e: any) {
-      showToast(errorText(e, '保存失败'))
+      showToast(errorText(e, t('settings.saveFailed')))
     } finally {
       setPrefSaving(false)
     }
@@ -508,17 +508,18 @@ export default function ProfilePage() {
   const handleCheckUpdate = () => {
     const um: any = typeof Taro.getUpdateManager === 'function' ? Taro.getUpdateManager() : null
     if (!um) {
-      Taro.showToast({ title: '当前平台不支持在线更新', icon: 'none' })
+      Taro.showToast({ title: t('profile.updateUnsupported'), icon: 'none' })
       return
     }
     um.onCheckForUpdate((res: any) => {
-      if (!res?.hasUpdate) Taro.showToast({ title: '已是最新版本', icon: 'success' })
+      if (!res?.hasUpdate) Taro.showToast({ title: t('profile.updateLatest'), icon: 'success' })
     })
     um.onUpdateReady(() => {
       Taro.showModal({
-        title: '发现新版本',
-        content: '新版本已下载完成，重启后生效',
-        confirmText: '立即重启',
+        title: t('profile.updateFound'),
+        content: t('profile.updateReadyBody'),
+        confirmText: t('profile.restartNow'),
+        cancelText: t('common.cancel'),
         success: (r) => {
           if (r.confirm) um.applyUpdate()
         }
@@ -530,14 +531,14 @@ export default function ProfilePage() {
   const handleContactSupport = () => {
     const phone = (company.phone || '').trim()
     if (phone.replace(/\D/g, '').length === 0) {
-      Taro.showToast({ title: '客服电话暂未配置', icon: 'none' })
+      Taro.showToast({ title: t('profile.phoneUnset'), icon: 'none' })
       return
     }
     Taro.showModal({
-      title: '客服热线服务时间 9:00-20:00（周一至周日）',
+      title: t('profile.supportHours'),
       content: phone,
-      confirmText: '呼叫',
-      cancelText: '取消',
+      confirmText: t('profile.call'),
+      cancelText: t('common.cancel'),
       success: (r) => {
         if (r.confirm) {
           Taro.makePhoneCall({ phoneNumber: phone.replace(/[^\d+]/g, '') }).catch(() => undefined)
@@ -549,10 +550,10 @@ export default function ProfilePage() {
   /** 去评分：微信小程序无评分能力，给明确提示而非假成功 */
   const handleRate = () => {
     Taro.showModal({
-      title: '去评分',
-      content: '微信小程序暂不支持评分，可在应用商店为 App 评分',
+      title: t('profile.rate'),
+      content: t('profile.rateUnavailable'),
       showCancel: false,
-      confirmText: '我知道了'
+      confirmText: t('profile.gotIt')
     })
   }
 
@@ -560,12 +561,12 @@ export default function ProfilePage() {
   const handlePrivacyRules = () => {
     const base = (company.website || '').trim().replace(/\/+$/, '')
     if (!base) {
-      Taro.showToast({ title: '隐私政策链接暂未配置', icon: 'none' })
+      Taro.showToast({ title: t('profile.privacyUrlUnset'), icon: 'none' })
       return
     }
     const url = /^https?:\/\//i.test(base) ? `${base}/privacy` : `https://${base}/privacy`
     Taro.setClipboardData({ data: url })
-      .then(() => Taro.showToast({ title: '隐私政策链接已复制，可在浏览器打开', icon: 'none' }))
+      .then(() => Taro.showToast({ title: t('profile.privacyCopied'), icon: 'none' }))
       .catch(() => undefined)
   }
 
@@ -597,7 +598,7 @@ export default function ProfilePage() {
       case 'clearCache':
         // 只清页面数据缓存，不触碰登录态与用户偏好
         clearCacheSync()
-        Taro.showToast({ title: '缓存已清理', icon: 'success' })
+        Taro.showToast({ title: t('profile.cacheCleared'), icon: 'success' })
         return
       case 'checkUpdate':
         handleCheckUpdate()
@@ -625,7 +626,7 @@ export default function ProfilePage() {
         editAutoDunning()
         return
       default:
-        handleTodo(entry.label)
+        handleTodo(t(entry.label))
     }
   }
 
@@ -641,9 +642,9 @@ export default function ProfilePage() {
         }
       })
       setBusiness((b) => ({ ...b, ...patch }))
-      Taro.showToast({ title: '已保存', icon: 'success' })
+      Taro.showToast({ title: t('settings.saved'), icon: 'success' })
     } catch (error: any) {
-      Taro.showToast({ title:errorText(error, '保存失败'), icon: 'none' })
+      Taro.showToast({ title: errorText(error, t('settings.saveFailed')), icon: 'none' })
     }
   }
 
@@ -653,7 +654,7 @@ export default function ProfilePage() {
   const editBusinessDays = (key: 'rent_reminder_days' | 'lease_reminder_days') => {
     const options =
       key === 'rent_reminder_days' ? [3, 7, 14, 30, 60, 90] : [30, 60, 90, 180, 365]
-    Taro.showActionSheet({ itemList: options.map((d) => `${d} 天前`) })
+    Taro.showActionSheet({ itemList: options.map((d) => t('profile.daysAgo', { n: d })) })
       .then((res) => saveBusiness({ [key]: options[res.tapIndex] }))
       .catch(() => {
         /* 用户取消 */
@@ -661,7 +662,7 @@ export default function ProfilePage() {
   }
 
   const editAutoDunning = () => {
-    Taro.showActionSheet({ itemList: ['开启', '关闭'] })
+    Taro.showActionSheet({ itemList: [t('common.on'), t('common.off')] })
       .then((res) => saveBusiness({ auto_dunning: res.tapIndex === 0 }))
       .catch(() => {
         /* 用户取消 */
@@ -670,9 +671,9 @@ export default function ProfilePage() {
 
   // 业务设置行右侧的真实值（读 /company/settings.business）
   const businessValue = (key: string): string | undefined => {
-    if (key === 'rent-reminder') return `${business.rent_reminder_days ?? 7} 天前`
-    if (key === 'lease-reminder') return `${business.lease_reminder_days ?? 30} 天前`
-    if (key === 'auto-dunning') return business.auto_dunning === false ? '已关闭' : '已开启'
+    if (key === 'rent-reminder') return t('profile.daysAgo', { n: business.rent_reminder_days ?? 7 })
+    if (key === 'lease-reminder') return t('profile.daysAgo', { n: business.lease_reminder_days ?? 30 })
+    if (key === 'auto-dunning') return business.auto_dunning === false ? t('profile.statusOff') : t('profile.statusOn')
     return undefined
   }
 
@@ -687,12 +688,12 @@ export default function ProfilePage() {
         <View className='icon-svg' style={iconStyle(entry.icon, 32)} />
       </View>
       <View className='list-row__body'>
-        <Text className='list-row__label'>{entry.label}</Text>
+        <Text className='list-row__label'>{t(entry.label)}</Text>
       </View>
       {entry.badge ? (
         <View className='badge badge--success'>
           <View className='bg-dot' />
-          <Text>已开启</Text>
+          <Text>{t('profile.statusOn')}</Text>
         </View>
       ) : (
         !!entry.value && <Text className='list-row__value'>{entry.value}</Text>
@@ -735,8 +736,8 @@ export default function ProfilePage() {
   /** 租客 / 管理端 / 业主端 / 员工端 / 访客皆有「我的」页，底部导航对齐原型 */
   const hasBottomNav = !user || isTenant || isAdmin || isOwner || isStaff
 
-  const phoneValue = user?.phone ? maskPhone(user.phone) : '未绑定'
-  const emailValue = user?.email ? maskEmail(user.email) : '未绑定'
+  const phoneValue = user?.phone ? maskPhone(user.phone) : t('profile.unbound')
+  const emailValue = user?.email ? maskEmail(user.email) : t('profile.unbound')
 
   /** 通用列表行（图标 + 文案 + 值/说明 + 箭头） */
   const renderRow = (entry: RowEntry) => (
@@ -749,8 +750,8 @@ export default function ProfilePage() {
         <View className='icon-svg' style={iconStyle(entry.icon, 32)} />
       </View>
       <View className='list-row__body'>
-        <Text className='list-row__label'>{entry.label}</Text>
-        {entry.desc && <Text className='list-row__desc'>{entry.desc}</Text>}
+        <Text className='list-row__label'>{t(entry.label)}</Text>
+        {entry.desc && <Text className='list-row__desc'>{t(entry.desc)}</Text>}
       </View>
       {!!entry.value && <Text className='list-row__value'>{entry.value}</Text>}
       <View className='chevron' />
@@ -761,7 +762,7 @@ export default function ProfilePage() {
   const renderAccountSections = () => (
     <>
       <View className='panel panel--list'>
-        <Text className='panel__caption'>账户设置</Text>
+        <Text className='panel__caption'>{t('profile.sectionAccount')}</Text>
         {ACCOUNT_ROWS.map((entry) => {
           const value =
             entry.key === 'phone' ? phoneValue : entry.key === 'email' ? emailValue : ''
@@ -770,7 +771,7 @@ export default function ProfilePage() {
       </View>
 
       <View className='panel panel--list'>
-        <Text className='panel__caption'>系统设置</Text>
+        <Text className='panel__caption'>{t('profile.sectionSystem')}</Text>
         {SYSTEM_ROWS.map(renderRow)}
       </View>
     </>
@@ -780,32 +781,32 @@ export default function ProfilePage() {
   const renderAboutSection = () => (
     <>
       <View className='panel panel--list'>
-        <Text className='panel__caption'>关于</Text>
+        <Text className='panel__caption'>{t('profile.about')}</Text>
         {renderRow({
           key: 'version',
-          label: '版本信息',
+          label: 'profile.versionInfo',
           icon: 'gear',
           value: appVersion ? `v${appVersion}` : ''
         })}
-        {renderRow({ key: 'terms', label: '用户协议', icon: 'doc' })}
-        {renderRow({ key: 'privacy', label: '隐私政策', icon: 'check' })}
+        {renderRow({ key: 'terms', label: 'profile.terms', icon: 'doc' })}
+        {renderRow({ key: 'privacy', label: 'profile.privacy', icon: 'check' })}
       </View>
 
       {/* 原型底部另有一块「关于小程序」卡片，此处按原型保留 */}
       <View className='panel panel--list'>
-        <Text className='panel__caption'>关于小程序</Text>
+        <Text className='panel__caption'>{t('profile.aboutMiniApp')}</Text>
         {appVersion && (
           <View className='about-row'>
-            <Text className='about-row__label'>版本</Text>
+            <Text className='about-row__label'>{t('profile.versionNo')}</Text>
             <Text className='about-row__value'>v{appVersion}</Text>
           </View>
         )}
-        <View className='about-row' onClick={() => handleTodo('服务协议')}>
-          <Text className='about-row__label'>服务协议</Text>
+        <View className='about-row' onClick={() => handleTodo(t('profile.serviceAgreement'))}>
+          <Text className='about-row__label'>{t('profile.serviceAgreement')}</Text>
           <View className='chevron' />
         </View>
-        <View className='about-row' onClick={() => handleTodo('隐私政策')}>
-          <Text className='about-row__label'>隐私政策</Text>
+        <View className='about-row' onClick={() => handleTodo(t('profile.privacy'))}>
+          <Text className='about-row__label'>{t('profile.privacy')}</Text>
           <View className='chevron' />
         </View>
       </View>
@@ -829,7 +830,7 @@ export default function ProfilePage() {
           {!user ? (
             /* 未登录：平铺在页面背景上，左侧「登录/注册」大字 + 右侧灰色默认头像，整行点击进登录页 */
             <View className='guest-card' onClick={() => Taro.navigateTo({ url: '/pages/login/index' })}>
-              <Text className='guest-card__title'>登录/注册</Text>
+              <Text className='guest-card__title'>{t('pub.loginRegister')}</Text>
               <View className='avatar avatar--guest'>
                 <View className='icon-svg' style={iconStyle('user', 56)} />
               </View>
@@ -847,10 +848,10 @@ export default function ProfilePage() {
                 </View>
               </View>
               <View className='profile-card__body'>
-                <Text className='profile-card__name'>{user?.full_name || '用户'}</Text>
+                <Text className='profile-card__name'>{user?.full_name || t('profile.userFallback')}</Text>
                 <View className='profile-card__meta-row'>
                   <View className='role-tag'>
-                    <Text>{ROLE_TEXT[role || ''] || '用户'}</Text>
+                    <Text>{ROLE_TEXT[role || ''] ? t(ROLE_TEXT[role || '']) : t('profile.userFallback')}</Text>
                   </View>
                   <Text className='profile-card__meta'>
                     {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
@@ -867,11 +868,18 @@ export default function ProfilePage() {
                 className='lease-strip'
                 onClick={() => handleNavigate('/pages/tenant/leases/index')}
               >
-                <Text className='lease-strip__label'>当前租约</Text>
-                <Text className='lease-strip__name'>{leaseTitle(lease)}</Text>
+                <Text className='lease-strip__label'>{t('profile.currentLease')}</Text>
+                <Text className='lease-strip__name'>
+                  {leaseTitle(lease) ||
+                    t('profile.leaseNo', { id: String(lease?.id ?? '').slice(0, 8) })}
+                </Text>
                 <View className={`badge ${LEASE_STATUS[lease?.status]?.badge || 'badge--neutral'}`}>
                   <View className='bg-dot' />
-                  <Text>{LEASE_STATUS[lease?.status]?.text || lease?.status || '—'}</Text>
+                  <Text>
+                    {LEASE_STATUS[lease?.status]?.text
+                      ? t(LEASE_STATUS[lease?.status].text)
+                      : lease?.status || '—'}
+                  </Text>
                 </View>
                 <View className='chevron' />
               </View>
@@ -882,7 +890,7 @@ export default function ProfilePage() {
           {cGrid.length > 0 && (
             <>
               <View className='section-title'>
-                <Text>常用功能</Text>
+                <Text>{t('profile.commonFuncs')}</Text>
               </View>
               <View className='panel panel--grid'>
                 <View className='service-grid'>
@@ -903,7 +911,7 @@ export default function ProfilePage() {
                       <View className='service-grid__icon'>
                         <View className='icon-svg' style={iconStyle(entry.icon, 40)} />
                       </View>
-                      <Text className='service-grid__label'>{entry.label}</Text>
+                      <Text className='service-grid__label'>{t(entry.label)}</Text>
                     </View>
                   ))}
                 </View>
@@ -914,18 +922,20 @@ export default function ProfilePage() {
           {/* 设置（业主/租客统一：卡片内标题 + 标准设置行，与 App 一致）；访客态不显示设置/语言/退出登录 */}
           {user && (
             <View className='panel panel--list'>
-              <Text className='panel__caption'>设置</Text>
+              <Text className='panel__caption'>{t('profile.settings')}</Text>
               {OWNER_SETTING_ROWS.map((entry) => {
                 const value =
                   entry.key === 'account'
                     ? user?.phone
                       ? maskPhone(user.phone)
                       : ''
-                    : entry.key === 'about'
-                      ? appVersion
-                        ? `HaoFang.World v${appVersion}`
-                        : ''
-                      : entry.value
+                    : entry.key === 'language'
+                      ? LANG_LABELS[lang] || ''
+                      : entry.key === 'about'
+                        ? appVersion
+                          ? `HaoFang.World v${appVersion}`
+                          : ''
+                        : entry.value
                 return renderSettingRow({ ...entry, value })
               })}
             </View>
@@ -948,10 +958,10 @@ export default function ProfilePage() {
               </View>
             </View>
             <View className='profile-card__body'>
-              <Text className='profile-card__name'>{user?.full_name || '管理员'}</Text>
+              <Text className='profile-card__name'>{user?.full_name || t('perm.role.admin')}</Text>
               <View className='profile-card__meta-row'>
                 <View className='role-tag'>
-                  <Text>{ROLE_TEXT[role || ''] || '管理员'}</Text>
+                  <Text>{ROLE_TEXT[role || ''] ? t(ROLE_TEXT[role || '']) : t('perm.role.admin')}</Text>
                 </View>
                 <Text className='profile-card__meta'>
                   {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
@@ -960,32 +970,32 @@ export default function ProfilePage() {
             </View>
             <View className='profile-card__edit' onClick={openEdit}>
               <View className='icon-svg' style={iconStyle('edit', 28)} />
-              <Text>编辑资料</Text>
+              <Text>{t('profile.edit')}</Text>
             </View>
           </View>
 
           {renderAccountSections()}
 
           <View className='panel panel--list'>
-            <Text className='panel__caption'>常用入口</Text>
+            <Text className='panel__caption'>{t('profile.quickEntries')}</Text>
             {renderRow({
               key: 'manageProperties',
-              label: '房源管理',
-              desc: '新增/编辑房源与上架',
+              label: 'nav.properties',
+              desc: 'profile.adminPropertiesDesc',
               icon: 'home',
               url: '/pages/admin/properties/index'
             })}
             {renderRow({
               key: 'contracts',
-              label: '电子合同',
-              desc: '生成、签署与归档电子合同',
+              label: 'lease.contract',
+              desc: 'contract.entryManageDesc',
               icon: 'doc',
               url: '/pages/admin/contracts/index'
             })}
           </View>
 
           <View className='panel panel--list'>
-            <Text className='panel__caption'>业务设置</Text>
+            <Text className='panel__caption'>{t('profile.businessSettings')}</Text>
             {BUSINESS_ROWS.map((entry) => renderRow({ ...entry, value: businessValue(entry.key) }))}
           </View>
 
@@ -1049,10 +1059,12 @@ export default function ProfilePage() {
               </View>
             </View>
             <View className='profile-card__body'>
-              <Text className='profile-card__name'>{user?.full_name || '用户'}</Text>
+              <Text className='profile-card__name'>{user?.full_name || t('profile.userFallback')}</Text>
               <View className='profile-card__meta-row'>
                 <View className='role-tag'>
-                  <Text>{ROLE_TEXT[role || ''] || '员工'}</Text>
+                  <Text>
+                    {ROLE_TEXT[role || ''] ? t(ROLE_TEXT[role || '']) : t('perm.role.employee')}
+                  </Text>
                 </View>
                 <Text className='profile-card__meta'>
                   {user?.phone ? maskPhone(user.phone) : user?.email || '-'}
@@ -1061,13 +1073,13 @@ export default function ProfilePage() {
             </View>
             <View className='profile-card__edit' onClick={openEdit}>
               <View className='icon-svg' style={iconStyle('edit', 28)} />
-              <Text>编辑资料</Text>
+              <Text>{t('profile.edit')}</Text>
             </View>
           </View>
 
           {/* 常用功能：与 C 端统一宫格（区块标题外置 + 白卡 4 列，圆形浅品牌底图标） */}
           <View className='section-title'>
-            <Text>常用功能</Text>
+            <Text>{t('profile.commonFuncs')}</Text>
           </View>
           <View className='panel panel--grid'>
             <View className='service-grid'>
@@ -1080,7 +1092,7 @@ export default function ProfilePage() {
                   <View className='service-grid__icon'>
                     <View className='icon-svg' style={iconStyle(entry.icon, 40)} />
                   </View>
-                  <Text className='service-grid__label'>{entry.label}</Text>
+                  <Text className='service-grid__label'>{t(entry.label)}</Text>
                 </View>
               ))}
             </View>
@@ -1094,7 +1106,7 @@ export default function ProfilePage() {
       {user && (
         <View className='logout-wrapper'>
           <Button className='logout-btn' onClick={handleLogout}>
-            退出登录
+            {t('profile.logout')}
           </Button>
         </View>
       )}
@@ -1110,59 +1122,59 @@ export default function ProfilePage() {
       {editVisible && (
         <View className='modal-mask' onClick={() => setEditVisible(false)}>
           <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
-            <Text className='modal-sheet__title'>编辑资料</Text>
+            <Text className='modal-sheet__title'>{t('profile.edit')}</Text>
             <View className='form-field'>
-              <Text className='form-field__label'>姓名</Text>
+              <Text className='form-field__label'>{t('settings.profileName')}</Text>
               <Input
                 className={`form-field__input${editErr ? ' form-field__input--error' : ''}`}
                 value={editName}
                 onInput={(e) => setEditName(e.detail.value)}
-                placeholder='请输入姓名'
+                placeholder={t('settings.profileNamePh')}
               />
               {editErr && <Text className='form-field__error'>{editErr}</Text>}
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>手机号</Text>
+              <Text className='form-field__label'>{t('settings.profilePhone')}</Text>
               <View className='form-field__row'>
                 <Input
                   className='form-field__input form-field__input--flex'
                   value={editPhone}
                   onInput={(e) => setEditPhone(e.detail.value)}
-                  placeholder='请输入手机号'
+                  placeholder={t('settings.profilePhonePh')}
                 />
                 <Button
                   className='form-field__code-btn'
                   disabled={editSendingCode}
                   onClick={sendEditCode}
                 >
-                  {editSendingCode ? '发送中...' : '发送验证码'}
+                  {editSendingCode ? t('settings.codeSending') : t('settings.sendCode')}
                 </Button>
               </View>
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>验证码</Text>
+              <Text className='form-field__label'>{t('settings.profileCode')}</Text>
               <Input
                 className='form-field__input'
                 value={editCode}
                 onInput={(e) => setEditCode(e.detail.value)}
-                placeholder='修改手机号需填写新手机号收到的验证码'
+                placeholder={t('settings.profileCodePh')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>邮箱</Text>
+              <Text className='form-field__label'>{t('settings.profileEmail')}</Text>
               <Input
                 className='form-field__input'
                 value={editEmail}
                 onInput={(e) => setEditEmail(e.detail.value)}
-                placeholder='请输入邮箱'
+                placeholder={t('settings.profileEmailPh')}
               />
             </View>
             <View className='modal-actions'>
               <Button className='modal-btn modal-btn--ghost' onClick={() => setEditVisible(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button className='modal-btn modal-btn--primary' disabled={editSaving} onClick={saveEdit}>
-                {editSaving ? '保存中...' : '保存'}
+                {editSaving ? t('common.saving') : t('common.save')}
               </Button>
             </View>
           </View>
@@ -1173,44 +1185,44 @@ export default function ProfilePage() {
       {pwdVisible && (
         <View className='modal-mask' onClick={() => setPwdVisible(false)}>
           <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
-            <Text className='modal-sheet__title'>修改密码</Text>
+            <Text className='modal-sheet__title'>{t('nav.changePassword')}</Text>
             <View className='form-field'>
-              <Text className='form-field__label'>当前密码</Text>
+              <Text className='form-field__label'>{t('settings.currentPassword')}</Text>
               <Input
                 className='form-field__input'
                 password
                 value={oldPwd}
                 onInput={(e) => setOldPwd(e.detail.value)}
-                placeholder='请输入当前密码'
+                placeholder={t('settings.currentPasswordPh')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>新密码</Text>
+              <Text className='form-field__label'>{t('settings.newPassword')}</Text>
               <Input
                 className='form-field__input'
                 password
                 value={newPwd}
                 onInput={(e) => setNewPwd(e.detail.value)}
-                placeholder='至少 6 位'
+                placeholder={t('settings.newPasswordPh')}
               />
             </View>
             <View className='form-field'>
-              <Text className='form-field__label'>确认新密码</Text>
+              <Text className='form-field__label'>{t('settings.confirmPassword')}</Text>
               <Input
                 className={`form-field__input${pwdErr ? ' form-field__input--error' : ''}`}
                 password
                 value={confirmPwd}
                 onInput={(e) => setConfirmPwd(e.detail.value)}
-                placeholder='再次输入新密码'
+                placeholder={t('settings.confirmPasswordPh')}
               />
               {pwdErr && <Text className='form-field__error'>{pwdErr}</Text>}
             </View>
             <View className='modal-actions'>
               <Button className='modal-btn modal-btn--ghost' onClick={() => setPwdVisible(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button className='modal-btn modal-btn--primary' disabled={pwdSaving} onClick={savePwd}>
-                {pwdSaving ? '提交中...' : '确认修改'}
+                {pwdSaving ? t('settings.pwdSubmitting') : t('settings.pwdSubmit')}
               </Button>
             </View>
           </View>
@@ -1221,34 +1233,34 @@ export default function ProfilePage() {
       {prefVisible && (
         <View className='modal-mask' onClick={() => setPrefVisible(false)}>
           <View className='modal-sheet' onClick={(e) => e.stopPropagation()}>
-            <Text className='modal-sheet__title'>通知设置</Text>
+            <Text className='modal-sheet__title'>{t('profile.notifySettings')}</Text>
             <View className='form-field'>
-              <Text className='form-field__label'>时区</Text>
+              <Text className='form-field__label'>{t('settings.timezone')}</Text>
               <Input
                 className='form-field__input'
                 value={prefTimezone}
                 onInput={(e) => setPrefTimezone(e.detail.value)}
-                placeholder='如 Asia/Bangkok'
+                placeholder={t('settings.timezonePlaceholder')}
               />
             </View>
             <View className='toggle-row' onClick={() => setPrefEmail(!prefEmail)}>
-              <Text className='toggle-row__label'>邮件通知</Text>
+              <Text className='toggle-row__label'>{t('settings.emailNotify')}</Text>
               <Text className={prefEmail ? 'toggle-row__val--on' : 'toggle-row__val--off'}>
-                {prefEmail ? '✓ 开启' : '关闭'}
+                {prefEmail ? `✓ ${t('common.on')}` : t('common.off')}
               </Text>
             </View>
             <View className='toggle-row' onClick={() => setPrefPush(!prefPush)}>
-              <Text className='toggle-row__label'>推送通知</Text>
+              <Text className='toggle-row__label'>{t('settings.pushNotify')}</Text>
               <Text className={prefPush ? 'toggle-row__val--on' : 'toggle-row__val--off'}>
-                {prefPush ? '✓ 开启' : '关闭'}
+                {prefPush ? `✓ ${t('common.on')}` : t('common.off')}
               </Text>
             </View>
             <View className='modal-actions'>
               <Button className='modal-btn modal-btn--ghost' onClick={() => setPrefVisible(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
               <Button className='modal-btn modal-btn--primary' disabled={prefSaving} onClick={savePrefs}>
-                {prefSaving ? '保存中...' : '保存'}
+                {prefSaving ? t('common.saving') : t('common.save')}
               </Button>
             </View>
           </View>

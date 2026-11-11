@@ -32,6 +32,24 @@ export function saveTextFile(
 }
 
 /**
+ * 下载需要鉴权的二进制文件（PDF 等）。
+ *
+ * 与 `saveTextFile` 不同，内容来自后端接口，必须走 axios 带 Authorization 头；
+ * 文件名优先取后端 `Content-Disposition`，取不到时用调用方兜底名。
+ */
+export async function downloadFile(path: string, fallbackName = 'download.pdf') {
+  const res = await api.get(path, {
+    responseType: 'blob',
+    // 已签 PDF / 存证报告可能需要现场生成，放宽到 60s
+    timeout: 60000,
+  })
+  saveBlob(
+    res.data as Blob,
+    filenameFrom(res.headers['content-disposition'] as string | undefined, fallbackName),
+  )
+}
+
+/**
  * 下载后端报表（CSV）。
  *
  * 用 axios 取 blob 而不是 `window.open`：导出接口同样需要 Authorization 头，

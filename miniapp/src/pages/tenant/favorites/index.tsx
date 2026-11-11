@@ -55,7 +55,7 @@ export default function FavoritesPage() {
   }
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: '我的关注' })
+    Taro.setNavigationBarTitle({ title: t('nav.favorites') })
     loadFromStorage()
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
@@ -82,7 +82,7 @@ export default function FavoritesPage() {
       await favoritesApi.remove(String(item.property_id))
       setItems((prev) => prev.filter((it) => it.property_id !== item.property_id))
     } catch (err) {
-      Taro.showToast({ title: '取消关注失败，请重试', icon: 'none' })
+      Taro.showToast({ title: t('fav.unfavoriteFailed'), icon: 'none' })
       console.error('[favorites] 取消关注失败', err)
     } finally {
       setBusyId(null)
@@ -94,7 +94,7 @@ export default function FavoritesPage() {
       <ShellHeader title={t('nav.favorites')} />
       <View className='page-container'>
         {loading && items.length === 0 && (
-          <StateBlock loading text='加载中...' />
+          <StateBlock loading text={t('common.loading')} />
         )}
         {!loading && failed && (
           <StateBlock
@@ -108,18 +108,21 @@ export default function FavoritesPage() {
           />
         )}
         {!loading && !failed && items.length === 0 && (
-          <StateBlock empty text='还没有关注的房源，去「找房」里点红心收藏吧' />
+          <StateBlock empty text={t('fav.empty')} />
         )}
         {items.map((it, idx) => {
           const cover = photoUrl(it.photo) || ''
-          const title = it.title || it.room_number || `房源 #${String(it.property_id ?? '').slice(0, 8)}`
+          const title =
+            it.title ||
+            it.room_number ||
+            t('pub.listingFallback', { id: String(it.property_id ?? '').slice(0, 8) })
           return (
             <View key={it.id ?? idx} className='fav-card' onClick={() => openDetail(it)}>
               {cover ? (
                 <Image className='fav-card__cover' src={cover} mode='aspectFill' />
               ) : (
                 <View className='fav-card__cover fav-card__cover--empty'>
-                  <Text>暂无图片</Text>
+                  <Text>{t('pub.noPhoto')}</Text>
                 </View>
               )}
               <View className='fav-card__body'>
@@ -127,7 +130,7 @@ export default function FavoritesPage() {
                 {it.address ? <Text className='fav-card__sub'>{it.address}</Text> : null}
                 <Text className='fav-card__price'>
                   {money(it.monthly_rent ?? 0, it.currency)}
-                  <Text className='fav-card__unit'> /月</Text>
+                  <Text className='fav-card__unit'> {t('rent.perMonth')}</Text>
                 </Text>
               </View>
               <View

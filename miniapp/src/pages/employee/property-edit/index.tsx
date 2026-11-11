@@ -283,7 +283,7 @@ export default function EmployeePropertyEditPage() {
               className='pe-input'
               value={form.room_number}
               placeholder={t('prop.roomNoPlaceholder')}
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('room_number', e.detail.value)}
             />
           ))}
@@ -309,7 +309,7 @@ export default function EmployeePropertyEditPage() {
               className='pe-input'
               value={form.address}
               placeholder={t('prop.addressPlaceholder')}
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('address', e.detail.value)}
             />
           ))}
@@ -318,7 +318,7 @@ export default function EmployeePropertyEditPage() {
               className='pe-input'
               value={form.building}
               placeholder={t('prop.buildingPlaceholder')}
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('building', e.detail.value)}
             />
           ))}
@@ -328,7 +328,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.floor}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('floor', e.detail.value)}
             />
           ))}
@@ -337,7 +337,7 @@ export default function EmployeePropertyEditPage() {
               className='pe-input'
               value={form.currency}
               placeholder={t('prop.currencyPlaceholder')}
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('currency', e.detail.value)}
             />
           ))}
@@ -346,7 +346,7 @@ export default function EmployeePropertyEditPage() {
               className='pe-input'
               value={form.available_from}
               placeholder='2026-10-01'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('available_from', e.detail.value)}
             />
           ))}
@@ -363,7 +363,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.monthly_rent}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('monthly_rent', e.detail.value)}
             />
           ))}
@@ -373,7 +373,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.deposit_amount}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('deposit_amount', e.detail.value)}
             />
           ))}
@@ -383,7 +383,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.deposit_months}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('deposit_months', e.detail.value)}
             />
           ))}
@@ -393,7 +393,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.size_sqm}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('size_sqm', e.detail.value)}
             />
           ))}
@@ -403,7 +403,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.bedrooms}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('bedrooms', e.detail.value)}
             />
           ))}
@@ -413,7 +413,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={form.bathrooms}
               placeholder='0'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('bathrooms', e.detail.value)}
             />
           ))}
@@ -461,7 +461,7 @@ export default function EmployeePropertyEditPage() {
               type='number'
               value={String(form.min_lease_months)}
               placeholder='12'
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => set('min_lease_months', e.detail.value)}
             />
           ))}
@@ -514,7 +514,7 @@ export default function EmployeePropertyEditPage() {
             className='pe-textarea'
             value={form.description}
             placeholder={t('prop.descPlaceholder')}
-            placeholderStyle='color:#98a1ab'
+            placeholderStyle='color:#858d94'
             maxlength={500}
             onInput={(e: any) => set('description', e.detail.value)}
           />

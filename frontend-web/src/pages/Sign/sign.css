@@ -280,7 +280,7 @@
   bottom: 0;
   margin-top: var(--rent-s-4);
   padding: var(--rent-s-3) 0;
-  background: var(--rent-canvas, #f3f4f6);
+  background: var(--rent-canvas, #f4f6f7);
 }
 
 /* 拖拽跟手浮层：跟随光标/手指，半透明便于观察落点（fixed 用窗口坐标） */

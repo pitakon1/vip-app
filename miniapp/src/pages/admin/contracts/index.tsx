@@ -956,7 +956,7 @@ export default function AdminContractsPage() {
     const t = e?.touches?.[0]
     sigCur.current = { pts: [{ x: t?.x ?? 0, y: t?.y ?? 0 }], dist: 0, count: 0 }
     const ctx = Taro.createCanvasContext('acSignCanvas')
-    ctx.setStrokeStyle('#1c2733')
+    ctx.setStrokeStyle('#171a1d')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
@@ -975,7 +975,7 @@ export default function AdminContractsPage() {
     sigCur.current.count += 1
     sigCur.current.pts.push({ x: t.x, y: t.y })
     const ctx = Taro.createCanvasContext('acSignCanvas')
-    ctx.setStrokeStyle('#1c2733')
+    ctx.setStrokeStyle('#171a1d')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
@@ -999,7 +999,7 @@ export default function AdminContractsPage() {
     ctx.clearRect(0, 0, 2000, 1000)
     sigStrokes.current.forEach((s) => {
       if (!s.pts.length) return
-      ctx.setStrokeStyle('#1c2733')
+      ctx.setStrokeStyle('#171a1d')
       ctx.setLineCap('round')
       ctx.setLineJoin('round')
       ctx.setLineWidth(s.w)

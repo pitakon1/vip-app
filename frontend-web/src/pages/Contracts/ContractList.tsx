@@ -79,6 +79,22 @@ export default function ContractList({
                     <td>{c.language || '-'}</td>
                     <td>
                       <span className="rent-badge rent-badge--neutral">{statusLabel[c.status] ? t(statusLabel[c.status]) : c.status}</span>
+                      {c.expires_at &&
+                        ['draft', 'sent', 'partially_signed'].includes(c.status) &&
+                        new Date(c.expires_at) < new Date() && (
+                          <span className="rent-badge rent-badge--warning" style={{ marginLeft: 6 }}>
+                            {t('contracts.expiredBadge')}
+                          </span>
+                        )}
+                      {c.signature_health === 'invalid' && (
+                        <span
+                          className="rent-badge rent-badge--warning"
+                          style={{ marginLeft: 6 }}
+                          title={t('contracts.signatureInvalidTip')}
+                        >
+                          {t('contracts.signatureInvalidShort')}
+                        </span>
+                      )}
                     </td>
                     <td>
                       <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}>

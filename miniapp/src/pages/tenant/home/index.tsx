@@ -248,8 +248,9 @@ export default function TenantHomePage() {
 
   return (
     <View className='tenant-home-page'>
-      <StatusTop background='var(--card)' />
+      <StatusTop background='var(--hero-top)' />
 
+      {/* 黄金位横幅：主色同色系渐变，定位行用浅色字；搜索卡以负外边距压住横幅下沿 */}
       <View className='th-hero'>
         <View className='th-hero__top' onClick={openCity}>
           <Text className='th-hero__city'>
@@ -257,27 +258,29 @@ export default function TenantHomePage() {
           </Text>
           <Text className='th-hero__caret'>▾</Text>
         </View>
-        <View className='th-search'>
-          <View className='icon-svg' style={iconStyle('search', 32)} />
-          <Input
-            className='th-search__input'
-            value={keyword}
-            placeholder={t('home.searchPlaceholder')}
-            onInput={((e: any) => setKeyword(e.detail.value)) as any}
-            onConfirm={handleSearch}
-          />
-          <View className='th-search__btn' onClick={handleSearch}>
-            <Text className='th-search__btn-text'>{t('home.goSearch')}</Text>
-          </View>
+      </View>
+
+      <View className='th-search'>
+        <View className='icon-svg' style={iconStyle('search', 32)} />
+        <Input
+          className='th-search__input'
+          value={keyword}
+          placeholder={t('home.searchPlaceholder')}
+          onInput={((e: any) => setKeyword(e.detail.value)) as any}
+          onConfirm={handleSearch}
+        />
+        <View className='th-search__btn' onClick={handleSearch}>
+          <Text className='th-search__btn-text'>{t('home.goSearch')}</Text>
         </View>
       </View>
 
-      {/* 黄金导航栏：7 个分类入口，每项跳各自独立的分类页（对齐 App BIZ_ITEMS） */}
+      {/* 黄金导航栏：7 个分类入口，每项跳各自独立的分类页（对齐 App BIZ_ITEMS）
+          图标底为一入口一色的鲜明圆，图标统一白色 */}
       <View className='gold-nav'>
         {BIZ_ITEMS.map((item) => (
           <View key={item.key} className='gold-nav__item' onClick={() => openBiz(item)}>
             <View className={`gold-nav__icon gold-nav__icon--${item.key}`}>
-              <View className='icon-svg' style={iconStyle(item.icon, 72)} />
+              <View className='icon-svg' style={iconStyle(item.icon, 44)} />
             </View>
             <Text className='gold-nav__label'>{t(item.labelKey)}</Text>
           </View>

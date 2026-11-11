@@ -137,6 +137,8 @@ export default function AdminPropertiesPage() {
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [summary, setSummary] = useState<any>(null)
+  // 状态计数随列表响应返回（后端 status_counts），与列表同源、不受分页影响
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [keyword, setKeyword] = useState('')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
@@ -292,6 +294,8 @@ export default function AdminPropertiesPage() {
       const d = res?.data ?? res
       const items = Array.isArray(d) ? d : d?.items || []
       const t = Number(d?.total ?? items.length)
+      const sc = d?.status_counts as Record<string, number> | undefined
+      if (sc) setStatusCounts(sc)
       if (append) {
         setList((prev) => [...prev, ...items])
       } else {
@@ -484,6 +488,13 @@ export default function AdminPropertiesPage() {
     { key: 'maintenance', label: 'prop.statusMaintenance', value: summary?.maintenance, tone: 'info' }
   ]
 
+  // 状态徽标：'' 表示全部，取各状态之和；其余按键取数（缺键按 0）
+  const countsReady = Object.keys(statusCounts).length > 0
+  const countOf = (key: string) =>
+    key
+      ? Number(statusCounts[key] ?? 0)
+      : Object.values(statusCounts).reduce((a, b) => a + Number(b || 0), 0)
+
   return (
     <View className='ap-page'>
       <StatusTop />
@@ -494,7 +505,7 @@ export default function AdminPropertiesPage() {
             className='pb-search__input'
             value={keyword}
             placeholder={t('prop.searchPlaceholder')}
-            placeholderStyle='color:#98a1ab'
+            placeholderStyle='color:#858d94'
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={handleSearch}
@@ -584,6 +595,7 @@ export default function AdminPropertiesPage() {
                       onClick={() => changeStatus(o.key)}
                     >
                       <Text>{t(o.label)}</Text>
+                      {countsReady && <Text className='pb-opt__count'>{countOf(o.key)}</Text>}
                     </View>
                   ))}
                 </View>

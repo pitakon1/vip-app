@@ -1893,7 +1893,7 @@ body {
 }
 .rent-cta__desc {
   font-size: var(--rent-fs-lg);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--rent-primary-foreground);
   line-height: 1.6;
 }
 .rent-cta__text {

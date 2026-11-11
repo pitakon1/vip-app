@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useAuthStore } from './src/stores/auth';
@@ -15,6 +15,20 @@ import { colors } from './src/theme/colors';
 import type { RootStackParamList } from './src/navigation/RootNavigator';
 
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+/** 导航容器底色与设计令牌保持一致，避免默认灰底在页面间隙露出 */
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.card,
+    text: colors.ink,
+    border: colors.line,
+    notification: colors.error,
+  },
+};
 
 function AppShell() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -53,7 +67,7 @@ function AppShell() {
         <ToastProvider>
           {/* 全局确认弹窗：承接删除/下线等危险操作，Web 与原生行为一致 */}
           <ConfirmProvider>
-            <NavigationContainer ref={navigationRef}>
+            <NavigationContainer ref={navigationRef} theme={navTheme}>
               <StatusBar style="auto" />
               <RootNavigator />
             </NavigationContainer>
@@ -83,12 +97,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
-    backgroundColor: '#e6eaf0',
+    backgroundColor: '#eceef0',
   },
   webPhone: {
     flex: 1,
     maxWidth: 480,
     backgroundColor: colors.background,
-    boxShadow: '0 0 40px rgba(15,23,42,0.12)',
+    boxShadow: '0 0 40px rgba(23,26,29,0.12)',
   },
 });

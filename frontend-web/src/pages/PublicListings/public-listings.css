@@ -381,3 +381,148 @@
   right: auto;
 }
 
+
+/* =========================================================
+   贝壳式筛选面板：与筛选栏下沿无缝相连
+
+   结构：筛选栏（anchor 内）→ 面板（同宽、同底色、无间隙）→
+   左侧一级类目竖栏 + 右侧当前类目选项；底部「重置 / 确定」固定在面板底部。
+   面板下方的列表区由 .rent-filter-mask 压暗，筛选栏与面板保持不透明、可操作。
+   ========================================================= */
+/* 吸顶统一交给 anchor（筛选栏 + 面板的公共父级）：
+   1) sticky 自身有可吸顶的空间（若让 bar 自己在 anchor 内 sticky，父级高度等于自身高度，无处可粘）；
+   2) 面板是 anchor 的子元素，吸顶后一起固定，下沿始终贴合。 */
+.rent-filter-anchor {
+  position: sticky;
+  top: 64px;
+  z-index: 30;
+}
+.rent-filter-anchor .rent-filter-bar {
+  position: static;
+  z-index: auto;
+}
+
+/* 展开时去掉筛选栏下沿圆角与描边，避免与面板之间出现亮边 / 暗角 */
+.rent-filter-anchor--open .rent-filter-bar {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+.rent-filter-drawer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 31;
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  /* 底部预留「重置 / 确定」的高度，让操作条横跨整个面板底部（贝壳式） */
+  padding-bottom: 63px;
+  max-height: calc(100vh - 160px);
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-top: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* 左侧一级类目竖栏：不滚动 */
+.rent-filter-drawer__rail {
+  background: var(--rent-surface-2);
+  border-right: 1px solid var(--rent-line);
+  padding: var(--rent-s-2) 0;
+  overflow: hidden;
+}
+.rent-filter-drawer__rail-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--rent-ink-2);
+  font-family: var(--rent-font-sans);
+  font-size: var(--rent-fs-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+.rent-filter-drawer__rail-btn:hover {
+  color: var(--rent-primary-text);
+}
+.rent-filter-drawer__rail-btn--active {
+  background: var(--rent-surface);
+  color: var(--rent-primary-text);
+  font-weight: 600;
+}
+.rent-filter-drawer__rail-btn--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--rent-primary);
+}
+
+/* 右侧当前类目：内容超出时仅此区域滚动 */
+.rent-filter-drawer__content {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.rent-filter-drawer__content > .rent-loc-panel {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.rent-filter-drawer .rent-loc-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+.rent-filter-drawer .rent-loc-panel__footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  /* 左内边距与右侧选项区对齐，中间的分隔线横跨整个面板 */
+  padding-left: calc(116px + 20px);
+  background: var(--rent-surface);
+  border-top: 1px solid var(--rent-line);
+}
+/* 区域 / 地铁面板：两栏内容各自滚动，底部操作区固定 */
+.rent-filter-drawer .rent-loc-panel__area,
+.rent-filter-drawer .rent-loc-panel__metro {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* 内容不足时不要拉伸网格行，避免选项胶囊被抻成长条 */
+  align-content: start;
+  align-items: start;
+}
+.rent-filter-drawer .rent-loc-panel__lines,
+.rent-filter-drawer .rent-loc-panel__stations {
+  max-height: none;
+}
+
+/* 列表区遮罩：从面板下方开始，不覆盖筛选栏与面板 */
+.rent-filter-mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 100vh;
+  z-index: 30;
+  background: rgba(15, 23, 42, 0.36);
+}

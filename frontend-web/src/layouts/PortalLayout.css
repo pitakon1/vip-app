@@ -5,7 +5,7 @@
 /* --- 强化关键布局（覆写以免 prototype-portal 的规则被级联/合并覆盖）--- */
 .rent-portal {
   width: 100%;
-  overflow-x: hidden; /* 防止子项把整页撑宽 */
+  overflow-x: clip; /* 防止子项把整页撑宽；用 clip 而非 hidden，避免生成滚动容器导致内部 position: sticky 失效 */
 }
 .rent-portal__main {
   /* 内容区钳制到 1200px，居中；否则内容会被拉满视口导致宫格/卡片溢出 */

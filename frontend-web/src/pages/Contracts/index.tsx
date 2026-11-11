@@ -17,6 +17,9 @@ import VoidContractModal from './VoidContractModal'
 import PlaceFieldsModal from './PlaceFieldsModal'
 import DeclineModal from './DeclineModal'
 import SignAssetLibraryModal from './SignAssetLibraryModal'
+import SignOrderModal from './SignOrderModal'
+import CallbackModal from './CallbackModal'
+import ShareLinkQrModal from './ShareLinkQrModal'
 
 /**
  * 合同管理：生成 / 上传 / 列表 / 详情。
@@ -77,6 +80,7 @@ const Contracts = () => {
           detail={detail.detail}
           canEdit={detail.canEdit}
           onCopyLink={detail.handleCopyLink}
+          onShowQr={detail.handleShowQr}
           onSend={detail.handleSend}
           onOpenPreview={signFields.openPreview}
           onOpenSigLib={signAssets.openSigLib}
@@ -84,6 +88,8 @@ const Contracts = () => {
           onOpenParty={() => detail.setPartyOpen(true)}
           onOpenVoid={() => detail.setVoidOpen(true)}
           onDecline={detail.openDecline}
+          onOpenSignOrder={() => detail.setSignOrderOpen(true)}
+          onOpenCallback={detail.openCallback}
         />
       )}
 
@@ -154,6 +160,41 @@ const Contracts = () => {
         onRemove={signAssets.handleSigRemove}
         sigAssetTypeLabel={signAssets.sigAssetTypeLabel}
         sigSourceLabel={signAssets.sigSourceLabel}
+        sigScope={signAssets.sigScope}
+        setSigScope={signAssets.setSigScope}
+        sigSealType={signAssets.sigSealType}
+        setSigSealType={signAssets.setSigSealType}
+        canUseCompanyScope={signAssets.canUseCompanyScope}
+      />
+
+      {/* 多人签署顺序编排 */}
+      <SignOrderModal
+        open={detail.signOrderOpen}
+        parties={detail.detail.parties}
+        type={detail.detail.contract?.sign_order_type}
+        onCancel={() => detail.setSignOrderOpen(false)}
+        onOk={detail.handleSaveSignOrder}
+      />
+
+      {/* 签署完成回调配置 */}
+      <CallbackModal
+        open={detail.callbackOpen}
+        url={detail.detail.contract?.callback_url}
+        events={detail.callbackEvents}
+        secret={detail.callbackSecret}
+        saving={detail.callbackSaving}
+        onCancel={() => detail.setCallbackOpen(false)}
+        onSave={detail.handleSaveCallback}
+        onRetry={detail.handleRetryCallback}
+      />
+
+      {/* 免登录签署链接二维码 */}
+      <ShareLinkQrModal
+        open={detail.qrOpen}
+        onCancel={() => detail.setQrOpen(false)}
+        partyName={detail.qrPartyName}
+        qrDataUrl={detail.qrDataUrl}
+        url={detail.qrUrl}
       />
 
       {/* 印模上传裁剪弹窗 */}

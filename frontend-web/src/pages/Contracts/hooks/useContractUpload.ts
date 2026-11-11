@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * 上传电子合同的状态与动作。
  * 纯结构拆分自 pages/Contracts/index.tsx：先 generate 建记录再挂文件的两步流程保持不变。
  */
@@ -35,7 +35,16 @@ export function useContractUpload({ onUploaded }: { onUploaded: () => void }) {
       })
       const cid = genRes?.data?.id
       if (!cid) throw new Error('no contract id')
-      await contractsApi.uploadFile(cid, pendingFile)
+      const upRes: any = await contractsApi.uploadFile(cid, pendingFile)
+      // 上传件转 PDF 失败不阻断上传，但要明确提示：否则用户会以为能在 PDF 上落章
+      if (upRes?.data?.pdf_converted === false) {
+        const code = upRes?.data?.pdf_convert_error
+        message.warning(
+          code === 'PDF_CONVERT_DISABLED'
+            ? t('contracts.pdfConvertDisabled')
+            : t('contracts.pdfConvertFailed'),
+        )
+      }
       message.success(t('contracts.msgUploaded'))
       setPendingFile(null)
       onUploaded()

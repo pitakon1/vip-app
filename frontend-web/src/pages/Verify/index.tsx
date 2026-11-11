@@ -17,6 +17,15 @@ interface SigRecord {
   is_document_record?: boolean
 }
 
+interface PdfSig {
+  /** 1 = 签名域校验通过；0 / 非 1 = 校验失败 */
+  valid?: number
+  trusted?: boolean
+  signed_by?: string
+  signer_name?: string
+  field_name?: string
+}
+
 interface Report {
   contract_id?: string
   title?: string
@@ -27,6 +36,9 @@ interface Report {
   tampered?: boolean
   sign_types_summary?: Record<string, number>
   signatures?: SigRecord[]
+  /** 引擎内嵌 PDF 签名验签结果（多人签署时每一条都应为 valid=1） */
+  pdf_signature?: PdfSig[] | null
+  pdf_signature_valid_all?: boolean | null
   verified?: boolean
 }
 
@@ -118,6 +130,8 @@ const Verify = () => {
             <h3 className="rent-card__title">{report.title || t('contracts.verifyReport')}</h3>
             {report.tampered ? (
               <span className="rent-badge rent-badge--error">{t('contracts.verifyTampered')}</span>
+            ) : report.pdf_signature_valid_all === false ? (
+              <span className="rent-badge rent-badge--warning">{t('contracts.verifyPartialInvalid')}</span>
             ) : report.verified === false ? (
               <span className="rent-badge rent-badge--warning">{t('contracts.verifyNoSig')}</span>
             ) : (
@@ -176,6 +190,42 @@ const Verify = () => {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {report.pdf_signature && report.pdf_signature.length > 0 && (
+              <>
+                <div className="rent-text-bold" style={{ margin: '16px 0 8px' }}>
+                  {t('contracts.verifyPdfTitle')}
+                </div>
+                <div className="rent-verify-table">
+                  <table className="rent-table" style={{ width: '100%', fontSize: 13 }}>
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>{t('contracts.methodLbl')}</th>
+                        <th>field</th>
+                        <th>{t('contracts.verifySigResult')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.pdf_signature.map((sig, i) => (
+                        <tr key={i}>
+                          <td>{i + 1}</td>
+                          <td>{sig.signed_by || sig.signer_name || '-'}</td>
+                          <td>{sig.field_name || '-'}</td>
+                          <td>
+                            {Number(sig.valid) === 1 ? (
+                              <span className="rent-badge rent-badge--success">{t('contracts.verifyPdfValid')}</span>
+                            ) : (
+                              <span className="rent-badge rent-badge--error">{t('contracts.verifyPdfInvalid')}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         </div>

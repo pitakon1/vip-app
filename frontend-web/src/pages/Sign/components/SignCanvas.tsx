@@ -35,7 +35,7 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H)
-    ctx.strokeStyle = '#1c2733'
+    ctx.strokeStyle = '#171a1d'
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     strokesRef.current.forEach((stroke, si) => {
@@ -53,7 +53,7 @@ const SignCanvas = ({ value, onChange }: { value: string; onChange: (svg: string
       .map((s, si) => {
         if (s.length < 2) return ''
         const w = widthsRef.current[si] ?? DEFAULT_W
-        return `<path d="M ${s.map((p) => `${p[0]},${p[1]}`).join(' L ')}" fill="none" stroke="#1c2733" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`
+        return `<path d="M ${s.map((p) => `${p[0]},${p[1]}`).join(' L ')}" fill="none" stroke="#171a1d" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`
       })
       .join('')
     onChange(

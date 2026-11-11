@@ -94,6 +94,10 @@ from .contract import (
     SignAsset,
     SignAssetType,
     SignAssetSource,
+    SignAssetScope,
+    ContractSignOrder,
+    ContractCallbackEvent,
+    ContractCallbackStatus,
 )
 from .backup import BackupJob, BackupStatus, BackupType
 from .external_trip import ExternalTripApplication, TripStatus
@@ -254,6 +258,10 @@ __all__ = [
     "SignAsset",
     "SignAssetType",
     "SignAssetSource",
+    "SignAssetScope",
+    "ContractSignOrder",
+    "ContractCallbackEvent",
+    "ContractCallbackStatus",
     "BackupJob",
     "BackupStatus",
     "BackupType",

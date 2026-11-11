@@ -56,6 +56,18 @@ export interface Contract {
   can_edit?: boolean
   pdf_available?: boolean
   pdf_page_count?: number
+  /** 已签 PDF 签名域健康度（后端计算态，不落库）：invalid → 提示建议重签 */
+  signature_health?: 'ok' | 'invalid' | null
+  /** 是否已产出已签 PDF 存档（决定详情页是否显示「下载已签合同」） */
+  signed_pdf_available?: boolean
+  /** 签署截止时间（ISO，发送时按有效期写入；为空表示不限） */
+  expires_at?: string | null
+  /** 是否已过签署有效期（后端计算态） */
+  expired?: boolean
+  /** 多人签署编排：parallel=可并行，sequential=按序号依次签署 */
+  sign_order_type?: 'parallel' | 'sequential'
+  /** 签署完成回调地址（仅员工可见） */
+  callback_url?: string | null
 }
 
 export interface Party {
@@ -71,6 +83,10 @@ export interface Party {
   sign_url?: string
   sign_method?: string
   real_name_verified?: boolean
+  /** 签署顺序（0=不限；sequential 下按升序依次签署） */
+  sign_order?: number
+  /** 此刻是否轮到该方签署（后端计算态） */
+  can_sign_now?: boolean
 }
 
 // 签署区字段（与后端 SignFieldType / GET /contracts/{id} sign_fields 一致）
@@ -105,7 +121,26 @@ export interface SignAsset {
   asset_type: string // handwrite | seal
   source: string // drew | upload | imprint
   data_url: string
+  /** 资产归属：personal=个人，company=企业印章（仅员工可见可用） */
+  scope?: 'personal' | 'company'
+  /** 企业印章类别：company=公章 / contract=合同章 / legal_rep=法人章（个人资产为空） */
+  seal_type?: string | null
   created_at?: string
+}
+
+// 签署完成回调投递记录（GET /contracts/{id}/callbacks）
+export interface CallbackEvent {
+  id: string
+  event: string
+  url?: string
+  status: string // pending | delivered | failed
+  attempts: number
+  last_error?: string | null
+  last_attempt_at?: string | null
+  delivered_at?: string | null
+  /** 下一次计划重投时间（后台按 30s/2m/10m 补投；成功或耗尽后为空） */
+  next_attempt_at?: string | null
+  idempotency_key?: string
 }
 
 // 放置签署框时可选的 field_type（手写签名 / 公章 / 日期）

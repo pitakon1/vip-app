@@ -63,7 +63,7 @@ export default function LocationPage() {
             className='loc-search__input'
             value={query}
             onInput={(e) => setQuery(e.detail.value)}
-            placeholder='请输入城市或国家名称'
+            placeholder={t('loc.searchPlaceholder')}
             placeholderClass='loc-search__ph'
             confirmType='search'
           />
@@ -78,9 +78,9 @@ export default function LocationPage() {
       {q ? (
         // ---- 搜索结果（全局）----
         <ScrollView className='loc-results' scrollY>
-          <Text className='loc-result-title'>搜索结果</Text>
+          <Text className='loc-result-title'>{t('loc.searchResults')}</Text>
           {searchEmpty ? (
-            <StateBlock empty text='未找到匹配的城市' />
+            <StateBlock empty text={t('loc.noCityMatch')} />
           ) : (
             results.map((c) => {
               const active = selection.cityKey === c.cityKey
@@ -111,19 +111,21 @@ export default function LocationPage() {
               <Text className='loc-current__icon'>◎</Text>
             </View>
             <View className='loc-current__main'>
-              <Text className='loc-current__label'>当前定位</Text>
+              <Text className='loc-current__label'>{t('loc.current')}</Text>
               <Text className='loc-current__city'>
                 {selection.country} · {selection.cityLabel}
               </Text>
             </View>
             <View className='loc-current__tag'>
-              <Text className='loc-current__tag-text'>{selection.country}全城</Text>
+              <Text className='loc-current__tag-text'>
+                {selection.country} · {t('loc.wholeCity')}
+              </Text>
             </View>
           </View>
 
           {/* 热门城市 */}
           <View className='loc-hot'>
-            <Text className='loc-sec-title'>热门城市</Text>
+            <Text className='loc-sec-title'>{t('loc.hotCities')}</Text>
             <View className='loc-hot__grid'>
               {hotCities.map((c) => {
                 const active = selection.cityKey === c.cityKey
@@ -142,7 +144,7 @@ export default function LocationPage() {
 
           {/* 国家胶囊 Tab：自动换行不滑屏 */}
           <View className='loc-countries'>
-            <Text className='loc-sec-title'>选择国家</Text>
+            <Text className='loc-sec-title'>{t('loc.selectCountry')}</Text>
             <View className='loc-countries__tabs'>
               {countries.map((c) => {
                 const active = c === activeCountry
@@ -162,7 +164,7 @@ export default function LocationPage() {
           {/* 当前国家城市列表 */}
           <View className='loc-city-list'>
             <Text className='loc-result-title'>
-              {activeCountry} · 城市（{activeCities.length}）
+              {activeCountry} · {t('loc.cityCount', { n: activeCities.length })}
             </Text>
             {activeCities.length ? (
               activeCities.map((c) => {
@@ -177,14 +179,16 @@ export default function LocationPage() {
                       <Text className={`loc-row__name${active ? ' loc-row__name--active' : ''}`}>
                         {c.cityLabel}
                       </Text>
-                      <Text className='loc-row__sub'>{c.children.length} 个区</Text>
+                      <Text className='loc-row__sub'>
+                        {t('loc.districtCount', { n: c.children.length })}
+                      </Text>
                     </View>
                     {active && <Text className='loc-row__check'>✓</Text>}
                   </View>
                 )
               })
             ) : (
-              <StateBlock empty text='该国家暂无可选城市' />
+              <StateBlock empty text={t('loc.noCityInCountry')} />
             )}
           </View>
         </ScrollView>

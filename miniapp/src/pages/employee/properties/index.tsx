@@ -145,6 +145,8 @@ export default function EmployeePropertiesPage() {
   const [total, setTotal] = useState(0)
   // 空置总数与租客姓名都需全职口径：不能用已加载页的本地统计
   const [vacantTotal, setVacantTotal] = useState<number | null>(null)
+  // 状态计数随列表响应返回（后端 status_counts），与列表同源、不受分页影响
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [tenantMap, setTenantMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -309,6 +311,8 @@ export default function EmployeePropertiesPage() {
       const d = res?.data ?? res
       const items = Array.isArray(d) ? d : d?.items || []
       const t = Number(d?.total ?? items.length)
+      const sc = d?.status_counts as Record<string, number> | undefined
+      if (sc) setStatusCounts(sc)
       if (append) {
         setListings((prev) => [...prev, ...items])
       } else {
@@ -511,6 +515,13 @@ export default function EmployeePropertiesPage() {
     })
   }
 
+  // 状态徽标：'' 表示全部，取各状态之和；其余按键取数（缺键按 0）
+  const countsReady = Object.keys(statusCounts).length > 0
+  const countOf = (key: string) =>
+    key
+      ? Number(statusCounts[key] ?? 0)
+      : Object.values(statusCounts).reduce((a, b) => a + Number(b || 0), 0)
+
   return (
     <View className='p-page'>
       <ShellHeader title={t('nav.properties')} />
@@ -521,7 +532,7 @@ export default function EmployeePropertiesPage() {
             className='pb-search__input'
             value={keyword}
             placeholder={t('prop.searchPlaceholder')}
-            placeholderStyle='color:#98a1ab'
+            placeholderStyle='color:#858d94'
             confirmType='search'
             onInput={(e: any) => setKeyword(e.detail.value)}
             onConfirm={handleSearch}
@@ -607,6 +618,7 @@ export default function EmployeePropertiesPage() {
                       onClick={() => setWrapper('status', o.key)}
                     >
                       <Text>{t(o.label)}</Text>
+                      {countsReady && <Text className='pb-opt__count'>{countOf(o.key)}</Text>}
                     </View>
                   ))}
                 </View>
@@ -676,7 +688,7 @@ export default function EmployeePropertiesPage() {
                       value={schoolKw}
                       onInput={(e: any) => setSchoolKw(e.detail.value)}
                       placeholder={t('pub.schoolSearchPlaceholder')}
-                      placeholderStyle='color:#98a1ab'
+                      placeholderStyle='color:#858d94'
                     />
                   </View>
                   <ScrollView scrollY className='pb-school__list'>

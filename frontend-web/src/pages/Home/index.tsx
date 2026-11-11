@@ -57,16 +57,16 @@ const bannerColorFor = (seed: string) => {
  * 黄金导航：7 大业务入口（租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地）。
  * 「公寓」不占首页入口（见截图口径），由找房列表的「类型」筛选（公寓 = apartment + condo）承载，无独立分类页。
  * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
- * 图标沿用项目既有 antd 图标，颜色取设计令牌。
+ * 图标沿用项目既有 antd 图标，底为一入口一色的鲜明圆（令牌 --rent-cat-*），图标统一白色。
  */
-const GOLD_NAV: { key: string; labelKey: string; to: string; color: string; icon: ReactNode }[] = [
-  { key: 'rent', labelKey: 'category.rentTitle', to: '/category/rent', color: 'var(--rent-primary)', icon: <HomeOutlined /> },
-  { key: 'resale', labelKey: 'category.resaleTitle', to: '/category/resale', color: 'var(--state-info)', icon: <SwapOutlined /> },
-  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', color: 'var(--state-warning)', icon: <BankOutlined /> },
-  { key: 'commercial', labelKey: 'category.commTitle', to: '/category/commercial', color: 'var(--state-error)', icon: <ShopOutlined /> },
-  { key: 'factory', labelKey: 'category.factTitle', to: '/category/factory', color: 'var(--state-success)', icon: <ContainerOutlined /> },
-  { key: 'hotel', labelKey: 'category.hotelTitle', to: '/category/hotel', color: 'var(--state-purple)', icon: <CoffeeOutlined /> },
-  { key: 'land', labelKey: 'category.landTitle', to: '/category/land', color: 'var(--state-info)', icon: <EnvironmentOutlined /> },
+const GOLD_NAV: { key: string; labelKey: string; to: string; bg: string; icon: ReactNode }[] = [
+  { key: 'rent', labelKey: 'category.rentTitle', to: '/category/rent', bg: 'var(--rent-cat-rent)', icon: <HomeOutlined /> },
+  { key: 'resale', labelKey: 'category.resaleTitle', to: '/category/resale', bg: 'var(--rent-cat-resale)', icon: <SwapOutlined /> },
+  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', bg: 'var(--rent-cat-new)', icon: <BankOutlined /> },
+  { key: 'commercial', labelKey: 'category.commTitle', to: '/category/commercial', bg: 'var(--rent-cat-commercial)', icon: <ShopOutlined /> },
+  { key: 'factory', labelKey: 'category.factTitle', to: '/category/factory', bg: 'var(--rent-cat-factory)', icon: <ContainerOutlined /> },
+  { key: 'hotel', labelKey: 'category.hotelTitle', to: '/category/hotel', bg: 'var(--rent-cat-hotel)', icon: <CoffeeOutlined /> },
+  { key: 'land', labelKey: 'category.landTitle', to: '/category/land', bg: 'var(--rent-cat-land)', icon: <EnvironmentOutlined /> },
 ]
 
 // 状态标签样式类（对应 CSS 中的 modifier 类，使用设计令牌）
@@ -162,20 +162,6 @@ const Home = () => {
             <img className="rent-portal__logo" src={brandLogo} alt="HaoFang.World" loading="lazy" decoding="async" />
             <span className="rent-portal__name">HaoFang.World</span>
           </div>
-          {/* 左上角全局定位：国家 → 城市（对齐贝壳「logo 旁即城市」的首屏心智） */}
-          <button
-            type="button"
-            className="rent-portal__loc"
-            onClick={() => setLocOpen(true)}
-            aria-label={t('locate.selectCity')}
-          >
-            <svg className="rent-portal__loc-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span>{cityLabel || t('locate.selectCity')}</span>
-            <span className="rent-portal__loc-arrow">▾</span>
-          </button>
         </div>
         <nav className="rent-portal__nav">
           <button className="rent-portal__nav-item" data-active="true" onClick={handleSearch}>{t('browse.rent')}</button>
@@ -204,43 +190,61 @@ const Home = () => {
       <LocationPicker visible={locOpen} onClose={() => setLocOpen(false)} />
 
       <main className="rent-portal__main">
-        {/* ===== 搜索 Hero（对齐原型 rent-search-hero） ===== */}
-        <section className="rent-search-hero">
-          <span className="rent-search-hero__decor rent-search-hero__decor--1"></span>
-          <span className="rent-search-hero__decor rent-search-hero__decor--2"></span>
-          <span className="rent-search-hero__decor rent-search-hero__decor--3"></span>
-          <div className="rent-search-hero__inner">
-            <h1 className="rent-search-hero__title">{t('home.heroTitle')}</h1>
-            <p className="rent-search-hero__subtitle">{t('home.heroSubtitle')}</p>
-            <div className="rent-search-hero__bar">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        {/* ===== 黄金位横幅（主色渐变 + 定位行 + 标题；搜索卡压在下沿） ===== */}
+        <section className="home-hero">
+          <span className="home-hero__decor home-hero__decor--1"></span>
+          <span className="home-hero__decor home-hero__decor--2"></span>
+          <span className="home-hero__decor home-hero__decor--3"></span>
+          <div className="home-hero__inner">
+            <button
+              type="button"
+              className="home-hero__loc"
+              onClick={() => setLocOpen(true)}
+              aria-label={t('locate.selectCity')}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
               </svg>
-              <input
-                type="text"
-                placeholder={t('browse.searchPlaceholder')}
-                value={searchVal}
-                onChange={(e) => setSearchVal(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <button className="rent-search-hero__search-btn" onClick={handleSearch}>
-                {t('common.search')}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
-            </div>
-            <div className="rent-search-hero__tags">
+              <span>{cityLabel || t('locate.selectCity')}</span>
+              <span className="home-hero__loc-arrow">▾</span>
+            </button>
+            <h1 className="home-hero__title">{t('home.heroTitle')}</h1>
+            <p className="home-hero__subtitle">{t('home.heroSubtitle')}</p>
+            <div className="home-hero__tags">
               {searchTags.map((tag) => (
-                <button type="button" className="rent-search-hero__tag" key={tag} onClick={handleSearch}>{tag}</button>
+                <button type="button" className="home-hero__tag" key={tag} onClick={handleSearch}>{tag}</button>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ===== 黄金导航（7 大业务入口，各跳独立分类页） ===== */}
+        {/* 搜索卡：白色圆角卡面，负外边距压住横幅下沿，形成层次 */}
+        <section className="home-search">
+          <div className="home-search__bar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="home-search__input"
+              placeholder={t('browse.searchPlaceholder')}
+              value={searchVal}
+              onChange={(e) => setSearchVal(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <button className="home-search__btn" onClick={handleSearch}>
+              {t('common.search')}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
+          </div>
+        </section>
+
+        {/* ===== 黄金导航（7 大业务入口：租房 / 二手房 / 新房 / 商铺办公 / 厂房 / 酒店 / 土地） ===== */}
         <section className="rent-goldnav">
           {GOLD_NAV.map((it) => (
             <button
@@ -249,7 +253,7 @@ const Home = () => {
               className="rent-goldnav__item"
               onClick={() => navigate(it.to)}
             >
-              <span className="rent-goldnav__icon" style={{ color: it.color }}>
+              <span className="rent-goldnav__icon" style={{ background: it.bg }}>
                 {it.icon}
               </span>
               <span className="rent-goldnav__label">{t(it.labelKey)}</span>

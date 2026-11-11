@@ -7,31 +7,33 @@ page {
   --primary-hover: rgba(20, 184, 166, 0.88);
   --primary-active: rgba(20, 184, 166, 0.78);
   /* 主色底上的前景：中性深墨 */
-  --primary-foreground: #1c2733;
-  --primary-foreground-rgb: 28, 39, 51;
+  --primary-foreground: #171a1d;
+  --primary-foreground-rgb: 23, 26, 29;
   /* 主色作为文字时与面同值，不再使用深青档 */
   --primary-text: #14b8a6;
   /* 中性浅底（不再使用淡青） */
-  --primary-soft: #eef0f2;
-  --sidebar-active: #e8ebee;
-  --sidebar-active-rgb: 232, 235, 238;
+  --primary-soft: #eff2f3;
+  --sidebar-active: #edf1f2;
+  --sidebar-active-rgb: 237, 241, 242;
 
-  /* ---- 中性色（中性灰，不带青/暖色偏移）---- */
-  --bg: #f6fbfa;
-  --ink: #1c2733;
-  --ink-rgb: 28, 39, 51;
-  --ink-2: #55606c;
-  /* 辅助文字：米白底 5.18:1、白底 5.44:1（原 #98a1ab 仅 2.44:1） */
-  --ink-3: #5f6b78;
-  /* 禁用 / 装饰专用，禁止作为正文色（原 ink-4 为冷调 slate #98a1ab） */
-  --ink-4: #98a1ab;
-  --ink-disabled: #98a1ab;
-  --line: #e2e5e8;
+  /* ---- 中性色（中性灰，不带青/暖色偏移）----
+     参照贝壳「珍珠白 + 品质灰」：页面底色近白、卡片纯白，
+     层级靠浅灰面与细边框区分，不靠加深灰块。 */
+  --bg: #fafbfc;
+  --ink: #171a1d;
+  --ink-rgb: 23, 26, 29;
+  --ink-2: #4c555d;
+  /* 辅助文字：白底 4.96:1、页面底 4.79:1 */
+  --ink-3: #68717a;
+  /* 占位 / 禁用 / 装饰专用：白底 3.37:1、页面底 3.25:1，禁止作为正文色 */
+  --ink-4: #858d94;
+  --ink-disabled: #858d94;
+  --line: #e6e9ec;
   --card: #ffffff;
-  --surface-2: #eceef1;
-  --surface-2-rgb: 236, 238, 241;
-  --surface-3: #e4e7ea;
-  --avatar-bg: #f1f3f5;
+  --surface-2: #f2f4f5;
+  --surface-2-rgb: 242, 244, 245;
+  --surface-3: #eaedef;
+  --avatar-bg: #f2f4f6;
 
   /* ---- 状态色 ---- */
   --success: #16a34a;
@@ -42,6 +44,27 @@ page {
   --error-rgb: 220, 38, 38;
   --info: #0ea5e9;
   --info-rgb: 14, 165, 233;
+
+  /* ---- 首页「黄金位」横幅（主题色 #14b8a6 + 白字，已确认按原样呈现）----
+     白字对比度约 2.49:1，属已确认的取舍；不为对比度加深底色或改字色。 */
+  --hero-gradient: linear-gradient(158deg, #1bc7b7 0%, #14b8a6 100%);
+  /* 状态栏占位色：与横幅顶端连续 */
+  --hero-top: #14b8a6;
+  --hero-ink: #ffffff;
+  --hero-ink-2: #ffffff;
+  --hero-border: rgba(255, 255, 255, 0.45);
+  --hero-chip: rgba(255, 255, 255, 0.18);
+  /* 压横幅下沿的白色搜索卡阴影（浅青底上靠投影拉开层次） */
+  --shadow-search-card: 0 18rpx 44rpx -16rpx rgba(20, 184, 166, 0.42), 0 4rpx 14rpx -6rpx rgba(8, 47, 43, 0.1);
+
+  /* ---- 首页分类入口：一入口一色的鲜明圆底 + 白图标（白图标均 ≥3:1）---- */
+  --cat-rent: #0d9488;
+  --cat-resale: #2563eb;
+  --cat-new: #dc2626;
+  --cat-commercial: #ea580c;
+  --cat-factory: #7c3aed;
+  --cat-hotel: #db2777;
+  --cat-land: #16a34a;
 
   /* ---- 扩展语义色（对齐 Web tokens.css）---- */
   --state-warning-soft: #fdf5e9;
@@ -68,10 +91,10 @@ page {
   --radius-full: 999rpx;
 
   /* ---- 阴影（对齐 App theme.colors.shadow：卡片用柔和投影，浮层再加一档）---- */
-  --shadow-sm: 0 2rpx 8rpx rgba(28, 39, 51, 0.04);
-  --shadow-card: 0 4rpx 20rpx rgba(28, 39, 51, 0.05);
-  --shadow-md: 0 10rpx 28rpx rgba(28, 39, 51, 0.06);
-  --shadow-lg: 0 20rpx 56rpx rgba(28, 39, 51, 0.09);
+  --shadow-sm: 0 2rpx 8rpx rgba(23, 26, 29, 0.04);
+  --shadow-card: 0 4rpx 20rpx rgba(23, 26, 29, 0.05);
+  --shadow-md: 0 10rpx 28rpx rgba(23, 26, 29, 0.06);
+  --shadow-lg: 0 20rpx 56rpx rgba(23, 26, 29, 0.09);
   --shadow-primary: 0 12rpx 28rpx -8rpx rgba(20, 184, 166, 0.3);
 
   background-color: var(--bg);

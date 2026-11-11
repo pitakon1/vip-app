@@ -41,7 +41,9 @@ const Sign = () => {
   // 已拒签
   if (submit.declined) return <DeclinedView />
   // 签署完成
-  if (phase === 'done' && submit.result?.signed) return <SuccessView />
+  if (phase === 'done' && submit.result?.signed) {
+    return <SuccessView download={submit.result?.download} />
+  }
   if (phase === 'loading') return <LoadingView />
 
   // ===== 单屏签署台：左=文档区，右=签署方组件托盘 =====
@@ -51,6 +53,9 @@ const Sign = () => {
   // 发起方预置的签署区（本签署方可见、未签的那部分）。点击即按该区坐标落章。
   const pageFields = (doc?.sign_fields || []).filter((f) => (f.page || 1) === page)
 
+  // 串行签署：未轮到本方时禁止落章提交，并明确提示等待前序签署方
+  const waitingTurn = doc?.can_sign_now === false
+
   return (
     <div style={pageStyle}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -58,6 +63,20 @@ const Sign = () => {
         {/* v2 角标仅用于自证设备已加载新 bundle */}
         <span className="kf-ver">v2</span>
       </div>
+
+      {doc?.sign_deadline && (
+        <div className="rent-text-sm rent-text-muted" style={{ marginBottom: 8 }}>
+          {t('contracts.signDeadline', { at: new Date(doc.sign_deadline).toLocaleString() })}
+        </div>
+      )}
+      {waitingTurn && (
+        <div
+          className="rent-badge rent-badge--warning"
+          style={{ display: 'block', padding: '10px 12px', marginBottom: 12, whiteSpace: 'normal' }}
+        >
+          {t('contracts.waitingTurnHint')}
+        </div>
+      )}
 
       <div className="kf-layout">
         <DocumentPanel
@@ -93,7 +112,7 @@ const Sign = () => {
           type="button"
           className="rent-btn rent-btn--primary rent-btn--lg"
           style={{ width: '100%' }}
-          disabled={submit.submitting || placed.length === 0}
+          disabled={submit.submitting || placed.length === 0 || waitingTurn}
           onClick={submit.submitPlaced}
         >
           {t('contracts.signNow')}

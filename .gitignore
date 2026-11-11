@@ -52,6 +52,8 @@ backend/uploads/
 backend/backups/
 backend/contracts/
 backend/celerybeat-schedule*
+# 根目录合同渲染输出（运行时产物，同 backend/contracts）
+contracts/
 # 电子签引擎工作目录：签名 CA 私钥/证书/pfx，绝不能入库
 backend/sign-engine/
 # 电子签引擎自检/端到端测试产物（非源码）
@@ -119,6 +121,10 @@ rental-full-draft/**/_archive-*/
 /_verify_*.png
 /.tmp_login.json
 /color-*.png
+# UI 对比截图目录（运行产物，非项目源码）
+.screenshots/
+# 本地 Metro / uvicorn 手动落盘的启动日志
+_srv_*.log
 
 # ===== 上线采购资料（报告与贝壳页面抓取产物，非项目源码）=====
 /vip-app-launch-procurement/

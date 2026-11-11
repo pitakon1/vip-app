@@ -1,4 +1,4 @@
-﻿﻿import { useRef, useState } from 'react'
+﻿﻿﻿﻿import { useRef, useState } from 'react'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { contractsApi, contractsPublicApi } from '@/services/api'
@@ -28,7 +28,12 @@ export const useSignSubmit = ({
   const { t } = useTranslation()
 
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<{ signed?: boolean; contract_status?: string } | null>(null)
+  const [result, setResult] = useState<{
+    signed?: boolean
+    contract_status?: string
+    // 后端随签署响应下发的 24h 只读下载凭证（令牌签署后即失效）
+    download?: { url?: string; file_name?: string; expires_at?: string } | null
+  } | null>(null)
 
   // 实名认证（403 REAL_NAME_REQUIRED 时触发，完成后自动重签）
   const [realOpen, setRealOpen] = useState(false)
@@ -108,7 +113,7 @@ export const useSignSubmit = ({
         res = await contractsPublicApi.signByToken(token, publicPayload)
       }
       const data = res?.data || {}
-      setResult({ signed: true, contract_status: data.contract_status })
+      setResult({ signed: true, contract_status: data.contract_status, download: data.download })
       setPhase('done')
     } catch (err) {
       const status = apiErrorResponse(err)?.status

@@ -33,6 +33,14 @@ interface AgentPerf {
   [key: string]: any
 }
 
+// 房源状态文案（与房源管理页同口径）
+const PROPERTY_STATUS_KEY: Record<string, string> = {
+  vacant: 'prop.statusVacant',
+  rented: 'prop.statusRented',
+  renewing: 'prop.statusRenewing',
+  maintenance: 'prop.statusMaintenance'
+}
+
 const btn = (loading: boolean, text: string, cls = '', onClick?: () => void) => (
   <View
     className={`pm-btn ${cls} ${loading ? 'pm-btn--disabled' : ''}`}
@@ -308,7 +316,13 @@ export default function PartnerMembersPage() {
                 <View key={p.id} className='pm-prop'>
                   <Text className='pm-prop__name'>{p.address || '-'}</Text>
                   <Text className='pm-prop__meta'>
-                    {[p.property_type, p.bedrooms ? `${p.bedrooms}BR` : '', p.status].filter(Boolean).join(' · ')}
+                    {[
+                      p.property_type,
+                      p.bedrooms ? `${p.bedrooms}BR` : '',
+                      p.status ? (PROPERTY_STATUS_KEY[p.status] ? t(PROPERTY_STATUS_KEY[p.status]) : p.status) : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                 </View>
               ))

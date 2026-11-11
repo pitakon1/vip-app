@@ -182,13 +182,110 @@
   color: var(--ink-3);
 }
 
-.pub-filter__panel {
-  margin-top: 12rpx;
+/* 吸顶筛选坞：筛选行与面板同属一个 sticky 容器，
+   吸顶后是一个整体，面板永远贴着筛选行下沿；滚动时列表不会把两者拉开 */
+.pub-filter {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-top: 20rpx;
   background: var(--card);
-  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
-  /* 筛选展开面板属于浮层，保留投影（静态卡才降级为柔和投影） */
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+}
+
+.pub-filter--open {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+/* 筛选栏与面板连成一体：同宽、同底色、无间隙、无浮动投影 */
+.pub-filter__chips {
+  background: var(--card);
+  margin-top: 0;
+  padding: 16rpx 0;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.pub-filter__chips--open {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.pub-filter__panel {
+  margin-top: 0;
+  background: var(--card);
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
+}
+
+/* 面板主体：左侧一级类目竖栏（固定不滚）+ 右侧当前类目选项 */
+.pub-filter__body {
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.pub-filter__rail {
+  flex: 0 0 160rpx;
+  width: 160rpx;
+  padding: 12rpx 0;
+  background: var(--surface-2);
+}
+
+.pub-filter__rail-item {
+  position: relative;
+  padding: 24rpx 20rpx;
+  font-size: 26rpx;
+  color: var(--ink-2);
+}
+
+.pub-filter__rail-item--on {
+  background: var(--card);
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.pub-filter__rail-item--on::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16rpx;
+  bottom: 16rpx;
+  width: 6rpx;
+  border-radius: 3rpx;
+  background: var(--primary);
+}
+
+.pub-filter__content {
+  flex: 1;
+  min-width: 0;
+  max-height: 56vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* 底部「重置 / 应用」固定在面板底部，不随右侧内容滚动 */
+.pub-filter__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--card);
+}
+
+/* 只压暗面板下方的列表区，不覆盖筛选栏与面板 */
+.pub-results {
+  position: relative;
+}
+
+.pub-filter__mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 8;
+  background: rgba(17, 24, 28, 0.35);
 }
 
 .pub-filter__pad {
@@ -308,7 +405,7 @@
 
 .pub-drill-head__back {
   font-size: 24rpx;
-  color: var(--ink-4);
+  color: var(--ink-3);
 }
 
 /* 自定义价格 / 面积 输入行 */
@@ -392,14 +489,14 @@
   border-radius: var(--radius-full);
   font-size: 24rpx;
   font-weight: 600;
-  color: #3f4a54;
-  background: #f3f4f6;
+  color: #3a424a;
+  background: #f4f6f7;
   border: 1rpx solid var(--line);
 }
 
 .pub-listing__type--sell {
-  color: #3f4a54;
-  background: #f3f4f6;
+  color: #3a424a;
+  background: #f4f6f7;
 }
 
 .pub-listing__body {

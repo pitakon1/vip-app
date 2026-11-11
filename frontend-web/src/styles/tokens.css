@@ -5,30 +5,33 @@
    - 移动端令牌见 mobile-app/src/theme/colors.ts（圆角/字号/可点尺寸各自一套）
    - 断点收敛为 3 档：1024 / 768 / 480（480 仅小屏收窄，不新增组件规格）
 
+   中性灰阶参照贝壳「珍珠白 + 品质灰」的思路：页面底色近白、卡片纯白，
+   层级靠浅灰面与细边框区分，不靠加深灰块；主色与状态色保持原值。
+
    对比度基线（WCAG AA，正文 4.5:1）：
    - 主题色 #14b8a6 是全站唯一的青色，不派生深青/淡青。
-   - 主色底上的文字用中性深墨 #1c2733（原白字仅 2.49:1，
-     连大文本 3:1 都达不到，故主色底上不再使用白字）。
+   - 主色底上的文字用中性深墨 #171a1d。
    - 交互态用主题色加透明度（hover 0.88 / active 0.78），不引入其他青色。
-   - 辅助文字 #5f6b78：白底 5.44:1、surface-2 4.83:1、米白底 5.18:1
-     （原 #98a1ab 白底 2.62:1）。
-   - 白字仅保留在深色底（tooltip 14.4:1、照片压暗层、高饱和状态色底）上，
+   - 正文 ink-2 #4c555d：白底 7.60:1、页面底 7.33:1、surface-2 6.88:1。
+   - 辅助文字 ink-3 #68717a：白底 4.96:1、页面底 4.79:1、surface-2 4.50:1。
+   - 占位/禁用 ink-4 #858d94：白底 3.37:1、页面底 3.25:1、surface-2 3.05:1（仅占位/禁用/装饰）。
+   - 白字仅保留在深色底（tooltip、照片压暗层、高饱和状态色底）上，
      这些场景与主题色无关。
    ========================================================= */
 
 :root {
   /* ---- 语义色 ---- */
-  --rent-background: #f6fbfa;
-  --rent-foreground: #1c2733;
+  --rent-background: #fafbfc;
+  --rent-foreground: #171a1d;
   --rent-card: #ffffff;
-  --rent-card-foreground: #1c2733;
+  --rent-card-foreground: #171a1d;
   --rent-popover: #ffffff;
-  --rent-popover-foreground: #1c2733;
+  --rent-popover-foreground: #171a1d;
 
   /* 品牌主色：全站唯一青色 #14b8a6，不派生深青/淡青 */
   --rent-primary: #14b8a6;
   /* 主色底上的前景：中性深墨 */
-  --rent-primary-foreground: #1c2733;
+  --rent-primary-foreground: #171a1d;
   /* 主色作为文字时与面同值 */
   --rent-primary-text: #14b8a6;
   /* 交互态：主题色加透明度，不引入其他青色 */
@@ -39,22 +42,22 @@
   /* 状态色底（红/绿按钮、错误徽标）上的前景仍用白字，避免深墨字落到红底 */
   --rent-on-status: #ffffff;
 
-  --rent-muted: #f3f4f6;
-  --rent-muted-foreground: #5f6b78;
-  --rent-border: #e2e5e8;
-  --rent-input: #e2e5e8;
+  --rent-muted: #f4f6f7;
+  --rent-muted-foreground: #68717a;
+  --rent-border: #e6e9ec;
+  --rent-input: #e6e9ec;
   --rent-ring: #14b8a6; /* 焦点环直接使用主题色 */
 
   /* ---- 中性阶梯（中性灰，不带青/暖色偏移）---- */
-  --rent-ink: #1c2733;
-  --rent-ink-2: #55606c;
-  --rent-ink-3: #5f6b78;   /* 辅助文字：全底色面 ≥4.8:1 */
-  --rent-ink-4: #98a1ab;   /* 仅禁用态/装饰，禁止作为正文色 */
-  --rent-line: #e2e5e8;
+  --rent-ink: #171a1d;
+  --rent-ink-2: #4c555d;
+  --rent-ink-3: #68717a;   /* 辅助文字：白底 4.96:1、页面底 4.79:1 */
+  --rent-ink-4: #858d94;   /* 仅占位/禁用/装饰：白底 3.37:1、页面底 3.25:1，禁止作为正文色 */
+  --rent-line: #e6e9ec;
   --rent-surface: #ffffff;
-  --rent-surface-2: #eceef1;
+  --rent-surface-2: #f2f4f5;
   --rent-sidebar: #ffffff;
-  --rent-sidebar-active: #e8ebee; /* 选中底用中性灰，选中文字另用 --rent-ink */
+  --rent-sidebar-active: #edf1f2; /* 选中底用中性灰，选中文字另用 --rent-ink */
 
   /* ---- 主色 RGB 通道（用于 rgba 透明度叠加）---- */
   --rent-primary-rgb: 20, 184, 166;
@@ -89,14 +92,35 @@
 
   /* ---- 品牌辅助色（唯一青色 = 主题色，浅底改中性灰）---- */
   --rent-accent: #14b8a6;
-  --rent-accent-soft: #eef0f2;
-  --rent-tint: #f2f3f5;
+  --rent-accent-soft: #eff2f3;
+  --rent-tint: #f1f3f4;
+
+  /* ---- 首页「黄金位」横幅（主题色 #14b8a6 + 白字，已确认按原样呈现）----
+     白字对比度约 2.49:1，属已确认的取舍；不为对比度加深底色或改字色。
+     渐变只在 #1bc7b7 → #14b8a6 之间做极轻色差，不出现更深的青。 */
+  --rent-hero-gradient: linear-gradient(158deg, #1bc7b7 0%, #14b8a6 100%);
+  --rent-hero-ink: #ffffff;
+  --rent-hero-ink-2: #ffffff;
+  --rent-hero-border: rgba(255, 255, 255, 0.45);
+  --rent-hero-chip: rgba(255, 255, 255, 0.18);
+  /* 浅色横幅上靠投影与横幅分离，避免白卡与浅青糊在一起 */
+  --rent-shadow-search-card: 0 18px 44px -18px rgba(20, 184, 166, 0.45), 0 4px 14px -6px rgba(8, 47, 43, 0.1);
+
+  /* ---- 首页分类入口 —— 一入口一色的鲜明圆底（图标白，均 ≥3:1）----
+     只用于分类图标底，不参与按钮/链接/价格等语义。 */
+  --rent-cat-rent: #0d9488;
+  --rent-cat-resale: #2563eb;
+  --rent-cat-new: #dc2626;
+  --rent-cat-commercial: #ea580c;
+  --rent-cat-factory: #7c3aed;
+  --rent-cat-hotel: #db2777;
+  --rent-cat-land: #16a34a;
 
   /* ---- 补充中性色（媒体占位 / 浅色底）---- */
   /* 第三层中性底 */
-  --rent-surface-3: #e4e7ea;
+  --rent-surface-3: #eaedef;
   /* 提示类浅底（中性，不使用淡青） */
-  --rent-tint-teal: #f2f3f5;
+  --rent-tint-teal: #f1f3f4;
 
   /* ---- 补充状态色（看板阶段 / 评分 / 状态点）---- */
   --state-yellow: #eab308;
@@ -105,8 +129,8 @@
   --state-amber-strong: #f59e0b;
 
   /* ---- 标签（徽标）：全站唯一一套中性标签，卡面只保留价格一个强调色 ---- */
-  --rent-badge-bg: #f4f5f7;
-  --rent-badge-fg: #3f4a54; /* 8.32:1 */
+  --rent-badge-bg: #f4f6f7;
+  --rent-badge-fg: #3a424a; /* 10.2:1 */
   --rent-badge-border: var(--rent-line);
 
   /* ---- 图表（Chart.js 数据可视化，与主题令牌对齐）---- */
@@ -115,12 +139,12 @@
   --chart-3: #16a34a;
   --chart-4: #7a5cd6;
   --chart-5: #f59e0b;
-  --chart-6: #55606c;
+  --chart-6: #4c555d;
   --chart-7: #f43f5e;
   --chart-tooltip-bg: #1c2733;
   --chart-tooltip-border: #243044;
   --chart-tooltip-ink: #e8edf5;
-  --chart-legend: #5f6b78;
+  --chart-legend: #68717a;
 
   /* ---- 圆角（Web 四档 + 胶囊；收敛 18/24 → 14/20）----
      sm 6  ：标签、日期格、微控件
@@ -141,9 +165,9 @@
   --motion-slow: 320ms;
 
   /* ---- 阴影（静态面 ≤0.05；深阴影仅浮层；主色投影只给 CTA）---- */
-  --rent-shadow-1: 0 1px 2px rgba(28, 39, 51, 0.04), 0 1px 3px rgba(28, 39, 51, 0.03);
-  --rent-shadow-2: 0 10px 30px -10px rgba(28, 39, 51, 0.14);
-  --rent-shadow-3: 0 28px 70px -24px rgba(28, 39, 51, 0.26);
+  --rent-shadow-1: 0 1px 2px rgba(23, 26, 29, 0.04), 0 1px 3px rgba(23, 26, 29, 0.03);
+  --rent-shadow-2: 0 10px 30px -10px rgba(23, 26, 29, 0.14);
+  --rent-shadow-3: 0 28px 70px -24px rgba(23, 26, 29, 0.26);
   --rent-shadow-primary: 0 4px 14px -6px rgba(20, 184, 166, 0.32);
   --rent-shadow-primary-hover: 0 8px 20px -8px rgba(20, 184, 166, 0.4);
 

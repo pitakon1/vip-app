@@ -96,6 +96,15 @@ class Settings(BaseSettings):
     # 免登录签署链接的站点前缀（用于把 /sign/{token} 拼成可点开的绝对地址）。
     # 留空时只返回相对路径，由前端自行补全 origin。
     PUBLIC_WEB_BASE_URL: str = ""
+    # 上传件（doc/docx/xls/xlsx）转 PDF：开源 Gotenberg（Apache-2.0）容器地址，
+    # 形如 http://gotenberg:3000。留空＝不启用转换（上传件仅保留原件，不阻断上传）。
+    GOTENBERG_URL: str = ""
+    GOTENBERG_TIMEOUT_SECONDS: int = 30
+    # RFC 3161 可信时间戳服务地址（可选）。留空＝不向签名嵌入时间戳；
+    # 不内置任何商业 CA，生产可接自建 OpenTSA / 公共 FreeTSA（见 docs）。
+    TSA_URL: str = ""
+    # 电子签后台任务轮询间隔（秒）：过期扫描 + 回调计划重投（30s/2m/10m）
+    CONTRACT_HOUSEKEEPING_SECONDS: int = 60
 
     # 3) AI 应用预留接口（OpenAI 兼容 /chat/completions）
     OPENAI_API_KEY: str = ""

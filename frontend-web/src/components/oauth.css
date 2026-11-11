@@ -23,7 +23,7 @@
   border: 1px solid var(--rent-line);
   border-radius: 999px;
   background: #ffffff;
-  color: #1c2733;
+  color: #171a1d;
   font-family: var(--rent-font-sans, sans-serif);
   font-size: var(--rent-fs-base);
   font-weight: 700;
@@ -33,7 +33,7 @@
 }
 
 .continue-btn:hover {
-  background: #f3f4f6;
+  background: #f4f6f7;
 }
 
 .continue-btn:disabled {
@@ -59,7 +59,7 @@
 
 /* 加载旋转 */
 .rent-oauth__spin {
-  color: #98a1ab;
+  color: #858d94;
 }
 
 .rent-oauth__spin svg {

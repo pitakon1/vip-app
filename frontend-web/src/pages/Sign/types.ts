@@ -17,6 +17,14 @@ export interface ContractDoc {
   party?: { id?: string; name?: string; sign_method?: string; real_name_verified?: boolean }
   /** 管理端（或关键字）预置的签署区，坐标同为页面百分比 */
   sign_fields?: SignField[]
+  /** 串行签署：parallel | sequential */
+  sign_order_type?: string
+  /** 本签署方的顺序号（0=不限） */
+  sign_order?: number
+  /** 此刻是否轮到本签署方（false → 页面提示等待前序签署方） */
+  can_sign_now?: boolean
+  /** 合同本身的签署截止时间（与链接有效期分开） */
+  sign_deadline?: string
   [k: string]: unknown
 }
 

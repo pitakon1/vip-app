@@ -18,7 +18,7 @@ import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
  * 面积 / 户型，重置 / 应用。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
+import { View, Text, Image, Input, ScrollView, PageMeta } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import {
   publicApi,
@@ -83,6 +83,8 @@ export default function PublicListingsPage() {
 
   // ---- 下拉面板 ----
   const [openTab, setOpenTab] = useState<FilterTab>('')
+  // 「更多」面板左侧一级类目：排序 / 价格 / 面积 / 户型
+  const [moreTab, setMoreTab] = useState<'sort' | 'price' | 'area' | 'beds'>('sort')
 
   // ---- 列表状态 ----
   const [items, setItems] = useState<PublicListing[]>([])
@@ -206,6 +208,8 @@ export default function PublicListingsPage() {
 
   return (
     <View className='pub-page'>
+      {/* 面板展开时锁住页面滚动，避免吸顶栏与面板之间被滚动拉开缝 */}
+      <PageMeta page-style={openTab ? 'overflow: hidden' : ''} />
       <StatusTop />
       <View className='pub-inner'>
         <View className='pub-head'>
@@ -239,8 +243,11 @@ export default function PublicListingsPage() {
           ))}
         </View>
 
-        {/* 单行筛选行：学校 / 更多（对齐 App）*/}
-        <View className='pub-chips pub-filter__chips'>
+        {/* 吸顶筛选坞：筛选行 + 面板同属一个 sticky 容器，
+            粘住后成为同一块，面板永远贴在筛选行下沿，不会脱开 */}
+        <View className={`pub-filter${openTab ? ' pub-filter--open' : ''}`}>
+        {/* 单行筛选行：学校 / 更多（对齐 App）；展开时与面板连成一体 */}
+        <View className={`pub-chips pub-filter__chips${openTab ? ' pub-filter__chips--open' : ''}`}>
           <View
             className={`pub-chip${schoolId ? ' pub-chip--on' : ''}`}
             onClick={() => setOpenTab(openTab === 'school' ? '' : 'school')}
@@ -253,7 +260,13 @@ export default function PublicListingsPage() {
           </View>
           <View
             className={`pub-chip${moreActive ? ' pub-chip--on' : ''}`}
-            onClick={() => setOpenTab(openTab === 'more' ? '' : 'more')}
+            onClick={() => {
+              if (openTab === 'more') setOpenTab('')
+              else {
+                setMoreTab('sort')
+                setOpenTab('more')
+              }
+            }}
           >
             <Text>{t('pub.filterMore')}</Text>
           </View>
@@ -324,81 +337,105 @@ export default function PublicListingsPage() {
           </View>
         ) : null}
 
-        {/* 更多下拉面板：排序 + 价格 + 面积 + 户型，重置 / 应用 */}
+        {/* 更多面板：左侧一级类目竖栏 + 右侧选项，底部重置 / 应用固定 */}
         {openTab === 'more' ? (
           <View className='pub-filter__panel'>
-            <View className='pub-filter__pad'>
-              <Text className='pub-chips__label pub-chips__label--flat'>{t('pub.sort')}</Text>
-              <View className='pub-chips pub-chips--wrap'>
-                {schoolId ? (
-                  <View
-                    className={`pub-chip${sort === 'distance' ? ' pub-chip--on' : ''}`}
-                    onClick={() => setSort('distance')}
-                  >
-                    <Text>{t('pub.sortDistance')}</Text>
-                  </View>
-                ) : null}
-                {SORTS.map(([key, label]) => (
+            <View className='pub-filter__body'>
+              <View className='pub-filter__rail'>
+                {([
+                  ['sort', t('pub.sort')],
+                  ['price', t('pub.filterPrice')],
+                  ['area', t('pub.filterArea')],
+                  ['beds', t('pub.filterBeds')]
+                ] as Array<['sort' | 'price' | 'area' | 'beds', string]>).map(([key, label]) => (
                   <View
                     key={key}
-                    className={`pub-chip${sort === key ? ' pub-chip--on' : ''}`}
-                    onClick={() => setSort(key)}
+                    className={`pub-filter__rail-item${
+                      moreTab === key ? ' pub-filter__rail-item--on' : ''
+                    }`}
+                    onClick={() => setMoreTab(key)}
                   >
-                    <Text>{t(label)}</Text>
+                    <Text>{label}</Text>
                   </View>
                 ))}
               </View>
-
-              <Text className='pub-chips__label'>{t('pub.filterPrice')}</Text>
-              <View className='pub-range'>
-                <Input
-                  className='pub-range__input'
-                  type='number'
-                  value={priceMin}
-                  onInput={(e) => setPriceMin(e.detail.value)}
-                  placeholder={t('pub.filterMin')}
-                />
-                <Text className='pub-range__to'>{t('pub.to')}</Text>
-                <Input
-                  className='pub-range__input'
-                  type='number'
-                  value={priceMax}
-                  onInput={(e) => setPriceMax(e.detail.value)}
-                  placeholder={t('pub.filterMax')}
-                />
-              </View>
-
-              <Text className='pub-chips__label'>{t('pub.filterArea')}</Text>
-              <View className='pub-range'>
-                <Input
-                  className='pub-range__input'
-                  type='number'
-                  value={areaMin}
-                  onInput={(e) => setAreaMin(e.detail.value)}
-                  placeholder={t('pub.filterMin')}
-                />
-                <Text className='pub-range__to'>{t('pub.to')}</Text>
-                <Input
-                  className='pub-range__input'
-                  type='number'
-                  value={areaMax}
-                  onInput={(e) => setAreaMax(e.detail.value)}
-                  placeholder={t('pub.filterMax')}
-                />
-              </View>
-
-              <Text className='pub-chips__label'>{t('pub.filterBeds')}</Text>
-              <View className='pub-chips pub-chips--wrap'>
-                {BEDROOM_OPTIONS.map(([key, label]) => (
-                  <View
-                    key={key || 'any'}
-                    className={`pub-chip${bedsMin === key ? ' pub-chip--on' : ''}`}
-                    onClick={() => setBedsMin(key)}
-                  >
-                    <Text>{t(label)}</Text>
+              <ScrollView className='pub-filter__content' scrollY>
+                {moreTab === 'sort' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {schoolId ? (
+                      <View
+                        className={`pub-chip${sort === 'distance' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setSort('distance')}
+                      >
+                        <Text>{t('pub.sortDistance')}</Text>
+                      </View>
+                    ) : null}
+                    {SORTS.map(([key, label]) => (
+                      <View
+                        key={key}
+                        className={`pub-chip${sort === key ? ' pub-chip--on' : ''}`}
+                        onClick={() => setSort(key)}
+                      >
+                        <Text>{t(label)}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                ) : null}
+
+                {moreTab === 'price' ? (
+                  <View className='pub-range'>
+                    <Input
+                      className='pub-range__input'
+                      type='number'
+                      value={priceMin}
+                      onInput={(e) => setPriceMin(e.detail.value)}
+                      placeholder={t('pub.filterMin')}
+                    />
+                    <Text className='pub-range__to'>{t('pub.to')}</Text>
+                    <Input
+                      className='pub-range__input'
+                      type='number'
+                      value={priceMax}
+                      onInput={(e) => setPriceMax(e.detail.value)}
+                      placeholder={t('pub.filterMax')}
+                    />
+                  </View>
+                ) : null}
+
+                {moreTab === 'area' ? (
+                  <View className='pub-range'>
+                    <Input
+                      className='pub-range__input'
+                      type='number'
+                      value={areaMin}
+                      onInput={(e) => setAreaMin(e.detail.value)}
+                      placeholder={t('pub.filterMin')}
+                    />
+                    <Text className='pub-range__to'>{t('pub.to')}</Text>
+                    <Input
+                      className='pub-range__input'
+                      type='number'
+                      value={areaMax}
+                      onInput={(e) => setAreaMax(e.detail.value)}
+                      placeholder={t('pub.filterMax')}
+                    />
+                  </View>
+                ) : null}
+
+                {moreTab === 'beds' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {BEDROOM_OPTIONS.map(([key, label]) => (
+                      <View
+                        key={key || 'any'}
+                        className={`pub-chip${bedsMin === key ? ' pub-chip--on' : ''}`}
+                        onClick={() => setBedsMin(key)}
+                      >
+                        <Text>{t(label)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </ScrollView>
             </View>
             <View className='pub-filter__actions'>
               <View className='btn btn--secondary' onClick={resetMore}>
@@ -416,9 +453,16 @@ export default function PublicListingsPage() {
             </View>
           </View>
         ) : null}
+        </View>
 
-        {/* 加载失败时不要显示「共 0 套」，否则会把请求失败伪装成空数据 */}
-        {!loadError && <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>}
+        {/* 面板下方只压暗列表区，筛选行与面板本身保持清晰、可操作 */}
+        <View className='pub-results'>
+          {openTab ? (
+            <View className='pub-filter__mask' onClick={() => setOpenTab('')} />
+          ) : null}
+
+          {/* 加载失败时不要显示「共 0 套」，否则会把请求失败伪装成空数据 */}
+          {!loadError && <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>}
 
         {loading ? (
           <StateBlock loading text={t('pub.loading')} />
@@ -519,6 +563,7 @@ export default function PublicListingsPage() {
             )}
           </>
         )}
+        </View>
       </View>
 
       <BottomNav role='guest' active='' />

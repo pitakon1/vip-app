@@ -78,9 +78,9 @@
 .rent-contract-preview__title {
   font-size: var(--rent-fs-sm);
   font-weight: 600;
-  color: var(--rent-ink2, #55606c);
+  color: var(--rent-ink2, #4c555d);
   padding: var(--rent-s-2) var(--rent-s-3);
-  background: #f3f4f6;
+  background: #f4f6f7;
   border-bottom: 1px solid var(--rent-line, #e2e5e8);
 }
 .rent-contract-preview__box {
@@ -122,7 +122,7 @@
 }
 .rent-field-placed__party {
   font-size: 10px;
-  color: #55606c;
+  color: #4c555d;
   position: absolute;
   left: 2px;
   bottom: 1px;

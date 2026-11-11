@@ -28,7 +28,6 @@ import {
   Keyboard,
   useWindowDimensions,
 } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -410,18 +409,22 @@ function BlockOption({
 }
 
 /**
- * 筛选面板（对齐贝壳 App 实测）：下拉挂在筛选条下沿、整幅铺满宽度，
- * 无遮罩、无圆角，高度随内容自适应（超过上限时右栏滚动），
- * 多组时左栏分组导航（约 23% 宽）+ 右栏所有分组连续排列，底部「重置 / 确定」固定在面板底部。
- * 面板内只改本地 draft，点「确定」才把本组叶子一次性合并回已应用值。 */
+ * 筛选面板（对齐贝壳列表页）：面板从筛选条下沿整幅展开，与筛选条同宽同底色，
+ * 无间隙、无圆角、不做浮动卡片；左侧为一级类目竖栏（区域/租金/房型/更多…），
+ * 右侧只渲染当前类目的选项，超出高度时仅右栏滚动，左栏固定不滚；
+ * 底部「重置 / 确定」固定在面板底部，不随内容滚动。
+ * 面板下方列表区被遮罩压暗，遮罩不覆盖筛选条与面板本身。
+ * 面板内只改本地 draft，点「确定」才把这些改动一次性合并回已应用值。 */
 function FilterPanel({
-  group,
+  groups,
+  activeKey,
   values,
   onApply,
   onClose,
   topOffset,
 }: {
-  group: FilterGroup;
+  groups: FilterGroup[];
+  activeKey: string;
   values: FilterValues;
   onApply: (patch: FilterValues) => void;
   onClose: () => void;
@@ -429,71 +432,56 @@ function FilterPanel({
 }) {
   const { t } = useI18n();
   const { height: winH } = useWindowDimensions();
-  const leaves = useMemo(
-    () => (group.children && group.children.length ? group.children : [group]),
-    [group],
+  /** 一级类目 → 需要渲染/提交的叶子组（「更多」展开为多个子组） */
+  const sectionsOf = useCallback(
+    (g: FilterGroup) => (g.children && g.children.length ? g.children : [g]),
+    [],
   );
-  const keys = useMemo(() => leaves.map((g) => g.key), [leaves]);
+  const allKeys = useMemo(
+    () => groups.flatMap((g) => sectionsOf(g).map((leaf) => leaf.key)),
+    [groups, sectionsOf],
+  );
   const [draft, setDraft] = useState<FilterValues>(() => {
     const init: FilterValues = {};
-    leaves.forEach((g) => {
-      init[g.key] = values[g.key] ?? '';
+    allKeys.forEach((k) => {
+      init[k] = values[k] ?? '';
     });
     return init;
   });
-  const [subKey, setSubKey] = useState(leaves[0]?.key ?? '');
+  const [subKey, setSubKey] = useState(activeKey);
+  const active = groups.find((g) => g.key === subKey) ?? groups[0];
+  const sections = useMemo(() => sectionsOf(active), [active, sectionsOf]);
   const contentRef = useRef<ScrollView>(null);
-  /** 各组在右栏内容中的 y 偏移（onLayout 记录），供左栏点击跳转 / 滚动联动使用 */
-  const offsetsRef = useRef<Record<string, number>>({});
-  /** 左栏宽度随最长分组名自适应（按字号估宽 + 左右各 12 内边距），88~132 */
+  /** 左栏宽度随最长一级类目名自适应（按字号估宽 + 左右各 12 内边距），88~132 */
   const navWidth = useMemo(() => {
-    const longest = leaves.reduce((n, leaf) => Math.max(n, leaf.label.length), 0);
+    const longest = groups.reduce((n, g) => Math.max(n, g.label.length), 0);
     return Math.min(132, Math.max(88, longest * colors.fontSize.sm + 24));
-  }, [leaves]);
+  }, [groups]);
   /** 右栏可视宽度（onLayout 实测），用于把选项块精确排成每行 3 个 */
   const [contentWidth, setContentWidth] = useState(0);
   const chipWidth = contentWidth > 0
     ? Math.floor((contentWidth - colors.spacing.lg * 2 - colors.spacing.sm * 2) / 3)
     : undefined;
 
-  /** 左栏点击：先把目标组设为高亮，再滚动到该组（只在点击时 scrollTo，滚动回调里不调用）。 */
+  /** 左栏点击：切换类目，右栏回到顶部（左栏自身不滚动） */
   const jumpTo = (key: string) => {
     setSubKey(key);
-    const y = offsetsRef.current[key];
-    if (y != null) contentRef.current?.scrollTo({ y, animated: true });
-  };
-
-  /** 右栏滚动：取「最接近视口顶部」的分组联动左栏高亮；滚到底时高亮最后一组。 */
-  const handleContentScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const maxY = Math.max(0, contentSize.height - layoutMeasurement.height);
-    let current = leaves[0]?.key ?? '';
-    if (maxY > 4 && contentOffset.y >= maxY - 2) {
-      current = leaves[leaves.length - 1]?.key ?? current;
-    } else {
-      let best = -Infinity;
-      for (const g of leaves) {
-        const oy = offsetsRef.current[g.key];
-        if (oy == null) continue;
-        if (oy <= contentOffset.y + 12 && oy > best) {
-          best = oy;
-          current = g.key;
-        }
-      }
-    }
-    setSubKey((prev) => (prev === current ? prev : current));
+    contentRef.current?.scrollTo({ y: 0, animated: false });
   };
 
   const setDraftValue = (key: string, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
+  /** 只重置当前类目；排序没有「不限」语义，保持原值 */
   const resetDraft = () => {
-    const cleared: FilterValues = {};
-    keys.forEach((k) => {
-      cleared[k] = '';
+    setDraft((prev) => {
+      const next = { ...prev };
+      sections.forEach((s) => {
+        if (s.key !== 'sort') next[s.key] = '';
+      });
+      return next;
     });
-    setDraft(cleared);
   };
 
   const confirm = () => {
@@ -510,88 +498,75 @@ function FilterPanel({
 
   return (
     <View style={[styles.panelOverlay, { top: panelTop }]}>
+      {/* 遮罩只压暗面板下方的列表区；面板与筛选条本身保持不透明、可操作 */}
       <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.panel, { maxHeight: panelMaxHeight }]}>
-          <View style={styles.panelBody}>
-            {leaves.length > 1 ? (
-              <ScrollView
-                style={[
-                  styles.panelNav,
-                  // ScrollView 默认带 flexBasis:0，会覆盖宽度；这里显式固定基准宽度
-                  { width: navWidth, flexBasis: navWidth, flexGrow: 0, flexShrink: 0 },
-                ]}
-                contentContainerStyle={styles.panelNavInner}
-                showsVerticalScrollIndicator={false}
-              >
-                {leaves.map((g) => {
-                  const active = g.key === subKey;
-                  return (
-                    <TouchableOpacity
-                      key={g.key}
-                      style={[styles.panelNavItem, active && styles.panelNavItemActive]}
-                      activeOpacity={0.8}
-                      onPress={() => jumpTo(g.key)}
+      <View style={[styles.panel, { maxHeight: panelMaxHeight }]}>
+        <View style={styles.panelBody}>
+          {/* 左侧一级类目竖栏：固定不滚动 */}
+          <View style={[styles.panelNav, { width: navWidth }]}>
+            <View style={styles.panelNavInner}>
+              {groups.map((g) => {
+                const on = g.key === active.key;
+                return (
+                  <TouchableOpacity
+                    key={g.key}
+                    style={[styles.panelNavItem, on && styles.panelNavItemActive]}
+                    activeOpacity={0.8}
+                    onPress={() => jumpTo(g.key)}
+                  >
+                    <Text
+                      style={[styles.panelNavText, on && styles.panelNavTextActive]}
+                      numberOfLines={1}
                     >
-                      <Text
-                        style={[styles.panelNavText, active && styles.panelNavTextActive]}
-                        numberOfLines={1}
-                      >
-                        {g.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : null}
-            <ScrollView
-              ref={contentRef}
-              style={styles.panelContent}
-              contentContainerStyle={styles.panelContentInner}
-              onLayout={(e) => setContentWidth(e.nativeEvent.layout.width)}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={handleContentScroll}
-            >
-              {leaves.map((leaf) => (
-                <View
-                  key={leaf.key}
-                  style={styles.panelSection}
-                  onLayout={(e) => {
-                    offsetsRef.current[leaf.key] = e.nativeEvent.layout.y;
-                  }}
-                >
-                  <Text style={styles.panelSectionTitle}>{leaf.label}</Text>
-                  <View style={styles.blockWrap}>
+                      {g.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+          {/* 右侧选项区：只渲染当前类目，超出高度时仅此区域滚动 */}
+          <ScrollView
+            ref={contentRef}
+            style={styles.panelContent}
+            contentContainerStyle={styles.panelContentInner}
+            onLayout={(e) => setContentWidth(e.nativeEvent.layout.width)}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {sections.map((leaf) => (
+              <View key={leaf.key} style={styles.panelSection}>
+                <Text style={styles.panelSectionTitle}>{leaf.label}</Text>
+                <View style={styles.blockWrap}>
+                  <BlockOption
+                    label={t('category.filterAny')}
+                    active={!draft[leaf.key]}
+                    onPress={() => setDraftValue(leaf.key, '')}
+                    width={chipWidth}
+                  />
+                  {(leaf.options ?? []).map((op) => (
                     <BlockOption
-                      label={t('category.filterAny')}
-                      active={!draft[leaf.key]}
-                      onPress={() => setDraftValue(leaf.key, '')}
+                      key={op.value}
+                      label={op.label}
+                      active={draft[leaf.key] === op.value}
+                      onPress={() => setDraftValue(leaf.key, op.value)}
                       width={chipWidth}
                     />
-                    {(leaf.options ?? []).map((op) => (
-                      <BlockOption
-                        key={op.value}
-                        label={op.label}
-                        active={draft[leaf.key] === op.value}
-                        onPress={() => setDraftValue(leaf.key, op.value)}
-                        width={chipWidth}
-                      />
-                    ))}
-                  </View>
+                  ))}
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-          <View style={styles.panelFooter}>
-            <TouchableOpacity style={styles.panelReset} activeOpacity={0.8} onPress={resetDraft}>
-              <Text style={styles.panelResetText}>{t('category.reset')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.panelConfirm} activeOpacity={0.85} onPress={confirm}>
-              <Text style={styles.panelConfirmText}>{t('category.confirm')}</Text>
-            </TouchableOpacity>
-          </View>
+              </View>
+            ))}
+          </ScrollView>
         </View>
+        <View style={styles.panelFooter}>
+          <TouchableOpacity style={styles.panelReset} activeOpacity={0.8} onPress={resetDraft}>
+            <Text style={styles.panelResetText}>{t('category.reset')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.panelConfirm} activeOpacity={0.85} onPress={confirm}>
+            <Text style={styles.panelConfirmText}>{t('category.confirm')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -638,8 +613,10 @@ export function FilterBar({
   );
 
   return (
-    <>
-      <View style={styles.filterRow} ref={rowRef}>
+    // 整条筛选栏（触发行 + 快捷标签行）作为测距实体：
+    // 面板要贴的是这条栏的下沿，而不是触发行下沿，否则会盖住快捷标签
+    <View ref={rowRef}>
+      <View style={styles.filterRow}>
         {groups.map((g) => {
           const active = groupActive(g, values);
           const label = groupTriggerLabel(g, values);
@@ -704,7 +681,7 @@ export function FilterBar({
           })}
         </ScrollView>
       ) : null}
-    </>
+    </View>
   );
 }
 
@@ -809,6 +786,10 @@ export function CategoryListScreen<T>({
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const reqSeq = useRef(0);
+  // 吸顶：顶栏高度、筛选条在列表内容里的 y 偏移、以及当前是否已吸顶
+  const [topBarH, setTopBarH] = useState(0);
+  const [filterOffset, setFilterOffset] = useState(0);
+  const [stuck, setStuck] = useState(false);
   // 筛选默认值（含排序）：不同分类的数据面接受不同的 sort 枚举，
   // 必须由页面显式下发，不能一律用 latest（/public/projects 会 422）。
   // 默认值按内容序列化做依赖：调用方若传内联对象（如新房 `{ sort: 'hot' }`），
@@ -867,17 +848,43 @@ export function CategoryListScreen<T>({
   const filtered =
     !!debounced || Object.entries(values).some(([k, v]) => !!v && v !== baseValues[k]);
 
+  const openHandler = (g: FilterGroup, top: number) => {
+    if (openKey === g.key) {
+      closeGroup();
+      return;
+    }
+    setOpenTop(top);
+    toggleGroup(g.key);
+  };
+
+  // 同一份筛选条既在列表头部（自然位置），也在吸顶时挂到顶栏下沿。
+  // 只渲染其中一份可交互：吸顶后头部那份透明且不接收事件，占位高度不变，滚动不跳。
+  const filterBar = (
+    <FilterBar
+      groups={filterGroups}
+      values={values}
+      onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
+      onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
+      quickTags={quickTags}
+      onReset={() => setValues(baseValues)}
+      openKey={openKey}
+      onOpenGroup={openHandler}
+    />
+  );
+
   return (
     <View style={styles.container}>
-      <CategoryTopBar
-        title={title}
-        city={city}
-        onCityPress={onCityPress}
-        searchPlaceholder={searchPlaceholder}
-        keyword={keyword}
-        onKeywordChange={setKeyword}
-        rightActions={rightActions}
-      />
+      <View onLayout={(e) => setTopBarH(e.nativeEvent.layout.height)}>
+        <CategoryTopBar
+          title={title}
+          city={city}
+          onCityPress={onCityPress}
+          searchPlaceholder={searchPlaceholder}
+          keyword={keyword}
+          onKeywordChange={setKeyword}
+          rightActions={rightActions}
+        />
+      </View>
 
       {loadError ? (
         <ListState
@@ -892,6 +899,8 @@ export function CategoryListScreen<T>({
         <FlatList
           data={loading ? [] : items}
           keyExtractor={keyExtractor}
+          // 面板展开期间锁定列表滚动，保证面板始终贴住筛选条下沿、不出现位移间隙
+          scrollEnabled={!openGroup}
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
             <View>
@@ -903,23 +912,15 @@ export function CategoryListScreen<T>({
                   onChange={tabGroup ? (k) => setValues((prev) => ({ ...prev, [tabGroup]: k })) : onTabChange}
                 />
               ) : null}
-              <FilterBar
-                groups={filterGroups}
-                values={values}
-                onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
-                onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
-                quickTags={quickTags}
-                onReset={() => setValues(baseValues)}
-                openKey={openKey}
-                onOpenGroup={(g, top) => {
-                  if (openKey === g.key) {
-                    closeGroup();
-                    return;
-                  }
-                  setOpenTop(top);
-                  toggleGroup(g.key);
-                }}
-              />
+              <View
+                onLayout={(e) => setFilterOffset(e.nativeEvent.layout.y)}
+                style={stuck ? styles.filterGhost : undefined}
+                pointerEvents={stuck ? 'none' : 'auto'}
+                accessibilityElementsHidden={stuck}
+                importantForAccessibility={stuck ? 'no-hide-descendants' : 'auto'}
+              >
+                {filterBar}
+              </View>
               {!loading ? (
                 <Text style={styles.count}>{t('category.resultCount', { n: total })}</Text>
               ) : null}
@@ -929,21 +930,29 @@ export function CategoryListScreen<T>({
             </View>
           }
           renderItem={({ item }) => <>{renderCard(item)}</>}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            const next = filterOffset > 0 && y >= filterOffset - 1;
+            setStuck((prev) => (prev === next ? prev : next));
+          }}
+          scrollEventThrottle={16}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
             if (loading || loadingMore || !hasMore) return;
             void load(page + 1);
           }}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={async () => {
-                setRefreshing(true);
-                await load(1);
-                setRefreshing(false);
-              }}
-              tintColor={colors.primary}
-            />
+            openGroup ? undefined : (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={async () => {
+                  setRefreshing(true);
+                  await load(1);
+                  setRefreshing(false);
+                }}
+                tintColor={colors.primary}
+              />
+            )
           }
           ListEmptyComponent={loading ? <LoadingState label={t('category.loading')} /> : null}
           ListFooterComponent={
@@ -955,10 +964,15 @@ export function CategoryListScreen<T>({
           }
         />
       )}
+      {/* 吸顶筛选条：滚动过筛选条原始位置后，钉在顶栏下沿；面板随后从这里下沿无缝展开 */}
+      {stuck ? (
+        <View style={[styles.stickyFilter, { top: topBarH }]}>{filterBar}</View>
+      ) : null}
       {openGroup ? (
         <FilterPanel
           key={openGroup.key}
-          group={openGroup}
+          groups={filterGroups}
+          activeKey={openGroup.key}
           values={values}
           topOffset={openTop}
           onApply={(patch) => setValues((prev) => ({ ...prev, ...patch }))}
@@ -1119,6 +1133,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    // 与展开面板同底色：面板下沿无缝衔接，不出现一条浅灰缝
+    backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
@@ -1151,12 +1167,30 @@ const styles = StyleSheet.create({
   count: { fontSize: colors.fontSize.sm, color: colors.ink3, paddingHorizontal: 16, marginTop: 4, marginBottom: 8 },
   footer: { fontSize: colors.fontSize.sm, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
 
-  // 筛选面板（贝壳 App 实测：紧贴筛选条下沿的整幅下拉，下方露出列表，点外部关闭）
-  panelOverlay: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20, elevation: 20 },
+  // 吸顶态：头部那份筛选条只留占位（不可见、不可点），吸顶那份挂在顶栏下沿
+  filterGhost: { opacity: 0 },
+  stickyFilter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    elevation: 10,
+    backgroundColor: colors.surface,
+  },
+
+  // 筛选面板（贝壳式：紧贴筛选条下沿的整幅下拉；下方列表被遮罩压暗，面板不透明）
+  panelOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: colors.alpha(colors.inkRgb, 0.35),
+  },
   panel: {
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    ...colors.shadow.lg,
   },
   panelOutside: { flex: 1 },
   panelBody: { flexDirection: 'row', flexShrink: 1 },

@@ -163,6 +163,13 @@
   }
 }
 
+/* 状态筛选项上的数量徽标（较标签更小、更淡，选中态随父级文字变白） */
+.pb-opt .pb-opt__count {
+  margin-left: 6rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
 /* ===== 分组标题（下拉面板内） ===== */
 .pb-group-label {
   font-size: 24rpx;

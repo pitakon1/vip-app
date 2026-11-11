@@ -18,13 +18,16 @@
 - `list` / `get` 走 `contract_visibility_conditions()` / `can_view_contract()`：
   员工全量，业主/租客仅本人作为签署方或挂在本人租约下的合同。
   此前任意登录用户可列全站合同、读任意合同全文（正文含双方证件号）。
-- `sign` 必须由**该签署方本人**发起：`party.user_id == 当前用户`；
-  员工代签仍允许（记录 `signer_user_id` 留痕），但签名姓名一律取服务端 `party.name`，
-  不接受客户端传入——否则可自填姓名冒充他人签署。
+- `sign` 必须由**该签署方本人**发起：`party.user_id == 当前用户` 或邮箱归属；
+  员工不再允许代签他人身份（未注册的外部签署方走免登录令牌链路），
+  签名姓名一律取服务端 `party.name`，不接受客户端传入——否则可自填姓名冒充他人签署。
 - 未注册客户走 `/public/contract-sign/{token}`（令牌一次性、可过期），
   不经过登录态，签署留痕写真实 IP。
 """
 import base64
+import hashlib
+import logging
+import os
 import re
 import secrets
 import uuid
@@ -42,7 +45,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, Response
 
 from app.config import settings
 from app.core.auth import (
@@ -66,6 +69,7 @@ from app.models import (
     NotificationChannel,
     NotificationStatus,
     User, Contract, ContractStatus, ContractKind, ContractSource, ContractParty,
+    ContractSignOrder, ContractCallbackEvent, ContractCallbackStatus,
     SignerRole, SignatureRecord, ContractSignField, SignFieldType, SignMethod,
 )
 from app.providers.notification.base import (
@@ -74,10 +78,14 @@ from app.providers.notification.base import (
 )
 from app.providers.notification.router import notification_router
 from app.services import esign_service
+from app.services import contract_jobs
+from app.services.contract_identity import MATCHED, ContractIdentityResolver
 from app.services.serial_number import next_no
 from .documents import ALLOWED_DOCUMENT_TYPES
 
 router = APIRouter(prefix="/contracts", tags=["contracts"])
+
+logger = logging.getLogger(__name__)
 
 # 上传合同的落盘目录（backend/uploads/contracts）。
 # 与 documents 一样**不**由 /uploads 静态服务托管：合同正文含双方证件号，
@@ -86,9 +94,11 @@ UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "contracts"
 MAX_CONTRACT_SIZE = 20 * 1024 * 1024  # 单个合同文件 20MB
 STORED_URL_PREFIX = "/uploads/contracts/"
 
-# 免登录签署链接默认有效期（天）
-_DEFAULT_TOKEN_DAYS = 7
-_MAX_TOKEN_DAYS = 60
+# 免登录签署链接默认有效期（天）。免登录链接是「持有即可签」的强凭据，
+# 默认 3 天、上限 7 天：足够客户走完签署，又不至于长期滞留可被转发的链接。
+# 重新生成链接会覆盖旧 token，旧链接立即失效。
+_DEFAULT_TOKEN_DAYS = 3
+_MAX_TOKEN_DAYS = 7
 
 
 def _get_visible_contract(session: Session, user: User, contract_id: uuid.UUID) -> Contract:
@@ -238,12 +248,18 @@ def add_party(
         raise HTTPException(status_code=400, detail="Invalid user_id")
 
     email = (payload.get("email") or "").strip()
-    # 未显式指定归属用户时，按邮箱自动绑定平台账号：否则该签署方在「我的合同」里
-    # 既不可见也签不了（可见性、签署权、内部实名三处都按 user_id/邮箱归属判定）。
-    if user_id_u is None and email:
-        bound = session.exec(select(User).where(User.email == email)).first()
-        if bound:
-            user_id_u = bound.id
+    # 未显式指定归属用户时，走统一身份解析（手机 → 邮箱；姓名只标记不认定）。
+    # 合作方手输常带 +86、空格、全角字符或邮箱大小写差异，逐字比对会漏绑；
+    # 手机与邮箱指向不同用户时不猜，保持未绑定，交人工确认。
+    if user_id_u is None:
+        identity = ContractIdentityResolver(session).resolve_party_user(
+            role=role,
+            name=payload.get("name"),
+            phone=payload.get("phone"),
+            email=email,
+        )
+        if identity.reason == MATCHED:
+            user_id_u = identity.user_id
 
     party = ContractParty(
         contract_id=contract_id,
@@ -253,6 +269,7 @@ def add_party(
         id_number=payload.get("id_number"),
         phone=payload.get("phone"),
         role=role,
+        sign_order=_parse_sign_order(payload.get("sign_order")),
     )
     session.add(party)
     session.commit()
@@ -262,6 +279,176 @@ def add_party(
         "name": party.name,
         "role": party.role.value,
         "signed": party.signed,
+        "sign_order": party.sign_order,
+    }
+
+
+def _parse_sign_order(raw) -> int:
+    """签署顺序解析：空/0 表示不限制；非负整数，非法值 400。"""
+    if raw in (None, "", 0, "0"):
+        return 0
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid sign_order")
+    if value < 0:
+        raise HTTPException(status_code=400, detail="Invalid sign_order")
+    return value
+
+
+@router.post("/{contract_id}/sign-order")
+def set_sign_order(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """设置多人签署顺序。payload: {type: "parallel"|"sequential", orders?: [{party_id, order}]}
+
+    - `type=sequential` 时，后序签署方在前序未签完前会被 409 NOT_YOUR_TURN 拦下；
+    - `orders` 只允许改**未签署**方的序号；同序号视为同一轮（可并行）；
+    - 默认 parallel，保持既有合同行为不变。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    _require_editable(contract)
+
+    raw_type = str(payload.get("type") or ContractSignOrder.parallel.value)
+    try:
+        order_type = ContractSignOrder(raw_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid sign order type")
+
+    parties = session.exec(
+        select(ContractParty).where(ContractParty.contract_id == contract_id)
+    ).all()
+    by_id = {str(p.id): p for p in parties}
+
+    orders = payload.get("orders") or []
+    if not isinstance(orders, list):
+        raise HTTPException(status_code=400, detail="Invalid orders")
+    seen: set[int] = set()
+    for item in orders:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Invalid order item")
+        party = by_id.get(str(item.get("party_id") or ""))
+        if party is None:
+            raise HTTPException(status_code=404, detail="Party not found")
+        if party.signed:
+            raise HTTPException(status_code=409, detail="Party already signed")
+        order = _parse_sign_order(item.get("order"))
+        if order > 0:
+            if order in seen:
+                raise HTTPException(status_code=400, detail="Duplicated sign_order")
+            seen.add(order)
+        party.sign_order = order
+        session.add(party)
+
+    contract.sign_order_type = order_type
+    session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    parties = session.exec(
+        select(ContractParty).where(ContractParty.contract_id == contract_id)
+    ).all()
+    return {
+        "contract_id": str(contract.id),
+        "sign_order_type": contract.sign_order_type.value,
+        "parties": [
+            {"id": str(p.id), "name": p.name, "sign_order": p.sign_order, "signed": p.signed}
+            for p in sorted(parties, key=lambda x: (x.sign_order or 10**6, x.created_at or datetime.min))
+        ],
+    }
+
+
+@router.post("/{contract_id}/callback")
+def set_contract_callback(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """配置签署完成回调。payload: {url: "" | "https://..."}
+
+    - `url` 留空 = 关闭回调；
+    - 首次配置会生成 `callback_secret`，随响应返回（对端用它对
+      `HMAC-SHA256(body, secret)` 做验签，请求头 `X-Contract-Signature`）；
+    - 幂等键为 `合同id:contract.signed`，对端按 `X-Idempotency-Key` 去重即可。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    url = (payload.get("url") or "").strip()
+    if url:
+        if len(url) > 500 or not re.match(r"^https?://", url, re.I):
+            raise HTTPException(status_code=400, detail="Invalid callback url")
+    contract.callback_url = url or None
+    if url and not contract.callback_secret:
+        contract.callback_secret = secrets.token_urlsafe(32)
+    if not url:
+        contract.callback_secret = None
+    session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    return {
+        "contract_id": str(contract.id),
+        "callback_url": contract.callback_url,
+        # 明文 secret 只在此接口返回；对端需自行安全保存
+        "callback_secret": contract.callback_secret,
+    }
+
+
+@router.get("/{contract_id}/callbacks")
+def list_contract_callbacks(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """查看回调投递记录（排障用）。"""
+    _get_visible_contract(session, user, contract_id)
+    events = session.exec(
+        select(ContractCallbackEvent)
+        .where(ContractCallbackEvent.contract_id == contract_id)
+        .order_by(ContractCallbackEvent.created_at.desc())
+    ).all()
+    return [
+        {
+            "id": str(e.id),
+            "event": e.event,
+            "url": e.url,
+            "status": e.status.value,
+            "attempts": e.attempts,
+            "last_error": e.last_error,
+            "last_attempt_at": e.last_attempt_at.isoformat() if e.last_attempt_at else None,
+            "next_attempt_at": e.next_attempt_at.isoformat() if e.next_attempt_at else None,
+            "delivered_at": e.delivered_at.isoformat() if e.delivered_at else None,
+            "idempotency_key": e.idempotency_key,
+        }
+        for e in events
+    ]
+
+
+@router.post("/{contract_id}/callback/retry")
+def retry_contract_callback(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """人工重投最近一次回调（已成功投递则不重复发送）。"""
+    _get_visible_contract(session, user, contract_id)
+    event = session.exec(
+        select(ContractCallbackEvent)
+        .where(ContractCallbackEvent.contract_id == contract_id)
+        .order_by(ContractCallbackEvent.created_at.desc())
+    ).first()
+    if event is None:
+        raise HTTPException(status_code=404, detail="No callback event")
+    if event.status != ContractCallbackStatus.delivered:
+        # 人工重投：立即试一次；失败后仍按后台计划继续重试
+        _deliver_callback(session, event)
+    return {
+        "id": str(event.id),
+        "status": event.status.value,
+        "attempts": event.attempts,
+        "last_error": event.last_error,
+        "next_attempt_at": event.next_attempt_at.isoformat() if event.next_attempt_at else None,
     }
 
 
@@ -401,6 +588,24 @@ def _sign_url(token: str) -> str:
     return f"{base}{path}" if base else path
 
 
+def _qr_data_url(text: str) -> Optional[str]:
+    """把签署链接转成 PNG data URL（二维码需绝对地址才能被手机扫描）。
+
+    生成失败时返回 None，不影响链接本身下发（二维码属便利功能）。
+    """
+    try:
+        import io
+
+        import qrcode
+
+        buf = io.BytesIO()
+        qrcode.make(text).save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception:  # noqa: BLE001  可选依赖/编码失败都不阻断
+        logger.warning("contract.qr_generate_failed", extra={"text": text[:64]})
+        return None
+
+
 def _issue_sign_token(party: ContractParty, expires_in_days: int) -> str:
     """为签署方生成/续期免登录签署令牌（一次性，签署后清空）。"""
     days = expires_in_days or _DEFAULT_TOKEN_DAYS
@@ -417,6 +622,132 @@ def _require_editable(contract: Contract) -> None:
         raise HTTPException(status_code=409, detail="Contract already signed")
     if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract already finalized")
+
+
+def _ensure_not_expired(session: Session, contract: Contract) -> None:
+    """签署有效期校验：过期即置 `expired` 并拒绝签署。
+
+    只推进「未完成」的合同；已签/已作废/已拒签不动，避免把历史结果改坏。
+    过期是状态机的一条正常终态：留痕、已签 PDF、审计记录全部保留。
+    """
+    if not contract.expires_at:
+        return
+    if contract.expires_at >= datetime.utcnow():
+        return
+    if contract.status in (
+        ContractStatus.draft,
+        ContractStatus.sent,
+        ContractStatus.partially_signed,
+    ):
+        contract.status = ContractStatus.expired
+        session.add(contract)
+        session.commit()
+    raise HTTPException(status_code=409, detail="CONTRACT_EXPIRED")
+
+
+def _deliver_callback(session: Session, event: ContractCallbackEvent) -> None:
+    """投递一条回调事件（单次尝试，失败后由后台任务按 30s/2m/10m 计划重投）。
+
+    - 幂等键固定为 `合同id:事件`，重试复用同一行、同一请求体；
+    - 对端需按 `X-Idempotency-Key` 去重（本服务不会因重试产生新事件）；
+    - 投递失败只记录，不影响签署结果（签署与回调解耦）。
+    """
+    contract_jobs.deliver_callback(session, event)
+
+
+def _emit_contract_callback(
+    session: Session,
+    contract: Contract,
+    event: str = "contract.signed",
+    extra: Optional[dict] = None,
+) -> None:
+    """合同状态变化时生成并投递回调（未配置 callback_url 时跳过）。
+
+    - `contract.signed`：全部签署方签完；
+    - `contract.declined`：拒签导致流程终止（status=rejected）；
+    - `contract.voided`：合同被人工作废。
+    `extra` 用于补充事件专属字段（拒签方/原因、作废原因等）。
+    """
+    if not contract.callback_url:
+        return
+    key = f"{contract.id}:{event}"
+    existing = session.exec(
+        select(ContractCallbackEvent).where(ContractCallbackEvent.idempotency_key == key)
+    ).first()
+    if existing is not None and existing.status == ContractCallbackStatus.delivered:
+        return  # 已成功投递，重复触发不再发送（幂等）
+    if existing is None:
+        if not contract.callback_secret:
+            contract.callback_secret = secrets.token_urlsafe(32)
+            session.add(contract)
+        parties = session.exec(
+            select(ContractParty).where(ContractParty.contract_id == contract.id)
+        ).all()
+        payload = {
+            "event": event,
+            "contract_id": str(contract.id),
+            "contract_no": contract.contract_no,
+            "title": contract.title,
+            "status": contract.status.value,
+            "language": contract.language,
+            "document_hash": contract.document_hash,
+            "signed_at": contract.signed_at.isoformat() if contract.signed_at else None,
+            "parties": [
+                {
+                    "id": str(p.id),
+                    "name": p.name,
+                    "role": p.role.value,
+                    "signed": p.signed,
+                    "signed_at": p.signed_at.isoformat() if p.signed_at else None,
+                }
+                for p in parties
+            ],
+        }
+        if extra:
+            payload.update(extra)
+        existing = ContractCallbackEvent(
+            contract_id=contract.id,
+            event=event,
+            url=contract.callback_url,
+            payload=payload,
+            idempotency_key=key,
+        )
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+    try:
+        _deliver_callback(session, existing)
+    except Exception:  # noqa: BLE001  回调是旁路，任何异常都不得影响签署
+        logger.exception("contract.callback_crashed", extra={"contract_id": str(contract.id)})
+
+
+def _can_sign_now(session: Session, contract: Contract, party: ContractParty) -> bool:
+    """串行签署下该方此刻是否可签（并行/未编号一律可签）。"""
+    if contract.sign_order_type != ContractSignOrder.sequential:
+        return True
+    if not party.sign_order or party.sign_order <= 0:
+        return True
+    earlier = session.exec(
+        select(ContractParty.id).where(
+            ContractParty.contract_id == contract.id,
+            ContractParty.id != party.id,
+            ContractParty.sign_order < party.sign_order,
+            ContractParty.sign_order > 0,
+            ContractParty.signed.is_(False),
+            ContractParty.declined_at.is_(None),
+        )
+    ).first()
+    return earlier is None
+
+
+def _ensure_sign_turn(session: Session, contract: Contract, party: ContractParty) -> None:
+    """串行签署校验：前序序号未签完时，后序签署方不可签。
+
+    仅当合同 `sign_order_type=sequential` 且该方有明确序号（>0）时生效；
+    序号相同视为同一轮（可并行），因此只拦「严格更小且未签」的签署方。
+    """
+    if not _can_sign_now(session, contract, party):
+        raise HTTPException(status_code=409, detail="NOT_YOUR_TURN")
 
 
 @router.patch("/{contract_id}")
@@ -453,6 +784,36 @@ def update_contract(
     }
 
 
+def _convert_upload_to_pdf(contract: Contract, stored: Path) -> tuple[bool, Optional[str]]:
+    """把上传件转成可落章的 PDF 并写入 `pdf_path`。
+
+    返回 `(ok, error_code)`：
+    - 成功/原件本就是 PDF → `(True, None)`；
+    - 能力未开启或转换失败 → `(False, code)`，**不阻断上传**，仅降级为无落章链路。
+    """
+    from app.services import pdf_convert
+
+    try:
+        pdf_bytes = pdf_convert.convert_to_pdf(stored, filename=stored.name)
+    except pdf_convert.PdfConversionError as exc:
+        logger.warning(
+            "contract.pdf_convert_failed contract=%s code=%s", contract.id, exc.code
+        )
+        return False, exc.code
+    except Exception:  # noqa: BLE001  任何未预期异常都不得让上传失败
+        logger.exception("contract.pdf_convert_crashed contract=%s", contract.id)
+        return False, "PDF_CONVERT_FAILED"
+
+    out_dir = Path(settings.CONTRACT_OUTPUT_DIR)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / f"contract_{contract.id.hex[:12]}_converted.pdf"
+    tmp = out_file.with_suffix(".pdf.tmp")
+    tmp.write_bytes(pdf_bytes)
+    os.replace(tmp, out_file)
+    contract.pdf_path = str(out_file)
+    return True, None
+
+
 @router.post("/{contract_id}/upload")
 def upload_contract_file(
     contract_id: uuid.UUID,
@@ -464,6 +825,10 @@ def upload_contract_file(
 
     复用文档中心的白名单 + 魔数嗅探（`save_upload`），文件名由服务端生成，
     落库只存站内相对路径（读取走带令牌校验的接口）。
+
+    上传后尝试转 PDF（PDF 直接用原件；图片用 reportlab 包页；Word/Excel 走
+    Gotenberg）。转换失败**不阻断上传**，响应里 `pdf_converted=false` 并给出
+    `pdf_convert_error`，前端据此提示「该合同只能留痕、无法在 PDF 上落章」。
     """
     contract = _get_visible_contract(session, user, contract_id)
     _require_editable(contract)
@@ -481,23 +846,61 @@ def upload_contract_file(
     contract.file_path = url
     contract.source = ContractSource.uploaded
     contract.created_by = contract.created_by or user.id
+    # 换文件后旧的转换产物必须作废，避免对新文件盖到旧 PDF 上
+    contract.pdf_path = None
+    contract.signed_pdf_path = None
+    # 上传件的完整性哈希必须绑定真实文件字节，供完成签署与验签时复核。
+    stored = resolve_stored_path(url, UPLOAD_DIR, STORED_URL_PREFIX)
+    contract.document_hash = hashlib.sha256(stored.read_bytes()).hexdigest()
+    pdf_ok, pdf_error = _convert_upload_to_pdf(contract, stored)
     session.add(contract)
     session.commit()
     session.refresh(contract)
-    return {"id": str(contract.id), "file_path": contract.file_path, "source": contract.source.value}
+    return {
+        "id": str(contract.id),
+        "file_path": contract.file_path,
+        "source": contract.source.value,
+        "document_hash": contract.document_hash,
+        "pdf_converted": pdf_ok,
+        "pdf_convert_error": pdf_error,
+    }
+
+
+@router.post("/{contract_id}/convert-pdf")
+def retry_convert_contract_pdf(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """重试「上传件转 PDF」（配置好 Gotenberg 后无需重新上传）。"""
+    contract = _get_visible_contract(session, user, contract_id)
+    _require_editable(contract)
+    if contract.source != ContractSource.uploaded or not contract.file_path:
+        raise HTTPException(status_code=400, detail="Contract has no uploaded file")
+    stored = resolve_stored_path(contract.file_path, UPLOAD_DIR, STORED_URL_PREFIX)
+    contract.pdf_path = None
+    ok, error = _convert_upload_to_pdf(contract, stored)
+    session.add(contract)
+    session.commit()
+    if not ok:
+        # 明确告知失败原因（未启用 / 转换失败），管理端可据此排查或改配置
+        raise HTTPException(status_code=502, detail=error or "PDF_CONVERT_FAILED")
+    return {"pdf_converted": True, "pdf_page_count": _contract_pdf_page_count(contract)}
 
 
 @router.post("/{contract_id}/share-link")
 def create_share_link(
     contract_id: uuid.UUID,
     payload: dict,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """为某签署方生成免登录签署链接。payload: {party_id, expires_in_days?}
+    """为某签署方生成免登录签署链接。payload: {party_id, expires_in_days?, reuse?}
 
     用于「客户没走平台流程 / 未注册账号」的场景：链接可转发给客户，
     打开即免登录签署（一次性，签署后令牌清空）。
+    `reuse=true` 时复用未过期的既有令牌（展示二维码不打扰已复制的链接）。
     """
     contract = _get_visible_contract(session, user, contract_id)
     _require_editable(contract)
@@ -505,15 +908,24 @@ def create_share_link(
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
 
-    token = _issue_sign_token(party, payload.get("expires_in_days"))
-    session.add(party)
-    session.commit()
-    session.refresh(party)
+    reuse = bool(payload.get("reuse"))
+    existing = party.sign_token
+    if reuse and existing and party.sign_token_expires_at and party.sign_token_expires_at > datetime.utcnow():
+        token = existing
+    else:
+        token = _issue_sign_token(party, payload.get("expires_in_days"))
+        session.add(party)
+        session.commit()
+        session.refresh(party)
+    url = _sign_url(token)
+    # 二维码必须编码绝对地址：未配置 PUBLIC_WEB_BASE_URL 时用当前请求的站点前缀补全
+    abs_url = url if url.startswith(("http://", "https://")) else f"{str(request.base_url).rstrip('/')}{url}"
     return {
         "party_id": str(party.id),
         "party_name": party.name,
         "token": token,
-        "url": _sign_url(token),
+        "url": url,
+        "qr_data_url": _qr_data_url(abs_url),
         "expires_at": party.sign_token_expires_at.isoformat()
         if party.sign_token_expires_at
         else None,
@@ -536,6 +948,24 @@ def send_contract(
     payload = payload or {}
     contract = _get_visible_contract(session, user, contract_id)
     _require_editable(contract)
+
+    # 签署有效期：首次发送开始计时（默认 30 天，允许 1–90 天）。
+    # 已到期/已过期的合同重新发送时续期并把状态从 expired 拉回签署中。
+    if contract.expires_at is None or contract.expires_at < datetime.utcnow():
+        try:
+            days = int(payload.get("sign_expires_in_days") or 30)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid sign_expires_in_days")
+        contract.expires_at = datetime.utcnow() + timedelta(days=min(90, max(1, days)))
+        if contract.status == ContractStatus.expired:
+            contract.status = (
+                ContractStatus.partially_signed
+                if any(p.signed for p in session.exec(
+                    select(ContractParty).where(ContractParty.contract_id == contract_id)
+                ).all())
+                else ContractStatus.draft
+            )
+        session.add(contract)
 
     raw_ids = payload.get("party_ids") or []
     if raw_ids:
@@ -656,6 +1086,16 @@ def void_contract(
     session.add(contract)
     session.commit()
     session.refresh(contract)
+    # 作废同样对外通知：下游据此中止审批/付款等流程（回调失败不影响作废结果）
+    try:
+        _emit_contract_callback(
+            session,
+            contract,
+            "contract.voided",
+            extra={"reason": reason or None, "voided_by": str(user.id)},
+        )
+    except Exception:  # noqa: BLE001  回调是旁路
+        logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
     return {"id": str(contract.id), "status": contract.status.value}
 
 
@@ -781,6 +1221,21 @@ def decline_contract(
         contract.status = ContractStatus.rejected
         session.add(contract)
     session.commit()
+    # 只有流程真正终止（无可签方）时才对外发 declined，避免部分拒签误触发下游终止
+    if contract.status == ContractStatus.rejected:
+        try:
+            _emit_contract_callback(
+                session,
+                contract,
+                "contract.declined",
+                extra={
+                    "party_id": str(party.id),
+                    "party_name": party.name,
+                    "reason": reason or None,
+                },
+            )
+        except Exception:  # noqa: BLE001  回调是旁路
+            logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
     return {
         "party_id": str(party.id),
         "declined": True,
@@ -989,44 +1444,102 @@ def _pdf_signature_stamp(contract, party, method, field, img_override: Optional[
     return img, page, x, y, w, h, reason
 
 
-def _apply_pdf_signature(session, contract, party, *, field, method, img_override: Optional[bytes] = None) -> None:
-    """用 kaifangqian->Python 引擎对合同 PDF 做定位签署并写回存档。
+def _contract_document_digest(contract: Contract) -> str:
+    """按合同「权威源」计算完整性哈希。
 
-    - 基线：优先取 `signed_pdf_path`（之前已签过），否则取 `pdf_path`；
-    - 把盖章/签名 PNG 盖到字段坐标 → pyhanko 增量数字签名 → 写回新版 signed_pdf_path；
-    - 任一环节异常或没有 PDF 均保持静默（不阻断签名留痕）。
+    - 上传型：对**真实文件字节**取 sha256（此前错误地只哈希 content_html，
+      而未走 /generate 的上传合同 content_html 为空，等于哈希空串）；
+    - 生成型：对正文 HTML 取哈希（PDF 由该 HTML 渲染，语义等价）。
     """
-    from pathlib import Path
+    if contract.source == ContractSource.uploaded:
+        stored = getattr(contract, "file_path", None)
+        if stored:
+            try:
+                path = resolve_stored_path(stored, UPLOAD_DIR, STORED_URL_PREFIX)
+            except HTTPException:
+                return ""
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+    return esign_service.content_hash(contract.content_html or "")
 
-    from app.config import settings
 
-    # 基线 PDF：优先已签存档，其次原始引擎 PDF。
-    # 注意必须先判空再构造 Path——上传型合同/引擎渲染失败的合同两者皆空，
-    # 直接 Path(None) 会抛 TypeError 并让签署接口 500。
+def _pdf_signing_baseline(contract: Contract) -> Optional[Path]:
+    """定位签署的基线 PDF：优先已签存档，其次原始引擎 PDF；都没有返回 None。"""
     signed_pdf = getattr(contract, "signed_pdf_path", None)
-    plain_pdf = getattr(contract, "pdf_path", None)
     if signed_pdf and Path(signed_pdf).exists():
-        src_path = Path(signed_pdf)
-    elif plain_pdf and Path(plain_pdf).exists():
-        src_path = Path(plain_pdf)
-    else:
-        return  # 无引擎 PDF：跳过定位盖章，仍走签名留痕
-    try:
-        from app.services import kaifang_sign_service
+        return Path(signed_pdf)
+    plain_pdf = getattr(contract, "pdf_path", None)
+    if plain_pdf and Path(plain_pdf).exists():
+        return Path(plain_pdf)
+    return None
 
+
+def _record_sign_failure(session: Session, contract_id: uuid.UUID, party_id: uuid.UUID, exc: Exception) -> None:
+    """记录 PDF 签章失败并中断本次签署（不得流转为已签）。
+
+    先回滚本事务内未提交的签署区/留痕，避免留下「字段已签但没有章」的脏数据；
+    再把失败原因落到合同上，供运维追溯与前端提示。
+    """
+    logger.exception(
+        "contract PDF signing failed: contract=%s party=%s", contract_id, party_id, exc_info=exc
+    )
+    session.rollback()
+    fresh = session.get(Contract, contract_id)
+    if fresh is not None:
+        fresh.last_sign_error = f"{type(exc).__name__}: {exc}"[:500]
+        fresh.last_sign_error_at = datetime.utcnow()
+        session.add(fresh)
+        session.commit()
+    raise HTTPException(status_code=502, detail="PDF_SIGN_FAILED") from exc
+
+
+def _apply_pdf_signatures(
+    session: Session,
+    contract: Contract,
+    party: ContractParty,
+    placements: list,
+) -> Optional[bool]:
+    """把一次签署动作里的所有落章位置写进同一份 PDF 存档。
+
+    `placements` 为 `[(field, method, img_override)]`。要点：
+    - 基线 PDF 只在内存中依次追加签名修订，**全部成功后才一次性原子替换**存档，
+      避免中途失败留下半签文件；
+    - 引擎签名只追加，不重写已有内容，因此前序签署人的签名始终有效；
+    - 没有引擎 PDF（上传型非 PDF 合同）返回 None，仍走签名留痕；
+    - 任一环节异常 → 502，且合同状态不推进。
+    """
+    src = _pdf_signing_baseline(contract)
+    if src is None:
+        return None
+
+    from app.services import kaifang_sign_service
+
+    contract_id, party_id = contract.id, party.id
+    try:
         eng = kaifang_sign_service.get_engine()
-        img, page, x, y, w, h, reason = _pdf_signature_stamp(contract, party, method, field, img_override)
-        signed = eng.sign_pdf(
-            src_path.read_bytes(), img, page=page, x=x, y=y, w=w, h=h, reason=reason
-        )
+        data = src.read_bytes()
+        for field, method, img_override in placements:
+            img, page, x, y, w, h, reason = _pdf_signature_stamp(
+                contract, party, method, field, img_override
+            )
+            data = eng.sign_pdf(data, img, page=page, x=x, y=y, w=w, h=h, reason=reason)
+
         out_dir = Path(settings.CONTRACT_OUTPUT_DIR)
         out_dir.mkdir(parents=True, exist_ok=True)
-        out = out_dir / f"contract_{contract.id.hex[:12]}.signed.pdf"
-        out.write_bytes(signed)
+        out = out_dir / f"contract_{contract_id.hex[:12]}.signed.pdf"
+        tmp = out.with_name(out.name + ".tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, out)
+
         contract.signed_pdf_path = str(out)
+        contract.last_sign_error = None
+        contract.last_sign_error_at = None
         session.add(contract)
-    except Exception:  # noqa: BLE001  引擎异常不影响签名留痕
-        pass
+        return True
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001  统一转为可见的 502 + 失败记录
+        _record_sign_failure(session, contract_id, party_id, exc)
+        return None
 
 
 def _apply_signature(
@@ -1052,6 +1565,10 @@ def _apply_signature(
     - 合同存在引擎 PDF（pdf_path/signed_pdf_path）时，同时用 kaifangqian->Python
       引擎在该字段坐标处盖手写签名/公章并做增量数字签名（写回 signed_pdf_path）。
     """
+    # 有效期与串行顺序：在签章/落痕之前拦下，保证失败不产生任何副作用
+    _ensure_not_expired(session, contract)
+    _ensure_sign_turn(session, contract, party)
+
     # --- 引擎 PDF 定位签署（可选，有 PDF 才执行；失败回退不阻断留痕） ---
     field = None
     if field_id is not None:
@@ -1062,14 +1579,19 @@ def _apply_signature(
             raise HTTPException(status_code=403, detail="Field not assigned to this party")
         if field.signed:
             raise HTTPException(status_code=409, detail="Sign field already signed")
+
+    # 先签章、后置字段已签：签章失败会抛 502，字段与状态都不会推进。
+    _apply_pdf_signatures(
+        session,
+        contract,
+        party,
+        [(field, method or party.sign_method or SignMethod.personal_handwrite, None)],
+    )
+
+    if field is not None:
         field.signed = True
         field.signed_at = datetime.utcnow()
         session.add(field)
-
-    _apply_pdf_signature(
-        session, contract, party, field=field,
-        method=method or party.sign_method or SignMethod.personal_handwrite,
-    )
 
     return _finalize_party_signed(
         session,
@@ -1189,7 +1711,12 @@ def _finalize_party_signed(
     if fully_signed:
         contract.status = ContractStatus.signed
         contract.signed_at = datetime.utcnow()
-        contract.document_hash = esign_service.content_hash(contract.content_html)
+        # document_hash 在生成/上传时按「权威源」写入：
+        # - 生成型：正文 HTML 的哈希；
+        # - 上传型：**真实文件字节**的哈希（见 upload_contract_file）。
+        # 这里不能再按 content_html 重算，否则上传型合同会哈希空内容。
+        if not contract.document_hash:
+            contract.document_hash = _contract_document_digest(contract)
         # 整份合同落一条总览 SignatureRecord（若尚无）
         existing_overview = session.exec(
             select(SignatureRecord).where(
@@ -1217,6 +1744,8 @@ def _finalize_party_signed(
     session.commit()
     if fully_signed:
         _activate_broker_role_if_agreement(session, contract)
+        # 签署完成回调（出站 webhook）：失败只记事件，不影响签署结果
+        _emit_contract_callback(session, contract)
     return sig_hash
 
 
@@ -1231,8 +1760,8 @@ def sign_contract(
     """对指定签署方做数字签名。payload: {party_id, signature_svg?}
 
     **身份绑定**（修复点）：
-    - 非员工只能签**自己**那一方（`party.user_id == 当前用户`）；
-    - 员工可代签（记录 `signer_user_id` 留痕），但仍不能修改签名姓名；
+    - 只能签**自己**那一方（`party.user_id` 或邮箱归属）；员工不再允许代签他人身份，
+      未注册的外部签署方走免登录令牌链路；
     - 签名姓名一律取服务端 `party.name`，不再接受 payload 里的 `name`——
       否则任何登录用户都能用任意 party_id 冒充他人签署；
     - IP 取真实请求来源，不再信任客户端自报。
@@ -1242,8 +1771,9 @@ def sign_contract(
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
-    if user.role not in STAFF_ROLES and party.user_id != user.id:
-        # 非员工只能签自己那一方；未绑定用户的签署方只有员工能代签
+    if not party_belongs_to_user(party, user):
+        # 只允许签署人本人（user_id 或邮箱归属）；员工同样不能代签他人身份，
+        # 未注册的外部签署方走免登录令牌链路。
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1322,14 +1852,12 @@ def sign_self(
       （field_type=method，required=False）随后立即签署并盖到 PDF；
     - 不发明文姓名：姓名一律取服务端 `party.name`。
     """
-    import math
-
     contract = _get_visible_contract(session, user, contract_id)
     if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
-    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
+    if not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1453,7 +1981,9 @@ def sign_batch(
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
-    if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
+    # 只允许签署人本人操作（含邮箱归属），员工不再代签他人身份。
+    # 未注册/未绑定的外部签署方一律走免登录令牌链路（token 绑定 party）。
+    if not party_belongs_to_user(party, user):
         raise HTTPException(status_code=403, detail="Not a party of this contract")
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
@@ -1484,7 +2014,7 @@ def sign_batch(
         else:
             raise HTTPException(status_code=403, detail="REAL_NAME_REQUIRED")
 
-    created, sig_hash = _sign_batch_core(
+    created, sig_hash, pdf_signed = _sign_batch_core(
         session,
         contract,
         party,
@@ -1498,6 +2028,7 @@ def sign_batch(
         "signed": True,
         "fields": created,
         "signature_hash": sig_hash,
+        "pdf_signed": pdf_signed,
         "contract_status": contract.status.value,
     }
 
@@ -1517,6 +2048,10 @@ def _sign_batch_core(
     逐 item 新建签署区（required=False）并按坐标把签章图盖到 PDF；`image_data_url`
     优先使用，缺省按类型生成；最后统一落痕并推进状态机，返回 (created, signature_hash)。
     """
+    # 有效期与串行顺序在落任何签区之前校验，避免产生半成品签署区
+    _ensure_not_expired(session, contract)
+    _ensure_sign_turn(session, contract, party)
+
     _method_map = {
         "signature": SignMethod.personal_handwrite,
         "personal_handwrite": SignMethod.personal_handwrite,
@@ -1534,6 +2069,7 @@ def _sign_batch_core(
     first_method: Optional[SignMethod] = None
     first_svg: Optional[str] = None
     created: List[dict] = []
+    placements: list = []
 
     for it in items:
         method = _method_map.get(
@@ -1547,6 +2083,11 @@ def _sign_batch_core(
         h = min(100.0, max(1.0, float(it.get("h", 0) or 0) or 8.0))
         ft = _ft_map.get(method, SignFieldType.signature)
 
+        # 先做纯校验（SVG 黑名单、图片解码），任何一项失败都不产生副作用。
+        raw_svg = it.get("signature_svg")
+        svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
+        img = _decode_image_data_url(it.get("image_data_url"))
+
         field = ContractSignField(
             contract_id=contract.id,
             party_id=party.id,
@@ -1559,16 +2100,9 @@ def _sign_batch_core(
             required=False,
             created_by=created_by,
         )
-        field.signed = True
-        field.signed_at = datetime.utcnow()
         session.add(field)
         session.flush()  # 取 field.id 供落章定位
-
-        img = _decode_image_data_url(it.get("image_data_url"))
-        _apply_pdf_signature(session, contract, party, field=field, method=method, img_override=img)
-
-        raw_svg = it.get("signature_svg")
-        svg = _sanitize_signature_svg(raw_svg) if raw_svg else None
+        placements.append((field, method, img))
 
         created.append(
             {
@@ -1586,6 +2120,14 @@ def _sign_batch_core(
             first_method = method
             first_svg = svg
 
+    # 全部落章先在内存里跑完，成功后才原子替换 PDF；失败则 502 且不置已签。
+    pdf_signed = _apply_pdf_signatures(session, contract, party, placements) is True
+
+    for field, _method, _img in placements:
+        field.signed = True
+        field.signed_at = datetime.utcnow()
+        session.add(field)
+
     sig_hash = _finalize_party_signed(
         session,
         contract,
@@ -1596,7 +2138,7 @@ def _sign_batch_core(
         method=first_method or SignMethod.personal_handwrite,
         field_id=first_field_id,
     )
-    return created, sig_hash
+    return created, sig_hash, pdf_signed
 
 
 def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:
@@ -1638,6 +2180,33 @@ def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> 
     session.commit()
 
 
+def _pdf_signature_health(contract: Contract) -> Optional[str]:
+    """计算已签 PDF 的内嵌签名健康度（不落库，纯展示态）。
+
+    - `ok`：所有签名域的 `valid` 均为 1；
+    - `invalid`：存在 `valid != 1` 的签名域（历史多人签署全量重写导致）；
+    - None：无已签存档 / 文件缺失 / 引擎异常，无法判定（前端不提示）。
+
+    该值只用于「历史签名异常，建议重签」提示，**不改变合同状态**。
+    """
+    signed = getattr(contract, "signed_pdf_path", None)
+    if not signed:
+        return None
+    path = Path(signed)
+    if not path.exists():
+        return None
+    try:
+        from app.services import kaifang_sign_service
+
+        report = kaifang_sign_service.get_engine().verify_pdf(path.read_bytes())
+    except Exception:  # noqa: BLE001  验签失败不应让列表/详情整体失败
+        logger.exception("verify signed pdf failed: %s", path)
+        return None
+    if not report:
+        return None
+    return "ok" if all(int(x.get("valid", 0)) == 1 for x in report) else "invalid"
+
+
 @router.get("", response_model=List[ContractSummary])
 def list_contracts(
     session: Session = Depends(get_session),
@@ -1647,14 +2216,18 @@ def list_contracts(
 
     员工看到全量；业主/租客只看到本人作为签署方或挂在本人租约下的合同
     （见 `contract_visibility_conditions`）。修复前这里是全站合同无过滤返回。
+    员工视角附带 `signature_health`（计算态，不落库）：历史签名失效的合同
+    需要在列表直接可见「建议重签」，不能只显示「已签署」。
     """
     conditions = contract_visibility_conditions(session, user)
     query = select(Contract).where(Contract.deleted_at.is_(None))
     if conditions:
         query = query.where(*conditions)
     contracts = session.exec(query.order_by(Contract.created_at.desc())).all()
-    return [
-        {
+    is_staff = user.role in STAFF_ROLES
+    items = []
+    for c in contracts:
+        item = {
             "id": str(c.id),
             "title": c.title,
             "kind": c.kind.value if c.kind else "lease",
@@ -1664,9 +2237,15 @@ def list_contracts(
             "document_hash": c.document_hash,
             "created_at": c.created_at.isoformat(),
             "signed_at": c.signed_at.isoformat() if c.signed_at else None,
+            "signature_health": _pdf_signature_health(c) if is_staff else None,
+            # 签署有效期（过期只是展示态；实际状态由签署/读取接口推进为 expired）
+            "expires_at": c.expires_at.isoformat() if c.expires_at else None,
+            "sign_order_type": c.sign_order_type.value
+            if c.sign_order_type
+            else "parallel",
         }
-        for c in contracts
-    ]
+        items.append(item)
+    return items
 
 
 @router.get("/preview/{preview_token}")
@@ -1822,6 +2401,18 @@ def get_contract(
         "file_path": contract.file_path,
         "pdf_available": _resolve_contract_pdf(contract) is not None,
         "pdf_page_count": _contract_pdf_page_count(contract),
+        # 计算态：`invalid` 表示已签 PDF 存在签名域校验未通过（历史缺陷），
+        # 前端据此提示「历史签名异常，建议重签」，不落库、不改合同状态。
+        "signature_health": _pdf_signature_health(contract),
+        # 是否已有已签 PDF 存档（决定详情页是否显示「下载已签合同」）
+        "signed_pdf_available": bool(getattr(contract, "signed_pdf_path", None)),
+        # 签署有效期与顺序编排（供列表/详情提示与顺序编排 UI 回显）
+        "expires_at": contract.expires_at.isoformat() if contract.expires_at else None,
+        "expired": bool(contract.expires_at and contract.expires_at < datetime.utcnow()),
+        "sign_order_type": contract.sign_order_type.value
+        if contract.sign_order_type
+        else "parallel",
+        "callback_url": contract.callback_url if is_staff else None,
         "can_edit": is_staff
         and contract.status
         not in (ContractStatus.signed, ContractStatus.completed, ContractStatus.voided),
@@ -1841,6 +2432,8 @@ def get_contract(
                 if p.real_name_verified_at
                 else None,
                 "signed_at": p.signed_at.isoformat() if p.signed_at else None,
+                "sign_order": p.sign_order,
+                "can_sign_now": _can_sign_now(session, contract, p),
                 "declined_at": p.declined_at.isoformat() if p.declined_at else None,
                 "decline_reason": p.decline_reason,
                 # 签署令牌属敏感凭据：只对员工回显（业主/租客本就无需链接）
@@ -1866,16 +2459,37 @@ def build_verify_report(
 ) -> dict:
     """构建合同验签报告（供站内与公开验签共用）。
 
-    口径：
-    - content_sha256 = 复算当前 content_html；
-    - sign_digest = 现有 HMAC 摘要（对当前 document_hash 做 HMAC-SHA256）；
-    - tampered = 复算 content_sha256 != document_hash；
-    - signatures = SignatureRecord 逐条，按时间升序；每条复算其 signature_hash 比对。
+    口径（BUG#3 修复后）：
+    - 生成型合同：正文 HTML 的 sha256 为权威哈希；
+    - 上传型合同：**真实文件字节**的 sha256 为权威哈希（历史数据可能按旧口径
+      哈希空正文，此类仅标记 `document_hash_legacy`，不计为篡改）；
+    - tampered = 复算权威哈希 != document_hash；
+    - signatures = SignatureRecord 逐条，按时间升序；每条复算其 signature_hash 比对；
+    - pdf_signature = 引擎内嵌签名验签结果（多人签署时每一条的 valid 均应为 1）。
     """
     provider = esign_service.get_sign_provider()
-    recomputed = esign_service.content_hash(contract.content_html or "")
+    content_sha = esign_service.content_hash(contract.content_html or "")
+    if contract.source == ContractSource.uploaded:
+        doc_digest = _contract_document_digest(contract)
+        digest_source = "file_bytes" if doc_digest else "content_html"
+        if not doc_digest:
+            doc_digest = content_sha
+    else:
+        doc_digest = content_sha
+        digest_source = "content_html"
+    # 历史上传件在修复前一律按 content_html 哈希（常见为空正文字面量），
+    # 与新的文件字节口径天然不同；识别出来只做标记，不判为篡改。
+    legacy = (
+        contract.source == ContractSource.uploaded
+        and bool(contract.document_hash)
+        and contract.document_hash == content_sha
+        and doc_digest != content_sha
+    )
+    recomputed = doc_digest
     sign_digest = provider.sign_digest(str(contract.document_hash or ""))
-    tampered = bool(contract.document_hash) and recomputed != contract.document_hash
+    tampered = (
+        bool(contract.document_hash) and not legacy and recomputed != contract.document_hash
+    )
 
     signatures = session.exec(
         select(SignatureRecord)
@@ -1976,19 +2590,37 @@ def build_verify_report(
             except Exception:  # noqa: BLE001
                 engine_report = None
 
+    pdf_signature_all_valid = None
+    if isinstance(engine_report, list) and engine_report:
+        pdf_signature_all_valid = all(item.get("valid") == 1 for item in engine_report)
+
     return {
         "contract_id": str(contract.id),
         "title": contract.title,
         "kind": contract.kind.value if contract.kind else "lease",
         "status": contract.status.value if contract.status else None,
         "document_hash": contract.document_hash,
+        # 复算出的权威哈希：生成型=正文 HTML，上传型=文件字节
         "content_sha256": recomputed,
+        "content_html_sha256": content_sha,
+        "document_hash_source": digest_source,
+        # 历史上传件按旧口径（正文哈希）落库时置 True，仅提示、不计篡改
+        "document_hash_legacy": legacy,
         "sign_digest": sign_digest,
         "tampered": tampered,
         "sign_types_summary": sign_types,
         "signatures": sig_list,
         "pdf_signature": engine_report,  # 引擎内嵌数字签名验签结果
-        "verified": not tampered and bool(sig_list),
+        "pdf_signed": bool(getattr(contract, "signed_pdf_path", None)),
+        # 多人依次签署后，每条内嵌签名的 valid 都应为 1
+        "pdf_signature_valid_all": pdf_signature_all_valid,
+        # `verified` 必须同时满足：内容未篡改、留有签署记录、PDF 签名域全部有效。
+        # 历史双签文件中前一位 `valid=0` 时，不能笼统显示「验签通过」。
+        "verified": (
+            not tampered
+            and bool(sig_list)
+            and pdf_signature_all_valid is not False
+        ),
     }
 
 
@@ -2001,3 +2633,193 @@ def verify_contract(
     """验签报告（员工可访问）。详见 `build_verify_report`。"""
     contract = _get_visible_contract(session, user, contract_id)
     return build_verify_report(session, contract)
+
+
+@router.get("/{contract_id}/signed-file")
+def download_signed_contract(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """下载已签 PDF（需可见权限；不暴露上传目录）。未产出已签件时 404。"""
+    contract = _get_visible_contract(session, user, contract_id)
+    signed = getattr(contract, "signed_pdf_path", None)
+    if not signed or not Path(signed).exists():
+        raise HTTPException(status_code=404, detail="Signed file not available")
+    name = f"{contract.contract_no or 'contract'}_signed.pdf"
+    return FileResponse(
+        Path(signed), media_type="application/pdf", filename=name
+    )
+
+
+def _build_evidence_report_pdf(contract: Contract, report: dict, parties) -> bytes:
+    """生成存证报告 PDF（内容哈希 + 签署留痕 + 内嵌签名校验）。
+
+    全部数据来自当前存档的实时计算结果，不读写数据库标记位。
+    """
+    import html
+    from io import BytesIO
+
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+
+    from app.services import kaifang_sign_service
+
+    engine = kaifang_sign_service.get_engine()
+    font = engine._font()
+    base = ParagraphStyle("base", fontName=font, fontSize=9.5, leading=14)
+    h1 = ParagraphStyle("h1", parent=base, fontSize=16, leading=22, spaceAfter=6)
+    h2 = ParagraphStyle("h2", parent=base, fontSize=11.5, leading=17, spaceBefore=10, spaceAfter=5)
+    small = ParagraphStyle("small", parent=base, fontSize=8, leading=11, textColor=colors.grey)
+
+    def p(value, style=base) -> Paragraph:
+        return Paragraph(html.escape("" if value is None else str(value)), style)
+
+    def table(rows, widths):
+        t = Table([[p(c) for c in row] for row in rows], colWidths=widths)
+        t.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d8dde3")),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f5f8")),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        return t
+
+    if report.get("tampered"):
+        verdict = "内容哈希与存档不一致，存在篡改风险。"
+    elif report.get("pdf_signature_valid_all") is False:
+        verdict = "存在校验未通过的 PDF 签名域（历史签名异常），建议重新签署。"
+    elif report.get("verified"):
+        verdict = "验签通过：内容未篡改，且全部 PDF 签名域校验通过。"
+    else:
+        verdict = "无有效签署记录，无法确认合同效力。"
+
+    story = [
+        Paragraph("电子合同存证报告", h1),
+        p(f"合同编号：{contract.contract_no or '-'}    生成时间：{datetime.utcnow().isoformat()}Z"),
+        Paragraph("一、合同信息", h2),
+        table(
+            [
+                ["项目", "内容"],
+                ["标题", contract.title or "-"],
+                ["状态", contract.status.value if contract.status else "-"],
+                ["来源", contract.source.value if contract.source else "-"],
+                ["语言", contract.language or "-"],
+                ["创建时间", contract.created_at.isoformat() if contract.created_at else "-"],
+                ["签署完成时间", contract.signed_at.isoformat() if contract.signed_at else "-"],
+            ],
+            [90, 390],
+        ),
+        Paragraph("二、内容完整性", h2),
+        table(
+            [
+                ["项目", "内容"],
+                ["存档哈希 document_hash", report.get("document_hash") or "-"],
+                ["哈希口径", report.get("document_hash_source") or "-"],
+                ["复算哈希", report.get("content_sha256") or "-"],
+                ["历史旧口径", "是（仅提示，不计篡改）" if report.get("document_hash_legacy") else "否"],
+                ["是否篡改", "是" if report.get("tampered") else "否"],
+            ],
+            [110, 370],
+        ),
+        Paragraph("三、签署方", h2),
+        table(
+            [["签署方", "角色", "状态", "签署时间"]]
+            + [
+                [
+                    x.name or "-",
+                    x.role.value if x.role else "-",
+                    "已签署" if x.signed else ("已拒签" if x.declined_at else "待签署"),
+                    x.signed_at.isoformat() if x.signed_at else "-",
+                ]
+                for x in parties
+            ],
+            [150, 90, 90, 150],
+        ),
+    ]
+
+    sigs = report.get("signatures") or []
+    story.append(Paragraph("四、签署留痕", h2))
+    if sigs:
+        story.append(
+            table(
+                [["签署人", "方式", "时间", "IP", "签名哈希", "校验"]]
+                + [
+                    [
+                        s.get("party_name") or s.get("signer_name") or "-",
+                        s.get("method") or "-",
+                        s.get("signed_at") or "-",
+                        s.get("ip") or "-",
+                        (s.get("signature_hash") or "-")[:16],
+                        "通过" if s.get("signature_success") else "未通过",
+                    ]
+                    for s in sigs
+                ],
+                [90, 80, 120, 80, 70, 40],
+            )
+        )
+    else:
+        story.append(p("无签署留痕。", small))
+
+    pdf_sigs = report.get("pdf_signature") or []
+    story.append(Paragraph("五、PDF 内嵌签名", h2))
+    if pdf_sigs:
+        story.append(
+            table(
+                [["#", "签名主体", "签名域", "校验结果"]]
+                + [
+                    [
+                        str(i + 1),
+                        s.get("signed_by") or "-",
+                        s.get("field_name") or "-",
+                        "valid=1（通过）" if int(s.get("valid", 0)) == 1 else f"valid={s.get('valid')}（未通过）",
+                    ]
+                    for i, s in enumerate(pdf_sigs)
+                ],
+                [30, 190, 130, 130],
+            )
+        )
+    else:
+        story.append(p("无 PDF 内嵌签名（或尚未产出已签 PDF）。", small))
+
+    story += [
+        Paragraph("六、结论", h2),
+        p(verdict),
+        Spacer(1, 8),
+        p("说明：本报告由系统按当前存档实时计算生成，仅用于存证与审计参考，不改变合同状态。", small),
+    ]
+
+    stream = BytesIO()
+    engine._pdf_doc(stream).build(story)
+    return stream.getvalue()
+
+
+@router.get("/{contract_id}/evidence-report")
+def download_evidence_report(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """下载存证报告（PDF，需可见权限，含内容哈希与签名校验结论）。"""
+    contract = _get_visible_contract(session, user, contract_id)
+    report = build_verify_report(session, contract)
+    parties = session.exec(
+        select(ContractParty)
+        .where(ContractParty.contract_id == contract_id)
+        .order_by(ContractParty.created_at.asc())
+    ).all()
+    content = _build_evidence_report_pdf(contract, report, parties)
+    name = f"{contract.contract_no or 'contract'}_evidence.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )

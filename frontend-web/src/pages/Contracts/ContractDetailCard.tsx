@@ -4,6 +4,9 @@
  */
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { message } from 'antd'
+import { downloadFile } from '@/lib/download'
+import { errorText } from '@/lib/errorText'
 import { absSignUrl, statusLabel } from './contractTypes'
 import type { ContractDetail } from './hooks/useSignFields'
 
@@ -11,6 +14,7 @@ export default function ContractDetailCard({
   detail,
   canEdit,
   onCopyLink,
+  onShowQr,
   onSend,
   onOpenPreview,
   onOpenSigLib,
@@ -18,10 +22,13 @@ export default function ContractDetailCard({
   onOpenParty,
   onOpenVoid,
   onDecline,
+  onOpenSignOrder,
+  onOpenCallback,
 }: {
   detail: ContractDetail
   canEdit?: boolean
   onCopyLink: (partyId: string) => void
+  onShowQr: (partyId: string) => void
   onSend: () => void
   onOpenPreview: () => void
   onOpenSigLib: (type: string) => void
@@ -29,11 +36,30 @@ export default function ContractDetailCard({
   onOpenParty: () => void
   onOpenVoid: () => void
   onDecline: (partyId: string) => void
+  onOpenSignOrder: () => void
+  onOpenCallback: () => void
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
 
   if (!detail.contract) return null
+
+  const contract = detail.contract
+  // 有效期只对「还在流转中」的合同有意义：已签/已完成/已作废不应显示「已过期」
+  const showExpiry =
+    !!contract.expires_at &&
+    ['draft', 'sent', 'partially_signed'].includes(contract.status)
+  // 已签件只有实际产出了存档才显示下载入口（历史合同可能从未产出 PDF）
+  const canDownloadSigned = !!contract.signed_pdf_available
+  // 存证报告按当前存档实时计算，只要进入签署流程就有意义
+  const canDownloadEvidence =
+    canDownloadSigned || ['partially_signed', 'signed', 'completed'].includes(contract.status)
+
+  const handleDownload = (path: string, fallbackName: string) => {
+    downloadFile(path, fallbackName).catch((err) => {
+      message.error(errorText(err, t('contracts.downloadFailed')))
+    })
+  }
 
   return (
     <div className="rent-card rent-mt-5">
@@ -42,8 +68,38 @@ export default function ContractDetailCard({
         <span className="rent-badge rent-badge--neutral">
           {statusLabel[detail.contract.status] ? t(statusLabel[detail.contract.status]) : detail.contract.status}
         </span>
+        {detail.contract.sign_order_type === 'sequential' && (
+          <span className="rent-badge rent-badge--neutral">{t('contracts.signOrderSequential')}</span>
+        )}
+        {showExpiry && (
+          <span className={`rent-badge ${contract.expired ? 'rent-badge--warning' : 'rent-badge--neutral'}`}>
+            {contract.expired
+              ? t('contracts.expiredBadge')
+              : t('contracts.expiresAt', { at: new Date(contract.expires_at as string).toLocaleString() })}
+          </span>
+        )}
       </div>
       <div className="rent-card__body">
+        {detail.contract.signature_health === 'invalid' && (
+          <div
+            className="rent-badge rent-badge--warning"
+            style={{ display: 'block', padding: '10px 12px', marginBottom: 12, whiteSpace: 'normal' }}
+          >
+            <b>{t('contracts.signatureInvalid')}</b>
+            <div className="rent-text-sm" style={{ marginTop: 4 }}>
+              {t('contracts.signatureInvalidTip')}
+            </div>
+          </div>
+        )}
+        {showExpiry && contract.expired && (
+          <div
+            className="rent-badge rent-badge--warning"
+            style={{ display: 'block', padding: '10px 12px', marginBottom: 12, whiteSpace: 'normal' }}
+          >
+            <b>{t('contracts.expiredBadge')}</b>
+            <div className="rent-text-sm" style={{ marginTop: 4 }}>{t('contracts.expiredTip')}</div>
+          </div>
+        )}
         <div className="rent-grid rent-grid--2 rent-mb-3">
           {detail.parties.length === 0 ? (
             <div className="rent-empty">{t('contracts.noParties')}</div>
@@ -56,6 +112,16 @@ export default function ContractDetailCard({
                     {p.signed ? (
                       <span className="rent-badge rent-badge--success" style={{ marginLeft: 8 }}>{t('contracts.stSigned')}</span>
                     ) : null}
+                    {!p.signed && !!p.sign_order && detail.contract?.sign_order_type === 'sequential' && (
+                      <span className="rent-badge rent-badge--neutral" style={{ marginLeft: 8 }}>
+                        {t('contracts.signOrderN', { n: p.sign_order })}
+                      </span>
+                    )}
+                    {!p.signed && p.can_sign_now === false && (
+                      <span className="rent-badge rent-badge--warning" style={{ marginLeft: 8 }}>
+                        {t('contracts.waitingTurn')}
+                      </span>
+                    )}
                   </div>
                   <div className="rent-text-sm rent-text-muted">{t('contracts.roleLabel', { r: p.role })}</div>
                   {(p.email || p.phone) && (
@@ -75,6 +141,11 @@ export default function ContractDetailCard({
                   {!p.signed && canEdit && (
                     <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => onCopyLink(p.id)}>
                       {t('contracts.copyLink')}
+                    </button>
+                  )}
+                  {!p.signed && canEdit && (
+                    <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => onShowQr(p.id)}>
+                      {t('contracts.showQr')}
                     </button>
                   )}
                   {!p.signed && !p.declined_at && canEdit && (
@@ -104,13 +175,35 @@ export default function ContractDetailCard({
             <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={onOpenParty}>
               + {t('contracts.addParty')}
             </button>
+            <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={onOpenSignOrder}>
+              {t('contracts.signOrder')}
+            </button>
+            <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={onOpenCallback}>
+              {t('contracts.callback')}
+            </button>
             <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={onOpenVoid}>
               {t('contracts.void')}
             </button>
           </div>
         )}
-        <div className="rent-flex" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate(`/verify?id=${detail.contract!.id}`)}>
+        <div className="rent-flex" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+          {canDownloadSigned && (
+            <button
+              className="rent-btn rent-btn--ghost rent-btn--sm"
+              onClick={() => handleDownload(`/contracts/${contract.id}/signed-file`, `${contract.title || 'contract'}_signed.pdf`)}
+            >
+              {t('contracts.downloadSignedContract')}
+            </button>
+          )}
+          {canDownloadEvidence && (
+            <button
+              className="rent-btn rent-btn--ghost rent-btn--sm"
+              onClick={() => handleDownload(`/contracts/${contract.id}/evidence-report`, `${contract.title || 'contract'}_evidence.pdf`)}
+            >
+              {t('contracts.downloadEvidenceReport')}
+            </button>
+          )}
+          <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => navigate(`/verify?id=${contract.id}`)}>
             {t('contracts.verify')}
           </button>
         </div>

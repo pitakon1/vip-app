@@ -76,7 +76,12 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         "department_id": "uuid",
     },
     # 单据编号：对外可引用的稳定编号（历史 NULL 行由 backfill_serial_numbers 回填）
-    "contracts": {"contract_no": "varchar(32)"},
+    "contracts": {
+        "contract_no": "varchar(32)",
+        # 最近一次 PDF 签章失败原因（签章异常不得静默吞掉，需可追踪）
+        "last_sign_error": "varchar(500)",
+        "last_sign_error_at": "ts",
+    },
     # terminated_at：退房日期（terminate 接口接收前端填写值，押金结算同步写入）
     "leases": {"lease_no": "varchar(32)", "terminated_at": "ts"},
     # partner_id：多合作公司共用一套库时的支付单行级隔离字段

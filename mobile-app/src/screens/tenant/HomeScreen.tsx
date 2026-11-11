@@ -13,6 +13,7 @@ import {
   FlatList,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
@@ -1023,25 +1024,38 @@ export default function HomeScreen() {
       removeClippedSubviews={Platform.OS === 'android'}
       ListHeaderComponent={
         <>
-      {/* 城市定位（左上角）+ 搜索 hero
-          - 国家/城市定位在主页左上角：点击弹出 定位选择器（链家式），写入全局 Store
-          - 城市来自全局定位 Store；未定位时回退到 hi 占位 */}
-      <TouchableOpacity
-        style={styles.locationRow}
-        activeOpacity={0.7}
-        onPress={() => navigation.navigate('LocationPicker')}
-        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-        accessibilityRole="button"
-        accessibilityLabel={t('home.selectCity')}
-      >
-        <>
-          <Ionicons name="location-outline" size={14} color={colors.ink2} />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.selectCity')}
-          </Text>
-          <Ionicons name="chevron-down" size={12} color={colors.ink3} />
-        </>
-      </TouchableOpacity>
+      {/* 黄金位横幅：主色同色系渐变 + 定位行（深墨字，白字在主色系上不达标），搜索卡压住下沿
+          - 国家/城市定位仍在主页左上角：点击弹出 定位选择器（链家式），写入全局 Store
+          - 城市来自全局定位 Store；未定位时回退到占位文案 */}
+      <View style={styles.hero}>
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+          <Defs>
+            <SvgLinearGradient id="homeHero" x1="0" y1="0" x2="0.4" y2="1">
+              <Stop offset="0" stopColor={colors.heroGradient[0]} />
+              <Stop offset="0.56" stopColor={colors.heroGradient[1]} />
+              <Stop offset="1" stopColor={colors.heroGradient[2]} />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#homeHero)" />
+        </Svg>
+        <View style={styles.heroGlow} pointerEvents="none" />
+        <TouchableOpacity
+          style={styles.locationRow}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('LocationPicker')}
+          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('home.selectCity')}
+        >
+          <>
+            <Ionicons name="location-outline" size={14} color={colors.heroInk2} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {cityLabel ? `${t('home.currentCity')} · ${cityLabel}` : t('home.selectCity')}
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={colors.heroInk2} />
+          </>
+        </TouchableOpacity>
+      </View>
       <TouchableOpacity style={styles.searchBar} activeOpacity={0.8} onPress={openSearch}>
         <Ionicons name="search" size={16} color={colors.ink3} />
         <Text style={styles.searchPlaceholder}>{t('home.searchPlaceholder')}</Text>
@@ -1051,7 +1065,8 @@ export default function HomeScreen() {
 
       {/* 分类磁贴：首页唯一的业务分类入口。
           - 点一次进对应分类页，同时把下方 rail 切到该分类（返回首页时看到的是同一类）。
-          - 公寓不单列，作为租房/新房/二手房页内的房源类型口径。 */}
+          - 公寓不单列，作为租房/新房/二手房页内的房源类型口径。
+          - 图标底为一入口一色的鲜明圆，图标白色。 */}
       <View style={styles.goldNav}>
         {BIZ_ITEMS.map((it) => (
           <TouchableOpacity
@@ -1065,8 +1080,8 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={t(it.labelKey)}
           >
-            <View style={styles.goldNavIcon}>
-              <Ionicons name={it.icon} size={22} color={colors.primary} />
+            <View style={[styles.goldNavIcon, { backgroundColor: colors.category[it.key] }]}>
+              <Ionicons name={it.icon} size={21} color={colors.onDark} />
             </View>
             <Text style={styles.goldNavLabel} numberOfLines={1}>
               {t(it.labelKey)}
@@ -1098,19 +1113,36 @@ const styles = StyleSheet.create({
   },
 
   /* 搜索 hero */
+  // 黄金位横幅：主色同色系渐变（react-native-svg 画底），白字只落在深端
+  hero: {
+    borderRadius: colors.radius.xl,
+    overflow: 'hidden',
+    paddingHorizontal: colors.spacing.lg,
+    paddingTop: colors.spacing.lg,
+    paddingBottom: colors.spacing.huge,
+  },
+  heroGlow: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    right: -50,
+    top: -70,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  // 白色搜索卡：负外边距压住横幅下沿，靠阴影形成层次（不再加描边）
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: colors.spacing.sm,
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: colors.radius.full,
+    borderRadius: colors.radius.lg,
     paddingLeft: colors.spacing.lg,
-    paddingRight: colors.spacing.lg,
-    paddingVertical: colors.spacing.xs,
+    paddingRight: colors.spacing.sm,
+    paddingVertical: colors.spacing.sm,
+    marginTop: -colors.spacing.xxl,
     marginBottom: colors.spacing.md,
-    ...colors.shadow.sm,
+    ...colors.shadow.searchCard,
   },
   searchPlaceholder: { flex: 1, fontSize: colors.fontSize.base, color: colors.ink3 },
 
@@ -1130,15 +1162,14 @@ const styles = StyleSheet.create({
   skelRows: { gap: colors.spacing.sm, marginBottom: colors.spacing.md },
   skelRow: { height: 56, borderRadius: colors.radius.md, backgroundColor: colors.muted },
 
-  /* 城市标签（固定高度占位，避免数据到达时整行跳变） */
+  /* 城市标签（横幅内浅色字；固定高度占位，避免数据到达时整行跳变） */
   locationRow: {
     height: 22,
     flexDirection: 'row',
     alignItems: 'center',
     gap: colors.spacing.xs,
-    marginBottom: colors.spacing.sm,
   },
-  locationText: { flex: 1, fontSize: colors.fontSize.sm, fontWeight: '500', color: colors.ink2 },
+  locationText: { flex: 1, fontSize: colors.fontSize.sm, fontWeight: '600', color: colors.heroInk },
 
   /* 区块标题 */
   sectionHead: {
@@ -1225,16 +1256,25 @@ const styles = StyleSheet.create({
   },
   actBadgeText: { fontSize: 12, fontWeight: '600' },
 
-  /* 黄金导航栏：7 列「浅色淡底圆角磁贴 + 同色系彩色图标 + 深色标签」入口
-     （无卡片外壳 / 无渐变）。7 项等分整行宽度，图标与字号相应收窄以适配 */
-  // 8 个一级分类分两行排（每行 4 个）：单行 8 个会把 4 字标签（商铺办公）挤到省略号
-  goldNav: { flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 12, rowGap: 14 },
+  /* 黄金导航栏：7 列「彩色圆底 + 白图标 + 深色标签」入口
+     （图标底一入口一色，取自 colors.category；白卡承托，与横幅拉开）。
+     8 个一级分类分两行排（每行 4 个）：单行 8 个会把 4 字标签（商铺办公）挤到省略号 */
+  goldNav: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    rowGap: 14,
+    marginBottom: colors.spacing.md,
+    borderRadius: colors.radius.xl,
+    backgroundColor: colors.surface,
+    ...colors.shadow.card,
+  },
   goldNavItem: { width: '25%', alignItems: 'center' },
   goldNavIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: colors.radius.lg,
-    backgroundColor: colors.sidebarActive,
+    width: 46,
+    height: 46,
+    borderRadius: colors.radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -10,26 +10,41 @@
   box-sizing: border-box;
 }
 
-/* ===== 顶部：定位 + 搜索 ===== */
+/* ===== 顶部黄金位：主色渐变横幅（定位行浅色字）+ 压边白色搜索卡 ===== */
 .th-hero {
-  padding: 20rpx 32rpx 24rpx;
-  background: var(--card);
+  position: relative;
+  overflow: hidden;
+  padding: 24rpx 32rpx 120rpx;
+  background: var(--hero-gradient);
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-lg);
 }
 
+/* 横幅右上装饰光斑（浅色，只做层次，不承载文字） */
+.th-hero::after {
+  content: '';
+  position: absolute;
+  top: -80rpx;
+  right: -60rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .th-hero__top {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8rpx;
-  margin-bottom: 18rpx;
 }
 
 .th-hero__city {
   max-width: 480rpx;
   font-size: 32rpx;
-  font-weight: 700;
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--hero-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -37,24 +52,28 @@
 
 .th-hero__caret {
   font-size: 24rpx;
-  color: var(--ink-3);
+  color: var(--hero-ink-2);
 }
 
 .th-search {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12rpx;
+  margin: -72rpx 32rpx 0;
   padding: 0 8rpx 0 24rpx;
-  height: 88rpx;
-  border-radius: var(--radius-full);
-  background: var(--surface-2);
+  height: 100rpx;
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-search-card);
 }
 
 .th-search__input {
   flex: 1;
   min-width: 0;
-  height: 88rpx;
-  font-size: 28rpx;
+  height: 96rpx;
+  font-size: 30rpx;
   color: var(--ink);
 }
 
@@ -64,18 +83,19 @@
   align-items: center;
   justify-content: center;
   padding: 0 24rpx;
-  height: 68rpx;
-  border-radius: var(--radius-full);
+  height: 76rpx;
+  border-radius: var(--radius-md);
   background: var(--primary);
 }
 
 .th-search__btn-text {
   font-size: 26rpx;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--primary-foreground);
 }
 
-/* ===== 黄金导航：7 个分类磁贴（4 列换行） ===== */
+/* ===== 黄金导航：7 个分类入口（4 列换行）=====
+   图标底为一入口一色的鲜明圆，图标统一白色（icons.ts 内为白描边） */
 .gold-nav {
   display: flex;
   flex-wrap: wrap;
@@ -96,19 +116,28 @@
 }
 
 .gold-nav__icon {
-  width: 84rpx;
-  height: 84rpx;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: var(--cat-rent);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* 一入口一色：只用于图标底，不参与页面其他语义色 */
+.gold-nav__icon--rent { background: var(--cat-rent); }
+.gold-nav__icon--resale { background: var(--cat-resale); }
+.gold-nav__icon--new { background: var(--cat-new); }
+.gold-nav__icon--commercial { background: var(--cat-commercial); }
+.gold-nav__icon--factory { background: var(--cat-factory); }
+.gold-nav__icon--hotel { background: var(--cat-hotel); }
+.gold-nav__icon--land { background: var(--cat-land); }
+
 .gold-nav__label {
-  font-size: 25rpx;
+  font-size: 26rpx;
   font-weight: 600;
-  color: var(--ink-2);
+  color: var(--ink);
   max-width: 150rpx;
   overflow: hidden;
   text-overflow: ellipsis;

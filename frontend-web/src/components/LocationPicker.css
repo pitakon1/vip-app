@@ -31,14 +31,14 @@
 .lp-title {
   font-size: var(--rent-fs-lg);
   font-weight: 700;
-  color: #1c2733;
+  color: #171a1d;
 }
 
 .lp-close {
   border: none;
   background: transparent;
   font-size: 18px;
-  color: #98a1ab;
+  color: #858d94;
   cursor: pointer;
   padding: var(--rent-s-1);
   line-height: 1;
@@ -78,7 +78,7 @@
   display: block;
   font-size: 15px;
   font-weight: 500;
-  color: #55606c;
+  color: #4c555d;
 }
 
 .lp-left-text--active {
@@ -89,7 +89,7 @@
 .lp-left-sub {
   display: block;
   font-size: 11px;
-  color: #98a1ab;
+  color: #858d94;
   margin-top: 2px;
 }
 
@@ -117,7 +117,7 @@
 .lp-right-text {
   flex: 1;
   font-size: 15px;
-  color: #55606c;
+  color: #4c555d;
   text-align: left;
 }
 
@@ -128,13 +128,13 @@
 
 .lp-right-sub {
   font-size: 11px;
-  color: #98a1ab;
+  color: #858d94;
   margin: 0 var(--rent-s-2);
 }
 
 .lp-right-check {
   font-size: var(--rent-fs-lg);
-  color: #98a1ab;
+  color: #858d94;
   line-height: 1;
 }
 

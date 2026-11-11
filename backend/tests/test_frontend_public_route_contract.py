@@ -1,11 +1,11 @@
 """INT-10：Web 端匿名路由白名单的单一来源契约校验。
 
-Web 端 `frontend-web/src/lib/publicRoutes.ts` 决定「收到 401 时是否把访客踢回
+Web 端 `frontend-web/src/routes/publicRoutes.tsx` 决定「收到 401 时是否把访客踢回
 登录页」。这份清单此前靠手写，容易与实际路由表漂移：新增公开页漏配时只在
 未登录态复现，删除页面后残留条目又会让本该跳登录的页面静默留在原地。
+现网已收敛为「由 `PUBLIC_ROUTES` 路由表自动推导白名单」，本测试据此对账：
 
-本测试只读源码文本，不启动前端、不共享组件，做三方向对账：
-  1) 白名单 -> App.tsx 公开路由块：每条规则都必须有真实路由；
+  1) 白名单规则 -> App.tsx 公开路由块：每条规则都必须有真实路由；
   2) App.tsx 公开路由块 -> 白名单：每个公开路由都必须被覆盖（防漏配）；
   3) 后端 `/api/v1/public/` 前缀确实由 public router 统一承载（防前后端前缀漂移）。
 """
@@ -19,13 +19,12 @@ import pytest
 
 BASE_DIR = pathlib.Path(__file__).resolve().parents[2]
 APP_TSX = BASE_DIR / "frontend-web" / "src" / "App.tsx"
-PUBLIC_ROUTES_TS = BASE_DIR / "frontend-web" / "src" / "lib" / "publicRoutes.ts"
+PUBLIC_ROUTES_TS = (
+    BASE_DIR / "frontend-web" / "src" / "routes" / "publicRoutes.tsx"
+)
 
-PUBLIC_BLOCK_START = "===== 公共路由"
-PUBLIC_BLOCK_END = "业主端旧路径别名"
-
-RULE_RE = re.compile(r"\{\s*path:\s*'([^']+)'\s*,\s*match:\s*'(exact|prefix)'\s*\}")
-ROUTE_RE = re.compile(r'<Route[^>]*?\spath="([^"]+)"')
+# `PUBLIC_ROUTES` 路由表条目：{ path: '/listing/:id', element: <ListingDetail /> }
+PUBLIC_ENTRY_RE = re.compile(r"\{\s*path:\s*'([^']+)'\s*,\s*element:")
 
 
 def _read(path: pathlib.Path) -> str:
@@ -34,16 +33,32 @@ def _read(path: pathlib.Path) -> str:
 
 
 def _frontend_rules() -> list[tuple[str, str]]:
-    return [(m.group(1), m.group(2)) for m in RULE_RE.finditer(_read(PUBLIC_ROUTES_TS))]
+    """按源码规则由 PUBLIC_ROUTES 推导白名单（动态段走前缀匹配）。"""
+    rules: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for m in PUBLIC_ENTRY_RE.finditer(_read(PUBLIC_ROUTES_TS)):
+        path = m.group(1)
+        dynamic_at = path.find("/:")
+        rule = (
+            (path[:dynamic_at], "prefix")
+            if dynamic_at >= 0
+            else (path, "exact")
+        )
+        if rule[0] in seen:
+            continue
+        seen.add(rule[0])
+        rules.append(rule)
+    return rules
 
 
 def _declared_public_routes() -> list[str]:
-    """截取 App.tsx 的「公共路由」区块，避免把受保护路由误算成公开路由。"""
+    """App.tsx 直接消费共享路由表，这里校验它确实渲染 `PUBLIC_ROUTES`。"""
     text = _read(APP_TSX)
-    start = text.index(PUBLIC_BLOCK_START)
-    end = text.index(PUBLIC_BLOCK_END, start)
-    block = text[start:end]
-    return [m.group(1) for m in ROUTE_RE.finditer(block)]
+    assert "PUBLIC_ROUTES.map" in text, (
+        "App.tsx 未消费 routes/publicRoutes.tsx 的 PUBLIC_ROUTES，"
+        "公开路由与 401 白名单将出现双份来源"
+    )
+    return [m.group(1) for m in PUBLIC_ENTRY_RE.finditer(_read(PUBLIC_ROUTES_TS))]
 
 
 def _covered_by_rule(route: str, rule_path: str, match: str) -> bool:

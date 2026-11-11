@@ -103,25 +103,6 @@ const buildPropertyStatusText = (
   maintenance: t('prop.statusMaintenanceLong')
 })
 
-// 租约状态（对齐后端 LeaseStatus 枚举）
-const buildLeaseStatusText = (
-  t: (k: string, p?: Record<string, string | number>) => string
-): Record<string, string> => ({
-  active: t('prop.statusRented'),
-  pending: t('lease.stPending'),
-  expired: t('lease.stExpired'),
-  terminated: t('lease.stTerminated')
-})
-
-// 押金状态（对齐后端 deposit_status）
-const buildDepositStatusText = (
-  t: (k: string, p?: Record<string, string | number>) => string
-): Record<string, string> => ({
-  held: t('tenantLease.depHeld'),
-  refunded: t('tenantLease.depRefunded'),
-  forfeited: t('opd.depForfeited')
-})
-
 const buildTypeText = (
   t: (k: string, p?: Record<string, string | number>) => string
 ): Record<string, string> => ({
@@ -199,8 +180,6 @@ export default function OwnerPropertyDetailPage() {
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const TYPE_TEXT = buildTypeText(t)
   const PROPERTY_STATUS_TEXT = buildPropertyStatusText(t)
-  const LEASE_STATUS_TEXT = buildLeaseStatusText(t)
-  const DEPOSIT_STATUS_TEXT = buildDepositStatusText(t)
   const DOC_TYPE_META = buildDocTypeMeta(t)
 
   interface DetailPayload {
@@ -253,14 +232,14 @@ export default function OwnerPropertyDetailPage() {
     .filter((p) => String(p.property_id || '') === String(propertyId))
     .sort((a, b) => toTime(b.paid_at || b.due_date || b.created_at) - toTime(a.paid_at || a.due_date || a.created_at))
 
-  // 租期进度：由真实起止日期推算
+  // 租期进度：由真实起止日期推算；剩余天数允许为负（已到期），与 App 口径一致
   const leaseStart = toTime(activeLease?.start_date)
   const leaseEnd = toTime(activeLease?.end_date)
   const termPct =
     leaseStart && leaseEnd > leaseStart
       ? Math.min(100, Math.max(0, Math.round(((Date.now() - leaseStart) / (leaseEnd - leaseStart)) * 100)))
       : 0
-  const remainDays = leaseEnd ? Math.max(Math.round((leaseEnd - Date.now()) / 86400000), 0) : 0
+  const remainDays = leaseEnd ? Math.ceil((leaseEnd - Date.now()) / 86400000) : null
 
   // 本月收益：优先用本房源本月租金账单，缺失时回退到租约月租
   const monthKey = new Date().toISOString().slice(0, 7)
@@ -403,17 +382,14 @@ export default function OwnerPropertyDetailPage() {
                     <View className='progress__bar' style={{ width: `${termPct}%` }} />
                   </View>
                   <View className='status-bar'>
-                    <Text className='status-bar__label'>
-                      {t('opd.leaseProgress', { v: LEASE_STATUS_TEXT[String(activeLease.status || '')] || '—' })}
-                      {activeLease.deposit_status
-                        ? t('opd.depositSuffix', {
-                            v: DEPOSIT_STATUS_TEXT[String(activeLease.deposit_status)] || activeLease.deposit_status
-                          })
-                        : ''}
-                    </Text>
-                    <Text className={`status-bar__value ${remainDays <= 60 ? 'status-bar__value--warning' : ''}`}>
-                      {t('opd.remainDays', { n: remainDays })}
-                    </Text>
+                    <Text className='status-bar__label'>{t('opd.leaseProgress')}</Text>
+                    {remainDays != null && (
+                      <Text className={`status-bar__value ${remainDays <= 60 ? 'status-bar__value--warning' : ''}`}>
+                        {remainDays >= 0
+                          ? t('opd.daysLeft', { n: remainDays })
+                          : t('opd.daysOverdue', { n: Math.abs(remainDays) })}
+                      </Text>
+                    )}
                   </View>
                 </View>
               )}

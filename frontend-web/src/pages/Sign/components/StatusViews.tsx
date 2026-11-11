@@ -33,8 +33,12 @@ export const DeclinedView = () => {
   )
 }
 
-/** 签署完成 */
-export const SuccessView = () => {
+/** 签署完成；签署后令牌失效，用后端随响应下发的 24h HMAC 凭证下载已签文件 */
+export const SuccessView = ({
+  download,
+}: {
+  download?: { url?: string; file_name?: string } | null
+}) => {
   const { t } = useTranslation()
   return (
     <div style={pageStyle}>
@@ -42,6 +46,20 @@ export const SuccessView = () => {
         <div className="rent-card__body" style={{ textAlign: 'center', padding: '40px 20px' }}>
           <div className="rent-text-bold" style={{ fontSize: 20, margin: '0 0 6px' }}>{t('contracts.successTitle')}</div>
           <div className="rent-text-sm rent-text-muted">{t('contracts.signedDesc')}</div>
+          {download?.url ? (
+            <div style={{ marginTop: 20 }}>
+              <a
+                className="rent-btn rent-btn--primary"
+                href={`/api/v1${download.url}`}
+                download={download.file_name || undefined}
+              >
+                {t('contracts.downloadSigned')}
+              </a>
+              <div className="rent-text-sm rent-text-muted" style={{ marginTop: 8 }}>
+                {t('contracts.downloadSignedTip')}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

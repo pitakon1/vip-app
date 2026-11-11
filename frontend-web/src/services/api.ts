@@ -222,8 +222,17 @@ export const contractsApi = {
     fd.append('file', file)
     return api.post(`/contracts/${id}/upload`, fd)
   },
-  createShareLink: (id: string, partyId: string, expiresInDays?: number) =>
-    api.post(`/contracts/${id}/share-link`, { party_id: partyId, expires_in_days: expiresInDays }),
+  // opts.reuse=true 复用未过期的既有令牌（展示二维码时不打断已复制的链接）
+  createShareLink: (
+    id: string,
+    partyId: string,
+    opts?: { expiresInDays?: number; reuse?: boolean },
+  ) =>
+    api.post(`/contracts/${id}/share-link`, {
+      party_id: partyId,
+      expires_in_days: opts?.expiresInDays,
+      reuse: opts?.reuse,
+    }),
   // channels 支持 ["in_app","email","sms"]；sms 需签署方有 phone
   sendContract: (id: string, body?: RequestBody) =>
     api.post(`/contracts/${id}/send`, body || {}),
@@ -238,8 +247,8 @@ export const contractsApi = {
   // PDF 页图（PNG，需 Bearer）：以 blob → objectURL 返回，供 <img> 直接渲染
   pdfPage: (id: string, page: number) =>
     fetchPdfPageUrl(`/contracts/${id}/pdf-pages/${page}`),
-  // 完整 PDF 下载/查看 URL（带 Bearer，需在请求层附加 token）
-  pdfFileUrl: (id: string) => `/api/v1/contracts/${id}/pdf`,
+  // 完整 PDF 走 downloadFile('/contracts/{id}/signed-file' | '/pdf')，不再提供裸 URL helper：
+  // axios 需要 Bearer，直接拼 URL 交给 <a>/<iframe> 会 401。
   // 登录态按字段签署：opts={fieldId?, method?, partyId?, signatureSvg?, code?}
   // method ∈ personal_handwrite / personal_seal / company_seal / date
   // code 为签前「签署意愿二次验证码」（POST /sign-code 下发），有联系方式时必传
@@ -282,11 +291,23 @@ export const contractsApi = {
     api.post(`/contracts/${id}/keyword-fields`, data),
   // 验签报告（员工）：GET /contracts/{id}/verify
   verify: (id: string) => api.get(`/contracts/${id}/verify`),
+  // 上传件转 PDF 失败后的重试（doc/docx/xls/xlsx 需服务端配置 Gotenberg）
+  retryConvertPdf: (id: string) => api.post(`/contracts/${id}/convert-pdf`, {}),
+  // 多人签署顺序编排：data={type: 'parallel'|'sequential', orders: [{party_id, order}]}
+  setSignOrder: (id: string, data: RequestBody) =>
+    api.post(`/contracts/${id}/sign-order`, data),
+  // 签署完成回调：url 留空即关闭；首次配置返回明文 callback_secret（仅此一次）
+  setCallback: (id: string, url: string) => api.post(`/contracts/${id}/callback`, { url }),
+  // 回调投递记录（排障）：GET /contracts/{id}/callbacks
+  listCallbacks: (id: string) => api.get(`/contracts/${id}/callbacks`),
+  // 人工重投最近一次回调：POST /contracts/{id}/callback/retry
+  retryCallback: (id: string) => api.post(`/contracts/${id}/callback/retry`, {}),
 }
 
 // 个人签名/印章资产库（「我的签名 / 印章」，仅本人可读写删）
+// scope=company 为企业印章库：仅员工可读写，且只允许 asset_type=seal
 export const signAssetsApi = {
-  // GET /sign-assets?asset_type=handwrite|seal → SignAsset[]
+  // GET /sign-assets?asset_type=handwrite|seal&scope=personal|company → SignAsset[]
   list: (params?: QueryParams) => api.get('/sign-assets', { params }),
   // 保存签名/印章（payload: {name, asset_type, source, data_url}）
   create: (data: RequestBody) => api.post('/sign-assets', data),
@@ -334,8 +355,6 @@ export const contractsPublicApi = {
   // 公共签署 PDF 页图（无鉴权，token 即身份）：可直接作 <img src>
   pdfPageUrl: (token: string, page: number) =>
     `/api/v1/public/contract-sign/${token}/pdf-pages/${page}`,
-  // 公共签署完整 PDF（URL，无鉴权）
-  pdfFileUrl: (token: string) => `/api/v1/public/contract-sign/${token}/pdf`,
 }
 
 // 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）

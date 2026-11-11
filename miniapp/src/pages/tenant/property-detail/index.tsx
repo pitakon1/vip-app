@@ -552,7 +552,7 @@ export default function TenantPropertyDetailPage() {
                             type='digit'
                             value={rateInput}
                             placeholder={t('tpd.ratePlaceholder')}
-                            placeholderStyle='color:#98a1ab'
+                            placeholderStyle='color:#858d94'
                             onInput={(e: any) => setRateInput(e.detail.value)}
                           />
                           <Text className='loan-input__unit'>%</Text>
@@ -698,7 +698,7 @@ export default function TenantPropertyDetailPage() {
               className='book-sheet__input'
               value={bookingNote}
               placeholder={t('tpd.bookNotePlaceholder')}
-              placeholderStyle='color:#98a1ab'
+              placeholderStyle='color:#858d94'
               onInput={(e: any) => setBookingNote(e.detail.value)}
             />
             <View className='book-sheet__foot'>

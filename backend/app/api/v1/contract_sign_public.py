@@ -3,6 +3,10 @@
 未注册客户没走平台流程时，经纪人把免登录签署链接转发给客户，客户打开即可
 查看合同并签署，无需登录。令牌一次性、可过期，签署后立即清空。
 
+**下载已签文件**：签署成功后令牌即失效，故在提交签署的响应里下发一个
+`download` 凭证（合同 id + 过期时间 + 服务端 HMAC，24 小时有效），
+`GET /{contract_id}/signed-file` 凭该凭证下载，不暴露上传目录、不走匿名静态托管。
+
 **安全边界**：
 
 - 令牌是唯一凭据（`ContractParty.sign_token`，secrets.token_urlsafe(32)），
@@ -16,8 +20,11 @@
 """
 import hashlib
 import re
+import secrets
+import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -54,10 +61,14 @@ from .contracts import (
     _sanitize_signature_svg,
     _serialize_sign_field,
     _sign_batch_core,
+    _can_sign_now,
     build_verify_report,
 )
 
 router = APIRouter(prefix="/public/contract-sign", tags=["contract-sign"])
+
+# 签署完成后下发的只读下载凭证有效期（小时）
+_DOWNLOAD_TTL_HOURS = 24
 
 # 中国大陆身份证号：18 位数字 + 末位可 X/x
 _ID_RE = re.compile(r"^\d{17}[\dXx]$")
@@ -96,7 +107,59 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
         raise HTTPException(status_code=404, detail="Contract not found")
     if contract.status in (ContractStatus.voided, ContractStatus.rejected):
         raise HTTPException(status_code=409, detail="Contract voided")
+    # 签署有效期：过期即终态（同一处推进，避免只读页与签署接口口径不一致）
+    if contract.expires_at and contract.expires_at < datetime.utcnow():
+        if contract.status in (
+            ContractStatus.draft,
+            ContractStatus.sent,
+            ContractStatus.partially_signed,
+        ):
+            contract.status = ContractStatus.expired
+            session.add(contract)
+            session.commit()
+        raise HTTPException(status_code=410, detail="CONTRACT_EXPIRED")
     return party
+
+
+def _download_sig(contract_id: uuid.UUID, exp: int) -> str:
+    """下载凭证签名：HMAC(请求方无需登录，但必须有服务端签发的一次性授权)。"""
+    from app.services import esign_service
+
+    return esign_service.sign_digest(f"download|{contract_id}|{exp}")
+
+
+def _download_artifact(contract: Contract) -> Optional[Path]:
+    """可下载的成交文件：优先已签 PDF，其次上传原文；都没有返回 None。"""
+    signed = contract.signed_pdf_path
+    if signed:
+        path = Path(signed)
+        if path.exists():
+            return path
+    if contract.file_path:
+        if contract.source == ContractSource.uploaded:
+            try:
+                return resolve_stored_path(contract.file_path, UPLOAD_DIR, STORED_URL_PREFIX)
+            except HTTPException:
+                return None
+        path = Path(contract.file_path)
+        if path.exists():
+            return path
+    return None
+
+
+def _download_grant(contract: Contract) -> Optional[dict]:
+    """签署成功后随响应下发只读下载凭证（24h 有效，不裸露公开静态目录）。"""
+    if _download_artifact(contract) is None:
+        return None
+    exp = int(time.time()) + _DOWNLOAD_TTL_HOURS * 3600
+    return {
+        "url": (
+            f"{router.prefix}/{contract.id}/signed-file"
+            f"?exp={exp}&sig={_download_sig(contract.id, exp)}"
+        ),
+        "expires_at": datetime.utcfromtimestamp(exp).isoformat() + "Z",
+        "file_name": f"{contract.contract_no or 'contract'}{Path(contract.signed_pdf_path or contract.file_path or '').suffix or '.pdf'}",
+    }
 
 
 class SignPageOut(BaseModel):
@@ -166,6 +229,16 @@ def get_sign_page(
         "expires_at": party.sign_token_expires_at.isoformat()
         if party.sign_token_expires_at
         else None,
+        # 串行签署：当前方序号与「此刻是否轮到」
+        "sign_order_type": contract.sign_order_type.value
+        if contract.sign_order_type
+        else "parallel",
+        "sign_order": party.sign_order,
+        "can_sign_now": _can_sign_now(session, contract, party),
+        # 合同本身的签署截止时间（与链接有效期分开）
+        "sign_deadline": contract.expires_at.isoformat()
+        if contract.expires_at
+        else None,
     }
 
 
@@ -186,6 +259,33 @@ def get_sign_file(
         not_found_message="Contract file not found on disk",
     )
     return FileResponse(path)
+
+
+@router.get("/{contract_id}/signed-file")
+def download_signed_file(
+    contract_id: uuid.UUID,
+    exp: int,
+    sig: str,
+    session: Session = Depends(get_session),
+):
+    """凭签署完成后下发的 HMAC 凭证下载已签文件。
+
+    签署成功后签署链接令牌会被清空（一次性），因此不能再用 `{token}` 读取；
+    这里用「合同 id + 过期时间 + 服务端 HMAC」做只读授权，链接可安全转发给
+    本合同的签署人，且不会暴露上传目录。
+    """
+    if exp < int(time.time()):
+        raise HTTPException(status_code=410, detail="Download link expired")
+    if not secrets.compare_digest(sig, _download_sig(contract_id, exp)):
+        raise HTTPException(status_code=403, detail="Invalid download signature")
+    contract = session.get(Contract, contract_id)
+    if not contract or contract.deleted_at:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    path = _download_artifact(contract)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Signed file not found")
+    name = f"{contract.contract_no or 'contract'}{path.suffix or '.pdf'}"
+    return FileResponse(path, filename=name)
 
 
 def _pdf_path(contract) -> Optional[str]:
@@ -507,7 +607,7 @@ def submit_signature(
         clean = [it for it in items[:MAX_SIGN_BATCH_ITEMS] if isinstance(it, dict)]
         if not clean:
             raise HTTPException(status_code=400, detail="No valid sign items")
-        created, sig_hash = _sign_batch_core(
+        created, sig_hash, pdf_signed = _sign_batch_core(
             session,
             contract,
             party,
@@ -516,6 +616,7 @@ def submit_signature(
             ip=(request.client.host if request.client else None),
             created_by=party.user_id,
         )
+        session.refresh(contract)
         return {
             "signed": True,
             "signature_hash": sig_hash,
@@ -523,6 +624,9 @@ def submit_signature(
             "field_id": created[0]["field_id"] if created else None,
             "party_name": party.name,
             "contract_status": contract.status.value,
+            "pdf_signed": pdf_signed,
+            # 签署后令牌即被清空，这里下发 24h 只读下载凭证给签署人本人
+            "download": _download_grant(contract),
         }
 
     raw_svg = payload.get("signature_svg")
@@ -560,4 +664,6 @@ def submit_signature(
         "field_id": str(field_id) if field_id else None,
         "party_name": party.name,
         "contract_status": contract.status.value,
+        "pdf_signed": bool(getattr(contract, "signed_pdf_path", None)),
+        "download": _download_grant(contract),
     }

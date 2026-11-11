@@ -22,19 +22,19 @@ export const chartTheme = {
     return token('--chart-1', '#14b8a6')
   },
   get ink2(): string {
-    return token('--rent-ink-2', '#55606c')
+    return token('--rent-ink-2', '#4c555d')
   },
   get ink3(): string {
-    return token('--rent-ink-3', '#5f6b78')
+    return token('--rent-ink-3', '#68717a')
   },
   get line(): string {
-    return token('--rent-line', '#e2e5e8')
+    return token('--rent-line', '#e6e9ec')
   },
   get surface(): string {
     return token('--rent-card', '#ffffff')
   },
   get legend(): string {
-    return token('--chart-legend', '#5f6b78')
+    return token('--chart-legend', '#68717a')
   },
   get tooltipBg(): string {
     return token('--chart-tooltip-bg', '#1c2733')

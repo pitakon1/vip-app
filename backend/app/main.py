@@ -2,9 +2,10 @@
 
 创建 FastAPI 应用，配置中间件、CORS、路由、静态文件服务和 Prometheus 指标端点。
 """
+import asyncio
 import time
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +31,7 @@ from app.core.metrics import observe
 from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
 from app.db import Session, engine
+from app.services import contract_jobs
 from app.models import UserRole
 from app.providers.payment import channel_config as payment_channel_config
 from app.redis_client import get_redis_sync
@@ -189,8 +191,15 @@ async def lifespan(app: FastAPI):
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）
     with Session(engine) as session:
         seed_permissions(session)
-    yield
-    logger.info("application.stopped", app=settings.APP_NAME)
+    # 电子签后台任务：过期扫描 + 回调计划重投（进程内轻量循环，不依赖外部调度器）
+    housekeeping = asyncio.create_task(contract_jobs.housekeeping_loop())
+    try:
+        yield
+    finally:
+        housekeeping.cancel()
+        with suppress(asyncio.CancelledError):
+            await housekeeping
+        logger.info("application.stopped", app=settings.APP_NAME)
 
 
 # 交互式文档与 OpenAPI 描述只在 DEBUG 下开放：生产环境暴露它们等于把完整

@@ -21,6 +21,7 @@
     rep = engine.verify_pdf(signed)                               # 验签
 """
 import io
+import logging
 import math
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,8 @@ from typing import Any, Dict, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # 持久化 CA 身份（对应 /cert/event，测试证书；正式环境需换成受信任 CA）
@@ -387,36 +390,76 @@ class KaifangSignEngine:
 
         坐标 x/y/w/h 沿用 ContractSignField 的**百分比**约定（0-100），
         按页面宽高换算为点数。返回已增量签名的 PDF 字节。
+
+        **必须只追加、不重写**：签章图片作为「签名域外观（/AP）」由 pyhanko 直接
+        写进新增的签名域，不再用 PyMuPDF 改写页面内容流。此前实现先 `doc.save()`
+        全量重写 PDF 再签名，会破坏已有签名的 ByteRange，导致多人依次签署时
+        前一位签署人的签名校验结果为 valid=0（`valid` 为 pyhanko intact 结果）。
         """
         import fitz
+        from pyhanko.pdf_utils.images import PdfImage
+        from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
+        from pyhanko.pdf_utils.layout import (
+            AxisAlignment,
+            InnerScaling,
+            Margins,
+            SimpleBoxLayoutRule,
+        )
+        from pyhanko.sign import signers
+        from pyhanko.sign.fields import SigFieldSpec
+        from pyhanko.stamp import TextStampStyle
 
+        # 只读取页面尺寸，不落盘、不修改 PDF。
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        pg = doc[page - 1]
-        PX = pg.rect.width
-        PY = pg.rect.height
-        # 百分比 -> 点；y 由 PDF 顶部起算
-        x0 = pg.rect.x0 + PX * (x / 100.0)
-        y0 = pg.rect.y0 + PY * (y / 100.0)
+        try:
+            pg = doc[page - 1]
+            if int(getattr(pg, "rotation", 0) or 0) % 360:
+                # 旋转页面的百分比坐标需按 /Rotate 重新映射；我方生成的合同均为 0°，
+                # 这里显式失败，避免静默盖错位置（上传件不进入此链路）。
+                raise ValueError("rotated PDF pages are not supported for positional signing")
+            PX = pg.rect.width
+            PY = pg.rect.height
+            OX = pg.rect.x0
+            OY = pg.rect.y0
+        finally:
+            doc.close()
+
+        # 百分比 -> PDF 用户空间（原点左下）。y 由页面顶部起算。
+        left = OX + PX * (x / 100.0)
+        top = OY + PY - PY * (y / 100.0)
         wpt = PX * (w / 100.0)
         hpt = PY * (h / 100.0)
-        pg.insert_image((x0, y0, x0 + wpt, y0 + hpt), stream=img_png)
-        tmp = io.BytesIO()
-        doc.save(tmp, garbage=0)
-        tmp.seek(0)
-        doc.close()
+        box = (left, top - hpt, left + wpt, top)
 
-        from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
-        from pyhanko.sign import signers
+        img = Image.open(io.BytesIO(img_png)).convert("RGBA")
+        style = TextStampStyle(
+            background=PdfImage(img),
+            background_opacity=1.0,
+            stamp_text="",
+            background_layout=SimpleBoxLayoutRule(
+                x_align=AxisAlignment.ALIGN_MID,
+                y_align=AxisAlignment.ALIGN_MID,
+                margins=Margins(0, 0, 0, 0),
+                inner_content_scaling=InnerScaling.STRETCH_FILL,
+            ),
+        )
 
-        w2 = IncrementalPdfFileWriter(tmp)
+        field_name = f"VipSign{uuid.uuid4().hex[:8]}"
         meta = signers.PdfSignatureMetadata(
-            field_name=f"VipSign{uuid.uuid4().hex[:6]}",
+            field_name=field_name,
             reason=reason or None,
             location="vip app",
         )
-        ps = signers.PdfSigner(meta, signer=self.signer)
+        ps = signers.PdfSigner(
+            meta,
+            signer=self.signer,
+            timestamper=_make_timestamper(),
+            stamp_style=style,
+            new_field_spec=SigFieldSpec(field_name, on_page=page - 1, box=box),
+        )
+        writer = IncrementalPdfFileWriter(io.BytesIO(pdf_bytes))
         out = io.BytesIO()
-        ps.sign_pdf(w2, output=out)
+        ps.sign_pdf(writer, output=out)
         out.seek(0)
         return out.getvalue()
 
@@ -516,6 +559,24 @@ def _esc(v: Any) -> str:
 # 进程级单例
 # ---------------------------------------------------------------------------
 _ENGINE: Optional[KaifangSignEngine] = None
+
+
+def _make_timestamper():
+    """按配置构造 RFC 3161 时间戳客户端（未配置 `TSA_URL` 时返回 None）。
+
+    默认关闭：不内置任何商业 CA，也不做「假时间戳」占位；需要可信时间戳时
+    把 `TSA_URL` 指向自建 OpenTSA 或公共 RFC3161 服务即可（见 docs 部署说明）。
+    """
+    url = (settings.TSA_URL or "").strip()
+    if not url:
+        return None
+    try:
+        from pyhanko.sign.timestamps import HTTPTimeStamper
+
+        return HTTPTimeStamper(url, https=url.lower().startswith("https://"))
+    except Exception:  # noqa: BLE001  依赖缺失/配置错误不应阻断签署
+        logger.exception("tsa.timestamper_init_failed")
+        return None
 
 
 def get_engine() -> KaifangSignEngine:

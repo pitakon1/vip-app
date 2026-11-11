@@ -276,11 +276,12 @@ def test_sign_binds_own_party_and_uses_server_name(api):
         assert rec.signer_user_id == tenant.id, "须记录真实签署人"
 
 
-def test_staff_can_sign_on_behalf_but_name_still_server_side(api):
-    """员工可代签未绑定用户的签署方，但签名姓名仍取服务端 party.name。
+def test_staff_cannot_sign_on_behalf_of_bound_party(api):
+    """员工不得代签任何他人签署方（含已实名、未绑定账号的线下方）→ 403。
 
-    合规门控：未绑定用户的线下签署方须先完成实名（此处模拟公开端实名完成），
-    否则签署被 403 REAL_NAME_REQUIRED 拦截。
+    收紧口径：代签绕过「签署人本人意愿」，即使员工在平台内有权管理该合同，
+    也不允许替他人落签。未注册的外部签署方一律走免登录令牌链路
+    （`/public/contract-sign/{token}`，令牌绑定签署方本人）。
     """
     with Session(api.engine) as s:
         contract = Contract(
@@ -300,7 +301,7 @@ def test_staff_can_sign_on_behalf_but_name_still_server_side(api):
             name="王五（业主）",
             email="",
             role=SignerRole.landlord,
-            real_name_verified_at=datetime.utcnow(),  # 已完成实名（模拟公开端实名）
+            real_name_verified_at=datetime.utcnow(),  # 已完成实名
         )
         s.add(party)
         s.commit()
@@ -312,9 +313,9 @@ def test_staff_can_sign_on_behalf_but_name_still_server_side(api):
         f"/api/v1/contracts/{contract_id}/sign",
         json={"party_id": str(party_id), "name": "随便填"},
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code == 403, r.text
 
     with Session(api.engine) as s:
-        rec = s.exec(select(SignatureRecord)).first()
-        assert rec.signer_name == "王五（业主）"
-        assert rec.ip is not None, "IP 应取自真实请求来源"
+        assert s.exec(select(SignatureRecord)).all() == [], "代签不得留下任何留痕"
+        p = s.get(ContractParty, party_id)
+        assert p.signed is False

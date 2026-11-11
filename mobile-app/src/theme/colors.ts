@@ -6,12 +6,15 @@
  * Web 的令牌见 frontend-web/src/styles/tokens.css；两端只共享语义（主色、
  * 状态色的含义），具体尺度各自定义。
  *
+ * 中性灰阶参照贝壳「珍珠白 + 品质灰」的思路：页面底色近白、卡片纯白，
+ * 层级靠浅灰面与细边框区分，不靠加深灰块；主色与状态色保持原值。
+ *
  * 对比度（WCAG AA 正文 4.5:1）：
  * - 全站唯一青色是主题色 #14b8a6，不派生深青（#0f766e/#0d9488）或淡青（#e6f7f5/#d9f2ee）。
  * - 需要色的地方直接用 #14b8a6；其余面一律中性灰，状态色另用绿/橙/红/蓝。
- * - 主色底上的前景使用中性深墨 #1c2733（白字仅 2.49:1）。
- * - ink3 #5f6b78：白底 5.44:1、surface2 4.83:1（原 #98a1ab 白底 2.62:1，
- *   且 App 内被引用 665 次，多为 11/12px 辅助文字）
+ * - 主色底上的前景使用中性深墨 #171a1d。
+ * - ink2 #4c555d：白底 7.60:1、页面底 7.33:1
+ * - ink3 #68717a：白底 4.96:1、页面底 4.79:1（占位符统一使用 ink3）
  * - 白字仅保留在深色底（照片压暗层、深色卡片）上，与品牌青无关。
  *
  * 组件内禁止硬编码色值 / 字号 / 圆角，一律引用本对象。
@@ -21,42 +24,63 @@ export const colors = {
   primary: '#14b8a6',
   primaryRgb: '20, 184, 166',
   /** 主色底上的前景：中性深墨（不使用深青色） */
-  primaryForeground: '#1c2733',
+  primaryForeground: '#171a1d',
   /** 主色作为文字时与面同值：只用 #14b8a6 */
   primaryText: '#14b8a6',
   /** 深色 / 照片压暗层 / 高饱和状态色底上的前景：白字 */
   onDark: '#ffffff',
   /** 中性浅底（原主色浅底改为中性，避免淡青） */
-  primarySoft: '#eef0f2',
-  sidebarActive: '#e8ebee',
+  primarySoft: '#eff2f3',
+  sidebarActive: '#edf1f2',
   /** 品牌亮青：与主色同值，保留历史引用 */
   primaryBright: '#14b8a6',
   primaryBrightRgb: '20, 184, 166',
   // 中性墨色的 rgb 三元组，供 colors.alpha() 生成半透明浮层
-  inkRgb: '28, 39, 51',
+  inkRgb: '23, 26, 29',
 
   // ---- 语义色 ----
-  background: '#f6fbfa',
-  foreground: '#1c2733',
+  background: '#fafbfc',
+  foreground: '#171a1d',
   card: '#ffffff',
 
+  // ---- 首页「黄金位」横幅（主题色 #14b8a6 + 白字，已确认按原样呈现）----
+  // 白字对比度约 2.49:1，属已确认的取舍；不为对比度加深底色或改字色。
+  // 渐变只在 #1bc7b7 → #14b8a6 之间做极轻色差。
+  heroGradient: ['#1bc7b7', '#14b8a6', '#14b8a6'] as const,
+  heroInk: '#ffffff',
+  heroInk2: '#ffffff',
+  heroBorder: 'rgba(255, 255, 255, 0.45)',
+  heroChip: 'rgba(255, 255, 255, 0.18)',
+
+  // ---- 首页分类入口：一入口一色的鲜明圆底 + 白图标（白图标均 ≥3:1）----
+  // 只用于分类图标底，不参与按钮 / 链接 / 价格等语义。
+  category: {
+    rent: '#0d9488',
+    resale: '#2563eb',
+    new: '#dc2626',
+    commercial: '#ea580c',
+    factory: '#7c3aed',
+    hotel: '#db2777',
+    land: '#16a34a',
+  },
+
   // ---- 中性阶梯（中性灰，不带青/暖色偏移）----
-  ink: '#1c2733',
-  ink2: '#55606c',
-  ink3: '#5f6b78', // 辅助文字：所有底色面 ≥4.8:1
-  line: '#e2e5e8',
+  ink: '#171a1d',
+  ink2: '#4c555d',
+  ink3: '#68717a', // 辅助文字 / 占位符：所有底色面 ≥4.5:1
+  line: '#e6e9ec',
   surface: '#ffffff',
-  surface2: '#eceef1',
-  muted: '#f3f4f6',
-  mutedForeground: '#5f6b78',
-  border: '#e2e5e8',
-  input: '#e2e5e8',
+  surface2: '#f2f4f5',
+  muted: '#f4f6f7',
+  mutedForeground: '#68717a',
+  border: '#e6e9ec',
+  input: '#e6e9ec',
   // 输入填充 / 分段控件底（中性浅灰）
-  fieldFill: '#f4f5f7',
-  fieldFillBorder: '#dfe2e5',
+  fieldFill: '#f4f6f7',
+  fieldFillBorder: '#e4e7ea',
 
   // 兼容别名（历史组件使用 colors.text）
-  text: '#1c2733',
+  text: '#171a1d',
 
   // ---- 状态色（保留高饱和品牌语义；文字另行加深使用）----
   success: '#16a34a',
@@ -86,12 +110,12 @@ export const colors = {
    * ---- 标签（徽标）----
    * 全站只有一套中性标签：浅中性底 + 深中性字 + 1px 中性描边。
    * 不再按房源/学校类别分色 —— 卡面只保留价格一个强调色。
-   * 底比中性 chip（surface2）亮一档，保证层级但不抢眼；8.32:1。
+   * 底比中性 chip（surface2）亮一档，保证层级但不抢眼；9.85:1。
    */
   badge: {
-    bg: '#f4f5f7',
-    border: '#e2e5e8',
-    fg: '#3f4a54',
+    bg: '#f4f6f7',
+    border: '#e6e9ec',
+    fg: '#3a424a',
   },
 
   // ---- 第三方品牌色（OAuth 按钮）----
@@ -105,8 +129,8 @@ export const colors = {
   black: '#000000',
 
   // ---- 浅色强调底 / 描边（选中态、错误态）：中性浅底，不再用淡青 ----
-  tint: '#eef0f2',
-  tintBorder: '#c9cfd5',
+  tint: '#eff2f3',
+  tintBorder: '#d8dde1',
   errorBorder: 'rgba(220, 38, 38, 0.28)',
 
   // ---- 代码 / JSON 查看器（开发调试页）----
@@ -119,21 +143,21 @@ export const colors = {
   // ---- 阴影（更柔和、空气感；只保留 4 档使用场景）----
   shadow: {
     sm: {
-      shadowColor: '#1c2733',
+      shadowColor: '#171a1d',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.04,
       shadowRadius: 4,
       elevation: 1,
     },
     md: {
-      shadowColor: '#1c2733',
+      shadowColor: '#171a1d',
       shadowOffset: { width: 0, height: 5 },
       shadowOpacity: 0.06,
       shadowRadius: 14,
       elevation: 3,
     },
     lg: {
-      shadowColor: '#1c2733',
+      shadowColor: '#171a1d',
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.09,
       shadowRadius: 28,
@@ -147,11 +171,19 @@ export const colors = {
       elevation: 4,
     },
     card: {
-      shadowColor: '#1c2733',
+      shadowColor: '#171a1d',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 10,
       elevation: 2,
+    },
+    /** 压横幅下沿的白色搜索卡：浅青底上靠投影拉开层次 */
+    searchCard: {
+      shadowColor: '#14b8a6',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.28,
+      shadowRadius: 24,
+      elevation: 6,
     },
   },
 

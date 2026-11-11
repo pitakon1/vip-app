@@ -31,3 +31,5 @@ pyHanko==0.37.0
 pyhanko-certvalidator==0.32.1
 # 电子签引擎 PDF 读写（pypdf，页数/文本抽取兜底）
 pypdf==6.19.0
+# 免登录签署链接二维码（BSD；作为可选便利功能，生成失败不影响链接下发）
+qrcode[pil]==8.2

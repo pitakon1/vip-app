@@ -630,7 +630,7 @@ export default function MyContractsPage() {
     const tt = e?.touches?.[0]
     sigCur.current = { pts: [{ x: tt?.x ?? 0, y: tt?.y ?? 0 }], dist: 0, count: 0 }
     const ctx = Taro.createCanvasContext('mcSignCanvas')
-    ctx.setStrokeStyle('#1c2733')
+    ctx.setStrokeStyle('#171a1d')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
@@ -649,7 +649,7 @@ export default function MyContractsPage() {
     sigCur.current.count += 1
     sigCur.current.pts.push({ x: tt.x, y: tt.y })
     const ctx = Taro.createCanvasContext('mcSignCanvas')
-    ctx.setStrokeStyle('#1c2733')
+    ctx.setStrokeStyle('#171a1d')
     ctx.setLineWidth(4)
     ctx.setLineCap('round')
     ctx.setLineJoin('round')
@@ -673,7 +673,7 @@ export default function MyContractsPage() {
     ctx.clearRect(0, 0, 2000, 1000)
     sigStrokes.current.forEach((s) => {
       if (!s.pts.length) return
-      ctx.setStrokeStyle('#1c2733')
+      ctx.setStrokeStyle('#171a1d')
       ctx.setLineCap('round')
       ctx.setLineJoin('round')
       ctx.setLineWidth(s.w)
@@ -730,7 +730,7 @@ export default function MyContractsPage() {
         const d = s.pts
           .map((p, i) => `${i ? 'L' : 'M'}${(p.x - bb.minX).toFixed(1)} ${(p.y - bb.minY).toFixed(1)}`)
           .join(' ')
-        return `<path d="${d}" stroke="#1c2733" stroke-width="${s.w}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+        return `<path d="${d}" stroke="#171a1d" stroke-width="${s.w}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
       })
       .join('')
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${w.toFixed(0)}" height="${h.toFixed(0)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}">${paths}</svg>`
@@ -751,7 +751,7 @@ export default function MyContractsPage() {
     ctx.clearRect(0, 0, CW, CH)
     sigStrokes.current.forEach((s) => {
       if (!s.pts.length) return
-      ctx.setStrokeStyle('#1c2733')
+      ctx.setStrokeStyle('#171a1d')
       ctx.setLineCap('round')
       ctx.setLineJoin('round')
       ctx.setLineWidth(Math.max(1, s.w * scale))

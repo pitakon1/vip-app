@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * 合同详情及其行内操作（发送通知 / 复制签署链接 / 编辑 / 追加签署方 / 作废 / 拒签）。
  *
  * 纯结构拆分自 pages/Contracts/index.tsx：详情字段映射、请求参数与
@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { contractsApi } from '@/services/api'
 import { errorText } from '@/lib/errorText'
 import { absSignUrl } from '../contractTypes'
-import type { Contract, Party, SignField } from '../contractTypes'
+import type { CallbackEvent, Contract, Party, SignField } from '../contractTypes'
 
 export function useContractDetail({ onChanged }: { onChanged: () => void }) {
   const { t } = useTranslation()
@@ -35,6 +35,18 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
   const [declineOpen, setDeclineOpen] = useState(false)
   const [declineParty, setDeclineParty] = useState('')
   const [declineReason, setDeclineReason] = useState('')
+  // 签署顺序编排
+  const [signOrderOpen, setSignOrderOpen] = useState(false)
+  // 免登录签署链接二维码
+  const [qrOpen, setQrOpen] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [qrUrl, setQrUrl] = useState('')
+  const [qrPartyName, setQrPartyName] = useState('')
+  // 签署完成回调
+  const [callbackOpen, setCallbackOpen] = useState(false)
+  const [callbackEvents, setCallbackEvents] = useState<CallbackEvent[]>([])
+  const [callbackSecret, setCallbackSecret] = useState('')
+  const [callbackSaving, setCallbackSaving] = useState(false)
 
   const handleOpen = (id: string) => {
     contractsApi.get(id).then((res) => {
@@ -52,6 +64,13 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
           can_edit: data.can_edit,
           pdf_available: data.pdf_available,
           pdf_page_count: data.pdf_page_count,
+          // 计算态与新增编排字段：不映射会导致详情页横幅、下载按钮、过期提示全部失效
+          signature_health: data.signature_health,
+          signed_pdf_available: data.signed_pdf_available,
+          expires_at: data.expires_at,
+          expired: data.expired,
+          sign_order_type: data.sign_order_type,
+          callback_url: data.callback_url,
         },
         parties: (data.parties || []).map((p: any) => ({
           id: p.id,
@@ -66,6 +85,8 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
           sign_url: p.sign_url,
           sign_method: p.sign_method,
           real_name_verified: !!p.real_name_verified_at,
+          sign_order: p.sign_order,
+          can_sign_now: p.can_sign_now,
         })),
         signFields: (data.sign_fields || []).map((f: any) => ({
           id: f.id,
@@ -107,17 +128,37 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     }
   }
 
-  // 复制签署链接
+  // 复制签署链接：reuse=true 复用未过期令牌，避免再次点击把已发出的链接作废
   const handleCopyLink = async (partyId: string) => {
     if (!detail.contract) return
     try {
-      const res = await contractsApi.createShareLink(detail.contract.id, partyId)
+      const res = await contractsApi.createShareLink(detail.contract.id, partyId, {
+        reuse: true,
+      })
       const { url } = res.data || {}
       if (!url) throw new Error('no url')
       await copyText(absSignUrl(url))
       message.success(t('contracts.msgLinkCopied'))
     } catch {
       message.error(t('contracts.errCopyLink'))
+    }
+  }
+
+  // 展示签署链接二维码：reuse=true 复用未过期令牌，避免把刚复制出去的链接弄失效
+  const handleShowQr = async (partyId: string) => {
+    const c = detail.contract
+    if (!c) return
+    try {
+      const res = await contractsApi.createShareLink(c.id, partyId, { reuse: true })
+      const { url, qr_data_url, party_name } = res.data || {}
+      if (!url) throw new Error('no url')
+      const party = detail.parties.find((p) => p.id === partyId)
+      setQrPartyName(party?.name || party_name || '')
+      setQrUrl(absSignUrl(url))
+      setQrDataUrl(qr_data_url || '')
+      setQrOpen(true)
+    } catch {
+      message.error(t('contracts.errQr'))
     }
   }
 
@@ -256,12 +297,82 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
       })
   }
 
+  // 保存签署顺序：type=parallel 时清空序号；sequential 时只提交未签方序号
+  const handleSaveSignOrder = (
+    type: 'parallel' | 'sequential',
+    orders: { party_id: string; order: number }[],
+  ) => {
+    const c = detail.contract
+    if (!c) return
+    contractsApi
+      .setSignOrder(c.id, { type, orders: type === 'sequential' ? orders : [] })
+      .then(() => {
+        message.success(t('contracts.msgSignOrderSaved'))
+        setSignOrderOpen(false)
+        handleOpen(c.id)
+        onChanged()
+      })
+      .catch((err) => message.error(errorText(err, t('contracts.errSignOrder'))))
+  }
+
+  const loadCallbackEvents = (contractId: string) => {
+    contractsApi
+      .listCallbacks(contractId)
+      .then((res) => setCallbackEvents(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setCallbackEvents([]))
+  }
+
+  const openCallback = () => {
+    const c = detail.contract
+    if (!c) return
+    setCallbackSecret('')
+    setCallbackEvents([])
+    setCallbackOpen(true)
+    loadCallbackEvents(c.id)
+  }
+
+  // 保存回调地址：url 留空即关闭；首次配置会返回明文 secret（仅此一次）
+  const handleSaveCallback = (url: string) => {
+    const c = detail.contract
+    if (!c) return
+    setCallbackSaving(true)
+    contractsApi
+      .setCallback(c.id, url.trim())
+      .then((res) => {
+        message.success(t('contracts.msgCallbackSaved'))
+        setCallbackSecret(res.data?.callback_secret || '')
+        handleOpen(c.id)
+        loadCallbackEvents(c.id)
+      })
+      .catch((err) => message.error(errorText(err, t('contracts.errCallback'))))
+      .finally(() => setCallbackSaving(false))
+  }
+
+  const handleRetryCallback = () => {
+    const c = detail.contract
+    if (!c) return
+    contractsApi
+      .retryCallback(c.id)
+      .then((res) => {
+        if (res.data?.status === 'delivered') message.success(t('contracts.msgCallbackRetried'))
+        else message.warning(res.data?.last_error || t('contracts.errCallbackRetry'))
+        loadCallbackEvents(c.id)
+      })
+      .catch((err) => message.error(errorText(err, t('contracts.errCallbackRetry'))))
+  }
+
   return {
     detail,
     setDetail,
     canEdit,
     handleOpen,
     handleCopyLink,
+    handleShowQr,
+    qrOpen,
+    setQrOpen,
+    qrDataUrl,
+    qrUrl,
+    qrPartyName,
     handleSend,
     openEdit,
     handleEditSave,
@@ -289,6 +400,17 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     setDeclineReason,
     openDecline,
     handleDecline,
+    signOrderOpen,
+    setSignOrderOpen,
+    handleSaveSignOrder,
+    callbackOpen,
+    setCallbackOpen,
+    callbackEvents,
+    callbackSecret,
+    callbackSaving,
+    openCallback,
+    handleSaveCallback,
+    handleRetryCallback,
   }
 }
 
