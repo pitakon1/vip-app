@@ -420,7 +420,7 @@ export default function OwnerPropertyDetailPage() {
               </View>
               <View className='status-bar'>
                 <Text className='status-bar__label'>{t('opd.monthCollectionProgress')}</Text>
-                <Text className='status-bar__value status-bar__value--success'>{t('opd.receivedPct', { p: receivedPct })}</Text>
+                <Text className='status-bar__value status-bar__value--success'>{t('opd.receivedPct', { rate: receivedPct })}</Text>
               </View>
             </View>
 

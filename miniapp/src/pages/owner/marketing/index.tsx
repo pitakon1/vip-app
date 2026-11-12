@@ -897,7 +897,7 @@ export default function OwnerMarketingPage() {
               <View className='progress'>
                 <View className='progress__bar' style={{ width: `${saleStep.pct}%` }} />
               </View>
-              <Text className='card-item__sub'>{t('mkt.currentProgress', { label: saleStep.label })}</Text>
+              <Text className='card-item__sub'>{t('mkt.currentProgress', { status: saleStep.label })}</Text>
             </View>
           </>
         )}

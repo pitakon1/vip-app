@@ -361,8 +361,8 @@ export default function TenantHomePage() {
         )}
       </View>
 
-      {/* 国际学校 rail */}
-      {!loading && !failed && (home?.schools?.length ?? 0) > 0 && (
+      {/* 国际学校 rail：与 App 一致，无数据时保留区块并给空态 */}
+      {!loading && !failed && (
         <View className='th-section'>
           <View className='th-section__head'>
             <Text className='th-section__title'>{t('pub.tabSchools')}</Text>
@@ -373,6 +373,12 @@ export default function TenantHomePage() {
               {t('home.allSchools')}
             </Text>
           </View>
+          {(home?.schools?.length ?? 0) === 0 ? (
+            <View className='th-empty'>
+              <Text className='th-empty__title'>{t('home.noSchools')}</Text>
+              <Text className='th-empty__sub'>{t('home.noSchoolsSub')}</Text>
+            </View>
+          ) : (
           <ScrollView className='th-rail' scrollX>
             {home!.schools.map((s) => (
               <View key={s.id} className='th-card' onClick={() => openSchoolListings(s)}>
@@ -403,6 +409,7 @@ export default function TenantHomePage() {
               </View>
             ))}
           </ScrollView>
+          )}
         </View>
       )}
 

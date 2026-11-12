@@ -45,10 +45,14 @@ export default {
     // （报错：pages/tenant/home/index 不应该在 subPackages 中），故这几页留在主包。
     'pages/tenant/leases/detail',
     'pages/tenant/deals/index',
-    'pages/tenant/deals/detail',
-    'pages/tenant/my-contracts/index'
+    'pages/tenant/deals/detail'
   ],
   subPackages: [
+    // 电子合同签署台（低频重页，68KB+：放主包会超出 2MB 上限）
+    {
+      root: 'pages/contract',
+      pages: ['index']
+    },
     // 增值服务：服务价目 / 服务端报价 / SKU 购买（低频，独立分包）
     {
       root: 'pages/svc',

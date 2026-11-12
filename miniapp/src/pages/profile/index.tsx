@@ -44,7 +44,7 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> 
   // 通用入口（文档中心：租房文档 + 我的文档 合并）
   { key: 'documents', label: 'nav.documents', url: '/pages/tenant/documents/index', icon: 'doc' },
   // 电子合同（业主/租客签署）
-  { key: 'myContracts', label: 'contract.my', url: '/pages/tenant/my-contracts/index', icon: 'doc' },
+  { key: 'myContracts', label: 'contract.my', url: '/pages/contract/index', icon: 'doc' },
   // C 端关注/浏览历史/降价提醒：登录即可用（未登录先进登录；对齐 App）
   { key: 'favorites', label: 'nav.favorites', url: '/pages/tenant/favorites/index', icon: 'heart' },
   { key: 'history', label: 'nav.history', url: '/pages/tenant/history/index', icon: 'calendar' },
