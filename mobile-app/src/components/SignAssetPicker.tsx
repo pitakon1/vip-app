@@ -730,7 +730,7 @@ const styles = StyleSheet.create({
   modeTabActive: { borderColor: colors.primary, backgroundColor: colors.surface },
   modeTabText: { fontSize: 14, fontWeight: '600', color: colors.ink3 },
   modeTabTextActive: { color: colors.primary },
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 6, marginTop: 2 },
+  fieldLabel: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginBottom: 6, marginTop: 2 },
   styleChip: {
     alignSelf: 'flex-start',
     paddingHorizontal: 12,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   useBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  sectionLabel: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
+  sectionLabel: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
   center: { paddingVertical: 24, alignItems: 'center' },
   assetRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   assetMain: {
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
   assetName: { fontSize: 14, fontWeight: '700', color: colors.ink },
   assetMeta: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   delBtn: { width: 36, height: 40, alignItems: 'center', justifyContent: 'center' },
-  empty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 24 },
+  empty: { fontSize: colors.fontSize.caption, color: colors.ink3, textAlign: 'center', paddingVertical: 24 },
 
   // —— 印模上传裁剪 Modal ——
   cropMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 20 },

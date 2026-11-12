@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     ...colors.shadow.primary,
   },
-  tabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  tabLabel: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   tabLabelActive: { color: colors.primaryForeground, fontWeight: '700' },
 
   /* ===== 主体 ===== */
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   revenueLeft: { flex: 1 },
-  revenueLabel: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 6, fontWeight: '500' },
+  revenueLabel: { fontSize: colors.fontSize.caption, color: 'rgba(255,255,255,0.8)', marginBottom: 6, fontWeight: '500' },
   revenueNum: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 4, fontVariant: ['tabular-nums'] },
   revenueSub: { fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   revenueIcon: { marginLeft: 12, opacity: 0.9 },
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     ...colors.shadow.sm,
   },
-  todoLabel: { fontSize: 13, color: colors.ink2 },
+  todoLabel: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   todoNum: { fontSize: 20, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   /* ===== 临期租约 ===== */

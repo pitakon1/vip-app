@@ -1,4 +1,4 @@
-﻿﻿import { LIST_PAGE_SIZE } from '@/lib/pagination';
+﻿import { LIST_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: { fontSize: 20, fontWeight: '700', color: colors.primaryForeground },
   heroSub: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.alpha('255,255,255', 0.85),
     marginTop: 4,
   },
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   productFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  productPrice: { fontSize: 13, color: colors.ink2, fontWeight: '600', flex: 1, marginRight: 6 },
+  productPrice: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600', flex: 1, marginRight: 6 },
   productBuyBtn: {
     width: 26,
     height: 26,
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   },
   orderInfo: { flex: 1 },
   orderTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  orderMeta: { fontSize: 13, color: colors.ink2, marginTop: 4 },
+  orderMeta: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 4 },
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
   chipText: { fontSize: 12, fontWeight: '600' },
   emptyBox: { alignItems: 'center', paddingVertical: 32 },
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
   skuPrice: { fontSize: 20, fontWeight: '800', color: colors.error, marginTop: 4 },
   skuPriceUnit: { fontSize: 12, fontWeight: '500', color: colors.ink3 },
   specLabel: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '600',
     color: colors.ink3,
     marginTop: 16,
@@ -691,7 +691,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   qtyChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  qtyChipText: { fontSize: 13, fontWeight: '500', color: colors.ink2 },
+  qtyChipText: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink2 },
   qtyChipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
   summary: {
     marginTop: 16,
@@ -702,8 +702,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   sumRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  sumLabel: { fontSize: 13, color: colors.ink3 },
-  sumValue: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  sumLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  sumValue: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   sumTotal: { color: colors.primary, fontWeight: '700' },
   warn: { fontSize: 12, color: colors.warning, marginTop: 10 },
   // 结算条

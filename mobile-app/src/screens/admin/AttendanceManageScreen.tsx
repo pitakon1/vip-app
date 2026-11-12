@@ -1,4 +1,4 @@
-﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { BANGKOK_CENTER } from '@/constants/location';
 /**
  * 管理端「考勤管理」（对标企业微信考勤应用，四个页签）：
@@ -1836,7 +1836,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { fontSize: 13, fontWeight: '600', color: colors.ink2, textAlign: 'center', lineHeight: 18 },
+  tabText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2, textAlign: 'center', lineHeight: 18 },
   tabTextActive: { color: colors.primaryForeground },
 
   card: {
@@ -1956,7 +1956,7 @@ const styles = StyleSheet.create({
   },
   // 右侧徽标 + 校准按钮固定不被压缩，把窄屏余量留给左侧日期/备注
   dayRowRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
-  dayDate: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  dayDate: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink },
   daySub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   emptyHint: { fontSize: 12, color: colors.ink3, paddingVertical: 8 },
 
@@ -1965,7 +1965,7 @@ const styles = StyleSheet.create({
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
   metaItem: { width: '50%', marginTop: 10, paddingRight: 8 },
   metaLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 3, lineHeight: colors.lineHeight.tight},
-  metaValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  metaValue: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
 
   ghostBtn: {
     paddingHorizontal: 12,
@@ -2013,7 +2013,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontVariant: ['tabular-nums'],
   },
-  kpiUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
+  kpiUnit: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink3 },
 
   tableHead: {
     flexDirection: 'row',

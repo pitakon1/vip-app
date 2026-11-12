@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
   },
   roleTagText: { fontSize: colors.fontSize.xs, fontWeight: '700', color: colors.primary, lineHeight: colors.lineHeight.tight},
   userMeta: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink3,
     flexShrink: 1,
   },
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
   settingDesc: { fontSize: 12, color: colors.ink3, marginTop: 2 },
   footerText: {
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink3,
     marginTop: 16,
   },

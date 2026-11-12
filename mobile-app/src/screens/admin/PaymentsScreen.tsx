@@ -1,4 +1,4 @@
-﻿﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { fmtDate } from '@/utils/format';
 /**
  * 收付款管理（管理端）
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
   },
   incomeTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   incomeLeft: { flex: 1 },
-  incomeLabel: { fontSize: 13, color: colors.alpha('255, 255, 255', 0.8), marginBottom: 6 },
+  incomeLabel: { fontSize: colors.fontSize.caption, color: colors.alpha('255, 255, 255', 0.8), marginBottom: 6 },
   incomeNum: {
     fontSize: colors.fontSize['2xl'],
     fontWeight: '800',
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
   /* ===== 列表 ===== */
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chip2Active: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chip2Text: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chip2Text: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chip2TextActive: { color: '#fff', fontWeight: '600' },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
   modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: colors.radius.lg },
@@ -920,10 +920,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  detailLabel: { fontSize: 13, color: colors.ink3 },
-  detailValue: { fontSize: 13, color: colors.ink, fontWeight: '500', flex: 1, textAlign: 'right', marginLeft: 12 },
+  detailLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  detailValue: { fontSize: colors.fontSize.caption, color: colors.ink, fontWeight: '500', flex: 1, textAlign: 'right', marginLeft: 12 },
   docBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
-  docBtnText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  docBtnText: { fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '600' },
   docBox: {
     backgroundColor: colors.surface2,
     borderRadius: colors.radius.md,

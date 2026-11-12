@@ -321,9 +321,9 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 16, fontWeight: '700' },
   rowBody: { flex: 1, minWidth: 0 },
   name: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  position: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  position: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 2 },
   phone: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink2,
     marginTop: 2,
     fontVariant: ['tabular-nums'],

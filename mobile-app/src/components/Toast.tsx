@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   body: { flex: 1 },
   title: { fontSize: 14, fontWeight: '700', color: colors.ink, letterSpacing: -0.1 },
-  message: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 19 },
+  message: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: colors.spacing.xs, lineHeight: 19 },
   action: { marginTop: colors.spacing.sm, alignSelf: 'flex-start' },
-  actionText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  actionText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 });

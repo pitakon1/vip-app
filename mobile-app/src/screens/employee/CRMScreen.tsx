@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿/**
  * 客户管理（CRM）
  * 原型：admin-mobile-crm.html
  * 区块：搜索 → 阶段筛选（带计数）→ 统计行 → 客户列表
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, fontWeight: '500', color: colors.ink2 },
+  chipText: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
   chipCount: { fontSize: colors.fontSize.xs },
 
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
   stageBadge: { flexShrink: 1, borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 3 },
   stageBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
-  contactText: { flexShrink: 1, fontSize: 13, color: colors.ink3, fontVariant: ['tabular-nums'] },
+  contactText: { flexShrink: 1, fontSize: colors.fontSize.caption, color: colors.ink3, fontVariant: ['tabular-nums'] },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: colors.spacing.md },
   tag: {
     backgroundColor: colors.surface2,
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipInlineActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipInlineText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipInlineText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipInlineTextActive: { color: '#fff', fontWeight: '600' },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
   modalBtn: { flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: colors.radius.lg },

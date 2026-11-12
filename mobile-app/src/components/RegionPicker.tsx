@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     maxWidth: 220,
   },
   triggerActive: { borderColor: colors.primary, backgroundColor: colors.sidebarActive },
-  triggerText: { fontSize: 13, color: colors.ink2, fontWeight: '500', flexShrink: 1 },
+  triggerText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500', flexShrink: 1 },
   triggerTextActive: { color: colors.primary, fontWeight: '600' },
 
   mask: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', color: colors.ink },
   headRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   resetBtn: {},
-  resetText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  resetText: { fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '600' },
 
   columns: { flexDirection: 'row', flex: 1 },
   col: { flex: 1, paddingTop: 12, minWidth: 0 },
@@ -321,6 +321,6 @@ const styles = StyleSheet.create({
   },
   optAll: { borderWidth: 1, borderColor: colors.border },
   optActive: { backgroundColor: colors.sidebarActive },
-  optText: { fontSize: 13, color: colors.ink2 },
+  optText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   optTextActive: { color: colors.primary, fontWeight: '700' },
 });

@@ -1,4 +1,4 @@
-﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { fetchAllPages } from '@/lib/fetchAll';
 import { fmtDate } from '@/utils/format';
 /**
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
   statRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20 },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   leaseNo: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '700',
     color: colors.ink,
     fontVariant: ['tabular-nums'],

@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   mapTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   mapHint: { fontSize: 12, color: colors.ink3, marginTop: 4 },
   mapCenter: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  mapLoadingText: { fontSize: 13, color: colors.ink3, marginTop: 10 },
+  mapLoadingText: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 10 },
   mapEmpty: { fontSize: 14, color: colors.ink2 },
   mapRetry: {
     marginTop: 12,

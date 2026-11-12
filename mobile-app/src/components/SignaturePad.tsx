@@ -192,7 +192,7 @@ export default function SignaturePad({
 const styles = StyleSheet.create({
   wrap: { marginBottom: 6 },
   wrapFill: { flex: 1 },
-  title: { fontSize: 13, color: colors.ink3, marginBottom: 6 },
+  title: { fontSize: colors.fontSize.caption, color: colors.ink3, marginBottom: 6 },
   canvas: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -224,6 +224,6 @@ const styles = StyleSheet.create({
   ghostBtnDisabled: {
     borderColor: colors.line,
   },
-  ghostText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  ghostText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
   ghostTextDisabled: { color: colors.ink3 },
 });

@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   },
   filterTabOpen: { backgroundColor: colors.surface2 },
   filterTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
-  filterTabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 110 },
+  filterTabLabel: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500', maxWidth: 110 },
   filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
   dropPanel: {
     paddingHorizontal: 16,

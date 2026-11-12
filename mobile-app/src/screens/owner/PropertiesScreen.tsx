@@ -1,4 +1,4 @@
-﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源管理（业主端）
  * 结构对齐管理端 PropertiesScreen：搜索 → 状态筛选 → 房型/价格/面积/排序筛选 → 统计行 → 房源卡片
@@ -1548,7 +1548,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
   /* 筛选行 */
@@ -1574,7 +1574,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.alpha(colors.primaryRgb, 0.08),
   },
-  filterChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  filterChipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   filterChipTextActive: { color: colors.primary, fontWeight: '600' },
 
   /* 学校筛选项（C 端维度） */
@@ -1595,7 +1595,7 @@ const styles = StyleSheet.create({
   },
   schoolSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
   schoolList: { maxHeight: 220 },
-  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
   schoolRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1615,7 +1615,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  schoolResetText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  schoolResetText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
 
   /* 展开选项 */
   optRow: {
@@ -1634,7 +1634,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   optChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  optChipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  optChipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   optChipTextActive: { color: '#fff', fontWeight: '600' },
 
   customRow: {
@@ -1644,8 +1644,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 12,
   },
-  customLabel: { fontSize: 13, color: colors.ink2 },
-  customSep: { fontSize: 13, color: colors.ink3 },
+  customLabel: { fontSize: colors.fontSize.caption, color: colors.ink2 },
+  customSep: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   customInput: {
     flex: 1,
     height: 36,
@@ -1654,7 +1654,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: 10,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink,
   },
 
@@ -1841,7 +1841,7 @@ const styles = StyleSheet.create({
   },
   footGhost: { borderColor: colors.primary, backgroundColor: `${colors.primary}0F` },
   footDanger: { borderColor: colors.error, backgroundColor: `${colors.error}0A` },
-  footText: { fontSize: 13, fontWeight: '600' },
+  footText: { fontSize: colors.fontSize.caption, fontWeight: '600' },
 
   /* 弹窗 */
   mask: {
@@ -1871,7 +1871,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   sheetSection: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '700',
     color: colors.ink2,
     marginTop: 12,

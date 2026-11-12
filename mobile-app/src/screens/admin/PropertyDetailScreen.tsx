@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   keyLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   keyValue: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '800',
     color: colors.ink,
     marginTop: 4,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   infoItem: { width: '50%', paddingHorizontal: 10, paddingVertical: 10 },
   infoItemWide: { width: '100%' },
   infoLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 4, lineHeight: colors.lineHeight.tight},
-  infoValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  infoValue: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
 
   actionRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: 14 },
   actionCell: {
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tenantRowLabel: { fontSize: 12, color: colors.ink3 },
-  tenantRowValue: { fontSize: 13, color: colors.ink2, fontWeight: '600', flexShrink: 1 },
+  tenantRowValue: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600', flexShrink: 1 },
 
   ticketCard: {
     flexDirection: 'row',

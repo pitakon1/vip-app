@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,
   },
-  cityText: { fontSize: 13, fontWeight: '600', color: colors.primary, maxWidth: 120 },
+  cityText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primary, maxWidth: 120 },
   scroll: { paddingHorizontal: 16, paddingTop: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
   sectionHead: {
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   projectCover: { width: '100%', height: 96 },
   projectBody: { paddingHorizontal: 10, paddingVertical: 9, gap: 3 },
-  projectName: { fontSize: 13, fontWeight: '600', color: colors.text },
+  projectName: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.text },
   projectSub: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
-  projectPrice: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  projectPrice: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 });

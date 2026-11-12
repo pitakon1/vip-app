@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   segBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segBtnText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  segBtnText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
   segBtnTextActive: { color: colors.primaryForeground, fontWeight: '700' },
 
   /* 年度汇总 */
@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontVariant: ['tabular-nums'],
   },
-  heroStatUnit: { fontSize: 13, fontWeight: '500', color: colors.alpha('255, 255, 255', 0.85) },
+  heroStatUnit: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.alpha('255, 255, 255', 0.85) },
 
   sectionTitle: {
     fontSize: colors.fontSize.lg,
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
   detailTop: { flexDirection: 'row', alignItems: 'flex-start' },
   detailInfo: { flex: 1, marginRight: colors.spacing.sm },
   detailName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  detailSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  detailSub: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 2 },
   badge: { borderRadius: colors.radius.full, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: colors.fontSize.xs, fontWeight: '600' },
   detailFooter: {
@@ -1076,7 +1076,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  detailFooterLabel: { fontSize: 13, color: colors.ink3 },
+  detailFooterLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   detailAmount: {
     fontSize: 17,
     fontWeight: '700',
@@ -1105,8 +1105,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   totalLeft: { flex: 1, marginRight: colors.spacing.md },
-  totalLabel: { fontSize: 13, color: colors.ink3 },
-  totalSub: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  totalLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  totalSub: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 2 },
   totalAmount: {
     fontSize: 22,
     fontWeight: '700',

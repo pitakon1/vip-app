@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 新增楼盘（管理端/员工端）
  * 调用 projectsApi.create（ProjectCreate 契约，需 agent/admin 权限，勿向业主/租客暴露入口）。
  * 字段：name/address/city/district/developer/total_units/completion_year/tenure/avg_price/sale_status/open_date。
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 40 },
 
   headTitle: { fontSize: 22, fontWeight: '800', color: colors.ink, marginTop: 18, marginHorizontal: 20, letterSpacing: -0.4 },
-  headSub: { fontSize: 13, color: colors.ink3, marginHorizontal: 20, marginTop: 4 },
+  headSub: { fontSize: colors.fontSize.caption, color: colors.ink3, marginHorizontal: 20, marginTop: 4 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.ink2, marginHorizontal: 20, marginTop: 22, marginBottom: 8, letterSpacing: -0.2 },
 
   card: { marginHorizontal: 20, backgroundColor: colors.surface, borderRadius: colors.radius.xl, padding: 14, gap: 12, ...colors.shadow.card },
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { minHeight: colors.touch.chip, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
 
   saveBtn: { marginTop: 28, marginHorizontal: 20, height: 50, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },

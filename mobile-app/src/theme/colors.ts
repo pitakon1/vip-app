@@ -222,8 +222,10 @@ export const colors = {
   // ---- 字号（移动端独立阶梯：12 / 14 / 16 / 20 / 24，与 Web 各自一套，不互相迁就）----
   // 用方括号访问：colors.fontSize['2xl']（键名不是合法标识符）
   // lg/title/3xl 保留键名以兼容既有调用点，取值并入同一阶梯。
+  // caption=13 是历史页面大量使用的辅助字号，取值保持 13 以保证 token 化后视觉零变化。
   fontSize: {
     xs: 12,
+    caption: 13,
     sm: 14,
     base: 16,
     lg: 16,

@@ -1,4 +1,4 @@
-﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
   },
-  historyToggleText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  historyToggleText: { fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '600' },
   // Stat Row
   statRow: {
     flexDirection: 'row',
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   statusTabActive: { backgroundColor: colors.primary },
-  statusTabText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  statusTabText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   statusTabTextActive: { color: colors.primaryForeground, fontWeight: '600' },
   empty: { textAlign: 'center', color: colors.ink3, marginTop: 20 },
   ticketCard: {
@@ -647,18 +647,18 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   ticketTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  ticketCode: { fontSize: 13, color: colors.ink2 },
+  ticketCode: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   ticketTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
   chip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: colors.radius.sm },
   chipText: { fontSize: 12, fontWeight: '600' },
-  ticketDesc: { fontSize: 13, color: colors.ink2, marginBottom: 8 },
+  ticketDesc: { fontSize: colors.fontSize.caption, color: colors.ink2, marginBottom: 8 },
   ticketBottom: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   ticketBadges: { flexDirection: 'row', gap: 6 },
-  ticketDate: { fontSize: 13, color: colors.ink2 },
+  ticketDate: { fontSize: colors.fontSize.caption, color: colors.ink2 },
 
   modalWrap: {
     flex: 1,

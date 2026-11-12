@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   brandTagline: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink3,
     textAlign: 'center',
     marginBottom: 28,
@@ -712,8 +712,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   rememberRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  rememberText: { fontSize: 13, color: colors.ink2 },
-  forgotText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  rememberText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
+  forgotText: { fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '600' },
   /* 手机号登录 */
   countryField: {
     flexDirection: 'row',
@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
   legalText: { fontSize: 12, color: colors.ink3 },
   legalLink: { fontSize: 12, color: colors.primary },
   forgotHint: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink3,
     lineHeight: 20,
     textAlign: 'center',

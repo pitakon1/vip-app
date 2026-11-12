@@ -1,4 +1,4 @@
-﻿﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { errorText } from '@/lib/errorText';
 /**
  * 房源管理（管理端）
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.md,
     backgroundColor: colors.primary,
   },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+  addBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primaryForeground },
 
   // 供给入口（发布上架单 / 新增楼盘）：等宽双按钮，主次分明
   entryRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 12 },
@@ -1368,8 +1368,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   entryBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  entryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-  entryBtnTextPrimary: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+  entryBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
+  entryBtnTextPrimary: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primaryForeground },
 
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
@@ -1407,7 +1407,7 @@ const styles = StyleSheet.create({
   },
   filterTabOpen: { backgroundColor: colors.surface2 },
   filterTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
-  filterTabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
+  filterTabLabel: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
   filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
   filterTabBadge: {
     minWidth: 16,
@@ -1449,7 +1449,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
-  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
+  dropEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, paddingVertical: 12 },
   dropGroupTitle: { fontSize: 12, color: colors.ink2, marginBottom: 8, marginTop: 4 },
   filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   dropSort: { paddingVertical: 4 },
@@ -1534,7 +1534,7 @@ const styles = StyleSheet.create({
   },
   schoolSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
   schoolList: { maxHeight: 220 },
-  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
   schoolRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1554,7 +1554,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  schoolResetText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  schoolResetText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
 
   optRow: {
     flexDirection: 'row',
@@ -1574,8 +1574,8 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 4,
   },
-  customLabel: { fontSize: 13, color: colors.ink2 },
-  customSep: { fontSize: 13, color: colors.ink3 },
+  customLabel: { fontSize: colors.fontSize.caption, color: colors.ink2 },
+  customSep: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   customInput: {
     flex: 1,
     height: 36,
@@ -1584,7 +1584,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.md,
     backgroundColor: colors.surface,
     paddingHorizontal: 10,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink,
   },
 
@@ -1616,7 +1616,7 @@ const styles = StyleSheet.create({
   },
   locAreaColItem: { paddingVertical: 9, paddingHorizontal: 6 },
   locAreaColItemActive: { backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
-  locAreaColText: { fontSize: 13, color: colors.ink2 },
+  locAreaColText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   locAreaColTextActive: { color: colors.primary, fontWeight: '600' },
   locAreaBody: { flex: 1, paddingLeft: 12 },
   locAreaHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
@@ -1709,7 +1709,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.lg,
     backgroundColor: colors.primary,
   },
-  manageText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+  manageText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primaryForeground },
   assignBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1720,7 +1720,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  assignText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  assignText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primary },
   deleteBtn: {
     width: 44,
     height: 44,
@@ -1768,7 +1768,7 @@ const styles = StyleSheet.create({
   },
   modalSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
   modalLoading: { paddingVertical: 28, alignItems: 'center' },
-  modalEmpty: { paddingVertical: 28, textAlign: 'center', fontSize: 13, color: colors.ink3 },
+  modalEmpty: { paddingVertical: 28, textAlign: 'center', fontSize: colors.fontSize.caption, color: colors.ink3 },
   modalList: { marginTop: 8 },
   modalItem: {
     flexDirection: 'row',
@@ -1790,6 +1790,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface2,
   },
-  modalClearText: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  modalClearText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
   modalClearTextDisabled: { color: colors.ink3, opacity: 0.5 },
 });

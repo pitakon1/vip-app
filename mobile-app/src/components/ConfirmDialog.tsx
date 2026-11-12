@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: colors.spacing.lg,
   },
   message: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     lineHeight: 20,
     color: colors.ink2,
     textAlign: 'center',

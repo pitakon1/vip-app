@@ -904,7 +904,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.primary,
   },
   greetingLeft: { flex: 1, minWidth: 0 },
-  greetingSub: { fontSize: 13, color: colors.primaryForeground, marginTop: 2 },
+  greetingSub: { fontSize: colors.fontSize.caption, color: colors.primaryForeground, marginTop: 2 },
   greetingAvatar: {
     width: 36,
     height: 36,
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
     paddingRight: 20,
   },
   chartMore: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.primaryText,
     fontWeight: '600',
     marginTop: 4,
@@ -986,7 +986,7 @@ const styles = StyleSheet.create({
   timelineItemDivided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
   timelineTime: { width: 56 },
   timelineRange: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '700',
     color: colors.ink,
     fontVariant: ['tabular-nums'],
@@ -995,10 +995,10 @@ const styles = StyleSheet.create({
   timelineHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   timelineBody: { flex: 1, minWidth: 0 },
   timelineName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  timelineProp: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  timelineProp: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 2 },
   scheduleEmpty: { alignItems: 'center', paddingVertical: 28, gap: 6 },
-  scheduleEmptyText: { fontSize: 13, color: colors.ink3 },
-  scheduleEmptyLink: { fontSize: 13, fontWeight: '600', color: colors.primaryText },
+  scheduleEmptyText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  scheduleEmptyLink: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primaryText },
 
   /* ===== 待跟进客户列表 ===== */
   listCard: {
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
   },
-  chartKeyUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
+  chartKeyUnit: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink3 },
   chartKeyLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   chartDivider: {
     height: StyleSheet.hairlineWidth,
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  chartTitle: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  chartTitle: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
   chartTitleDelta: { fontSize: 12, fontWeight: '600', color: colors.primaryText },
   chartWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   chartCol: { flex: 1, alignItems: 'center', gap: 4 },
@@ -1164,7 +1164,7 @@ const styles = StyleSheet.create({
   calCellSelected: { backgroundColor: colors.primary },
   calCellToday: { backgroundColor: colors.alpha(colors.primaryRgb, 0.08) },
   calDayNum: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '500',
     color: colors.ink,
     fontVariant: ['tabular-nums'],
@@ -1186,7 +1186,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  calAgendaTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  calAgendaTitle: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink },
   calAgendaCount: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   calAgendaEmpty: { fontSize: 12, color: colors.ink3, paddingHorizontal: 14, paddingVertical: 14 },
   calAgendaRow: {
@@ -1206,6 +1206,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calAgendaBody: { flex: 1, minWidth: 0 },
-  calAgendaName: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  calAgendaName: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink },
   calAgendaSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
 });

@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   loading: { marginTop: 40 },
-  empty: { marginTop: 32, textAlign: 'center', color: colors.ink3, fontSize: 13 },
+  empty: { marginTop: 32, textAlign: 'center', color: colors.ink3, fontSize: colors.fontSize.caption },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   },
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   value: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  label: { marginTop: 2, fontSize: 13, color: colors.text },
+  label: { marginTop: 2, fontSize: colors.fontSize.caption, color: colors.text },
   i18n: { marginTop: 3, fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
   sysTag: { marginTop: 4, fontSize: colors.fontSize.xs, color: colors.warning, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },

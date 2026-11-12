@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   colNumSm: { width: 56, textAlign: 'right' },
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10 },
   tableRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  tableTd: { fontSize: 13 },
+  tableTd: { fontSize: colors.fontSize.caption },
   tdName: { fontWeight: '600', color: colors.ink },
   tdNum: { fontVariant: ['tabular-nums'], color: colors.ink2 },
 
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   itemStatLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
-  itemStatValue: { fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  itemStatValue: { fontSize: colors.fontSize.caption, fontWeight: '700', fontVariant: ['tabular-nums'] },
 
   card: {
     marginHorizontal: 20,

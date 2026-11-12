@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 32 },
   loading: { marginTop: 40 },
-  empty: { marginTop: 32, textAlign: 'center', color: colors.ink3, fontSize: 13 },
+  empty: { marginTop: 32, textAlign: 'center', color: colors.ink3, fontSize: colors.fontSize.caption },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',

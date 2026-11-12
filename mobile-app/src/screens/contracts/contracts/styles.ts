@@ -1,4 +1,4 @@
-﻿/** 电子合同屏幕私有样式表（样式键名与原单文件保持一致，供本屏各子组件共用）。 */
+/** 电子合同屏幕私有样式表（样式键名与原单文件保持一致，供本屏各子组件共用）。 */
 import { StyleSheet } from 'react-native';
 import colors from '@/theme/colors';
 
@@ -87,7 +87,7 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textArea: { minHeight: 160 },
-  fieldSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
+  fieldSectionTitle: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   chip: {
     minHeight: colors.touch.chip,
@@ -101,7 +101,7 @@ export const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2 },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
   /* 生成合同：范本预览 */
   genPreviewBox: {
@@ -116,12 +116,12 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '700',
     color: colors.ink3,
   },
   genPreviewScroll: { maxHeight: 300, paddingHorizontal: 12 },
-  genPreviewText: { fontSize: 13, color: colors.ink2, lineHeight: 20, paddingVertical: 10 },
+  genPreviewText: { fontSize: colors.fontSize.caption, color: colors.ink2, lineHeight: 20, paddingVertical: 10 },
 
   /* 详情 */
   detailWrap: { flex: 1, backgroundColor: colors.background },
@@ -146,10 +146,10 @@ export const styles = StyleSheet.create({
   partyId: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   partyName: { fontSize: 15, fontWeight: '700', color: colors.ink },
   partyRole: { fontSize: 12, color: colors.primary, backgroundColor: colors.sidebarActive, paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full, overflow: 'hidden' },
-  partyMeta: { fontSize: 13, color: colors.ink2, marginTop: 3 },
+  partyMeta: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 3 },
   partyDecline: { color: colors.error },
   partyActions: { marginTop: 10 },
-  partyNone: { fontSize: 13, color: colors.ink3 },
+  partyNone: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   miniBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  miniBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  miniBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
   actionWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   actionBtn: {
     flexDirection: 'row',
@@ -173,11 +173,11 @@ export const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  actionBtnText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  actionBtnText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primary },
   actionDanger: { borderColor: colors.error },
-  readOnlyHint: { fontSize: 13, color: colors.ink3, marginTop: 12 },
+  readOnlyHint: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 12 },
   contentBox: { backgroundColor: colors.surface, borderRadius: colors.radius.lg, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, padding: 14 },
-  contentText: { fontSize: 13, color: colors.ink2, lineHeight: 20 },
+  contentText: { fontSize: colors.fontSize.caption, color: colors.ink2, lineHeight: 20 },
   voidHint: { fontSize: 14, color: colors.ink2, marginBottom: 12 },
   dangerBtn: { backgroundColor: colors.error },
   dangerBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
@@ -214,7 +214,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginBottom: 14,
   },
-  defaultBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  defaultBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 
   /* 关键字签署 */
   keywordSearchRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
@@ -240,7 +240,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     marginBottom: 8,
   },
-  keywordHitText: { flex: 1, fontSize: 13, color: colors.ink2 },
+  keywordHitText: { flex: 1, fontSize: colors.fontSize.caption, color: colors.ink2 },
   keywordAddBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
 
   /* 拒签确认 */
@@ -280,7 +280,7 @@ export const styles = StyleSheet.create({
   studioCfgContent: { padding: colors.spacing.md, paddingBottom: 48 },
   studioDocCol: { flex: 1, backgroundColor: colors.surface2 },
   studioDocContent: { padding: colors.spacing.md, paddingBottom: 48 },
-  cfgSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
+  cfgSectionTitle: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
 
   /* 签署方式分段切换 */
   segRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
@@ -294,7 +294,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   segItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  segText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600' },
   segTextOn: { color: colors.primaryForeground, fontWeight: '700' },
 
   /* 资产块 */
@@ -310,7 +310,7 @@ export const styles = StyleSheet.create({
   },
   assetThumb: { width: 40, height: 40, borderRadius: colors.radius.sm, backgroundColor: colors.surface2 },
   assetInfo: { flex: 1, minWidth: 0 },
-  assetName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  assetName: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink },
   assetMeta: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   assetAct: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   assetEmpty: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 6 },
@@ -352,7 +352,7 @@ export const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.sidebarActive,
   },
-  docPlaceTipText: { flex: 1, fontSize: 13, color: colors.primary, fontWeight: '600' },
+  docPlaceTipText: { flex: 1, fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '600' },
   noPdfBox: {
     alignItems: 'center',
     gap: 10,
@@ -362,5 +362,5 @@ export const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  noPdfText: { fontSize: 13, color: colors.ink3 },
+  noPdfText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
 });

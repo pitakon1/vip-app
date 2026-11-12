@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿/**
  * 租客 / 业主「我的合同」签署页（只读为主）。
  *
  * 列出当前用户可见的合同（contractsApi.list：本人作为签署方或挂在本人租约下）。
@@ -1394,17 +1394,17 @@ const styles = StyleSheet.create({
   partyName: { fontSize: 15, fontWeight: '700', color: colors.ink },
   partyRole: { fontSize: 12, color: colors.primary, backgroundColor: colors.sidebarActive, paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full, overflow: 'hidden' },
   selfTag: { fontSize: colors.fontSize.xs, color: colors.success, backgroundColor: colors.alpha(colors.successRgb, 0.12), paddingHorizontal: 8, paddingVertical: 2, borderRadius: colors.radius.full, overflow: 'hidden', lineHeight: colors.lineHeight.tight},
-  partyStatus: { fontSize: 13, fontWeight: '700' },
-  partyMeta: { fontSize: 13, color: colors.ink2, marginTop: 3 },
+  partyStatus: { fontSize: colors.fontSize.caption, fontWeight: '700' },
+  partyMeta: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 3 },
   partyDecline: { color: colors.error },
-  partyNone: { fontSize: 13, color: colors.ink3 },
+  partyNone: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   fieldsTip: { fontSize: 12, lineHeight: 18, color: colors.ink3, marginTop: 6 },
   signBtn: { marginTop: 20, height: 50, borderRadius: colors.radius.lg, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...colors.shadow.primary },
   signBtnText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
   btnDisabled: { opacity: 0.6 },
 
   /* 签署区 */
-  sectionSub: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8, marginTop: 4 },
+  sectionSub: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginBottom: 8, marginTop: 4 },
   fieldCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1458,11 +1458,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.surface,
   },
-  libraryBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  libraryBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 
   /* 签署意愿验证 */
   intentDesc: { fontSize: 14, color: colors.ink2, marginBottom: 14 },
-  intentNotice: { fontSize: 13, color: colors.primary, marginBottom: 14 },
+  intentNotice: { fontSize: colors.fontSize.caption, color: colors.primary, marginBottom: 14 },
   intentCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   codeInput: {
     flex: 1,
@@ -1494,7 +1494,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  resendBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  resendBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
   resendWait: {
     paddingHorizontal: 12,
     paddingVertical: 11,
@@ -1526,7 +1526,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alpha(colors.warningRgb, 0.12),
     marginBottom: 14,
   },
-  realNameBannerText: { flex: 1, fontSize: 13, color: colors.ink },
+  realNameBannerText: { flex: 1, fontSize: colors.fontSize.caption, color: colors.ink },
   typeBox: {
     alignItems: 'center',
     gap: 10,
@@ -1555,7 +1555,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   paletteItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  paletteItemText: { fontSize: 13, color: colors.primary, fontWeight: '700' },
+  paletteItemText: { fontSize: colors.fontSize.caption, color: colors.primary, fontWeight: '700' },
   pdfPageWrap: {
     position: 'relative',
     marginBottom: 16,
@@ -1610,7 +1610,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  clearBtnTxtText: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  clearBtnTxtText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 
   /* ===== 双栏签署台 ===== */
   studio: { flex: 1, backgroundColor: colors.background },
@@ -1633,7 +1633,7 @@ const styles = StyleSheet.create({
   studioDocContent: { padding: colors.spacing.md, paddingBottom: 48 },
 
   cfg: {},
-  cfgSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
+  cfgSectionTitle: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink3, marginTop: 16, marginBottom: 8 },
   partyChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1663,7 +1663,7 @@ const styles = StyleSheet.create({
     borderColor: colors.error,
     backgroundColor: colors.surface,
   },
-  cfgDeclineText: { fontSize: 13, fontWeight: '700', color: colors.error },
+  cfgDeclineText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.error },
 
   segRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   segItem: {
@@ -1676,7 +1676,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   segItemOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  segText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600' },
   segTextOn: { color: colors.primaryForeground, fontWeight: '700' },
 
   /* 资产块 */
@@ -1692,7 +1692,7 @@ const styles = StyleSheet.create({
   },
   assetThumb: { width: 40, height: 40, borderRadius: colors.radius.sm, backgroundColor: colors.surface2 },
   assetInfo: { flex: 1, minWidth: 0 },
-  assetName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  assetName: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink },
   assetMeta: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   assetAct: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   assetEmpty: { flex: 1, alignItems: 'center', gap: 6, paddingVertical: 6 },
@@ -1727,7 +1727,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     marginBottom: 8,
   },
-  kwHitText: { flex: 1, fontSize: 13, color: colors.ink2 },
+  kwHitText: { flex: 1, fontSize: colors.fontSize.caption, color: colors.ink2 },
 
   /* 底部主签署按钮 */
   studioSignBtn: {
@@ -1754,7 +1754,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   pendingHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  pendingTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  pendingTitle: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink },
   pendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1765,7 +1765,7 @@ const styles = StyleSheet.create({
   },
   pendingRowSigned: { opacity: 0.6 },
   pendingRowBody: { flex: 1, minWidth: 0 },
-  pendingRowTitle: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  pendingRowTitle: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink },
   pendingRowMeta: { fontSize: 11, color: colors.ink3, marginTop: 1 },
   pendingRowState: { fontSize: 12, fontWeight: '700' },
   pendingFooter: { fontSize: 12, color: colors.ink3, marginTop: 8 },
@@ -1842,7 +1842,7 @@ const styles = StyleSheet.create({
   },
   trayThumbImg: { width: 40, height: 40 },
   trayBody: { flex: 1, minWidth: 0 },
-  trayName: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  trayName: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink },
   trayStatus: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, lineHeight: colors.lineHeight.tight},
   trayItemReady: { borderColor: colors.primary },
   trayItemCompact: { flex: 1, marginBottom: 0, padding: 8, gap: 8 },
@@ -1913,7 +1913,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  noPdfText: { fontSize: 13, color: colors.ink3 },
+  noPdfText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
 
   /* 手写签名画板操作 */
   drawPadActions: { flexDirection: 'row', gap: 10, marginTop: 16 },

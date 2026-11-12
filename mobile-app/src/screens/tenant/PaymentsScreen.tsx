@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
 
   /* 通用 banner / stat（租客） */
   banner: { backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 18, marginBottom: 12 },
-  bannerLabel: { color: colors.alpha('255,255,255', 0.85), fontSize: 13 },
+  bannerLabel: { color: colors.alpha('255,255,255', 0.85), fontSize: colors.fontSize.caption },
   bannerHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bannerBadge: { backgroundColor: colors.alpha('255,255,255', 0.2), borderRadius: colors.radius.full, paddingHorizontal: 8, paddingVertical: 2 },
   bannerBadgeText: { color: colors.primaryForeground, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
   invClose: { position: 'absolute', top: 12, right: 12, padding: 4 },
   invCenter: { alignItems: 'center', paddingVertical: 32 },
   invTitleIcon: { fontSize: 32, textAlign: 'center', marginBottom: 8 },
-  invNo: { fontSize: 13, color: colors.ink2, textAlign: 'center', marginBottom: 16 },
+  invNo: { fontSize: colors.fontSize.caption, color: colors.ink2, textAlign: 'center', marginBottom: 16 },
   invRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
   invLabel: { fontSize: 14, color: colors.ink2 },
   invLabelBold: { fontSize: 14, color: colors.ink, fontWeight: '700' },

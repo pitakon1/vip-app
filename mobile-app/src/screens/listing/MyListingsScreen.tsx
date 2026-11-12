@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   itemTitle: { flex: 1, fontSize: 16, fontWeight: '700', color: colors.ink, marginRight: 8 },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: colors.radius.full },
   badgeText: { fontSize: 12, fontWeight: '600' },
-  itemAddr: { fontSize: 13, color: colors.ink2, marginTop: 6 },
+  itemAddr: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 6 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   price: { fontSize: 20, fontWeight: '800', color: colors.ink },
   typeTag: { fontSize: 12, color: colors.ink3, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: colors.radius.full, paddingHorizontal: 8, paddingVertical: 2 },

@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   summary: {
     marginTop: 16,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '600',
     color: colors.ink2,
   },

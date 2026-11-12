@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿/**
  * 数据范围（管理端「我的 → 系统管理 → 数据范围」全屏子页）。
  *
  * 对齐 Web 端 `/system/data-scopes`：按角色配置默认可见范围，并查看/清除个别用户的
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 32 },
   loading: { marginTop: 40 },
   section: { fontSize: 14, fontWeight: '700', color: colors.ink, marginBottom: 10 },
-  empty: { fontSize: 13, color: colors.ink3, paddingVertical: 8 },
+  empty: { fontSize: colors.fontSize.caption, color: colors.ink3, paddingVertical: 8 },
   card: {
     padding: 14,
     borderRadius: colors.radius.xl,

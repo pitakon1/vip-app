@@ -1,4 +1,4 @@
-﻿﻿import { COUNT_ONLY_PAGE_SIZE, DETAIL_PAGE_SIZE } from '@/lib/pagination';
+﻿import { COUNT_ONLY_PAGE_SIZE, DETAIL_PAGE_SIZE } from '@/lib/pagination';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: colors.spacing.sm,
   },
-  galleryPlaceholderText: { fontSize: 13, color: colors.ink3 },
+  galleryPlaceholderText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   galleryCount: {
     position: 'absolute',
     right: colors.spacing.md,
@@ -1129,8 +1129,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     gap: colors.spacing.xs,
   },
-  avgBarText: { fontSize: 13, color: colors.ink2 },
-  avgGap: { fontSize: 13, fontWeight: '700' },
+  avgBarText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
+  avgGap: { fontSize: colors.fontSize.caption, fontWeight: '700' },
   avgGapHigh: { color: colors.warning },
   avgGapLow: { color: colors.success },
 
@@ -1187,7 +1187,7 @@ const styles = StyleSheet.create({
   },
   badgeSuccessText: { fontSize: 12, fontWeight: '700', color: colors.success },
   propName: { fontSize: 17, fontWeight: '700', color: colors.ink, marginTop: colors.spacing.md },
-  propAddr: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.xs },
+  propAddr: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: colors.spacing.xs },
 
   /* 核心信息 */
   factGrid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -1311,7 +1311,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
   modalProp: { fontSize: 14, color: colors.ink2 },
-  label: { fontSize: 13, color: colors.ink2, marginTop: colors.spacing.md, marginBottom: colors.spacing.xs },
+  label: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: colors.spacing.md, marginBottom: colors.spacing.xs },
   input: {
     backgroundColor: colors.surface2,
     borderWidth: 1,
@@ -1335,7 +1335,7 @@ const styles = StyleSheet.create({
     gap: colors.spacing.sm,
   },
   calcResultRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  calcResultLabel: { fontSize: 13, color: colors.ink2 },
+  calcResultLabel: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   calcResultValue: { fontSize: 14, fontWeight: '600', color: colors.ink },
   calcMonthly: { fontSize: 16, fontWeight: '700', color: colors.primary },
   calcNote: { fontSize: 12, color: colors.ink3, marginTop: colors.spacing.md },

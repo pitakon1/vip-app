@@ -1,4 +1,4 @@
-﻿﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { DETAIL_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源新增 / 编辑（管理端）
  * 区块：顶部标题 → 基础信息 → 归属（业主/小区）→ 租态 → 房源描述 → 朝向装修配套 → 照片 → 底部保存
@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     letterSpacing: -0.4,
   },
-  headSub: { fontSize: 13, color: colors.ink3, marginHorizontal: 20, marginTop: 4 },
+  headSub: { fontSize: colors.fontSize.caption, color: colors.ink3, marginHorizontal: 20, marginTop: 4 },
 
   sectionTitle: {
     fontSize: 14,
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   modalLoading: { paddingVertical: 28, alignItems: 'center' },
-  modalEmpty: { paddingVertical: 28, textAlign: 'center', fontSize: 13, color: colors.ink3 },
+  modalEmpty: { paddingVertical: 28, textAlign: 'center', fontSize: colors.fontSize.caption, color: colors.ink3 },
   modalList: { marginTop: 8 },
   modalItem: {
     paddingVertical: 12,
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },
 
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

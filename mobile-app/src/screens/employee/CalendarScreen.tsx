@@ -1353,7 +1353,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.md,
   },
   dayCellSelected: { backgroundColor: colors.alpha(colors.primaryRgb, 0.1) },
-  dayNumber: { fontSize: 13, fontWeight: '500', color: colors.ink, fontVariant: ['tabular-nums'] },
+  dayNumber: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink, fontVariant: ['tabular-nums'] },
   dayNumberMuted: { color: colors.ink3, opacity: 0.5 },
   dayNumberSelected: { color: colors.primary, fontWeight: '700' },
   dayNumberToday: { color: colors.primary, fontWeight: '800' },
@@ -1373,7 +1373,7 @@ const styles = StyleSheet.create({
   },
   selectedTitle: { fontSize: 14, fontWeight: '700', color: colors.ink },
   selectedCount: { fontSize: 12, color: colors.ink3 },
-  selectedEmpty: { fontSize: 13, color: colors.ink3, paddingHorizontal: 16, paddingVertical: 14 },
+  selectedEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, paddingHorizontal: 16, paddingVertical: 14 },
   listEventRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1446,7 +1446,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
   },
-  stripUnit: { fontSize: 13, fontWeight: '500', color: colors.ink3 },
+  stripUnit: { fontSize: colors.fontSize.caption, fontWeight: '500', color: colors.ink3 },
   stripLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, fontWeight: '500', lineHeight: colors.lineHeight.tight},
   stripSub: { fontSize: colors.fontSize.xs, color: colors.ink3, textAlign: 'center', lineHeight: colors.lineHeight.tight},
   progressWrap: {
@@ -1529,7 +1529,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
   },
-  modalLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: 16, marginBottom: 8 },
+  modalLabel: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2, marginTop: 16, marginBottom: 8 },
 
   /* 滚轮式时间选择器 */
   wheelRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -1558,7 +1558,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
   },
   eventPreview: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '600',
     color: colors.ink,
     marginTop: 16,

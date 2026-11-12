@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
   },
-  clearText: { fontSize: 13, color: colors.ink3 },
+  clearText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

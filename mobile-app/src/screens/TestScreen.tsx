@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   valueText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.text,
   },
   input: {
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.text,
   },
   accountGrid: {
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   },
   runAllBtnText: {
     color: colors.primaryForeground,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
   },
   testItem: {
     flexDirection: 'row',
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   testItemLabel: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.text,
     flex: 1,
   },
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
   },
   linkBtn: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
   },
   tag: {
     paddingHorizontal: 6,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     lineHeight: colors.lineHeight.tight,
   },
   subLabel: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink2,
     marginTop: 10,
     marginBottom: 6,
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   },
   previewBtnText: {
     color: colors.primaryForeground,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
   },
   switchRow: {
     flexDirection: 'row',

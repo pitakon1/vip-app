@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -1735,8 +1735,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
-  ruleRowLabel: { fontSize: 13, color: colors.ink3 },
-  ruleRowValue: { fontSize: 13, fontWeight: '700', color: colors.ink2, textAlign: 'right', flexShrink: 1 },
+  ruleRowLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  ruleRowValue: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.ink2, textAlign: 'right', flexShrink: 1 },
 
   // ⑥ 请假申请表单
   leaveFormCard: {
@@ -1747,7 +1747,7 @@ const styles = StyleSheet.create({
     marginHorizontal: colors.spacing.md,
     padding: colors.spacing.lg,
   },
-  formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: colors.spacing.md },
+  formLabel: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2, marginTop: colors.spacing.md },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.sm },
   chip: {
     minHeight: colors.touch.chip,

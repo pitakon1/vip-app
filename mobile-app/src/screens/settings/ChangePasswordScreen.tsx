@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   label: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink2,
     marginTop: 4,
     marginBottom: 6,

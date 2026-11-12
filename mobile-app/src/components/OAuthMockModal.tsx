@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.lg,
   },
   title: { fontSize: 17, fontWeight: colors.fontWeight.bold, color: colors.ink, textAlign: 'center' },
-  desc: { fontSize: 13, color: colors.ink2, textAlign: 'center', marginTop: 8, lineHeight: 19 },
+  desc: { fontSize: colors.fontSize.caption, color: colors.ink2, textAlign: 'center', marginTop: 8, lineHeight: 19 },
   input: {
     backgroundColor: colors.fieldFill,
     borderWidth: 1,

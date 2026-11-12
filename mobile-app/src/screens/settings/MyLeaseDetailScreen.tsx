@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
   },
   leaseBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
-  leaseMeta: { fontSize: 13, color: colors.ink2, marginTop: 8 },
+  leaseMeta: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 8 },
   leaseTrack: {
     flexDirection: 'row',
     height: 6,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   leaseFootText: { fontSize: 12, color: colors.ink3 },
   leaseRemain: { fontSize: 12, fontWeight: '700', color: colors.primary },
   leaseSub: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 6, lineHeight: colors.lineHeight.tight},
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 4 },
+  sectionLabel: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink, marginBottom: 4 },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  detailLabel: { fontSize: 13, color: colors.ink3 },
-  detailValue: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  detailLabel: { fontSize: colors.fontSize.caption, color: colors.ink3 },
+  detailValue: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink },
   linkValue: { color: colors.primary },
 });

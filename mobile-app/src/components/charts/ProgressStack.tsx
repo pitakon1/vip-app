@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   legendLabel: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.text,
     fontWeight: '500',
   },
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   legendPct: {
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     fontWeight: '600',
     color: colors.ink2,
   },

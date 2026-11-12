@@ -1,4 +1,4 @@
-﻿﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 佣金设置（管理端独立页）
  * 原型：admin-commission-rules.html
@@ -676,7 +676,7 @@ const styles = StyleSheet.create({
     padding: 18,
     ...colors.shadow.sm,
   },
-  formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
+  formLabel: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink, marginBottom: 8, marginTop: 4 },
   formGroup: { marginBottom: 4 },
   formHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 2, marginBottom: 4, lineHeight: colors.lineHeight.tight},
   inputError: { borderColor: colors.error },
@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     paddingHorizontal: 14,
-    fontSize: 13,
+    fontSize: colors.fontSize.caption,
     color: colors.ink,
   },
   selectEmpty: { paddingVertical: 12, paddingHorizontal: 14, fontSize: 12, color: colors.ink3 },
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   ruleMeta: { flexDirection: 'row', gap: 12 },
   ruleMetaItem: { flex: 1 },
   ruleMetaLabel: { fontSize: colors.fontSize.xs, color: colors.ink3, marginBottom: 4, lineHeight: colors.lineHeight.tight},
-  ruleMetaValue: { fontSize: 13, fontWeight: '600', color: colors.ink2 },
+  ruleMetaValue: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink2 },
   ruleMetaPrimary: { fontSize: 15, fontWeight: '800', color: colors.primary },
   ruleActions: {
     flexDirection: 'row',
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  loadMoreText: { fontSize: 13, fontWeight: '600', color: colors.primary },
+  loadMoreText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primary },
   cancelEditBtn: {
     paddingVertical: 12,
     alignItems: 'center',

@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
   },
   dealBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dealPrice: { fontSize: 24, fontWeight: '700', color: colors.ink, marginTop: 12 },
-  dealNotes: { fontSize: 13, color: colors.ink2, marginTop: 8, lineHeight: 20 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: colors.ink, marginBottom: 4 },
+  dealNotes: { fontSize: colors.fontSize.caption, color: colors.ink2, marginTop: 8, lineHeight: 20 },
+  sectionLabel: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink, marginBottom: 4 },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -157,6 +157,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  timelineLabel: { flex: 1, fontSize: 13, color: colors.ink2 },
-  timelineValue: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  timelineLabel: { flex: 1, fontSize: colors.fontSize.caption, color: colors.ink2 },
+  timelineValue: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.ink },
 });

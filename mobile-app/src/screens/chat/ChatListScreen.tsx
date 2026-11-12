@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   guestTitle: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: 6 },
-  guestSub: { fontSize: 13, color: colors.ink3, textAlign: 'center', marginBottom: 24 },
+  guestSub: { fontSize: colors.fontSize.caption, color: colors.ink3, textAlign: 'center', marginBottom: 24 },
   guestPrimaryBtn: {
     width: '100%',
     height: 46,

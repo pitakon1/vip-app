@@ -1,4 +1,4 @@
-﻿﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { COUNT_ONLY_PAGE_SIZE, LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 /**
  * 房源台账：搜索 + 状态/排序筛选 + 结果统计 + 房源卡片（租客信息）+ 加载更多
  * 原型：employee-mobile-properties.html（房源浏览 · 台账）
@@ -989,7 +989,7 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
     backgroundColor: colors.primary,
   },
-  addBtnText: { fontSize: 13, fontWeight: '700', color: colors.primaryForeground },
+  addBtnText: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primaryForeground },
 
   chipScroll: { marginTop: colors.spacing.md },
   chipRow: { gap: colors.spacing.sm, paddingHorizontal: colors.spacing.lg },
@@ -1031,7 +1031,7 @@ const styles = StyleSheet.create({
   },
   filterTabOpen: { backgroundColor: colors.surface2 },
   filterTabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
-  filterTabLabel: { fontSize: 13, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
+  filterTabLabel: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500', maxWidth: 92 },
   filterTabLabelActive: { color: colors.primary, fontWeight: '600' },
   filterTabBadge: {
     minWidth: 16,
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
-  dropEmpty: { fontSize: 13, color: colors.ink3, paddingVertical: 12 },
+  dropEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, paddingVertical: 12 },
   dropGroupTitle: { fontSize: 12, color: colors.ink2, marginBottom: 8, marginTop: 4 },
   filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   dropSort: { paddingVertical: 4 },
@@ -1153,7 +1153,7 @@ const styles = StyleSheet.create({
   typeBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700' },
   cardBody: { flex: 1, minWidth: 0 },
   name: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  addr: { fontSize: 13, color: colors.ink3, marginTop: 2 },
+  addr: { fontSize: colors.fontSize.caption, color: colors.ink3, marginTop: 2 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: colors.spacing.sm },
   tag: {
     backgroundColor: colors.surface2,
@@ -1236,8 +1236,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  errorBarText: { fontSize: 13, color: colors.error, flex: 1 },
-  errorBarRetry: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  errorBarText: { fontSize: colors.fontSize.caption, color: colors.error, flex: 1 },
+  errorBarRetry: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
 
   /* ---- C 端维度筛选行（学校 / 更多）---- */
   ceFilterRow: {
@@ -1257,7 +1257,7 @@ const styles = StyleSheet.create({
   ceChipText: { ...filterStyles.chipText },
   ceChipTextActive: { ...filterStyles.chipTextActive },
   ceReset: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 6 },
-  ceResetText: { fontSize: 13, color: colors.ink3 },
+  ceResetText: { fontSize: colors.fontSize.caption, color: colors.ink3 },
 
   /* ---- 底部弹层（复刻 C 端浏览页 modalMask / modalSheet / sheetHeader 系列）---- */
   filterMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
@@ -1284,7 +1284,7 @@ const styles = StyleSheet.create({
   },
   panelSearchInput: { flex: 1, fontSize: 14, color: colors.ink, padding: 0 },
   schoolList: { maxHeight: 240 },
-  schoolEmpty: { fontSize: 13, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
+  schoolEmpty: { fontSize: colors.fontSize.caption, color: colors.ink3, textAlign: 'center', paddingVertical: 16 },
   schoolRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1298,7 +1298,7 @@ const styles = StyleSheet.create({
 
   /* ---- 面板内分组 ---- */
   ceGroup: { marginBottom: colors.spacing.md },
-  ceGroupLabel: { fontSize: 13, color: colors.ink2, fontWeight: '600', marginBottom: 8 },
+  ceGroupLabel: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600', marginBottom: 8 },
   ceChips: { flexDirection: 'row', gap: colors.spacing.sm },
   // 面板内小 chip（距离 / 学校项）：与 C 端浏览页 chip 同源
   ceChipSmall: { ...filterStyles.chip },

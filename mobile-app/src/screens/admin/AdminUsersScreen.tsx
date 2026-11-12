@@ -1,4 +1,4 @@
-﻿﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
+﻿import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination';
 import { fetchAllPages } from '@/lib/fetchAll';
 /**
  * 员工管理
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
+  chipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
 
   /* ===== 列表 ===== */
@@ -1063,11 +1063,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   roleChipActive: { backgroundColor: colors.sidebarActive, borderColor: colors.primary },
-  roleChipText: { fontSize: 13, color: colors.ink2 },
+  roleChipText: { fontSize: colors.fontSize.caption, color: colors.ink2 },
   roleChipTextActive: { color: colors.primary, fontWeight: '700' },
   companychip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
   roleHint: { fontSize: 12, color: colors.ink3, marginBottom: 16 },
-  assignCurrent: { fontSize: 13, color: colors.ink, fontWeight: '600', marginBottom: 14 },
+  assignCurrent: { fontSize: colors.fontSize.caption, color: colors.ink, fontWeight: '600', marginBottom: 14 },
   assignList: { marginBottom: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' },
   assignOption: {
     flexDirection: 'row',
@@ -1092,5 +1092,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface2,
   },
-  assignMoveOutText: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  assignMoveOutText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '600' },
 });
