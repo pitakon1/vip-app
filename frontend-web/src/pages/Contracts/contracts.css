@@ -1,3 +1,29 @@
+/* 表单基元：与 Employee/attendance.css 保持同名同值（后者仅考勤页加载，合同页需自带一份） */
+.rent-field { display: flex; flex-direction: column; gap: 6px; }
+.rent-label {
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+.rent-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  font-family: var(--rent-font-sans);
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink);
+  background: var(--rent-surface);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  outline: none;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.rent-input::placeholder { color: var(--rent-ink-3); }
+.rent-input:focus {
+  border-color: var(--rent-primary);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
 .rent-contract-party {
   display: flex;
   align-items: center;
@@ -205,4 +231,139 @@
 .kf-stats__rate {
   font-size: 11px;
   opacity: 0.7;
+}
+.kf-stats__error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--rent-fs-sm);
+  color: var(--state-error-ink);
+}
+
+/* 回调地址订阅（多订阅勾选） */
+.kf-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kf-sub__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+  cursor: pointer;
+}
+.kf-sub__url {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--rent-font-mono);
+  font-size: var(--rent-fs-xs);
+  word-break: break-all;
+}
+.kf-sub__label {
+  color: var(--rent-ink-3);
+}
+.kf-sub__add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kf-sub__warn {
+  margin: 6px 0 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--state-warning-ink);
+}
+
+/* 签署顺序编排：未签方序号输入 */
+.kf-order {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kf-order__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.kf-order__name {
+  flex: 1;
+  min-width: 0;
+}
+.kf-order__input {
+  width: 88px;
+}
+.kf-order__error {
+  margin: 6px 0 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--state-error-ink);
+}
+
+/* 回调投递记录 */
+.kf-callback__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kf-callback__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+.kf-callback__row {
+  padding: 8px 10px;
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-md);
+}
+.kf-callback__event {
+  font-family: var(--rent-font-mono);
+  font-size: var(--rent-fs-sm);
+}
+.kf-callback__meta {
+  margin-top: 4px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+}
+.kf-callback__error {
+  margin-top: 4px;
+  font-size: var(--rent-fs-xs);
+  color: var(--state-error-ink);
+  word-break: break-all;
+}
+.kf-secret {
+  padding: 6px 8px;
+  font-family: var(--rent-font-mono);
+  font-size: var(--rent-fs-sm);
+  word-break: break-all;
+  background: var(--rent-surface-2);
+  border-radius: var(--rent-radius-sm);
+}
+
+/* 签署链接二维码 */
+.kf-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.kf-qr__img {
+  width: 200px;
+  height: 200px;
+}
+.kf-qr__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.kf-qr__link code {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--rent-fs-xs);
+  word-break: break-all;
 }

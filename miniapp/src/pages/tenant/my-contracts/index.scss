@@ -333,6 +333,144 @@
   gap: 12rpx;
 }
 
+/* 待签控件入口（打开底部抽屉，不占用画布高度） */
+.mc-dock__pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 12rpx 16rpx;
+  border-radius: var(--radius-lg);
+  background: rgba(var(--primary-rgb), 0.1);
+
+  &-text {
+    font-size: 24rpx;
+    font-weight: 700;
+    color: var(--primary-text);
+  }
+
+  &-icon {
+    opacity: 0.9;
+  }
+}
+
+/* 提交不可用时唯一原因（优先级与 Web 一致） */
+.mc-dock__hint {
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: var(--warning-ink);
+}
+
+/* ===== 待签控件底部抽屉 ===== */
+.mc-pending-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.mc-pending {
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+  border-radius: 28rpx 28rpx 0 0;
+  background: var(--card);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12rpx;
+  }
+
+  &__title {
+    font-size: 30rpx;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  &__close {
+    opacity: 0.7;
+  }
+
+  &__list {
+    flex: 1;
+    min-height: 80rpx;
+    max-height: 50vh;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+    padding: 20rpx 4rpx;
+    border-top: 1rpx solid var(--line);
+
+    &-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &-title {
+      font-size: 26rpx;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    &-meta {
+      display: block;
+      margin-top: 4rpx;
+      font-size: 22rpx;
+      color: var(--ink-3);
+    }
+
+    &--signed {
+      opacity: 0.6;
+    }
+  }
+
+  &__state {
+    font-size: 24rpx;
+    font-weight: 700;
+
+    &--pending {
+      color: var(--primary-text);
+    }
+
+    &--placed {
+      color: var(--warning-ink);
+    }
+
+    &--signed {
+      color: var(--success-ink);
+    }
+  }
+
+  &__foot {
+    padding-top: 14rpx;
+    font-size: 22rpx;
+    color: var(--ink-3);
+  }
+}
+
+@keyframes mc-field-focus {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4rpx rgba(var(--warning-rgb), 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 12rpx rgba(var(--warning-rgb), 0.05);
+  }
+}
+
 /* 底部栏中的托盘条目略紧凑 */
 .mc-dock .mc-tray-item {
   padding: 12rpx 10rpx;
@@ -1016,6 +1154,13 @@
   }
 }
 
+/* 清单点击「已放」项时高亮对应的落章成品 */
+.mc-placed--focus {
+  outline: 4rpx solid var(--warning);
+  outline-offset: 2rpx;
+  animation: mc-field-focus 0.7s ease-in-out 2;
+}
+
 /* ===== 预置签署区（发起方在管理端布好的待签框）：点一下即签在该处 ===== */
 .mc-field {
   position: absolute;
@@ -1040,9 +1185,18 @@
   }
 }
 
+/* 清单点击定位后的高亮：描边闪烁约 1.4s（2 次 × 0.7s） */
+.mc-field--focus {
+  border-style: solid;
+  border-width: 4rpx;
+  border-color: var(--warning);
+  background: rgba(var(--warning-rgb), 0.18);
+  box-shadow: 0 0 0 4rpx rgba(var(--warning-rgb), 0.25);
+  animation: mc-field-focus 0.7s ease-in-out 2;
+}
+
 /* 我的签署区列表行 */
-.mc-fieldrow {
-  display: flex;
+.mc-fieldrow {  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;

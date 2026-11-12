@@ -3,13 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { contractsPublicApi } from '@/services/api'
 import { PREVIEW_W } from '../constants'
 import type { ContractDoc, Placed, SignField } from '../types'
+import { fieldKey, isFieldDone } from '../utils'
 import PlacedBox from './PlacedBox'
 import SignFieldBox from './SignFieldBox'
-
-const isCovered = (field: SignField, placed: Placed[]) =>
-  placed.some(
-    (p) => p.page === (field.page || 1) && Math.abs(p.x - field.x) < 1 && Math.abs(p.y - field.y) < 1,
-  )
 
 /** 左：文档区（PDF 逐页图 / 合同正文背景） */
 const DocumentPanel = ({
@@ -27,6 +23,7 @@ const DocumentPanel = ({
   beginMove,
   removePlaced,
   signOnField,
+  focusedKey,
 }: {
   token: string
   doc: ContractDoc | null
@@ -42,6 +39,7 @@ const DocumentPanel = ({
   beginMove: (key: number) => (e: React.PointerEvent) => void
   removePlaced: (key: number) => void
   signOnField: (f: SignField) => void
+  focusedKey?: string | null
 }) => {
   const { t } = useTranslation()
   const fileUrl = useMemo(() => contractsPublicApi.fileUrl(token), [token])
@@ -51,7 +49,13 @@ const DocumentPanel = ({
     <PlacedBox key={p.key} p={p} moving={movingKey === p.key} onMoveStart={beginMove} onRemove={removePlaced} />
   )
   const renderField = (f: SignField) => (
-    <SignFieldBox key={f.id || `${f.field_type || 'signature'}-${f.x}-${f.y}`} field={f} covered={isCovered(f, placed)} onSign={signOnField} />
+    <SignFieldBox
+      key={fieldKey(f)}
+      field={f}
+      covered={isFieldDone(f, placed)}
+      highlight={focusedKey === fieldKey(f)}
+      onSign={signOnField}
+    />
   )
 
   return (

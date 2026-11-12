@@ -100,6 +100,59 @@ class ReadinessOut(BaseModel):
     checks: Optional[dict] = None
 
 
+def _check_signing_dependencies() -> None:
+    """校验电子签链路的「缺失就静默失效」型依赖。
+
+    - qrcode + Pillow：硬依赖。缺失时 `_qr_data_url()` 只能返回 None，签署二维码
+      悄悄变空，故缺依赖直接拒绝启动（`requirements.txt` 已声明）。
+    - Gotenberg：可选依赖（未配置即主动关闭 Office 转 PDF），只在配置了却探测
+      不通时告警，不阻断启动（上传件仍保留原件，仅降级）。
+    """
+    problems: list[str] = []
+    try:
+        import io
+
+        import qrcode
+        from PIL import Image  # noqa: F401  仅确认 Pillow 可导入
+
+        buf = io.BytesIO()
+        qrcode.make("startup-selfcheck").save(buf, format="PNG")
+        if not buf.getvalue().startswith(b"\x89PNG"):
+            problems.append("qrcode/Pillow 编码结果不是有效 PNG")
+    except Exception as exc:  # noqa: BLE001  依赖缺失/编码失败都属致命
+        problems.append(f"qrcode/Pillow 不可用（{type(exc).__name__}: {exc}）")
+
+    if problems:
+        hint = (
+            "；".join(problems)
+            + "。请先安装 requirements.txt 中的 qrcode[pil] 与 Pillow，再重启服务。"
+        )
+        logger.error("startup.selfcheck.sign_dependency_missing", dependencies=problems)
+        raise RuntimeError(hint)
+    logger.info("startup.selfcheck.sign_dependencies", qr="ok")
+
+    base = (settings.GOTENBERG_URL or "").strip().rstrip("/")
+    if not base:
+        # 留空＝主动不启用 Office 转 PDF，是配置选择而不是故障，不告警
+        return
+    try:
+        import httpx
+
+        timeout = min(float(settings.GOTENBERG_TIMEOUT_SECONDS or 3), 5.0)
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.get(f"{base}/health")
+        resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001  连通性探测失败只降级，不阻断启动
+        logger.warning(
+            "startup.selfcheck.gotenberg_unreachable",
+            url=base,
+            error=f"{type(exc).__name__}: {exc}",
+            hint="Gotenberg 不可达：Word/Excel 上传件将无法转 PDF（上传仍成功，仅降级）。",
+        )
+        return
+    logger.info("startup.selfcheck.gotenberg", url=base, status=resp.status_code)
+
+
 def _run_startup_selfcheck() -> None:
     """启动自检：核对密钥强度与第三方集成是否处于 mock/降级模式。"""
     # 1) 签名密钥：未配置或仍是默认/示例值时，非 DEBUG 环境直接拒绝启动。
@@ -174,6 +227,9 @@ def _run_startup_selfcheck() -> None:
         )
     else:
         logger.info("startup.selfcheck.payment_verify", mode="all configured")
+
+    # 6) 电子签链路的静默失效型依赖：二维码库缺失会启动失败，Gotenberg 不通只告警
+    _check_signing_dependencies()
 
 
 @asynccontextmanager

@@ -3,9 +3,16 @@
  * 纯结构拆分自 pages/Contracts/index.tsx，类名与行渲染逻辑保持不变。
  */
 import { useTranslation } from 'react-i18next'
+import { Popover } from 'antd'
 import DataState from '@/components/DataState'
 import { sourceLabel, statusLabel } from './contractTypes'
 import type { Contract } from './contractTypes'
+
+/** 仍在流转且已过有效期（与详情卡同一口径） */
+const isExpired = (c: Contract) =>
+  !!c.expires_at &&
+  ['draft', 'sent', 'partially_signed'].includes(c.status) &&
+  new Date(c.expires_at) < new Date()
 
 export default function ContractList({
   contracts,
@@ -13,12 +20,14 @@ export default function ContractList({
   error,
   onRetry,
   onOpen,
+  onSuggestResign,
 }: {
   contracts: Contract[]
   loading: boolean
   error: string | null
   onRetry: () => void
   onOpen: (id: string) => void
+  onSuggestResign?: (id: string) => void
 }) {
   const { t } = useTranslation()
 
@@ -70,6 +79,13 @@ export default function ContractList({
                       {c.document_hash && (
                         <div className="rent-text-sm rent-text-muted">hash: {c.document_hash.slice(0, 16)}…</div>
                       )}
+                      {isExpired(c) && (
+                        <div className="rent-text-sm rent-text-muted" style={{ marginTop: 2 }}>
+                          {t('contracts.validUntilExpired', {
+                            at: new Date(c.expires_at as string).toLocaleDateString(),
+                          })}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <span className="rent-badge rent-badge--neutral">
@@ -78,31 +94,42 @@ export default function ContractList({
                     </td>
                     <td>{c.language || '-'}</td>
                     <td>
-                      <span className="rent-badge rent-badge--neutral">{statusLabel[c.status] ? t(statusLabel[c.status]) : c.status}</span>
-                      {c.expires_at &&
-                        ['draft', 'sent', 'partially_signed'].includes(c.status) &&
-                        new Date(c.expires_at) < new Date() && (
-                          <span className="rent-badge rent-badge--warning" style={{ marginLeft: 6 }}>
-                            {t('contracts.expiredBadge')}
-                          </span>
-                        )}
-                      {c.sign_error && (
-                        <span
-                          className="rent-badge rent-badge--error"
-                          style={{ marginLeft: 6 }}
-                          title={c.sign_error_message || t('contracts.signErrorTip')}
-                        >
-                          {t('contracts.signErrorShort')}
-                        </span>
-                      )}
-                      {c.signature_health === 'invalid' && (
-                        <span
-                          className="rent-badge rent-badge--warning"
-                          style={{ marginLeft: 6 }}
-                          title={t('contracts.signatureInvalidTip')}
-                        >
-                          {t('contracts.signatureInvalidShort')}
-                        </span>
+                      <div className="rent-badge rent-badge--neutral">{statusLabel[c.status] ? t(statusLabel[c.status]) : c.status}</div>
+                      {(c.sign_error || c.signature_health === 'invalid') && (
+                        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
+                          {c.sign_error && (
+                            <Popover
+                              content={c.sign_error_message || t('contracts.signErrorTip')}
+                              trigger="click"
+                              placement="top"
+                            >
+                              <span
+                                className="rent-badge rent-badge--error"
+                                style={{ fontSize: 12, cursor: 'pointer' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {t('contracts.signErrorShort')}
+                              </span>
+                            </Popover>
+                          )}
+                          {c.signature_health === 'invalid' && (
+                            <>
+                              <span className="rent-badge rent-badge--warning" style={{ fontSize: 12 }} title={t('contracts.signatureInvalidTip')}>
+                                {t('contracts.signatureInvalidShort')}
+                              </span>
+                              <button
+                                type="button"
+                                style={{ border: 0, background: 'none', padding: 0, fontSize: 12, color: 'var(--rent-primary)', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  ;(onSuggestResign || onOpen)(c.id)
+                                }}
+                              >
+                                {t('contracts.suggestResign')}
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td>

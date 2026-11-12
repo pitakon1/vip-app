@@ -74,6 +74,31 @@ interface Stamp {
   svg?: string;
 }
 
+/** 签署区稳定 key：清单与画布必须用同一份判定（与 Web 端一致） */
+const fieldKey = (f: any) =>
+  f?.id || `${f?.field_type || 'signature'}-${Number(f?.page) || 1}-${f?.x}-${f?.y}`;
+
+/** 已落章是否覆盖该预置签署区（页码 + 坐标差 < 1） */
+const isFieldCovered = (f: any, stamps: Stamp[]) =>
+  stamps.some(
+    (s) =>
+      s.page === (Number(f?.page) || 1) &&
+      Math.abs(s.x - (Number(f?.x) || 0)) < 1 &&
+      Math.abs(s.y - (Number(f?.y) || 0)) < 1,
+  );
+
+/** 清单状态：已签（后端字段）> 已放（本地落章覆盖）> 待放 */
+const isFieldDone = (f: any, stamps: Stamp[]) => !!f?.signed || isFieldCovered(f, stamps);
+
+/** 排序：页码升序，同页按 y 升序，与阅读顺序一致 */
+const sortSignFields = (fields: any[]) =>
+  [...fields].sort(
+    (a, b) => (Number(a?.page) || 1) - (Number(b?.page) || 1) || (Number(a?.y) || 0) - (Number(b?.y) || 0),
+  );
+
+const fieldState = (f: any, stamps: Stamp[]): 'pending' | 'placed' | 'signed' =>
+  f?.signed ? 'signed' : isFieldCovered(f, stamps) ? 'placed' : 'pending';
+
 const SIGN_TYPE_META: Record<string, { labelKey: string; icon: string }> = {
   signature: { labelKey: 'contract.signType.signature', icon: 'create-outline' },
   seal: { labelKey: 'contract.signType.seal', icon: 'business-outline' },
@@ -130,6 +155,10 @@ export default function MyContractsScreen() {
   // 点击预置签署区后落在该区的签章（页面百分比坐标）
   const [stamps, setStamps] = useState<Stamp[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // 待签控件清单：窄屏以底部抽屉承载，避免把签署画布压没
+  const [pendingOpen, setPendingOpen] = useState(false);
+  // 点击清单项 / 提交受阻时高亮对应签署区（1.4s 后自动清除，便于重复触发）
+  const [focusedFieldKey, setFocusedFieldKey] = useState<string | null>(null);
 
   const stampsRef = useRef(stamps);
   stampsRef.current = stamps;
@@ -138,6 +167,19 @@ export default function MyContractsScreen() {
   const signMadeRef = useRef(signMade);
   signMadeRef.current = signMade;
   const pageSizesRef = useRef<Record<number, { w: number; h: number }>>({});
+  const pageOffsetRef = useRef<Record<number, number>>({});
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const docScrollWideRef = useRef<ScrollView>(null);
+  const docScrollNarrowRef = useRef<ScrollView>(null);
+  // 宽屏左栏（签章托盘 / 待签控件清单）；提交受阻且无落章时滚到清单底部
+  const cfgScrollRef = useRef<ScrollView>(null);
+
+  useEffect(
+    () => () => {
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    },
+    [],
+  );
 
   const [showDecline, setShowDecline] = useState(false);
   const [declinePartyId, setDeclinePartyId] = useState('');
@@ -224,12 +266,20 @@ export default function MyContractsScreen() {
   );
   const myPendingFields = myFields.filter((f: any) => !f?.signed);
   const mySignedFields = myFields.filter((f: any) => !!f?.signed);
-  // 实名口径：后端签名接口返回的字段是 real_name_verified_at（此前误读成
-  // real_name_verified 恒为 undefined，导致任何签署方的「签署」按钮都被永久禁掉）。
-  // 前端不再按实名预先禁用按钮 —— 归属本账号的签署方由后端按登录态内部认证；
-  // 真正未绑定的签署方（无 user_id 且邮箱对不上）会在提交时被后端以
-  // 403 REAL_NAME_REQUIRED 拦截，前端只需把该错误提示出来。
-  const needsRealName = false;
+  const mySortedFields = sortSignFields(myFields);
+  const myDoneCount = mySortedFields.filter((f: any) => isFieldDone(f, stamps)).length;
+  const myRemainingCount = mySortedFields.length - myDoneCount;
+  const firstPendingField = mySortedFields.find((f: any) => !isFieldDone(f, stamps)) ?? null;
+  // 实名口径：字段是 real_name_verified_at（此前误读成 real_name_verified 恒为 undefined，
+  // 导致任何签署方的「签署」按钮都被永久禁掉）。归属本账号的签署方由后端按登录态内部
+  // 认证；只有既未绑定账号、邮箱也对不上的签署方才会被 403 REAL_NAME_REQUIRED 拦截，
+  // 因此只对「确定未绑定」的签署方做提示，不误伤已绑定用户。
+  const partyBound =
+    !!myParty &&
+    ((!!myParty?.user_id && String(myParty.user_id) === String(user?.id ?? '')) ||
+      (!!String(user?.email ?? '').trim() &&
+        String(myParty?.email ?? '').trim().toLowerCase() ===
+          String(user?.email ?? '').trim().toLowerCase()));
   // 签署台展示/可拖放的页：有 PDF 时整本；无 PDF 时降级为单页「正文」背景
   const studioPages: number[] = (() => {
     if (!detail?.pdf_available) return [1];
@@ -266,6 +316,78 @@ export default function MyContractsScreen() {
   const onPageLayout = (page: number) => (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     pageSizesRef.current[page] = { w: width, h: height };
+  };
+
+  // 页图在滚动容器中的纵向偏移：点击清单项时据此翻到对应页
+  const onDocPageLayout = (page: number) => (e: LayoutChangeEvent) => {
+    pageOffsetRef.current[page] = e.nativeEvent.layout.y;
+    onPageLayout(page)(e);
+  };
+
+  // ===== 提交不可用的硬原因（按优先级取第一条，与 Web 端一致） =====
+  const expired = !!detail?.expired;
+  const waitingTurn = myParty?.can_sign_now === false;
+  const hardReason: 'noContract' | 'expired' | 'waiting' | 'noPlacement' | null = !detail?.id
+    ? 'noContract'
+    : expired
+    ? 'expired'
+    : waitingTurn
+    ? 'waiting'
+    : stamps.length === 0
+    ? 'noPlacement'
+    : null;
+  // 实名未完成只做引导（不硬禁用），避免误伤由后端内部认证的已绑定签署方
+  const realNamePending = !hardReason && !!myParty && !myParty?.real_name_verified_at && !partyBound;
+  const hintText =
+    hardReason === 'noContract'
+      ? t('contract.signHintNoContract')
+      : hardReason === 'expired'
+      ? t('contract.signHintExpired', { at: fmtDate(detail?.expires_at) })
+      : hardReason === 'waiting'
+      ? t('contract.signHintWaitingTurn', { order: Math.max(1, (Number(myParty?.sign_order) || 1) - 1) })
+      : hardReason === 'noPlacement'
+      ? t('contract.signHintNoPlacement')
+      : realNamePending
+      ? t('contract.signHintRealName')
+      : '';
+
+  // 点击清单项 / 受阻提交：翻到对应页并高亮该框（1.4s 后自动清除）
+  const focusField = useCallback(
+    (f: any) => {
+      const pg = Number(f?.page) || 1;
+      const key = fieldKey(f);
+      setPendingOpen(false);
+      setFocusedFieldKey(key);
+      const scroller = isWide ? docScrollWideRef.current : docScrollNarrowRef.current;
+      const offset = pageOffsetRef.current[pg] ?? 0;
+      requestAnimationFrame(() => scroller?.scrollTo({ y: Math.max(0, offset - 12), animated: true }));
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = setTimeout(() => {
+        setFocusedFieldKey((k) => (k === key ? null : k));
+      }, 1400);
+    },
+    [isWide],
+  );
+
+  // 提交按钮不可用时，把用户带到第一个可操作的位置
+  const locateBlocker = () => {
+    if (hardReason === 'noContract' || hardReason === 'expired') {
+      if (detail?.id) void openDetail(detail.id);
+      else void load(true);
+      return;
+    }
+    if (hardReason === 'waiting') return;
+    if (hardReason === 'noPlacement') {
+      // 窄屏用底部抽屉承载清单；宽屏清单常驻左栏，滚动到控件区即可
+      if (!isWide && mySortedFields.length) setPendingOpen(true);
+      else cfgScrollRef.current?.scrollToEnd({ animated: true });
+      return;
+    }
+    if (realNamePending) {
+      notify(t('contract.realNameNotice'));
+      return;
+    }
+    if (firstPendingField) focusField(firstPendingField);
   };
 
   // 打开手写签名板（托盘未就绪时点按、或点击预置签名区缺签名时）
@@ -498,12 +620,61 @@ export default function MyContractsScreen() {
     </TouchableOpacity>
   );
 
+  // ===== 签署台：待签控件清单（按页码 + 位置排序，三态，点击定位并高亮） =====
+  const renderPendingRows = () =>
+    mySortedFields.map((f: any, i: number) => {
+      const state = fieldState(f, stamps);
+      const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+      const stateLabel =
+        state === 'signed'
+          ? t('contract.fieldStateSigned')
+          : state === 'placed'
+          ? t('contract.fieldStatePlaced')
+          : t('contract.fieldStatePending');
+      const stateColor = state === 'signed' ? colors.success : state === 'placed' ? colors.warning : colors.primary;
+      return (
+        <TouchableOpacity
+          key={f?.id ?? `pending-${i}`}
+          style={[styles.pendingRow, state === 'signed' && styles.pendingRowSigned]}
+          activeOpacity={0.8}
+          disabled={state === 'signed'}
+          onPress={() => {
+            // 已签字段只读展示，不参与定位（与 Web 判定口径一致）
+            if (state !== 'signed') focusField(f);
+          }}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: state === 'signed' }}
+        >
+          <Ionicons name={meta.icon as any} size={16} color={stateColor} />
+          <View style={styles.pendingRowBody}>
+            <Text style={styles.pendingRowTitle} numberOfLines={1}>{t(meta.labelKey)}</Text>
+            <Text style={styles.pendingRowMeta}>{t('contract.fieldPage', { page: Number(f?.page) || 1 })}</Text>
+          </View>
+          <Text style={[styles.pendingRowState, { color: stateColor }]}>{stateLabel}</Text>
+        </TouchableOpacity>
+      );
+    });
+
+  const renderPendingHead = () => (
+    <View style={styles.pendingHead}>
+      <Text style={styles.pendingTitle}>
+        {t('contract.pendingFields', { count: myRemainingCount })}
+      </Text>
+    </View>
+  );
+
+  const renderPendingFoot = () => (
+    <Text style={styles.pendingFooter}>
+      {t('contract.fieldsDone', { done: myDoneCount, total: mySortedFields.length })}
+    </Text>
+  );
+
   // ===== 签署台右栏：文档区（PDF 页图 / 正文降级 + 预置签署区 + 已落签章）=====
   const renderDocs = () => (
     <>
       <Text style={[styles.pdfTip, styles.pdfTipActive]}>{t('contract.dragStampHint')}</Text>
       {studioPages.map((page) => (
-        <View key={page} style={styles.pdfPageWrap} onLayout={onPageLayout(page)}>
+        <View key={page} style={styles.pdfPageWrap} onLayout={onDocPageLayout(page)}>
           {detail?.pdf_available ? (
             pdfUrls[page] ? (
               <Image source={{ uri: pdfUrls[page] }} style={styles.pdfPageImage} resizeMode="stretch" />
@@ -532,46 +703,53 @@ export default function MyContractsScreen() {
                     Math.abs(s.x - (Number(f?.x) || 0)) < 1 &&
                     Math.abs(s.y - (Number(f?.y) || 0)) < 1,
                 );
-                if (covered) return null;
+                // 已签 / 已落章：不再渲染成可点框（与 Web 判定口径一致）
+                if (covered || signed) return null;
                 const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
                 const w = Number(f?.w) > 0 ? Number(f.w) : 22;
                 const h = Number(f?.h) > 0 ? Number(f.h) : 8;
+                const focused = focusedFieldKey === fieldKey(f);
                 return (
                   <TouchableOpacity
                     key={f?.id ?? `mf-${page}-${i}`}
                     activeOpacity={0.8}
-                    disabled={signed || !myParty}
+                    disabled={!myParty}
                     onPress={() => signOnField(f)}
                     accessibilityRole="button"
-                    accessibilityState={{ disabled: signed || !myParty }}
-                    accessibilityLabel={signed ? t('contract.signed') : `${t(meta.labelKey)} · ${t('contract.tapFieldToSign')}`}
+                    accessibilityState={{ disabled: !myParty }}
+                    accessibilityLabel={`${t(meta.labelKey)} · ${t('contract.tapFieldToSign')}`}
                     style={[
                       styles.fieldOverlay,
                       { left: `${Number(f?.x) || 0}%`, top: `${Number(f?.y) || 0}%`, width: `${w}%`, height: `${h}%` },
-                      signed && styles.fieldOverlaySigned,
+                      focused && styles.fieldOverlayFocus,
                     ]}
                   >
-                    {signed ? (
-                      <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    ) : (
-                      <>
-                        <Ionicons name={meta.icon as any} size={13} color={colors.primary} />
-                        <Text style={styles.overlayWaitText} numberOfLines={1}>
-                          {t('contract.tapFieldToSign')}
-                        </Text>
-                      </>
-                    )}
+                    <Ionicons name={meta.icon as any} size={13} color={focused ? colors.warning : colors.primary} />
+                    <Text style={[styles.overlayWaitText, focused && { color: colors.warning }]} numberOfLines={1}>
+                      {t('contract.tapFieldToSign')}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             {stamps
               .filter((s) => s.page === page)
-              .map((s) => (
+              .map((s) => {
+                const focused =
+                  !!focusedFieldKey &&
+                  myFields.some(
+                    (f: any) =>
+                      fieldKey(f) === focusedFieldKey &&
+                      (Number(f?.page) || 1) === s.page &&
+                      Math.abs(s.x - (Number(f?.x) || 0)) < 1 &&
+                      Math.abs(s.y - (Number(f?.y) || 0)) < 1,
+                  );
+                return (
                 <View
                   key={s.id}
                   style={[
                     styles.stampBox,
                     { left: `${s.x}%`, top: `${s.y}%`, width: `${s.w}%`, height: `${s.h}%` },
+                    focused && styles.stampBoxFocus,
                   ]}
                 >
                   <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -596,7 +774,8 @@ export default function MyContractsScreen() {
                     <Ionicons name="close" size={12} color="#fff" />
                   </TouchableOpacity>
                 </View>
-              ))}
+                );
+              })}
           </View>
         </View>
       ))}
@@ -674,7 +853,7 @@ export default function MyContractsScreen() {
 
   // ===== 单屏「签署台」：左栏签署配置（签署方 + 签章托盘 + 底部签署） =====
   const renderCfg = () => {
-    const canSign = !!detail?.id && !needsRealName && stamps.length > 0;
+    const blocked = !!hardReason || realNamePending;
     const partyStatusColor = myParty?.signed
       ? colors.success
       : myParty?.declined_at
@@ -721,17 +900,34 @@ export default function MyContractsScreen() {
         {renderTrayItem('handwrite')}
         <Text style={styles.trayHint}>{t('contract.dragStampHint')}</Text>
 
-        {/* 底部主签署按钮：一次性原子提交全部落框（无意愿验证码） */
+        {/* 待签控件清单：宽屏左栏常驻；窄屏改由底部抽屉承载，避免挤压画布 */}
+        {!!mySortedFields.length && (
+          <View style={styles.pendingCard}>
+            {renderPendingHead()}
+            {renderPendingRows()}
+            {renderPendingFoot()}
+          </View>
+        )}
+
+        {/* 底部主签署按钮：不可用时只显示一条原因，点击跳到对应位置 */
         }
+        {!!hintText && <Text style={styles.signHint}>{hintText}</Text>}
         <TouchableOpacity
           style={[
             styles.studioSignBtn,
-            (!canSign || submitting) && styles.studioSignBtnDisabled,
+            (blocked || submitting) && styles.studioSignBtnDisabled,
             submitting && styles.btnDisabled,
           ]}
           activeOpacity={0.85}
-          disabled={!canSign || submitting}
-          onPress={submitBatch}
+          disabled={submitting}
+          onPress={() => {
+            if (submitting) return;
+            if (blocked) {
+              locateBlocker();
+              return;
+            }
+            void submitBatch();
+          }}
         >
           {submitting ? (
             <ActivityIndicator color={colors.primaryForeground} />
@@ -745,7 +941,7 @@ export default function MyContractsScreen() {
 
   // ===== 窄屏底部固定栏：文档在上、托盘与签署按钮固定在底部（与文档同屏，边拖边看） =====
   const renderDock = () => {
-    const canSign = !!detail?.id && !needsRealName && stamps.length > 0;
+    const blocked = !!hardReason || realNamePending;
     const partyStatusColor = myParty?.signed
       ? colors.success
       : myParty?.declined_at
@@ -784,16 +980,39 @@ export default function MyContractsScreen() {
           {renderTrayItem('seal', true)}
           {renderTrayItem('handwrite', true)}
         </View>
+        {/* 待签控件：窄屏用底部抽屉打开，不占用画布高度 */}
+        {!!mySortedFields.length && (
+          <TouchableOpacity
+            style={styles.dockPendingBtn}
+            activeOpacity={0.8}
+            onPress={() => setPendingOpen(true)}
+            accessibilityRole="button"
+          >
+            <Ionicons name="list-outline" size={14} color={colors.primary} />
+            <Text style={styles.dockPendingText}>
+              {t('contract.pendingFields', { count: myRemainingCount })}
+            </Text>
+            <Ionicons name="chevron-up" size={14} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+        {!!hintText && <Text style={styles.dockHint}>{hintText}</Text>}
         <TouchableOpacity
           style={[
             styles.studioSignBtn,
             styles.dockSignBtn,
-            (!canSign || submitting) && styles.studioSignBtnDisabled,
+            (blocked || submitting) && styles.studioSignBtnDisabled,
             submitting && styles.btnDisabled,
           ]}
           activeOpacity={0.85}
-          disabled={!canSign || submitting}
-          onPress={submitBatch}
+          disabled={submitting}
+          onPress={() => {
+            if (submitting) return;
+            if (blocked) {
+              locateBlocker();
+              return;
+            }
+            void submitBatch();
+          }}
         >
           {submitting ? (
             <ActivityIndicator color={colors.primaryForeground} />
@@ -1029,7 +1248,7 @@ export default function MyContractsScreen() {
               <Ionicons name="close" size={22} color={colors.ink2} />
             </TouchableOpacity>
           </View>
-          {needsRealName && (
+          {realNamePending && (
             <View style={styles.realNameBanner}>
               <Ionicons name="person-circle-outline" size={16} color={colors.warning} />
               <Text style={styles.realNameBannerText}>{t('contract.realNameNotice')}</Text>
@@ -1037,16 +1256,17 @@ export default function MyContractsScreen() {
           )}
           {isWide ? (
             <View style={styles.studioBodyRow}>
-              <ScrollView style={styles.studioCfgCol} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioCfgContent}>
+              <ScrollView ref={cfgScrollRef} style={styles.studioCfgCol} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.studioCfgContent}>
                 {renderCfg()}
               </ScrollView>
-              <ScrollView style={styles.studioDocCol} contentContainerStyle={styles.studioDocContent}>
+              <ScrollView ref={docScrollWideRef} style={styles.studioDocCol} contentContainerStyle={styles.studioDocContent}>
                 {renderDocs()}
               </ScrollView>
             </View>
           ) : (
             <>
               <ScrollView
+                ref={docScrollNarrowRef}
                 style={styles.studioDocScroll}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={styles.studioDocContent}
@@ -1055,6 +1275,35 @@ export default function MyContractsScreen() {
               </ScrollView>
               {renderDock()}
             </>
+          )}
+
+          {/* 窄屏待签控件抽屉：从底部弹出，覆盖而非挤压签署画布 */}
+          {pendingOpen && !isWide && (
+            <View style={styles.pendingMask}>
+              <TouchableOpacity
+                style={StyleSheet.absoluteFill}
+                activeOpacity={1}
+                onPress={() => setPendingOpen(false)}
+                accessibilityRole="button"
+              />
+              <View style={styles.pendingSheet}>
+                <View style={styles.pendingSheetHead}>
+                  <Text style={styles.pendingSheetTitle}>
+                    {t('contract.pendingFields', { count: myRemainingCount })}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setPendingOpen(false)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.close')}
+                  >
+                    <Ionicons name="close" size={20} color={colors.ink2} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.pendingSheetBody}>{renderPendingRows()}</ScrollView>
+                {renderPendingFoot()}
+              </View>
+            </View>
           )}
         </View>
       </Modal>
@@ -1337,6 +1586,12 @@ const styles = StyleSheet.create({
   },
   fieldOverlayActive: { borderColor: colors.warning, borderStyle: 'solid', backgroundColor: 'rgba(255,255,255,0.06)' },
   fieldOverlaySigned: { borderColor: colors.success, borderStyle: 'solid', backgroundColor: colors.alpha(colors.successRgb, 0.1) },
+  fieldOverlayFocus: {
+    borderColor: colors.warning,
+    borderStyle: 'solid',
+    borderWidth: 2.5,
+    backgroundColor: colors.alpha(colors.warningRgb, 0.22),
+  },
   draftOverlay: { borderColor: colors.warning, borderStyle: 'solid', backgroundColor: colors.alpha(colors.warningRgb, 0.14) },
   overlayWait: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   overlayWaitText: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700', lineHeight: colors.lineHeight.tight},
@@ -1486,6 +1741,68 @@ const styles = StyleSheet.create({
   },
   studioSignBtnDisabled: { backgroundColor: colors.ink3 },
   studioSignText: { fontSize: 16, fontWeight: '700', color: colors.primaryForeground },
+  signHint: { fontSize: 12, lineHeight: 17, color: colors.warning, marginTop: 14 },
+  dockHint: { fontSize: 11, lineHeight: 15, color: colors.warning, marginTop: 6 },
+
+  /* 待签控件清单（宽屏左栏 / 窄屏底部抽屉共用） */
+  pendingCard: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: colors.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  pendingHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  pendingTitle: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  pendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  pendingRowSigned: { opacity: 0.6 },
+  pendingRowBody: { flex: 1, minWidth: 0 },
+  pendingRowTitle: { fontSize: 13, fontWeight: '600', color: colors.ink },
+  pendingRowMeta: { fontSize: 11, color: colors.ink3, marginTop: 1 },
+  pendingRowState: { fontSize: 12, fontWeight: '700' },
+  pendingFooter: { fontSize: 12, color: colors.ink3, marginTop: 8 },
+  dockPendingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    marginTop: 8,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.alpha(colors.primaryRgb, 0.1),
+  },
+  dockPendingText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  pendingMask: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+    zIndex: 20,
+  },
+  pendingSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: colors.radius.xl,
+    borderTopRightRadius: colors.radius.xl,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 24,
+    maxHeight: '55%',
+  },
+  pendingSheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  pendingSheetTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  pendingSheetBody: { maxHeight: 320 },
 
   /* 详情页「签署」入口 */
   detailSignBtn: {
@@ -1565,6 +1882,7 @@ const styles = StyleSheet.create({
 
   /* 已落签章（成品图，含删除角标） */
   stampBox: { position: 'absolute' },
+  stampBoxFocus: { borderWidth: 2, borderColor: colors.warning, borderRadius: colors.radius.sm },
   stampImg: { width: '100%', height: '100%' },
   stampDate: { width: '100%', height: '100%', textAlign: 'center', textAlignVertical: 'center', fontSize: colors.fontSize.xs, color: colors.ink, lineHeight: colors.lineHeight.tight},
   stampDel: {

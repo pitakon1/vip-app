@@ -85,6 +85,7 @@ from app.providers.notification.router import notification_router
 from app.services import esign_service
 from app.services import contract_jobs
 from app.services import contract_audit as audit
+from app.services.contract_privacy import initiator_contact
 from app.services.contract_identity import MATCHED, ContractIdentityResolver
 from app.services.serial_number import next_no
 from .documents import ALLOWED_DOCUMENT_TYPES
@@ -176,6 +177,9 @@ class ContractDetailResponse(BaseModel):
     content_html: Optional[str] = None
     created_at: Optional[str] = None
     parties: Optional[List[ContractPartyResponse]] = None
+    # 发起方最小联系信息（姓名与手机号均已脱敏，不返回完整号码/邮箱）
+    initiator_name: Optional[str] = None
+    initiator_phone_masked: Optional[str] = None
     model_config = ConfigDict(extra="allow")
 
 
@@ -1542,8 +1546,13 @@ def _qr_data_url(text: str) -> Optional[str]:
         buf = io.BytesIO()
         qrcode.make(text).save(buf, format="PNG")
         return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:  # noqa: BLE001  可选依赖/编码失败都不阻断
-        logger.warning("contract.qr_generate_failed", extra={"text": text[:64]})
+    except Exception as exc:  # noqa: BLE001  二维码属便利功能，失败不阻断链接下发
+        # 不吞异常原因：把异常类型/消息与堆栈一并打到日志，便于定位缺依赖还是编码参数问题
+        logger.error(
+            "contract.qr_generate_failed",
+            extra={"text": text[:64], "error": f"{type(exc).__name__}: {exc}"},
+            exc_info=True,
+        )
         return None
 
 
@@ -4094,6 +4103,8 @@ def get_contract(
         "signed_pdf_available": bool(getattr(contract, "signed_pdf_path", None)),
         # 签署有效期与顺序编排（供列表/详情提示与顺序编排 UI 回显）
         "expires_at": contract.expires_at.isoformat() if contract.expires_at else None,
+        # 发起方最小联系信息：与免登录签署页同一份脱敏口径，仅脱敏名 + 脱敏手机号
+        **initiator_contact(session, contract),
         "expired": bool(contract.expires_at and contract.expires_at < datetime.utcnow()),
         "sign_order_type": contract.sign_order_type.value
         if contract.sign_order_type

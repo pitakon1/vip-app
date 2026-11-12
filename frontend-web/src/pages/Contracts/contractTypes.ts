@@ -165,6 +165,15 @@ export interface CallbackEvent {
   idempotency_key?: string
 }
 
+// 多回调地址订阅（GET /contracts/{id}/subscriptions；一个合同可挂多个地址，独立投递与重试）
+export interface ContractSubscription {
+  id: string
+  url: string
+  label?: string | null
+  active: boolean
+  created_at?: string | null
+}
+
 // 放置签署框时可选的 field_type（手写签名 / 公章 / 日期）
 // label 必须带 `contracts.` 命名空间：渲染处直接 t(o.label)，
 // 只用裸 key（fieldSig）会查不到词条、界面上暴露原始 key。

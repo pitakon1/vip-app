@@ -176,6 +176,24 @@
 .kf-field:hover {
   background: rgba(20, 184, 166, 0.18);
 }
+/* 清单点行 / 提交受阻时的定位高亮：描边闪烁一次，不改坐标 */
+.kf-field--focus {
+  animation: kf-field-focus 1.2s ease-out;
+}
+@keyframes kf-field-focus {
+  0%,
+  100% {
+    box-shadow: none;
+  }
+  20%,
+  60% {
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.45);
+  }
+  40%,
+  80% {
+    box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.2);
+  }
+}
 
 /* ===== 签署方组件托盘 ===== */
 .kf-tray {
@@ -281,6 +299,156 @@
   margin-top: var(--rent-s-4);
   padding: var(--rent-s-3) 0;
   background: var(--rent-canvas, #f4f6f7);
+}
+/* 不可用原因：按钮上方一行小字，只显示一条 */
+.kf-signbar__hint {
+  margin-bottom: var(--rent-s-2);
+  text-align: center;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3, #8a9199);
+}
+/* aria-disabled 的视觉与原生 disabled 对齐（仍可点击以定位原因） */
+.kf-signbar .rent-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 签署方卡片头部：左侧标题，右侧「拒签」文字按钮 */
+.kf-config__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rent-s-2);
+  margin-bottom: 8px;
+}
+.kf-decline-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3, #8a9199);
+  cursor: pointer;
+}
+.kf-decline-link:hover {
+  color: var(--rent-danger, #e5484d);
+}
+
+/* 待签控件清单 */
+.kf-pending__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rent-s-2);
+  margin-bottom: 8px;
+}
+.kf-pending__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.kf-pending__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--rent-line, #e2e5e8);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.kf-pending__row:hover {
+  border-color: var(--rent-primary, #14b8a6);
+}
+.kf-pending__row--placed {
+  background: rgba(20, 184, 166, 0.06);
+}
+.kf-pending__row--signed {
+  opacity: 0.6;
+  cursor: default;
+}
+.kf-pending__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  background: rgba(20, 184, 166, 0.1);
+  color: var(--rent-primary, #14b8a6);
+}
+.kf-pending__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+.kf-pending__name {
+  font-size: var(--rent-fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kf-pending__state {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: var(--rent-fs-xs);
+  background: var(--rent-s-2, #f0f2f4);
+  color: var(--rent-ink-3, #8a9199);
+}
+.kf-pending__state--placed {
+  background: rgba(20, 184, 166, 0.12);
+  color: var(--rent-primary, #14b8a6);
+}
+.kf-pending__state--signed {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+
+/* 失败 / 成功 / 拒签状态卡 */
+.kf-status {
+  text-align: center;
+  padding: 40px 20px;
+}
+.kf-status__contact {
+  margin: 0 auto 20px;
+  max-width: 420px;
+  padding: 12px;
+  border: 1px solid var(--rent-line, #e2e5e8);
+  border-radius: 10px;
+  background: var(--rent-s-2, #f7f8f9);
+}
+.kf-status__contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.kf-status__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.kf-status__reload {
+  margin-top: 18px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3, #8a9199);
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* 拖拽跟手浮层：跟随光标/手指，半透明便于观察落点（fixed 用窗口坐标） */

@@ -14,8 +14,25 @@ export function useContractList() {
   const [contractsLoading, setContractsLoading] = useState(false)
   const [contractsError, setContractsError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<TemplateOption[] | null>(null)
-  // 报表聚合（新增「终止类」）；失败时静默隐藏统计条，不影响列表
+  // 报表聚合（新增「终止类」）；失败单独标记，不隐藏为「暂无数据」，也不影响列表
   const [stats, setStats] = useState<ContractStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsError, setStatsError] = useState<string | null>(null)
+
+  // 统计接口独立加载：失败置错误态（可重试），与「确实没有数据」区分
+  const loadStats = async () => {
+    setStatsLoading(true)
+    setStatsError(null)
+    try {
+      const res = await contractsApi.stats()
+      setStats(res.data || null)
+    } catch {
+      setStats(null)
+      setStatsError(t('contracts.statsLoadFailed'))
+    } finally {
+      setStatsLoading(false)
+    }
+  }
 
   const loadList = async () => {
     setContractsLoading(true)
@@ -28,12 +45,7 @@ export function useContractList() {
     } finally {
       setContractsLoading(false)
     }
-    try {
-      const res = await contractsApi.stats()
-      setStats(res.data || null)
-    } catch {
-      setStats(null)
-    }
+    await loadStats()
   }
   useEffect(() => { void loadList() }, [])
 
@@ -45,7 +57,17 @@ export function useContractList() {
       .catch(() => setTemplates(null))
   }, [])
 
-  return { contracts, contractsLoading, contractsError, templates, stats, loadList }
+  return {
+    contracts,
+    contractsLoading,
+    contractsError,
+    templates,
+    stats,
+    statsLoading,
+    statsError,
+    loadList,
+    loadStats,
+  }
 }
 
 export type ContractListState = ReturnType<typeof useContractList>

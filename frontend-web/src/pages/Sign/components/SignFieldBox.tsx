@@ -5,10 +5,12 @@ import type { SignField } from '../types'
 const SignFieldBox = ({
   field,
   covered,
+  highlight,
   onSign,
 }: {
   field: SignField
   covered: boolean
+  highlight?: boolean
   onSign: (f: SignField) => void
 }) => {
   const { t } = useTranslation()
@@ -18,7 +20,7 @@ const SignFieldBox = ({
   return (
     <button
       type="button"
-      className="kf-field"
+      className={`kf-field${highlight ? ' kf-field--focus' : ''}`}
       onClick={() => onSign(field)}
       title={t('contracts.fieldTapToSign')}
       style={{ left: `${field.x}%`, top: `${field.y}%`, width: `${field.w}%`, height: `${field.h}%` }}

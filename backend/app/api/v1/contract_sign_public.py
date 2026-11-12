@@ -47,6 +47,7 @@ from app.models import (
 )
 from app.services import contract_jobs, kaifang_sign_service
 from app.services import contract_audit as audit
+from app.services.contract_privacy import initiator_contact, mask_person_name
 
 from .auth import (
     _is_valid_email,
@@ -76,16 +77,6 @@ _DOWNLOAD_TTL_HOURS = 24
 
 # 中国大陆身份证号：18 位数字 + 末位可 X/x
 _ID_RE = re.compile(r"^\d{17}[\dXx]$")
-
-
-def _mask_name(name: str) -> str:
-    """姓名脱敏：保留首尾字符，中间以 * 代替。"""
-    value = (name or "").strip()
-    if len(value) <= 1:
-        return value or "*"
-    if len(value) == 2:
-        return value[0] + "*"
-    return value[0] + "*" * (len(value) - 2) + value[-1]
 
 
 def _resolve_party(session: Session, token: str) -> ContractParty:
@@ -183,6 +174,9 @@ class SignPageOut(BaseModel):
     file_url: Optional[str] = None
     party_name_masked: Optional[str] = None
     party_role: Optional[str] = None
+    # 发起方最小联系信息（姓名与手机号均已脱敏，不返回完整号码/邮箱）
+    initiator_name: Optional[str] = None
+    initiator_phone_masked: Optional[str] = None
     expires_at: Optional[str] = None
     model_config = ConfigDict(extra="allow")
 
@@ -224,8 +218,10 @@ def get_sign_page(
         "pdf_available": _pdf_path(contract) is not None,
         "pdf_page_count": _pdf_page_count(contract),
         "language": contract.language,
-        "party_name_masked": _mask_name(party.name),
+        "party_name_masked": mask_person_name(party.name),
         "party_role": party.role.value,
+        # 仅本合同发起方的最小联系信息：公开页凭一次性令牌访问，同样只给脱敏值
+        **initiator_contact(session, contract),
         "real_name_verified": _has_real_name(party),
         "party": {
             "id": str(party.id),

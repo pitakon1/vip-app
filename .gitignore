@@ -53,7 +53,7 @@ backend/backups/
 backend/contracts/
 backend/celerybeat-schedule*
 # 根目录合同渲染输出（运行时产物，同 backend/contracts）
-contracts/
+/contracts/
 # 电子签引擎工作目录：签名 CA 私钥/证书/pfx，绝不能入库
 backend/sign-engine/
 sign-engine/

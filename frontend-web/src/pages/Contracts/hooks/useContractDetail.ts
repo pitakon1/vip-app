@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { contractsApi } from '@/services/api'
 import { errorText } from '@/lib/errorText'
 import { absSignUrl } from '../contractTypes'
-import type { CallbackEvent, Contract, Party, SignField } from '../contractTypes'
+import type { CallbackEvent, Contract, ContractSubscription, Party, SignField } from '../contractTypes'
 
 export function useContractDetail({ onChanged }: { onChanged: () => void }) {
   const { t } = useTranslation()
@@ -45,6 +45,8 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
   // 签署完成回调
   const [callbackOpen, setCallbackOpen] = useState(false)
   const [callbackEvents, setCallbackEvents] = useState<CallbackEvent[]>([])
+  // 多回调地址订阅（GET /contracts/{id}/subscriptions）：与单地址 callback_url 并存
+  const [callbackSubscriptions, setCallbackSubscriptions] = useState<ContractSubscription[]>([])
   const [callbackSecret, setCallbackSecret] = useState('')
   const [callbackSaving, setCallbackSaving] = useState(false)
 
@@ -394,30 +396,57 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
       .catch(() => setCallbackEvents([]))
   }
 
+  const loadCallbackSubscriptions = (contractId: string) => {
+    contractsApi
+      .listSubscriptions(contractId)
+      .then((res) => setCallbackSubscriptions(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setCallbackSubscriptions([]))
+  }
+
   const openCallback = () => {
     const c = detail.contract
     if (!c) return
     setCallbackSecret('')
     setCallbackEvents([])
+    setCallbackSubscriptions([])
     setCallbackOpen(true)
     loadCallbackEvents(c.id)
+    loadCallbackSubscriptions(c.id)
   }
 
-  // 保存回调地址：url 留空即关闭；首次配置会返回明文 secret（仅此一次）
-  const handleSaveCallback = (url: string) => {
+  // 保存回调配置：单地址 + 多订阅地址分两步调（后端确为两个接口）：
+  // 1) POST /callback 保存主地址；2) 按勾选结果 DELETE /subscriptions/{id} 或 POST /subscriptions。
+  // url 留空即关闭主地址回调；首次配置会返回明文 secret（仅此一次）。
+  const handleSaveCallback = (
+    url: string,
+    removedSubscriptionIds: string[] = [],
+    newSubscriptionUrls: string[] = [],
+  ) => {
     const c = detail.contract
     if (!c) return
     setCallbackSaving(true)
-    contractsApi
-      .setCallback(c.id, url.trim())
-      .then((res) => {
+    ;(async () => {
+      try {
+        const res = await contractsApi.setCallback(c.id, url.trim())
+        let secret = res.data?.callback_secret || ''
+        for (const subscriptionId of removedSubscriptionIds) {
+          await contractsApi.removeSubscription(c.id, subscriptionId)
+        }
+        for (const subscriptionUrl of newSubscriptionUrls) {
+          const added = await contractsApi.addSubscription(c.id, { url: subscriptionUrl })
+          secret = secret || added.data?.callback_secret || ''
+        }
         message.success(t('contracts.msgCallbackSaved'))
-        setCallbackSecret(res.data?.callback_secret || '')
+        setCallbackSecret(secret)
         handleOpen(c.id)
         loadCallbackEvents(c.id)
-      })
-      .catch((err) => message.error(errorText(err, t('contracts.errCallback'))))
-      .finally(() => setCallbackSaving(false))
+        loadCallbackSubscriptions(c.id)
+      } catch (err) {
+        message.error(errorText(err, t('contracts.errCallback')))
+      } finally {
+        setCallbackSaving(false)
+      }
+    })()
   }
 
   const handleRetryCallback = () => {
@@ -482,6 +511,7 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     callbackOpen,
     setCallbackOpen,
     callbackEvents,
+    callbackSubscriptions,
     callbackSecret,
     callbackSaving,
     openCallback,

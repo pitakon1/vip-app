@@ -27,6 +27,32 @@ const unwrap = (d: any): any => d?.data ?? d ?? {}
 
 const fmtDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '-')
 
+/** 签署区稳定 key：清单与画布必须用同一份判定（与 Web 端一致） */
+const fieldKey = (f: any) =>
+  f?.id || `${f?.field_type || 'signature'}-${Number(f?.page) || 1}-${f?.x}-${f?.y}`
+
+/** 已落章是否覆盖该预置签署区（页码 + 坐标差 < 1） */
+const isFieldCovered = (f: any, items: PlacedItem[]) =>
+  items.some(
+    (it) =>
+      it.page === (Number(f?.page) || 1) &&
+      Math.abs(it.x - (Number(f?.x) || 0)) < 1 &&
+      Math.abs(it.y - (Number(f?.y) || 0)) < 1
+  )
+
+/** 清单状态：已签（后端字段）> 已放（本地落章覆盖）> 待放 */
+const isFieldDone = (f: any, items: PlacedItem[]) => !!f?.signed || isFieldCovered(f, items)
+
+/** 排序：页码升序，同页按 y 升序，与阅读顺序一致 */
+const sortSignFields = (fields: any[]) =>
+  [...fields].sort(
+    (a, b) =>
+      (Number(a?.page) || 1) - (Number(b?.page) || 1) || (Number(a?.y) || 0) - (Number(b?.y) || 0)
+  )
+
+const fieldState = (f: any, items: PlacedItem[]): 'pending' | 'placed' | 'signed' =>
+  f?.signed ? 'signed' : isFieldCovered(f, items) ? 'placed' : 'pending'
+
 // 后端 ContractStatus / ContractSource 文案映射（key 需在 i18n 三语有值）
 const STATUS_META: Record<string, string> = {
   draft: 'contract.status.draft',
@@ -143,6 +169,19 @@ export default function MyContractsPage() {
   const [showDecline, setShowDecline] = useState(false)
   const [declineReason, setDeclineReason] = useState('')
   const [declineBusy, setDeclineBusy] = useState(false)
+
+  // ===== 待签控件清单（窄屏底部抽屉，避免挤压签署画布） =====
+  const [pendingOpen, setPendingOpen] = useState(false)
+  // 点击清单项 / 受阻提交时高亮对应签署区（1.4s 后自动清除）
+  const [focusedKey, setFocusedKey] = useState('')
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(
+    () => () => {
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
+    },
+    []
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -810,14 +849,82 @@ export default function MyContractsPage() {
     }
   }
 
-  const canSign = !!myParty?.id && !alreadySigned
   const pageItems = placedItems.filter((it) => it.page === fieldPage)
   // 本人名下、尚未签署的预置签署区（发起方在管理端布好的框）：点一下即按该区坐标签在该处。
   // 此前小程序完全没有渲染 sign_fields，与 App 端「我的签署区」不一致。
-  const myPendingFields = (Array.isArray(detail?.sign_fields) ? detail.sign_fields : []).filter(
-    (f: any) => !!myParty && String(f?.party_id) === String(myParty?.id) && !f?.signed
+  const myFields = (Array.isArray(detail?.sign_fields) ? detail.sign_fields : []).filter(
+    (f: any) => !!myParty && (String(f?.party_id) === String(myParty?.id) || f?.party_id == null)
   )
+  const mySortedFields = sortSignFields(myFields)
+  const myDoneCount = mySortedFields.filter((f: any) => isFieldDone(f, placedItems)).length
+  const myRemainingCount = mySortedFields.length - myDoneCount
+  const firstPendingField = mySortedFields.find((f: any) => !isFieldDone(f, placedItems)) || null
+  const myPendingFields = myFields.filter((f: any) => !f?.signed)
   const pageFields = myPendingFields.filter((f: any) => (Number(f?.page) || 1) === fieldPage)
+
+  // ===== 提交不可用的硬原因（按优先级取第一条，与 Web 端一致） =====
+  const expired = !!detail?.expired
+  const waitingTurn = myParty?.can_sign_now === false
+  const hardReason: 'noContract' | 'expired' | 'waiting' | 'noPlacement' | null = !detail?.id
+    ? 'noContract'
+    : expired
+    ? 'expired'
+    : waitingTurn
+    ? 'waiting'
+    : placedItems.length === 0
+    ? 'noPlacement'
+    : null
+  // 实名未完成只做引导；归属本账号的签署方由后端按登录态内部认证，不误伤
+  const partyBound = !!myParty && isSelfParty(myParty)
+  const realNamePending = !hardReason && !!myParty && !myParty?.real_name_verified_at && !partyBound
+  const blocked = !!hardReason || realNamePending
+  const hintText =
+    hardReason === 'noContract'
+      ? t('contract.signHintNoContract')
+      : hardReason === 'expired'
+      ? t('contract.signHintExpired', { at: fmtDate(detail?.expires_at) })
+      : hardReason === 'waiting'
+      ? t('contract.signHintWaitingTurn', {
+          order: Math.max(1, (Number(myParty?.sign_order) || 1) - 1)
+        })
+      : hardReason === 'noPlacement'
+      ? t('contract.signHintNoPlacement')
+      : realNamePending
+      ? t('contract.signHintRealName')
+      : ''
+
+  // 点击清单项 / 受阻提交：切到对应页并高亮该框（1.4s 后自动清除）
+  const focusField = (f: any) => {
+    const pg = Number(f?.page) || 1
+    const key = fieldKey(f)
+    setPendingOpen(false)
+    if (pg !== fieldPage) setFieldPage(pg)
+    setFocusedKey(key)
+    if (focusTimerRef.current) clearTimeout(focusTimerRef.current)
+    focusTimerRef.current = setTimeout(() => {
+      setFocusedKey((k) => (k === key ? '' : k))
+    }, 1400)
+  }
+
+  // 提交按钮不可用时，把用户带到第一个可操作的位置
+  const locateBlocker = () => {
+    if (hardReason === 'noContract' || hardReason === 'expired') {
+      if (detail?.id) void openDetail(detail.id)
+      else void load()
+      return
+    }
+    if (hardReason === 'waiting') return
+    if (hardReason === 'noPlacement') {
+      if (mySortedFields.length) setPendingOpen(true)
+      else Taro.showToast({ title: t('contract.signNeedPlace'), icon: 'none' })
+      return
+    }
+    if (realNamePending) {
+      Taro.showToast({ title: t('contract.realNameNotice'), icon: 'none' })
+      return
+    }
+    if (firstPendingField) focusField(firstPendingField)
+  }
 
   // 托盘条目（开放签式整行交互）：
   //   未制作 → 整行点一下直接打开手写签名板 / 印章制作（不再有小「制作」按钮）；
@@ -938,29 +1045,7 @@ export default function MyContractsPage() {
                     : <Text className='mc-config__hint'>{t('contract.empty')}</Text>}
                 </View>
 
-                {/* 我的签署区（与 App 端一致）：列出本人待签的预置签署区，点一下跳到该页并直接签在该处 */}
-                {!!myPendingFields.length && (
-                  <View className='mc-config'>
-                    <Text className='mc-config__title'>{t('contract.signFields')}</Text>
-                    {myPendingFields.map((f: any, i: number) => {
-                      const type = String(f?.field_type || 'signature')
-                      const pg = Number(f?.page) || 1
-                      return (
-                        <View
-                          key={f?.id ?? `field-row-${i}`}
-                          className='mc-fieldrow'
-                          onClick={() => {
-                            if (pg !== fieldPage) setFieldPage(pg)
-                            signOnField(f)
-                          }}
-                        >
-                          <Text className='mc-fieldrow__label'>{t(`contract.field.${type}`)}</Text>
-                          <Text className='mc-fieldrow__meta'>{t('contract.page')} {pg}</Text>
-                        </View>
-                      )
-                    })}
-                  </View>
-                )}
+                {/* 待签控件清单改由底部抽屉承载（见 mc-pending），不再占用文档上方空间 */}
 
                 {/* ===== 文档区 ===== */}
                 <View className='mc-doc'>
@@ -994,7 +1079,7 @@ export default function MyContractsPage() {
                     {pageFields.map((f: any, idx: number) => (
                       <View
                         key={f?.id ?? `field-${idx}`}
-                        className='mc-field'
+                        className={`mc-field ${focusedKey === fieldKey(f) ? 'mc-field--focus' : ''}`}
                         style={{
                           left: `${f?.x}%`,
                           top: `${f?.y}%`,
@@ -1012,7 +1097,7 @@ export default function MyContractsPage() {
                     {pageItems.map((it) => (
                       <View
                         key={it.key}
-                        className={`mc-placed ${movingKey === it.key ? 'mc-placed--moving' : ''}`}
+                        className={`mc-placed ${movingKey === it.key ? 'mc-placed--moving' : ''} ${focusedKey && myFields.some((f: any) => fieldKey(f) === focusedKey && isFieldCovered(f, [it])) ? 'mc-placed--focus' : ''}`}
                         catchMove
                         style={{
                           left: `${it.x}%`,
@@ -1051,6 +1136,15 @@ export default function MyContractsPage() {
               {renderTrayItem('company_seal')}
               {renderTrayItem('personal_handwrite')}
             </View>
+            {!!mySortedFields.length && (
+              <View className='mc-dock__pending' onClick={() => setPendingOpen(true)}>
+                <Text className='mc-dock__pending-text'>
+                  {t('contract.pendingFields', { count: myRemainingCount })}
+                </Text>
+                <View className='icon-svg mc-dock__pending-icon' style={{ ...iconStyle('back', 26), transform: 'rotate(90deg)' }} />
+              </View>
+            )}
+            {!!hintText && <Text className='mc-dock__hint'>{hintText}</Text>}
             <View className='mc-dock__actions'>
               {myParty && !alreadySigned && (
                 <View className={`mc-btn mc-btn--ghost mc-footer__decline ${declineBusy ? 'mc-btn--disabled' : ''}`} onClick={() => { if (!declineBusy) openDecline() }}>
@@ -1058,19 +1152,76 @@ export default function MyContractsPage() {
                 </View>
               )}
               <View
-                className={`mc-sign ${!canSign || signing || !placedItems.length ? 'mc-sign--disabled' : ''}`}
+                className={`mc-sign ${!myParty?.id || alreadySigned || blocked || signing ? 'mc-sign--disabled' : ''}`}
                 onClick={() => {
                   if (alreadySigned) {
                     Taro.showToast({ title: t('contract.completedToast'), icon: 'none' })
                     return
                   }
-                  if (canSign && !signing) void doSignBatch()
+                  if (!myParty?.id || signing) return
+                  if (blocked) {
+                    locateBlocker()
+                    return
+                  }
+                  void doSignBatch()
                 }}
               >
                 <Text className='mc-sign__text'>{t('contract.sign')}</Text>
               </View>
             </View>
           </View>
+
+          {/* 待签控件清单：底部抽屉，覆盖而非挤压签署画布 */}
+          {pendingOpen && (
+            <View className='mc-pending-mask' onClick={() => setPendingOpen(false)}>
+              <View className='mc-pending' catchMove onClick={(e: any) => e.stopPropagation?.()}>
+                <View className='mc-pending__head'>
+                  <Text className='mc-pending__title'>
+                    {t('contract.pendingFields', { count: myRemainingCount })}
+                  </Text>
+                  <View
+                    className='icon-svg mc-pending__close'
+                    style={iconStyle('close', 30)}
+                    onClick={() => setPendingOpen(false)}
+                  />
+                </View>
+                <ScrollView className='mc-pending__list' scrollY>
+                  {mySortedFields.map((f: any, i: number) => {
+                    const state = fieldState(f, placedItems)
+                    const stateLabel =
+                      state === 'signed'
+                        ? t('contract.fieldStateSigned')
+                        : state === 'placed'
+                        ? t('contract.fieldStatePlaced')
+                        : t('contract.fieldStatePending')
+                    return (
+                      <View
+                        key={f?.id ?? `pending-${i}`}
+                        className={`mc-pending__row mc-pending__row--${state}`}
+                        onClick={() => {
+                          // 已签字段只读展示，不参与定位（与 Web 判定口径一致）
+                          if (state !== 'signed') focusField(f)
+                        }}
+                      >
+                        <View className='mc-pending__row-main'>
+                          <Text className='mc-pending__row-title'>
+                            {t(`contract.field.${f?.field_type || 'signature'}`)}
+                          </Text>
+                          <Text className='mc-pending__row-meta'>
+                            {t('contract.fieldPage', { page: Number(f?.page) || 1 })}
+                          </Text>
+                        </View>
+                        <Text className={`mc-pending__state mc-pending__state--${state}`}>{stateLabel}</Text>
+                      </View>
+                    )
+                  })}
+                </ScrollView>
+                <Text className='mc-pending__foot'>
+                  {t('contract.fieldsDone', { done: myDoneCount, total: mySortedFields.length })}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       ) : (
         /* ===== 列表 ===== */

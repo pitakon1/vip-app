@@ -70,7 +70,7 @@ export default function ContractDetailCard({
   }
 
   return (
-    <div className="rent-card rent-mt-5">
+    <div className="rent-card rent-mt-5" id="contract-detail-card">
       <div className="rent-card__header">
         <h3 className="rent-card__title">{detail.contract.title}</h3>
         <span className="rent-badge rent-badge--neutral">

@@ -68,7 +68,12 @@ const Contracts = () => {
         onCancel={() => upload.setPendingFile(null)}
       />
 
-      <ContractStatsBar stats={list.stats} />
+      <ContractStatsBar
+        stats={list.stats}
+        loading={list.statsLoading}
+        error={list.statsError}
+        onRetry={() => { void list.loadStats() }}
+      />
 
       <ContractList
         contracts={list.contracts}
@@ -76,6 +81,13 @@ const Contracts = () => {
         error={list.contractsError}
         onRetry={() => { void list.loadList() }}
         onOpen={detail.handleOpen}
+        onSuggestResign={(id) => {
+          detail.handleOpen(id)
+          // 等详情渲染后滚到签署区所在卡片
+          window.setTimeout(() => {
+            document.getElementById('contract-detail-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }, 300)
+        }}
       />
 
       {detail.detail.contract && (
@@ -188,6 +200,7 @@ const Contracts = () => {
         open={detail.callbackOpen}
         url={detail.detail.contract?.callback_url}
         events={detail.callbackEvents}
+        subscriptions={detail.callbackSubscriptions}
         secret={detail.callbackSecret}
         saving={detail.callbackSaving}
         onCancel={() => detail.setCallbackOpen(false)}

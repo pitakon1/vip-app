@@ -10,6 +10,10 @@ export interface ContractDoc {
   file_url?: string
   party_name_masked?: string
   party_role?: string
+  /** 发起方姓名（后端 C-03B 上线后返回；缺失时前端降级为「复制合同链接」） */
+  initiator_name?: string | null
+  /** 发起方脱敏手机号，如 138****1234；不提供完整号码 */
+  initiator_phone_masked?: string | null
   real_name_verified?: boolean
   sign_method?: string
   pdf_available?: boolean
@@ -37,6 +41,8 @@ export interface SignField {
   y: number
   w: number
   h: number
+  /** 后端标记已签（公开页只返回未签字段，此处兼容其它入口） */
+  signed?: boolean
 }
 
 /** 已落框成品（本地坐标 + 成品图；签署时一次性原子提交给 sign-batch） */

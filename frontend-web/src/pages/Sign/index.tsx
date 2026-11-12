@@ -1,9 +1,12 @@
+import { useCallback, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import useAuthStore from '@/stores/auth'
 import SealCropperModal from '@/components/SealCropperModal'
 import './sign.css'
 import { pageStyle } from './constants'
+import type { SignField } from './types'
+import { fieldKey, isFieldDone, sortSignFields } from './utils'
 import { useSignDocument } from './hooks/useSignDocument'
 import { useSignAssets } from './hooks/useSignAssets'
 import { usePlacement } from './hooks/usePlacement'
@@ -35,11 +38,21 @@ const Sign = () => {
     onNameVerified: (name) =>
       setDoc((d) => (d ? { ...d, real_name_verified: true, party: { ...d.party, name } } : d)),
   })
+  // 清单点行 / 提交受阻时高亮对应签署区（1.4s 后自动清除，便于重复触发）
+  const [focusedKey, setFocusedKey] = useState<string | null>(null)
+  const focusField = useCallback(
+    (f: SignField) => {
+      setCurrentPage(f.page || 1)
+      setFocusedKey(fieldKey(f))
+      window.setTimeout(() => setFocusedKey((k) => (k === fieldKey(f) ? null : k)), 1400)
+    },
+    [setCurrentPage],
+  )
 
   // 逾期 / 已签 等失败态
-  if (fail) return <FailView fail={fail} />
+  if (fail) return <FailView fail={fail} doc={doc} token={token} />
   // 已拒签
-  if (submit.declined) return <DeclinedView />
+  if (submit.declined) return <DeclinedView doc={doc} />
   // 签署完成
   if (phase === 'done' && submit.result?.signed) {
     return <SuccessView download={submit.result?.download} />
@@ -55,6 +68,50 @@ const Sign = () => {
 
   // 串行签署：未轮到本方时禁止落章提交，并明确提示等待前序签署方
   const waitingTurn = doc?.can_sign_now === false
+
+  const allFields = doc?.sign_fields || []
+  const expired = !!doc?.sign_deadline && new Date(doc.sign_deadline).getTime() < Date.now()
+  const firstPending = sortSignFields(allFields).find((f) => !isFieldDone(f, placed))
+  // 提交不可用的硬原因（按优先级取第一条）；实名未完成只做引导，不硬禁用，避免误伤不要求实名的合同
+  const hardReason: 'noContract' | 'expired' | 'waiting' | 'noPlacement' | null = !doc?.contract_id
+    ? 'noContract'
+    : expired
+      ? 'expired'
+      : waitingTurn
+        ? 'waiting'
+        : placed.length === 0
+          ? 'noPlacement'
+          : null
+  const realNamePending = !hardReason && doc?.real_name_verified === false
+  const hintText =
+    hardReason === 'noContract'
+      ? t('contracts.signHintNoContract')
+      : hardReason === 'expired'
+        ? t('contracts.signHintExpired', { at: new Date(doc?.sign_deadline as string).toLocaleString() })
+        : hardReason === 'waiting'
+          ? t('contracts.signHintWaitingTurn', { order: Math.max(1, (doc?.sign_order || 1) - 1) })
+          : hardReason === 'noPlacement'
+            ? t('contracts.signHintNoPlacement')
+            : realNamePending
+              ? t('contracts.signHintRealName')
+              : ''
+  // 点击不可用按钮时，把用户带到第一个可操作的位置
+  const locateBlocker = () => {
+    if (hardReason === 'noContract' || hardReason === 'expired') {
+      window.location.reload()
+      return
+    }
+    if (hardReason === 'waiting') return
+    if (hardReason === 'noPlacement') {
+      document.getElementById('kf-tray-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    if (realNamePending) {
+      submit.setRealOpen(true)
+      return
+    }
+    if (firstPending) focusField(firstPending)
+  }
 
   return (
     <div style={pageStyle}>
@@ -87,33 +144,45 @@ const Sign = () => {
           placed={placed}
           pageItems={pageItems}
           pageFields={pageFields}
-          allFields={doc?.sign_fields || []}
+          allFields={allFields}
           docRef={docRef}
           onPageChange={setCurrentPage}
           movingKey={movingKey}
           beginMove={beginMove}
           removePlaced={removePlaced}
           signOnField={signOnField}
+          focusedKey={focusedKey}
         />
         <SignerAside
           doc={doc}
+          fields={allFields}
+          placed={placed}
           seal={assets.seal}
           signature={assets.signature}
           ghostKind={ghost?.kind || null}
           onOpenMake={assets.openMake}
           beginCarry={beginCarry}
           onDecline={() => submit.setDeclineOpen(true)}
+          onFieldClick={focusField}
         />
       </div>
 
-      {/* 底部【签署】：恒显示「签署」文案，未落章时置灰；一次性提交全部落框 */}
+      {/* 底部【签署】：恒显示「签署」文案；不可用时给出唯一原因，点击跳到对应位置 */}
       <div className="kf-signbar">
+        {hintText && <div className="kf-signbar__hint">{hintText}</div>}
         <button
           type="button"
           className="rent-btn rent-btn--primary rent-btn--lg"
           style={{ width: '100%' }}
-          disabled={submit.submitting || placed.length === 0 || waitingTurn}
-          onClick={submit.submitPlaced}
+          aria-disabled={submit.submitting || !!hardReason}
+          onClick={() => {
+            if (submit.submitting) return
+            if (hardReason) {
+              locateBlocker()
+              return
+            }
+            submit.submitPlaced()
+          }}
         >
           {t('contracts.signNow')}
         </button>
