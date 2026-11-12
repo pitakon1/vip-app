@@ -73,7 +73,7 @@
 
   &__text {
     max-width: 160rpx;
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 500;
     color: var(--ink-2);
     overflow: hidden;
@@ -223,7 +223,7 @@
   }
 
   &__dist {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     color: var(--ink-2);
   }
 
@@ -235,13 +235,13 @@
   }
 
   &__vs {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 700;
     color: var(--primary);
   }
 
   &__link {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--primary);
   }
@@ -275,7 +275,7 @@
   }
 
   &__btn-text {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 700;
     color: var(--primary-foreground);
   }
@@ -317,7 +317,7 @@
   }
 
   &__btn-text {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 700;
     color: var(--primary);
   }
@@ -384,7 +384,7 @@
 
   &__title {
     display: block;
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     font-weight: 600;
     color: var(--ink-2);
     margin: 12rpx 0;
@@ -425,7 +425,7 @@
   justify-content: center;
 
   &__text {
-    font-size: 26rpx;
+    font-size: var(--fs-caption);
     color: var(--ink-2);
     overflow: hidden;
     text-overflow: ellipsis;

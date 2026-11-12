@@ -29,7 +29,7 @@
 
 .asset-hero__label {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--fs-caption);
   color: var(--ink-3);
   font-weight: 500;
 }
@@ -44,7 +44,7 @@
 }
 
 .asset-hero__link {
-  font-size: 26rpx;
+  font-size: var(--fs-caption);
   color: var(--primary-text);
   font-weight: 600;
   flex-shrink: 0;
@@ -106,7 +106,7 @@
 }
 
 .asset-stack__label {
-  font-size: 26rpx;
+  font-size: var(--fs-caption);
   color: var(--ink-2);
   font-weight: 600;
 }
@@ -214,7 +214,7 @@
 }
 
 .asset-empty__btn-text {
-  font-size: 26rpx;
+  font-size: var(--fs-caption);
   font-weight: 600;
   color: var(--primary-foreground);
 }
