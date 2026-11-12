@@ -314,6 +314,8 @@ export const chatApi = {
   support: () => api.get('/chat/support'),
   messages: (id: string, params?: any) => api.get(`/chat/conversations/${id}/messages`, { params }),
   sendMessage: (id: string, data: any) => api.post(`/chat/conversations/${id}/messages`, data),
+  /** 进入会话/收到新消息时清零未读（后端按消息的 recipients_read 快照记账） */
+  markRead: (id: string) => api.post(`/chat/conversations/${id}/read`),
   /** 即时聊天 WebSocket 地址（含鉴权 token）；发送走 REST，WS 仅用于接收实时消息。 */
   async wsUrl(id: string): Promise<string> {
     const token = (await tokenStorage.get()) || '';
@@ -382,6 +384,27 @@ export const contractsApi = {
   // 作废（员工）
   voidContract: (id: string, reason?: string) =>
     api.post(`/contracts/${id}/void`, reason ? { reason } : {}),
+  // 催办：不传 partyId 时对全部未签方一键催办；同一方 24 小时内只发一次
+  remindContract: (id: string, data: { party_id?: string; channels?: string[] } = {}) =>
+    api.post(`/contracts/${id}/remind`, data),
+  // 撤回（员工）：草稿/已发送/部分签署/已过期可撤回，已签完成需走作废
+  revokeContract: (id: string, reason?: string) =>
+    api.post(`/contracts/${id}/revoke`, reason ? { reason } : {}),
+  // 已签文件 / 存证报告（二进制）：下载动作在 useContractActions 内按 web/native 分流
+  signedFile: (id: string) =>
+    api.get(`/contracts/${id}/signed-file`, { responseType: 'blob' }),
+  evidenceReport: (id: string) =>
+    api.get(`/contracts/${id}/evidence-report`, { responseType: 'blob' }),
+  // 提交审批：命中规则进入 pending_approval，未命中直接回草稿
+  submitApproval: (id: string) => api.post(`/contracts/${id}/submit-approval`, {}),
+  // 审批列表：scope=pending（待我审）/ submitted（我提交的）
+  listApprovals: (scope: 'pending' | 'submitted', status?: string) =>
+    api.get('/contracts/approvals', { params: { scope, ...(status ? { status } : {}) } }),
+  getApproval: (approvalId: string) => api.get(`/contracts/approvals/${approvalId}`),
+  approveApproval: (approvalId: string, comment?: string) =>
+    api.post(`/contracts/approvals/${approvalId}/approve`, { comment }),
+  rejectApproval: (approvalId: string, comment: string) =>
+    api.post(`/contracts/approvals/${approvalId}/reject`, { comment }),
 };
 
 // 签名资产库「我的签名/印章」（本人）：asset_type=handwrite(手写签名)|seal(印章)

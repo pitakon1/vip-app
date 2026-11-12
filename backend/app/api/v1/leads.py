@@ -45,6 +45,8 @@ class LeadCreate(BaseModel):
     recommended_properties: Optional[List[Any]] = None
     stage: LeadStage = LeadStage.inquiring
     assigned_to: Optional[uuid.UUID] = None
+    # 可选：直接关联已注册客户账号（通常由「发消息」匹配成功后回写）
+    user_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
     source: Optional[str] = None
     requirement: Optional[str] = None
@@ -64,6 +66,7 @@ class LeadUpdate(BaseModel):
     recommended_properties: Optional[List[Any]] = None
     stage: Optional[LeadStage] = None
     assigned_to: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
     source: Optional[str] = None
     requirement: Optional[str] = None

@@ -75,7 +75,12 @@ from app.models import (
     ContractSignAuthorization,
     ContractTemplate,
     ContractTemplateVersion,
+    ApprovalObjectType,
+    ContractApprovalStatus,
+    ContractApprovalRule,
+    ContractApprovalRequest,
     SignerRole, SignatureRecord, ContractSignField, SignFieldType, SignMethod,
+    UserRole,
 )
 from app.providers.notification.base import (
     NotificationChannel as ProviderChannel,
@@ -84,6 +89,7 @@ from app.providers.notification.base import (
 from app.providers.notification.router import notification_router
 from app.services import esign_service
 from app.services import contract_jobs
+from app.services import contract_approval
 from app.services import contract_audit as audit
 from app.services.contract_privacy import initiator_contact
 from app.services.contract_identity import MATCHED, ContractIdentityResolver
@@ -268,6 +274,302 @@ def list_contract_templates(user: User = Depends(require_employee)):
      {kind: "broker", title: "经纪人协议"}]
     """
     return esign_service.list_templates()
+
+
+# ---------------------------------------------------------------------------
+# 合同审批流
+#
+# 规则表配置化（改阈值无需改代码）；提交时匹配规则，命中则合同进入
+# pending_approval，审批通过前 `send` 一律 409。当前仅 contract 启用，
+# sale_mandate / service_order 预留 object_type，不开放入口。
+# ---------------------------------------------------------------------------
+def _serialize_approval_rule(rule: ContractApprovalRule) -> dict:
+    return {
+        "id": str(rule.id),
+        "object_type": rule.object_type.value,
+        "field": rule.field,
+        "operator": rule.operator.value,
+        "threshold": rule.threshold,
+        "threshold_max": rule.threshold_max,
+        "approval_role": rule.approval_role,
+        "approval_level": rule.approval_level,
+        "priority": rule.priority,
+        "enabled": rule.enabled,
+        "note": rule.note,
+    }
+
+
+def _require_admin(user: User) -> None:
+    if user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="ADMIN_REQUIRED")
+
+
+class ApprovalRulePatch(BaseModel):
+    """规则可调字段：阈值、层级、角色、优先级、启停与说明。"""
+
+    threshold: Optional[float] = None
+    threshold_max: Optional[float] = None
+    approval_role: Optional[str] = None
+    approval_level: Optional[int] = None
+    priority: Optional[int] = None
+    enabled: Optional[bool] = None
+    note: Optional[str] = None
+
+
+class ApprovalCommentBody(BaseModel):
+    comment: Optional[str] = None
+
+
+@router.get("/approval-rules")
+def list_approval_rules(
+    object_type: str = ApprovalObjectType.contract.value,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """审批规则列表（默认仅启用规则；管理员可查全部）。"""
+    try:
+        obj_type = ApprovalObjectType(object_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid object_type")
+    rules = contract_approval.list_rules(
+        session, object_type=obj_type, enabled_only=user.role != UserRole.admin
+    )
+    return [_serialize_approval_rule(r) for r in rules]
+
+
+@router.patch("/approval-rules/{rule_id}")
+def patch_approval_rule(
+    rule_id: uuid.UUID,
+    payload: ApprovalRulePatch,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """修改规则阈值/启停（管理员）。改完立即生效，无需发版。"""
+    _require_admin(user)
+    rule = session.get(ContractApprovalRule, rule_id)
+    if rule is None or rule.deleted_at:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    data = payload.model_dump(exclude_unset=True)
+    if "approval_role" in data and data["approval_role"]:
+        if not contract_approval.role_user_roles(session, data["approval_role"]):
+            raise HTTPException(status_code=400, detail="Invalid approval_role")
+    if "approval_level" in data and data["approval_level"] not in (1, 2):
+        raise HTTPException(status_code=400, detail="approval_level must be 1 or 2")
+    for key, value in data.items():
+        setattr(rule, key, value)
+    rule.updated_by = user.id
+    session.add(rule)
+    session.commit()
+    session.refresh(rule)
+    return _serialize_approval_rule(rule)
+
+
+@router.post("/{contract_id}/submit-approval")
+def submit_contract_approval(
+    contract_id: uuid.UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """提交合同审批：自动匹配规则，命中则进入 pending_approval。"""
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    try:
+        result = contract_approval.submit_contract_for_approval(session, contract, user)
+    except contract_approval.ApprovalError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code)
+    approval = result.get("approval")
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_SUBMIT_APPROVAL,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "requires_approval": result.get("requires_approval"),
+            "already_pending": result.get("already_pending"),
+            "approval_id": approval.get("id") if approval else None,
+            "rule_hits": [h.get("rule_id") for h in (approval or {}).get("rule_hits", [])],
+        },
+    )
+    return result
+
+
+@router.get("/approvals")
+def list_contract_approvals(
+    scope: str = "pending",
+    status: Optional[str] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """审批列表：scope=pending（待我审）/ submitted（我提交的）。"""
+    if scope not in ("pending", "submitted"):
+        raise HTTPException(status_code=400, detail="Invalid scope")
+
+    query = select(ContractApprovalRequest).where(
+        ContractApprovalRequest.object_type == ApprovalObjectType.contract
+    )
+    if scope == "submitted":
+        query = query.where(ContractApprovalRequest.submitter_id == user.id)
+        if status:
+            try:
+                query = query.where(ContractApprovalRequest.status == ContractApprovalStatus(status))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid status")
+    else:
+        query = query.where(ContractApprovalRequest.status == ContractApprovalStatus.pending)
+
+    rows = session.exec(
+        query.order_by(ContractApprovalRequest.submitted_at.desc())
+    ).all()
+
+    if scope == "pending":
+        rows = [
+            r
+            for r in rows
+            if r.submitter_id != user.id
+            and contract_approval.is_eligible(
+                session, user, contract_approval.current_role(r)
+            )
+        ]
+
+    contract_ids = {r.object_id for r in rows}
+    contracts = {}
+    if contract_ids:
+        for contract in session.exec(
+            select(Contract).where(Contract.id.in_(contract_ids))
+        ).all():
+            contracts[contract.id] = contract
+    return [
+        contract_approval.serialize_request(
+            session, r, contract=contracts.get(r.object_id)
+        )
+        for r in rows
+    ]
+
+
+def _get_visible_approval(
+    session: Session, user: User, approval_id: uuid.UUID
+) -> ContractApprovalRequest:
+    approval = session.get(ContractApprovalRequest, approval_id)
+    if approval is None or approval.deleted_at:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    if user.role == UserRole.admin or approval.submitter_id == user.id:
+        return approval
+    if approval.approver_id == user.id:
+        return approval
+    if approval.status == ContractApprovalStatus.pending and contract_approval.is_eligible(
+        session, user, contract_approval.current_role(approval)
+    ):
+        return approval
+    raise HTTPException(status_code=403, detail="Not allowed to view approval")
+
+
+def _get_approval_for_decision(
+    session: Session, approval_id: uuid.UUID
+) -> ContractApprovalRequest:
+    """审批动作专用取单：只校验存在性，层级/自审等由服务层给出明确原因。
+
+    详情接口仍走 `_get_visible_approval` 做可见性收敛；审批动作不能让
+    「层级不符」在可见性检查里变成笼统的 403，否则用户看不到拒批原因。
+    """
+    approval = session.get(ContractApprovalRequest, approval_id)
+    if approval is None or approval.deleted_at:
+        raise HTTPException(status_code=404, detail="Approval not found")
+    return approval
+
+
+@router.get("/approvals/{approval_id}")
+def get_contract_approval(
+    approval_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """审批详情：合同摘要、命中规则、分级计划与审批留痕。"""
+    approval = _get_visible_approval(session, user, approval_id)
+    return contract_approval.serialize_request(session, approval)
+
+
+@router.post("/approvals/{approval_id}/approve")
+def approve_contract_approval(
+    approval_id: uuid.UUID,
+    request: Request,
+    payload: Optional[ApprovalCommentBody] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """审批通过；两级审批时第一级通过后仍为 pending，等待第二级。"""
+    approval = _get_approval_for_decision(session, approval_id)
+    comment = payload.comment if payload else None
+    try:
+        result = contract_approval.approve_request(session, approval, user, comment)
+    except contract_approval.ApprovalError as exc:
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_APPROVE,
+            contract_id=approval.object_id,
+            result="failure",
+            actor=user,
+            request=request,
+            detail={"approval_id": str(approval.id), "level": approval.current_level},
+            error=exc.code,
+        )
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_APPROVE,
+        contract_id=approval.object_id,
+        actor=user,
+        request=request,
+        detail={
+            "approval_id": str(approval.id),
+            "level": result.get("current_level"),
+            "status": result.get("status"),
+            "contract_status": result.get("contract_status"),
+        },
+    )
+    return result
+
+
+@router.post("/approvals/{approval_id}/reject")
+def reject_contract_approval(
+    approval_id: uuid.UUID,
+    request: Request,
+    payload: ApprovalCommentBody,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """驳回：退回草稿并保留意见；重新提交会生成新的审批单。"""
+    approval = _get_approval_for_decision(session, approval_id)
+    try:
+        result = contract_approval.reject_request(
+            session, approval, user, payload.comment or ""
+        )
+    except contract_approval.ApprovalError as exc:
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_REJECT,
+            contract_id=approval.object_id,
+            result="failure",
+            actor=user,
+            request=request,
+            detail={"approval_id": str(approval.id), "level": approval.current_level},
+            error=exc.code,
+        )
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_REJECT,
+        contract_id=approval.object_id,
+        actor=user,
+        request=request,
+        detail={
+            "approval_id": str(approval.id),
+            "level": approval.current_level,
+            "comment": result.get("approval", {}).get("comment"),
+        },
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -2012,6 +2314,11 @@ def send_contract(
     # 与签署/撤回串行化：续期会回写状态与签署链接，必须基于最新已提交状态判定
     contract = _lock_contract_row(session, contract)
 
+    # 审批闸门：命中规则但审批未通过时不得发送签署。
+    # 前端漏掉「提交审批」也会在这里自动补建审批单并拦截。
+    if contract_approval.approval_required_for_send(session, contract, user):
+        raise HTTPException(status_code=409, detail="APPROVAL_REQUIRED")
+
     # 续期判定：状态已 expired，或有效期已过但尚未被惰性/后台标记。
     # 首次发送（expires_at 为空）不算续期。
     now = datetime.utcnow()
@@ -3572,8 +3879,12 @@ def _sign_batch_core(
     first_svg: Optional[str] = None
     created: List[dict] = []
     placements: list = []
+    parsed: List[tuple] = []
     rects: List[tuple] = []
 
+    # 先归一化坐标并做「必签区全覆盖」预校验，再写任何字段/文件：
+    # 一次性签署是一次原子动作，若本次落章没覆盖该方全部未签必签区，
+    # 必须整单拒绝；否则签署方会被标记已签且无法再次补签，剩余必签区永久悬空。
     for it in items:
         method = _method_map.get(
             str(it.get("method") or it.get("field_type") or ""),
@@ -3584,8 +3895,36 @@ def _sign_batch_core(
         y = min(100.0, max(0.0, float(it.get("y", 0) or 0)))
         w = min(100.0, max(1.0, float(it.get("w", 0) or 0) or 20.0))
         h = min(100.0, max(1.0, float(it.get("h", 0) or 0) or 8.0))
-        ft = _ft_map.get(method, SignFieldType.signature)
+        parsed.append((it, method, page, x, y, w, h))
         rects.append((page, x, y, w, h))
+
+    pending_required = session.exec(
+        select(ContractSignField).where(
+            ContractSignField.contract_id == contract.id,
+            ContractSignField.party_id == party.id,
+            ContractSignField.required.is_(True),
+            ContractSignField.signed.is_(False),
+        )
+    ).all()
+    uncovered = [
+        f
+        for f in pending_required
+        if not any(
+            f.page == page and x <= f.x + f.w / 2 <= x + w and y <= f.y + f.h / 2 <= y + h
+            for page, x, y, w, h in rects
+        )
+    ]
+    if uncovered:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"REQUIRED_FIELDS_NOT_COVERED: 还有 {len(uncovered)} 个必签区"
+                "未被本次签章覆盖，请调整签章位置后重新提交"
+            ),
+        )
+
+    for it, method, page, x, y, w, h in parsed:
+        ft = _ft_map.get(method, SignFieldType.signature)
 
         # 先做纯校验（SVG 黑名单、图片解码），任何一项失败都不产生副作用。
         raw_svg = it.get("signature_svg")
@@ -4166,6 +4505,15 @@ def get_contract(
             for p in parties
         ],
         "sign_fields": _get_sign_fields(session, contract_id, user),
+        # 审批状态与意见：详情页展示最新一张审批单（历史审批在审批列表里查）
+        "approval": (
+            contract_approval.serialize_request(session, latest)
+            if (latest := contract_approval.latest_request(session, contract_id))
+            else None
+        ),
+        "can_submit_approval": is_staff
+        and contract.status
+        in (ContractStatus.draft, ContractStatus.pending_approval),
     }
 
 
@@ -4350,11 +4698,27 @@ def build_verify_report(
 @router.get("/{contract_id}/verify")
 def verify_contract(
     contract_id: uuid.UUID,
+    request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(require_employee),
+    user: User = Depends(get_current_user),
 ):
-    """验签报告（员工可访问）。详见 `build_verify_report`。"""
-    contract = _get_visible_contract(session, user, contract_id)
+    """验签报告。
+
+    - 员工：沿用合同可见性口径（不可见仍按 404，不改变既有行为）；
+    - 签署方本人：可验自己参与的合同（user_id 或邮箱归属）；
+    - 其余登录用户：403（明确「无权验签」而非静默 404）。
+    """
+    contract = session.get(Contract, contract_id)
+    if not contract or contract.deleted_at:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    if user.role in STAFF_ROLES:
+        _get_visible_contract(session, user, contract_id, request=request)
+    else:
+        parties = session.exec(
+            select(ContractParty).where(ContractParty.contract_id == contract_id)
+        ).all()
+        if not any(party_belongs_to_user(p, user) for p in parties):
+            raise HTTPException(status_code=403, detail="Not a party of this contract")
     return build_verify_report(session, contract)
 
 

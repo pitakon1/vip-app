@@ -1,4 +1,4 @@
-﻿﻿﻿﻿import { useRef, useState } from 'react'
+﻿﻿﻿﻿﻿﻿import { useRef, useState } from 'react'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { contractsApi, contractsPublicApi } from '@/services/api'
@@ -22,7 +22,7 @@ export const useSignSubmit = ({
   placed: Placed[]
   authToken: string | null
   setPhase: (p: Phase) => void
-  setFail: (f: 'expired' | 'signed' | 'generic' | null) => void
+  setFail: (f: 'expired' | 'closed' | 'signed' | 'generic' | null) => void
   onNameVerified: (name: string) => void
 }) => {
   const { t } = useTranslation()
@@ -125,7 +125,7 @@ export const useSignSubmit = ({
         setRealStep('send')
         setRealOpen(true)
         message.warning(t('contracts.realNameRequired'))
-      } else if (status === 410) setFail('expired')
+      } else if (status === 410) setFail(detail === 'Contract closed' ? 'closed' : 'expired')
       else if (status === 409) setFail('signed')
       else message.error(errorText(err, t('contracts.errGenericSubmit')))
     } finally {

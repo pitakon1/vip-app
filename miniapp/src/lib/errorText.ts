@@ -71,6 +71,7 @@ export function errorText(err: unknown, fallback?: string): string {
   if (status === 403) return t('error.noPermission')
   if (status === 404) return t('error.notFound')
   if (status === 409) return t('error.conflict')
+  if (status === 410) return t('error.gone')
   if (status === 429) return t('error.tooFrequent')
   if (status >= 500) return t('error.server')
 

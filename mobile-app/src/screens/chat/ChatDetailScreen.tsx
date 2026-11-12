@@ -48,7 +48,7 @@ export default function ChatDetailScreen() {
   const wsRef = useRef<WebSocket | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const res = await chatApi.messages(conversationId);
       const data = res.data;
@@ -57,49 +57,81 @@ export default function ChatDetailScreen() {
         : (data as any)?.items ?? (data as any)?.messages ?? [];
       setMessages(items as Message[]);
       setLoadError(false);
+      // 拉取成功即视为已读：会话列表的未读角标随之清零
+      chatApi.markRead(conversationId).catch(() => undefined);
     } catch (err: any) {
-      setLoadError(true);
-      notifyError(t('loadFailed'), err);
+      if (!silent) {
+        setLoadError(true);
+        notifyError(t('loadFailed'), err);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [conversationId, t]);
 
   // 建立实时接收通道：发送走 REST，WebSocket 仅接收对端消息（服务端已排除发送者回声）
+  // 断线（切网/切后台）后按退避重连，避免「进会话后网络一抖就再也收不到」。
   useEffect(() => {
     let cancelled = false;
-    authApi
-      .me()
-      .then((res) => !cancelled && setMyId(res?.data?.id || ''))
-      .catch(() => undefined);
-    chatApi
-      .wsUrl(conversationId)
-      .then((url) => {
+    let retry = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const open = async () => {
+      try {
+        const url = await chatApi.wsUrl(conversationId);
+        if (cancelled) return;
         const ws = new WebSocket(url);
         wsRef.current = ws;
+        ws.onopen = () => {
+          retry = 0;
+        };
         ws.onmessage = (ev) => {
           try {
             const data = JSON.parse(ev.data);
             if (data.event === 'message') {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: data.id || `rt-${Date.now()}`,
-                  body: data.body,
-                  sender_id: data.sender_id,
-                  message_type: data.message_type,
-                  created_at: data.created_at,
-                },
-              ]);
+              // 按服务端消息 id 去重：轮询/重连可能带来同一条消息
+              setMessages((prev) =>
+                data.id && prev.some((m) => m.id === data.id)
+                  ? prev
+                  : [
+                      ...prev,
+                      {
+                        id: data.id || `rt-${Date.now()}`,
+                        body: data.body,
+                        sender_id: data.sender_id,
+                        message_type: data.message_type,
+                        created_at: data.created_at,
+                      },
+                    ],
+              );
+              // 会话正处于前台，收到即已读
+              chatApi.markRead(conversationId).catch(() => undefined);
             }
           } catch {
             /* ignore */
           }
         };
-      })
+        ws.onclose = () => {
+          if (cancelled || retry >= 3) return;
+          retry += 1;
+          retryTimer = setTimeout(open, 1500 * retry);
+        };
+      } catch {
+        if (cancelled || retry >= 3) return;
+        retry += 1;
+        retryTimer = setTimeout(open, 1500 * retry);
+      }
+    };
+
+    authApi
+      .me()
+      .then((res) => !cancelled && setMyId(res?.data?.id || ''))
       .catch(() => undefined);
+    void open();
+
     return () => {
       cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
       wsRef.current?.close();
       wsRef.current = null;
     };
@@ -107,6 +139,14 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  // 兜底轮询：WS 被代理/弱网阻断时仍能收消息（15s 一次，静默失败不打扰用户）
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void load(true);
+    }, 15000);
+    return () => clearInterval(timer);
   }, [load]);
 
   // 新消息（首次加载 / 发送 / 实时接收）后滚到最新一条，避免停在历史顶部

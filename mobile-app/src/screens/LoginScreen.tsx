@@ -19,9 +19,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/auth';
 import { authApi, companyApi } from '@/services/api';
 import { refreshTokenStorage, tokenStorage } from '@/lib/storage';
+import { dialPhone } from '@/lib/dial';
 import { useI18n, LANG_LABELS, LANGS, type AppLang } from '@/i18n';
 import { notifyError } from '@/utils/feedback';
-import { useOtp, COUNTRY_CODES, useDefaultCountry, isValidPhone, phoneLengthHint } from '@/hooks/useOtp';
+import {
+  useOtp,
+  useDefaultCountry,
+  isValidPhone,
+  phoneLengthHint,
+  phoneToE164,
+  displayCountry,
+  searchCountries,
+} from '@/hooks/useOtp';
 import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
@@ -50,6 +59,7 @@ export default function LoginScreen() {
   // 手机号登录
   const { country, selectCountry } = useDefaultCountry();
   const [countryVisible, setCountryVisible] = useState(false);
+  const [countryQuery, setCountryQuery] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   // 忘记密码：走客服（电话/邮箱），不做自助重置
@@ -80,8 +90,8 @@ export default function LoginScreen() {
       setPhoneError(t('login.phoneRequired'));
       return false;
     }
-    if (!isValidPhone(country.value, phone.trim())) {
-      setPhoneError(t('login.phoneInvalid', { n: phoneLengthHint(country.value) }));
+    if (!isValidPhone(country, phone.trim())) {
+      setPhoneError(t('login.phoneInvalid', { n: phoneLengthHint(country) }));
       return false;
     }
     setPhoneError('');
@@ -90,7 +100,7 @@ export default function LoginScreen() {
 
   const handleSendCode = async () => {
     if (!checkPhone()) return;
-    const dev = await sendOtp(`${country.value}${phone.trim()}`, 'sms');
+    const dev = await sendOtp(phoneToE164(country, phone.trim()), 'sms');
     if (dev) setCode(dev);
   };
 
@@ -118,6 +128,20 @@ export default function LoginScreen() {
     void Linking.openURL(url).catch(() =>
       notifyError(t('actionFailed'), new Error(t('login.forgotNoChannel'))),
     );
+  };
+
+  // 客服电话：点击即调起系统拨号，号码无效时明确提示
+  const callSupport = async () => {
+    setForgotOpen(false);
+    const result = await dialPhone(supportInfo?.phone);
+    if (result === 'ok') return;
+    const message =
+      result === 'invalid'
+        ? t('contact.invalidPhoneMsg')
+        : result === 'failed'
+          ? t('profile.callFail')
+          : t('login.forgotNoChannel');
+    notifyError(t('actionFailed'), new Error(message));
   };
 
   const handleLogin = async () => {
@@ -151,7 +175,7 @@ export default function LoginScreen() {
       const { data } =
         method === 'email'
           ? await authApi.login(email.trim(), password)
-          : await authApi.loginByOtp(`${country.value}${phone.trim()}`, code.trim());
+          : await authApi.loginByOtp(phoneToE164(country, phone.trim()), code.trim());
       const token: string | undefined = data?.token ?? data?.access_token;
       const user = data?.user ?? data?.data?.user;
       if (!token || !user) {
@@ -371,7 +395,7 @@ export default function LoginScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('login.selectCountryCode')}
               >
-                <Text style={styles.countryText}>{t(country.labelKey)}</Text>
+                <Text style={styles.countryText}>{displayCountry(country, lang)}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
 
@@ -534,26 +558,38 @@ export default function LoginScreen() {
         >
           <View style={styles.langSheet}>
             <Text style={styles.langSheetTitle}>{t('login.selectCountry')}</Text>
-            {COUNTRY_CODES.map((c) => {
-              const active = c.value === country.value;
-              return (
-                <TouchableOpacity
-                  key={c.value}
-                  style={styles.langOption}
-                  onPress={() => {
-                    selectCountry(c);
-                    setCountryVisible(false);
-                  }}
-                >
-                  <Text style={[styles.langOptionText, active && styles.langOptionActive]}>
-                    {t(c.labelKey)}
-                  </Text>
-                  {active ? (
-                    <Ionicons name="checkmark" size={18} color={colors.primary} />
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
+            <TextInput
+              style={styles.countrySearch}
+              placeholder={t('login.searchCountry')}
+              placeholderTextColor={colors.ink3}
+              value={countryQuery}
+              onChangeText={setCountryQuery}
+              autoCorrect={false}
+              accessibilityLabel={t('login.searchCountry')}
+            />
+            <ScrollView style={styles.countryList} keyboardShouldPersistTaps="handled">
+              {searchCountries(countryQuery).map((c) => {
+                const active = c.iso2 === country.iso2;
+                return (
+                  <TouchableOpacity
+                    key={c.iso2}
+                    style={styles.langOption}
+                    onPress={() => {
+                      selectCountry(c);
+                      setCountryVisible(false);
+                      setCountryQuery('');
+                    }}
+                  >
+                    <Text style={[styles.langOptionText, active && styles.langOptionActive]}>
+                      {displayCountry(c, lang)}
+                    </Text>
+                    {active ? (
+                      <Ionicons name="checkmark" size={18} color={colors.primary} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -581,7 +617,7 @@ export default function LoginScreen() {
                   <TouchableOpacity
                     style={styles.supportOption}
                     activeOpacity={0.7}
-                    onPress={() => contactSupport(`tel:${supportInfo.phone}`)}
+                    onPress={() => void callSupport()}
                     accessibilityRole="button"
                   >
                     <Ionicons name="call-outline" size={20} color={colors.primary} />
@@ -863,8 +899,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   langSheet: {
-    width: '72%',
-    maxWidth: 280,
+    width: '86%',
+    maxWidth: 340,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
     paddingVertical: 8,
@@ -872,6 +908,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...colors.shadow.lg,
+  },
+  countrySearch: {
+    height: 40,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  countryList: {
+    maxHeight: 360,
   },
   langSheetTitle: {
     fontSize: 16,

@@ -6,8 +6,8 @@
  *   - 网络/超时 → i18n `error.network`
  *   - 401       → i18n `error.loginExpired`
  *   - 403       → i18n `error.noPermission`
- *   - 404       → i18n `error.notFound`
- *   - 409       → i18n `error.conflict`
+ *   - 404       → detail 含中文时原样展示，否则 i18n `error.notFound`
+ *   - 409       → detail 含中文时原样展示，否则 i18n `error.conflict`
  *   - 429       → i18n `error.tooFrequent`
  *   - 5xx       → i18n `error.server`
  *   - 400/422   → detail 含中文时原样展示，否则 i18n `error.validation`
@@ -69,19 +69,21 @@ export function errorText(err: unknown, fallback?: string): string {
   }
 
   // ---- HTTP 状态 ----
+  // 404/409 常见于业务提示（如「手机号未注册」「客户身份信息冲突」），
+  // detail 是中文时优先原样展示，否则会退化成无信息量的通用文案。
+  const detail = e.response?.data?.detail
+  const cjkDetail = typeof detail === 'string' && hasCjk(detail) ? detail : null
   if (status === 401) return t('error.loginExpired')
   if (status === 403) return t('error.noPermission')
-  if (status === 404) return t('error.notFound')
-  if (status === 409) return t('error.conflict')
+  if (status === 404) return cjkDetail ?? t('error.notFound')
+  if (status === 409) return cjkDetail ?? t('error.conflict')
   if (status === 429) return t('error.tooFrequent')
   if (status && status >= 500) return t('error.server')
 
   // ---- 400 / 422 ----
   if (status === 400 || status === 422) {
-    const detail = e.response?.data?.detail
     if (Array.isArray(detail)) return t('error.validation')
-    if (typeof detail === 'string' && hasCjk(detail)) return detail
-    return t('error.validation')
+    return cjkDetail ?? t('error.validation')
   }
 
   // ---- 兜底 ----

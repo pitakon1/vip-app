@@ -1,15 +1,27 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, Input, Button } from '@tarojs/components'
+import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { authApi } from '@/services/api'
 import type { User, UserRole } from '@/types'
 import { useI18n } from '@/i18n'
+import {
+  detectDefaultCountry,
+  displayCountry,
+  findCountryByIso2,
+  isValidNationalNumber,
+  searchCountries,
+  toE164,
+  type Country
+} from '@/data/countries'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
 import { REFRESH_TOKEN_KEY } from '@/lib/api'
 
 type OtpMode = 'login' | 'register'
+
+// 国家/区号记忆键：与 App / Web 使用同一语义（存 ISO2）
+const COUNTRY_STORAGE_KEY = 'auth.country_iso2'
 
 const REGISTER_ROLES: { key: UserRole; label: string }[] = [
   { key: 'tenant', label: 'auth.roleTenant' },
@@ -19,7 +31,7 @@ const REGISTER_ROLES: { key: UserRole; label: string }[] = [
 ]
 
 export default function LoginPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const router = useRouter()
   const login = useAuthStore((state) => state.login)
   const token = useAuthStore((state) => state.token)
@@ -35,6 +47,20 @@ export default function LoginPage() {
     router.params?.mode === 'register' ? 'register' : 'login'
   )
   const [phone, setPhone] = useState('')
+  // 国家/区号：上次手动选择 → 系统 locale → 语言默认（小程序语言为 zh 时默认中国，否则泰国）
+  const [country, setCountry] = useState<Country>(() => {
+    try {
+      const saved = Taro.getStorageSync(COUNTRY_STORAGE_KEY)
+      const hit = saved ? findCountryByIso2(String(saved)) : undefined
+      if (hit) return hit
+      const locale = Taro.getSystemInfoSync()?.language
+      return detectDefaultCountry(lang, locale)
+    } catch {
+      return detectDefaultCountry(lang)
+    }
+  })
+  const [countryOpen, setCountryOpen] = useState(false)
+  const [countryQuery, setCountryQuery] = useState('')
   const [otp, setOtp] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<UserRole>('tenant')
@@ -50,6 +76,21 @@ export default function LoginPage() {
     Taro.showToast({ title: t('auth.agreementRequired'), icon: 'none' })
     return false
   }
+
+  const pickCountry = (next: Country) => {
+    setCountry(next)
+    setCountryOpen(false)
+    setCountryQuery('')
+    try {
+      Taro.setStorageSync(COUNTRY_STORAGE_KEY, next.iso2)
+    } catch {
+      // 存储不可用时只影响记忆功能，不影响本次登录
+    }
+  }
+
+  /** 按所选国家校验本地号码并统一提交 E.164（+区号+号码） */
+  const phoneValid = () => isValidNationalNumber(country, phone.trim())
+  const phoneE164 = () => toE164(country, phone.trim())
 
   // 「暂不登录」：和贝壳一样直接以访客身份逛房源
   const handleSkip = () => {
@@ -75,6 +116,22 @@ export default function LoginPage() {
       }[role] || '/pages/employee/home/index'
     setTimeout(() => {
       Taro.redirectTo({ url: homePath })
+    }, 400)
+  }
+
+  // 带 redirect 的登录（如房源详情点「联系经纪」）：登录页是 push 进来的，
+  // 先退回发起页保留返回栈；只有栈里没有上一页时才 redirectTo 到目标页。
+  // 不带 redirect 的入口维持原有「按角色落到首页」行为。
+  const goAfterLogin = (user: User) => {
+    const redirect = router.params?.redirect
+    if (!redirect) return goHome(user)
+    setTimeout(() => {
+      Taro.navigateBack({
+        delta: 1,
+        fail: () => {
+          Taro.redirectTo({ url: decodeURIComponent(redirect) })
+        },
+      })
     }, 400)
   }
 
@@ -106,7 +163,7 @@ export default function LoginPage() {
       const user = applyLoginResult(res)
       Taro.hideLoading()
       Taro.showToast({ title: t('auth.loginSuccess'), icon: 'success' })
-      goHome(user)
+      goAfterLogin(user)
     } catch (error: any) {
       Taro.hideLoading()
       if (error?.statusCode === 503) {
@@ -144,13 +201,17 @@ export default function LoginPage() {
 
   // ============ 手机号 + 验证码 兜底 ============
   const handleSendOtp = async () => {
-    if (!/^1\d{10}$/.test(phone)) {
+    if (!phone.trim()) {
+      Taro.showToast({ title: t('auth.phoneRequired'), icon: 'none' })
+      return
+    }
+    if (!phoneValid()) {
       Taro.showToast({ title: t('auth.phoneInvalid'), icon: 'none' })
       return
     }
     setOtpLoading(true)
     try {
-      const res: any = await authApi.requestOtp({ recipient: phone, channel: 'sms' })
+      const res: any = await authApi.requestOtp({ recipient: phoneE164(), channel: 'sms' })
       Taro.showToast({ title: t('auth.otpSent'), icon: 'success' })
       if (res?.dev_code) setOtp(String(res.dev_code))
 
@@ -175,7 +236,7 @@ export default function LoginPage() {
 
   const submitOtp = async () => {
     if (!ensureAgreed()) return
-    if (!/^1\d{10}$/.test(phone)) {
+    if (!phoneValid()) {
       Taro.showToast({ title: t('auth.phoneInvalid'), icon: 'none' })
       return
     }
@@ -195,15 +256,15 @@ export default function LoginPage() {
     try {
       const res: any =
         mode === 'register'
-          ? await authApi.register({ phone, code: otp, full_name: fullName.trim(), role })
-          : await authApi.loginByOtp({ phone, code: otp })
+          ? await authApi.register({ phone: phoneE164(), code: otp, full_name: fullName.trim(), role })
+          : await authApi.loginByOtp({ phone: phoneE164(), code: otp })
       const user = applyLoginResult(res)
       Taro.hideLoading()
       Taro.showToast({
         title: mode === 'register' ? t('auth.registerSuccess') : t('auth.loginSuccess'),
         icon: 'success'
       })
-      goHome(user)
+      goAfterLogin(user)
     } catch (error: any) {
       Taro.hideLoading()
       Taro.showToast({ title:errorText(error, t('auth.opFailed')), icon: 'none' })
@@ -285,11 +346,15 @@ export default function LoginPage() {
             </Text>
           </View>
 
-          <View className='field'>
+          <View className='field field--phone'>
+            <View className='country-picker' onClick={() => setCountryOpen(true)}>
+              <Text className='country-picker__text'>+{country.dial}</Text>
+              <Text className='country-picker__arrow'>▾</Text>
+            </View>
             <Input
               className='field__input'
               type='number'
-              maxlength={11}
+              maxlength={15}
               placeholder={t('auth.phonePlaceholder')}
               value={phone}
               onInput={(e) => setPhone(e.detail.value)}
@@ -367,6 +432,34 @@ export default function LoginPage() {
           <Text className='agreement__link'>{t('auth.agreementTerms')}</Text>
         </Text>
       </View>
+
+      {/* 国家/区号选择：覆盖全部 ISO 3166-1 国家/地区，支持按名称/区号搜索 */}
+      {countryOpen ? (
+        <View className='country-sheet'>
+          <View className='country-sheet__mask' onClick={() => setCountryOpen(false)} />
+          <View className='country-sheet__panel'>
+            <Text className='country-sheet__title'>{t('auth.selectCountry')}</Text>
+            <Input
+              className='country-sheet__search'
+              type='text'
+              placeholder={t('auth.searchCountry')}
+              value={countryQuery}
+              onInput={(e) => setCountryQuery(e.detail.value)}
+            />
+            <ScrollView scrollY className='country-sheet__list'>
+              {searchCountries(countryQuery).map((c) => (
+                <View
+                  key={c.iso2}
+                  className={`country-sheet__item ${c.iso2 === country.iso2 ? 'is-active' : ''}`}
+                  onClick={() => pickCountry(c)}
+                >
+                  <Text className='country-sheet__name'>{displayCountry(c, lang)}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
     </View>
   )
 }

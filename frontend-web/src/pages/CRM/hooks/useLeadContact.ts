@@ -29,6 +29,8 @@ export function useLeadContact() {
     try {
       const res = await chatApi.createConversation({
         title: lead.name || t('crm.defaultConvTitle'),
+        // 后端按 lead_id 走多路识别：线索关联账号 → 邮箱 → 归一化手机号
+        lead_id: lead.id,
         ...(phone ? { participant_phones: [phone] } : {}),
         ...(email ? { participant_emails: [email] } : {}),
       })

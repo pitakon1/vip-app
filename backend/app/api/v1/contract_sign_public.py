@@ -84,7 +84,8 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
 
     - 令牌不存在 → 404（不区分「不存在」与「已作废」，避免探测）
     - 已过期 → 410
-    - 已签署 / 合同已作废 → 409
+    - 已签署 / 已拒签 → 409（非终态，签署方本可就此停止）
+    - 合同已作废 / 已拒签 / 已撤回 → 410（终态，链接永久失效）
     """
     party = session.exec(
         select(ContractParty).where(ContractParty.sign_token == token)
@@ -105,7 +106,9 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
         ContractStatus.rejected,
         ContractStatus.revoked,
     ):
-        raise HTTPException(status_code=409, detail="Contract closed")
+        # 终态链接一律 410（Gone）：合同已关闭，链接不再可用，且与「过期」同码
+        # 便于客户端统一提示；不再用 409，避免被理解为「暂时冲突、可重试」。
+        raise HTTPException(status_code=410, detail="Contract closed")
     # 签署有效期：过期即终态（同一处推进，避免只读页与签署接口口径不一致）
     if contract.expires_at and contract.expires_at < datetime.utcnow():
         if contract.status in (

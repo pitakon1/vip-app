@@ -66,8 +66,14 @@ export function errorText(err: unknown, fallback?: string): string {
 
   if (status === 401) return t('error.loginExpired')
   if (status === 403) return t('error.noPermission')
-  if (status === 404) return t('error.notFound')
+  if (status === 404) {
+    // 404 也可能承载业务提示（如「客户尚未注册账号」），中文 detail 优先展示
+    const detail = e.response?.data?.detail ?? e.data?.detail
+    if (typeof detail === 'string' && hasCjk(detail)) return detail
+    return t('error.notFound')
+  }
   if (status === 409) return t('error.conflict')
+  if (status === 410) return t('error.gone')
   if (status === 429) return t('error.tooFrequent')
   if (status && status >= 500) return t('error.server')
 

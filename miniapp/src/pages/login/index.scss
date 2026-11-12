@@ -237,6 +237,94 @@
   opacity: 0.6;
 }
 
+/* 国家/区号选择 */
+.field--phone {
+  gap: 16rpx;
+}
+
+.country-picker {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding-right: 16rpx;
+  border-right: 1rpx solid var(--line);
+}
+
+.country-picker__text {
+  font-size: 30rpx;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.country-picker__arrow {
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.country-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.country-sheet__mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.country-sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  background: var(--surface, #fff);
+  border-radius: 24rpx 24rpx 0 0;
+}
+
+.country-sheet__title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 20rpx;
+}
+
+.country-sheet__search {
+  height: 76rpx;
+  padding: 0 24rpx;
+  margin-bottom: 12rpx;
+  font-size: 28rpx;
+  color: var(--ink);
+  background: var(--bg);
+  border-radius: 12rpx;
+}
+
+.country-sheet__list {
+  flex: 1;
+  max-height: 60vh;
+}
+
+.country-sheet__item {
+  padding: 22rpx 8rpx;
+  border-bottom: 1rpx solid var(--line);
+}
+
+.country-sheet__item.is-active .country-sheet__name {
+  color: var(--brand, #0a7d55);
+  font-weight: 600;
+}
+
+.country-sheet__name {
+  font-size: 28rpx;
+  color: var(--ink);
+}
+
 /* 注册身份角色 */
 .role-row {
   margin-top: 32rpx;

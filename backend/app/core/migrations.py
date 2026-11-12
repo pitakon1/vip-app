@@ -294,6 +294,109 @@ def seed_options(engine: Engine) -> None:
         logger.info("db.options.seeded", count=created)
 
 
+# 合同审批默认规则（阈值全部可后台改，种子只补不缺，不覆盖已改配置）。
+# field 口径见 app/services/contract_approval.build_contract_facts。
+_DEFAULT_APPROVAL_RULES = [
+    {
+        "field": "rent_ratio",
+        "operator": "lt",
+        "threshold": 90.0,
+        "approval_role": "supervisor",
+        "approval_level": 1,
+        "priority": 10,
+        "note": "月租低于挂牌价 90%",
+    },
+    {
+        "field": "rent_free_days",
+        "operator": "gt",
+        "threshold": 15.0,
+        "approval_role": "supervisor",
+        "approval_level": 1,
+        "priority": 20,
+        "note": "免租期超过 15 天",
+    },
+    {
+        "field": "term_months",
+        "operator": "outside",
+        "threshold": 3.0,
+        "threshold_max": 36.0,
+        "approval_role": "supervisor",
+        "approval_level": 1,
+        "priority": 30,
+        "note": "租期短于 3 个月或长于 3 年",
+    },
+    {
+        "field": "deposit_months",
+        "operator": "lt",
+        "threshold": 1.0,
+        "approval_role": "supervisor",
+        "approval_level": 1,
+        "priority": 40,
+        "note": "押金低于一个月租金",
+    },
+    {
+        "field": "total_discount_rate",
+        "operator": "gt",
+        "threshold": 20.0,
+        "approval_role": "supervisor",
+        "approval_level": 1,
+        "priority": 50,
+        "note": "总折扣超过 20%",
+    },
+    {
+        "field": "contract_total",
+        "operator": "gt",
+        "threshold": 300000.0,
+        "approval_role": "finance",
+        "approval_level": 2,
+        "priority": 60,
+        "note": "大额合同（总租金超过 30 万）升级财务/总监",
+    },
+]
+
+
+def seed_approval_rules(engine: Engine) -> None:
+    """幂等补种合同审批默认规则（只补不缺，不覆盖后台改过的阈值/启停）。"""
+    from sqlmodel import Session, select
+
+    from app.models import (
+        ApprovalObjectType,
+        ApprovalRuleOperator,
+        ContractApprovalRule,
+    )
+
+    created = 0
+    with Session(engine) as session:
+        for spec in _DEFAULT_APPROVAL_RULES:
+            existing = session.exec(
+                select(ContractApprovalRule).where(
+                    ContractApprovalRule.object_type == ApprovalObjectType.contract,
+                    ContractApprovalRule.field == spec["field"],
+                    ContractApprovalRule.operator == ApprovalRuleOperator(spec["operator"]),
+                )
+            ).first()
+            if existing is not None:
+                continue
+            session.add(
+                ContractApprovalRule(
+                    object_type=ApprovalObjectType.contract,
+                    field=spec["field"],
+                    operator=ApprovalRuleOperator(spec["operator"]),
+                    threshold=spec["threshold"],
+                    threshold_max=spec.get("threshold_max"),
+                    approval_role=spec["approval_role"],
+                    approval_level=spec["approval_level"],
+                    priority=spec["priority"],
+                    enabled=True,
+                    note=spec["note"],
+                )
+            )
+            created += 1
+        session.commit()
+    if created:
+        logger.info("db.approval_rules.seeded", count=created)
+
+
 def backfill_serial_numbers(engine: Engine) -> None:
     """为历史 NULL 单据编号回填（幂等，只补 NULL，按 created_at 升序）。
 

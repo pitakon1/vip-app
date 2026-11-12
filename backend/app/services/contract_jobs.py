@@ -29,6 +29,8 @@ from app.config import settings
 from app.db import engine
 from app.models import (
     Contract,
+    ContractApprovalRequest,
+    ContractApprovalStatus,
     ContractCallbackEvent,
     ContractCallbackStatus,
     ContractParty,
@@ -63,6 +65,7 @@ HOUSEKEEPING_STATE = {
     "expired_count": 0,
     "retried_count": 0,
     "failed_count": 0,
+    "approval_reminded_count": 0,
 }
 
 
@@ -380,13 +383,101 @@ def retry_due_callbacks(session: Session, now: Optional[datetime] = None) -> int
     return processed
 
 
+def remind_stale_approvals(session: Session, now: Optional[datetime] = None) -> int:
+    """给超过 24 小时未处理的审批单发一次提醒（站内信 + 邮件）。
+
+    - 幂等：发送前先把 `reminded_at` 落库，同一层级只提醒一次；
+    - 层级推进时审批服务会清空 `reminded_at`，新层级重新计 24 小时；
+    - 通知失败只记日志，不回滚提醒标记（与「失败只记日志、只发一次」一致）。
+    """
+    from app.services import contract_approval as approval
+
+    now = now or datetime.utcnow()
+    deadline = now - timedelta(hours=approval.APPROVAL_REMIND_HOURS)
+    rows = session.exec(
+        select(ContractApprovalRequest).where(
+            ContractApprovalRequest.status == ContractApprovalStatus.pending,
+            ContractApprovalRequest.level_started_at <= deadline,
+            ContractApprovalRequest.reminded_at.is_(None),
+        )
+    ).all()
+    reminded = 0
+    for request in rows:
+        # 先占位提交，避免多 worker / 多轮扫描重复提醒
+        request.reminded_at = now
+        request.remind_count = (request.remind_count or 0) + 1
+        session.add(request)
+        try:
+            session.commit()
+        except Exception:  # noqa: BLE001  并发冲突时由另一方发送
+            session.rollback()
+            continue
+
+        contract = session.get(Contract, request.object_id)
+        role = approval.current_role(request)
+        approvers = [
+            u for u in approval.eligible_approvers(session, role) if u.id != request.submitter_id
+        ]
+        title = "合同审批待处理"
+        body = (
+            f"合同《{contract.title if contract else request.object_id}》已提交超过 24 小时"
+            "仍未审批，请尽快处理。"
+        )
+        for approver in approvers:
+            try:
+                session.add(
+                    Notification(
+                        id=uuid.uuid4(),
+                        user_id=approver.id,
+                        channel=NotificationChannel.in_app,
+                        template_key="contract_approval_reminder",
+                        recipient=str(approver.id),
+                        subject=title,
+                        content=body,
+                        status=NotificationStatus.queued,
+                        related_entity_type="contract",
+                        related_entity_id=request.object_id,
+                    )
+                )
+                if approver.email:
+                    notification_router.send(
+                        NotificationMessage(
+                            channel=ProviderChannel.EMAIL,
+                            recipient=approver.email,
+                            title=title,
+                            content=body,
+                            metadata={"approval_id": str(request.id)},
+                            related_entity_type="contract",
+                            related_entity_id=str(request.object_id),
+                        )
+                    )
+            except Exception:  # noqa: BLE001  通知失败只记日志
+                logger.exception(
+                    "contract.approval_remind_failed",
+                    extra={
+                        "approval_id": str(request.id),
+                        "approver_id": str(approver.id),
+                    },
+                )
+        try:
+            session.commit()
+        except Exception:  # noqa: BLE001
+            session.rollback()
+            logger.exception(
+                "contract.approval_remind_commit_failed",
+                extra={"approval_id": str(request.id)},
+            )
+        reminded += 1
+    return reminded
+
+
 def run_housekeeping() -> None:
     """同步执行一轮后台任务（供测试与后台线程直接调用）。
 
     每轮刷新 `HOUSEKEEPING_STATE`，供 `/health` 观测：过期条数、重投条数、
     本轮投递失败条数、本轮完成时间（多 worker 下各进程独立计数）。
     """
-    expired = retried = failed = 0
+    expired = retried = failed = reminded = 0
     with Session(engine) as session:
         try:
             expired = expire_due_contracts(session)
@@ -397,12 +488,17 @@ def run_housekeeping() -> None:
             failed = HOUSEKEEPING_STATE["failed_count"]
         except Exception:  # noqa: BLE001
             logger.exception("contract.callback_retry_sweep_failed")
+        try:
+            reminded = remind_stale_approvals(session)
+        except Exception:  # noqa: BLE001  提醒失败只记日志
+            logger.exception("contract.approval_remind_sweep_failed")
     HOUSEKEEPING_STATE.update(
         {
             "last_run_at": datetime.utcnow().isoformat(),
             "expired_count": expired,
             "retried_count": retried,
             "failed_count": failed,
+            "approval_reminded_count": reminded,
         }
     )
 

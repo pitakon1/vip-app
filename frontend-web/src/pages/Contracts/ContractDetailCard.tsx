@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { message } from 'antd'
 import { downloadFile } from '@/lib/download'
 import { errorText } from '@/lib/errorText'
-import { absSignUrl, statusLabel } from './contractTypes'
+import { absSignUrl, statusLabel, approvalStatusLabel, approvalRoleLabel, approvalFieldLabel, approvalOperatorLabel } from './contractTypes'
 import type { ContractDetail } from './hooks/useSignFields'
 
 export default function ContractDetailCard({
@@ -28,6 +28,7 @@ export default function ContractDetailCard({
   onDecline,
   onOpenSignOrder,
   onOpenCallback,
+  onSubmitApproval,
 }: {
   detail: ContractDetail
   canEdit?: boolean
@@ -46,6 +47,7 @@ export default function ContractDetailCard({
   onDecline: (partyId: string) => void
   onOpenSignOrder: () => void
   onOpenCallback: () => void
+  onSubmitApproval: () => void
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -88,6 +90,63 @@ export default function ContractDetailCard({
         )}
       </div>
       <div className="rent-card__body">
+        {contract.approval && (
+          <div
+            className="rent-badge rent-badge--neutral"
+            style={{ display: 'block', padding: '10px 12px', marginBottom: 12, whiteSpace: 'normal' }}
+          >
+            <div className="rent-text-bold">
+              {t('contracts.approval.title')} ·{' '}
+              {t(approvalStatusLabel[contract.approval.status] || contract.approval.status)}
+              {contract.approval.status === 'pending' &&
+                ` · ${t('contracts.approval.levelProgress', {
+                  current: contract.approval.current_level,
+                  total: contract.approval.required_level,
+                })}`}
+            </div>
+            {contract.approval.levels?.length > 0 && (
+              <div className="rent-text-sm" style={{ marginTop: 4 }}>
+                {contract.approval.levels
+                  .map(
+                    (lv) =>
+                      `${t('contracts.approval.levelN', { n: lv.level })} ${t(
+                        approvalRoleLabel[lv.role] || lv.role,
+                      )}`,
+                  )
+                  .join(' → ')}
+              </div>
+            )}
+            {contract.approval.rule_hits?.length > 0 && (
+              <div className="rent-text-sm" style={{ marginTop: 4 }}>
+                <b>{t('contracts.approval.ruleHits')}：</b>
+                {contract.approval.rule_hits
+                  .map((hit) => {
+                    const range =
+                      hit.threshold_max != null ? `${hit.threshold} ~ ${hit.threshold_max}` : `${hit.threshold}`
+                    return `${t(approvalFieldLabel[hit.field] || hit.field)} ${
+                      approvalOperatorLabel[hit.operator] || hit.operator
+                    } ${range}（${t('contracts.approval.actualValue')} ${hit.value}）`
+                  })
+                  .join('；')}
+              </div>
+            )}
+            {contract.approval.comment && (
+              <div className="rent-text-sm" style={{ marginTop: 4 }}>
+                {t('contracts.approval.opinion')}：{contract.approval.comment}
+              </div>
+            )}
+            {contract.approval.status === 'pending' && (
+              <div className="rent-text-sm" style={{ marginTop: 4 }}>
+                {t('contracts.approval.pendingHint')}
+              </div>
+            )}
+            {contract.approval.status === 'rejected' && (
+              <div className="rent-text-sm" style={{ marginTop: 4 }}>
+                {t('contracts.approval.rejectedHint')}
+              </div>
+            )}
+          </div>
+        )}
         {detail.contract.signature_health === 'invalid' && (
           <div
             className="rent-badge rent-badge--warning"
@@ -194,7 +253,23 @@ export default function ContractDetailCard({
             <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => onRemind()}>
               {t('contracts.remindAll')}
             </button>
-            <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={onSend}>
+            {contract.can_submit_approval && (
+              <button
+                className="rent-btn rent-btn--primary rent-btn--sm"
+                disabled={contract.status === 'pending_approval'}
+                onClick={onSubmitApproval}
+              >
+                {contract.status === 'pending_approval'
+                  ? t('contracts.approval.inProgress')
+                  : t('contracts.approval.submit')}
+              </button>
+            )}
+            <button
+              className="rent-btn rent-btn--primary rent-btn--sm"
+              disabled={contract.status === 'pending_approval'}
+              title={contract.status === 'pending_approval' ? t('contracts.approval.sendBlocked') : undefined}
+              onClick={onSend}
+            >
               {t('contracts.sendNotice')}
             </button>
             <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={onOpenPreview}>

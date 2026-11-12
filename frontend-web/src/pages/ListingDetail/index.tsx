@@ -207,10 +207,15 @@ const ListingDetailPage = () => {
         title: t('tenantPropertyDetail.contactChatTitle', { name: detail.room_number || detail.project_name || '' }),
       })
       const conv = res.data?.data ?? res.data
-      if (!conv?.id) throw new Error('conversation not created')
+      if (!conv?.id) throw new Error(t('tenantPropertyDetail.contactFailed'))
       navigate(`/chat?id=${conv.id}`)
-    } catch {
-      setFeedback({ tone: 'error', text: t('tenantPropertyDetail.contactFailed') })
+    } catch (err) {
+      // 优先展示后端业务原因（如「客户尚未注册账号」「这是您自己发布的房源」），
+      // 只有拿不到可读文案时才回退到通用提示。
+      // 用全局 message 而不是页内 feedback：按钮在页面底部，feedback 渲染在下方的
+      // 留资表单里，用户在当前视口看不到，会误以为「点了没反应」。
+      const text = err instanceof Error && err.message ? err.message : ''
+      antdMessage.error(text || t('tenantPropertyDetail.contactFailed'))
     } finally {
       setContactBusy(false)
     }

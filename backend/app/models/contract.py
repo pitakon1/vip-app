@@ -16,6 +16,8 @@ from .base import TimestampMixin
 
 class ContractStatus(str, Enum):
     draft = "draft"
+    # 审批流：命中审批规则后、审批通过前，合同不可发送签署
+    pending_approval = "pending_approval"
     sent = "sent"
     partially_signed = "partially_signed"
     signed = "signed"
@@ -391,6 +393,118 @@ class ContractSignAuthorization(TimestampMixin, table=True):
     credential_path: Optional[str] = Field(default=None, max_length=500)
     note: Optional[str] = Field(default=None, max_length=255)
     created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ApprovalObjectType(str, Enum):
+    """审批对象类型。
+
+    当前仅 `contract` 启用；卖房委托与服务订单只预留枚举值，
+    规则表与接口均可按 object_type 扩展，不需要改动审批内核。
+    """
+
+    contract = "contract"
+    sale_mandate = "sale_mandate"
+    service_order = "service_order"
+
+
+class ApprovalRuleOperator(str, Enum):
+    """规则比较符。between/outside 使用 threshold ~ threshold_max 区间。"""
+
+    lt = "lt"
+    lte = "lte"
+    gt = "gt"
+    gte = "gte"
+    eq = "eq"
+    neq = "neq"
+    between = "between"
+    outside = "outside"
+
+
+class ContractApprovalStatus(str, Enum):
+    """审批单状态。"""
+
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+
+class ContractApprovalRule(TimestampMixin, table=True):
+    """审批规则（配置化，改阈值不需要改代码或发版）。
+
+    一条规则 = 对象类型 + 字段 + 比较符 + 阈值（区间规则用 threshold_max）
+    + 审批角色 + 审批层级 + 优先级 + 启停 + 说明。
+
+    - `approval_role` 存逻辑角色（supervisor/finance/director，也兼容直接写
+      UserRole 值），由 `app.services.contract_approval` 统一映射到可审批用户；
+      默认 supervisor/finance/director 均映射到 admin。
+    - `approval_level` 1=主管，2=财务/总监；命中多条时取最高层级作为所需层级。
+    - `priority` 数值越小优先级越高；同一层级命中多条时取最高优先级的审批角色。
+    """
+
+    __tablename__ = "contract_approval_rules"
+
+    object_type: ApprovalObjectType = Field(
+        default=ApprovalObjectType.contract, index=True
+    )
+    field: str = Field(max_length=64, index=True, description="合同事实字段名")
+    operator: ApprovalRuleOperator = Field(default=ApprovalRuleOperator.gt)
+    threshold: float = 0
+    threshold_max: Optional[float] = Field(
+        default=None, description="区间上限（仅 between/outside 使用）"
+    )
+    approval_role: str = Field(default="supervisor", max_length=32)
+    approval_level: int = Field(default=1, description="1=主管，2=财务/总监")
+    priority: int = Field(default=100, description="数值越小越优先")
+    enabled: bool = Field(default=True, index=True)
+    note: Optional[str] = Field(default=None, max_length=255)
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ContractApprovalRequest(TimestampMixin, table=True):
+    """审批单：一次提交生成一条，驳回/重提也各自留一条，旧单不删除。
+
+    多级审批不拆单：`current_level` 指向当前待审层级，
+    `steps` 追加记录每一级的审批人、意见与时间；
+    `rule_hits` 保存提交时命中的规则快照（规则后续改阈值不影响历史判断）。
+    """
+
+    __tablename__ = "contract_approval_requests"
+
+    object_type: ApprovalObjectType = Field(
+        default=ApprovalObjectType.contract, index=True
+    )
+    object_id: uuid.UUID = Field(index=True)
+    status: ContractApprovalStatus = Field(
+        default=ContractApprovalStatus.pending, index=True
+    )
+    submitter_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    # 当前层级进入时间：24 小时提醒据此计算，层级推进时刷新
+    level_started_at: datetime = Field(default_factory=datetime.utcnow)
+    current_level: int = Field(default=1)
+    required_level: int = Field(default=1)
+    # 最近一次处理人/意见（多级时保留最后一级，完整历史在 steps）
+    approver_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    approver_name: Optional[str] = Field(default=None, max_length=128)
+    comment: Optional[str] = Field(default=None, max_length=1000)
+    processed_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    # 提交时的文档哈希：正文改动后旧审批不再覆盖新内容，需重新提交
+    document_hash: Optional[str] = Field(default=None, max_length=128)
+    # [{"rule_id", "field", "operator", "threshold", "threshold_max",
+    #   "value", "approval_role", "approval_level", "note"}]
+    rule_hits: Optional[List[Dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    # [{"level", "role", "approver_id", "approver_name", "decision", "comment", "at"}]
+    steps: Optional[List[Dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    # 24 小时未处理提醒：只发一次（层级推进时清空，让新层级重新计时）
+    reminded_at: Optional[datetime] = None
+    remind_count: int = Field(default=0)
 
 
 class ContractAuditLog(TimestampMixin, table=True):

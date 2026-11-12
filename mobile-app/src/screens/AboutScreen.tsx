@@ -21,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as WebBrowser from 'expo-web-browser';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { dialPhone, normalizePhone } from '@/lib/dial';
 import { companyApi } from '@/services/api';
 
 interface CompanyInfo {
@@ -60,8 +61,7 @@ export default function AboutScreen() {
   const websiteUrl = website ? (/^https?:\/\//i.test(website) ? website : `https://${website}`) : '';
   // 电话：含数字才可拨号（后端缺省占位「请配置公司电话」不含数字，此时不渲染拨号）
   const phone = (info.phone || '').trim();
-  const tel = phone.replace(/[^\d+]/g, '');
-  const canCall = tel.replace(/\D/g, '').length > 0;
+  const canCall = normalizePhone(phone) !== null;
 
   const openWebsite = () => {
     WebBrowser.openBrowserAsync(websiteUrl).catch(() => {
@@ -69,10 +69,17 @@ export default function AboutScreen() {
     });
   };
 
-  const callSupport = () => {
-    Linking.openURL(`tel:${tel}`).catch(() => {
-      Alert.alert(t('common.hint'), t('profile.callFail'));
-    });
+  const callSupport = async () => {
+    const result = await dialPhone(phone);
+    if (result === 'ok') return;
+    if (result === 'empty') {
+      Alert.alert(t('common.hint'), t('profile.phoneUnset'));
+      return;
+    }
+    Alert.alert(
+      t('common.hint'),
+      result === 'invalid' ? t('contact.invalidPhoneMsg') : t('profile.callFail'),
+    );
   };
 
   // 图标：优先后端 logo_url，为空回落本地打包图标

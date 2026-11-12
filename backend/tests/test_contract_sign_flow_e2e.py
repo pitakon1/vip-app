@@ -294,6 +294,67 @@ def test_batch_rejects_empty_items(api):
     assert r.status_code == 400, r.text
 
 
+def test_batch_rejects_partial_required_field_coverage(api):
+    """一次性签署未覆盖全部必签区 → 整单拒绝，且不产生半成品签署状态。
+
+    回归背景：此前只把「落章覆盖到的」必签区置已签，但签署方仍会被标记
+    已签；剩余必签区因 party.signed 无法再次补签，合同永久停在 partially_signed。
+    """
+    staff = api.mk_user(UserRole.employee)
+    tenant = api.mk_user(UserRole.tenant)
+    client = api.login(staff)
+    cid = _generate(client)
+    pid = _add_party(client, cid, name="张三", role="tenant", user_id=tenant.id)
+    _add_fields(
+        client,
+        cid,
+        [
+            {"party_id": pid, "field_type": "signature", "page": 1,
+             "x": 10, "y": 10, "w": 20, "h": 10, "required": True},
+            {"party_id": pid, "field_type": "signature", "page": 1,
+             "x": 60, "y": 10, "w": 20, "h": 10, "required": True},
+        ],
+    )
+    tclient = api.login(tenant)
+
+    # 只盖住第一个必签区（中心 20,15），第二个（中心 70,15）未覆盖
+    partial = tclient.post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": pid,
+            "items": [
+                {"page": 1, "x": 8, "y": 8, "w": 25, "h": 15,
+                 "method": "personal_handwrite", "signature_svg": SIGN_SVG},
+            ],
+        },
+    )
+    assert partial.status_code == 409, partial.text
+    assert "必签区" in partial.json()["detail"], partial.text
+
+    with Session(api.engine) as s:
+        party = s.get(ContractParty, uuid.UUID(pid))
+        assert party.signed is False, "部分签署不得把签署方标记为已签"
+        fields = s.exec(
+            select(ContractSignField).where(ContractSignField.contract_id == uuid.UUID(cid))
+        ).all()
+        assert [f.signed for f in fields] == [False, False]
+        assert s.exec(select(SignatureRecord)).all() == [], "失败不得留痕"
+
+    # 覆盖全部必签区后可正常完成
+    full = tclient.post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": pid,
+            "items": [
+                {"page": 1, "x": 8, "y": 8, "w": 65, "h": 15,
+                 "method": "personal_handwrite", "signature_svg": SIGN_SVG},
+            ],
+        },
+    )
+    assert full.status_code == 200, full.text
+    assert full.json()["signed"] is True
+
+
 # --------------------------------------------------------------------------- 无引擎 PDF 的合同
 def test_uploaded_contract_without_pdf_still_signs(api):
     """上传型合同（无引擎 PDF）签署、关键字检索、页图不得 500。
@@ -478,6 +539,28 @@ def test_public_decline_terminates_contract(api):
     with Session(api.engine) as s:
         c = s.get(Contract, uuid.UUID(cid))
         assert c.status == ContractStatus.rejected
+
+
+@pytest.mark.parametrize(
+    "terminal",
+    [ContractStatus.voided, ContractStatus.rejected, ContractStatus.revoked],
+)
+def test_terminal_contract_link_returns_410(api, terminal):
+    """拒签/作废/撤回后的签署链接统一 410（Gone），且提示合同已关闭。"""
+    staff = api.mk_user(UserRole.employee)
+    client = api.login(staff)
+    cid = _generate(client)
+    pid = _add_party(client, cid, name="张三", role="tenant")
+    token = _issue_token(api.engine, pid)
+    with Session(api.engine) as s:
+        c = s.get(Contract, uuid.UUID(cid))
+        c.status = terminal
+        s.add(c)
+        s.commit()
+
+    r = TestClient(app).get(f"/api/v1/public/contract-sign/{token}")
+    assert r.status_code == 410, r.text
+    assert r.json()["detail"] == "Contract closed"
 
 
 def test_public_pdf_pages_requires_valid_token(api):
@@ -1540,7 +1623,7 @@ def test_public_seal_preview_allows_anonymous():
 
 # --------------------------------------------------------------------------- R6 严格判定
 def test_strict_completion_requires_fields_actually_signed(api):
-    """R6：只有被落章实际覆盖的必签区才置已签，缺字段的合同不会被判完成。"""
+    """R6：一次性签署必须覆盖全部必签区，缺一个即整单拒绝；覆盖完整才置已签。"""
     staff = api.mk_user(UserRole.employee)
     tenant = api.mk_user(UserRole.tenant)
     client = api.login(staff)
@@ -1557,24 +1640,35 @@ def test_strict_completion_requires_fields_actually_signed(api):
         ],
     )
 
-    # 只在第一个必签区落章；第二个必签区没有被覆盖
+    # 只在第一个必签区落章；第二个必签区没有被覆盖 → 整单 409，不产生半成品
     r = _batch_sign(api.login(tenant), cid, pid, page=1, x=20, y=60)
-    assert r.status_code == 200, r.text
-    assert r.json()["signed"] is True
-    assert r.json()["contract_status"] == "partially_signed", r.text
+    assert r.status_code == 409, r.text
+    assert "REQUIRED_FIELDS_NOT_COVERED" in r.text
 
     with Session(api.engine) as s:
         c = s.get(Contract, uuid.UUID(cid))
-        assert c.status == ContractStatus.partially_signed, "缺必签区不得判完成"
+        assert c.status != ContractStatus.signed, "缺必签区不得判完成"
         fields = s.exec(
             select(ContractSignField).where(
                 ContractSignField.contract_id == uuid.UUID(cid),
                 ContractSignField.required.is_(True),
             )
         ).all()
-        assert sorted(f.signed for f in fields) == [False, True], (
-            "只应标记被落章覆盖的必签区，未覆盖的保持未签"
-        )
+        assert [f.signed for f in fields] == [False, False], "被拒后不得有任何半成品留痕"
+
+    # 覆盖全部必签区后才允许签署
+    r = client.post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": pid,
+            "items": [
+                {"page": 1, "x": 20, "y": 60, "w": 22, "h": 8},
+                {"page": 1, "x": 62, "y": 60, "w": 22, "h": 8},
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["signed"] is True
 
 
 # --------------------------------------------------------------------------- 合同撤回

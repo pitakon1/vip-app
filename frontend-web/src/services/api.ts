@@ -200,6 +200,8 @@ export const chatApi = {
     api.get(`/chat/conversations/${id}/messages`, { params }),
   sendMessage: (id: string, data: RequestBody) =>
     api.post(`/chat/conversations/${id}/messages`, data),
+  /** 进入会话/收到新消息时清零未读 */
+  markRead: (id: string) => api.post(`/chat/conversations/${id}/read`),
   wsUrl: (id: string) => {
     const token = localStorage.getItem('token') || ''
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -318,6 +320,17 @@ export const contractsApi = {
   listCallbacks: (id: string) => api.get(`/contracts/${id}/callbacks`),
   // 人工重投最近一次回调：POST /contracts/{id}/callback/retry
   retryCallback: (id: string) => api.post(`/contracts/${id}/callback/retry`, {}),
+  // 合同审批：提交时自动匹配规则，命中则合同进入 pending_approval
+  submitApproval: (id: string) => api.post(`/contracts/${id}/submit-approval`, {}),
+  // 审批列表：scope=pending（待我审）/ submitted（我提交的）
+  listApprovals: (scope: 'pending' | 'submitted', status?: string) =>
+    api.get('/contracts/approvals', { params: { scope, ...(status ? { status } : {}) } }),
+  getApproval: (approvalId: string) => api.get(`/contracts/approvals/${approvalId}`),
+  approveApproval: (approvalId: string, comment?: string) =>
+    api.post(`/contracts/approvals/${approvalId}/approve`, { comment }),
+  rejectApproval: (approvalId: string, comment: string) =>
+    api.post(`/contracts/approvals/${approvalId}/reject`, { comment }),
+  listApprovalRules: () => api.get('/contracts/approval-rules'),
 }
 
 // 个人签名/印章资产库（「我的签名 / 印章」，仅本人可读写删）

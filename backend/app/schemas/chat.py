@@ -17,6 +17,8 @@ class ConversationOut(BaseModel):
     entity_id: Optional[str] = None
     participant_ids: List[str] = Field(default_factory=list)
     created_at: str
+    # 当前请求者视角的未读数；非列表接口（创建/客服）默认 0
+    unread_count: int = 0
 
 
 class MessageOut(BaseModel):

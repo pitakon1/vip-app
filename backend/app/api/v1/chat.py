@@ -18,17 +18,19 @@ import redis.asyncio as aioredis
 from fastapi import (
     APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect,
 )
+from sqlalchemy import func
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
 from app.config import settings
 from app.db import engine, get_session
 from app.core.auth import get_current_user, user_from_token
-from app.models import ChatParticipant, Conversation, Listing, Message, MessageType, User
+from app.models import ChatParticipant, Conversation, Lead, Listing, Message, MessageType, User
 from app.models.listing import ListingStatus
 from app.models.user import UserRole
 from app.schemas.chat import ConversationOut, MessageOut
 from app.services.chat_participants import is_participant, participant_ids, sync_participants
+from app.services.phone import phone_keys, to_e164
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -216,6 +218,34 @@ def _ensure_participant(conv: Optional[Conversation], user: User) -> Conversatio
     return conv
 
 
+def _unread_counts(
+    session: Session, user_id: uuid.UUID, conv_ids: list
+) -> Dict[uuid.UUID, int]:
+    """按会话统计当前用户的未读消息数。
+
+    未读判定以消息的 `recipients_read` 快照为准（发送者自己记 read=True），
+    该快照不会直接暴露给客户端；没有快照的历史消息按未读处理。
+    """
+    if not conv_ids:
+        return {}
+    rows = session.exec(
+        select(Message).where(
+            Message.conversation_id.in_(conv_ids),
+            Message.sender_id != user_id,
+        )
+    ).all()
+    counts: Dict[uuid.UUID, int] = {}
+    for m in rows:
+        marked_read = False
+        for item in m.recipients_read or []:
+            if str(item.get("user_id")) == str(user_id):
+                marked_read = bool(item.get("read"))
+                break
+        if not marked_read:
+            counts[m.conversation_id] = counts.get(m.conversation_id, 0) + 1
+    return counts
+
+
 def _persist_message(
     conversation_id: uuid.UUID,
     sender_id: uuid.UUID,
@@ -320,7 +350,41 @@ def my_conversations(
     ).all()
     by_id = {c.id: c for c in convs}
     ordered = [by_id[cid] for cid in conv_ids if cid in by_id]
-    return [_conversation_payload(c) for c in ordered]
+    unread = _unread_counts(session, user.id, [c.id for c in ordered])
+    return [{**_conversation_payload(c), "unread_count": unread.get(c.id, 0)} for c in ordered]
+
+
+# ---------------- 客户账号识别（多路匹配 + 号码归一化） ----------------
+def normalize_phone(raw: Any) -> str:
+    """把手机号收敛成可比较的规范形式（只用于匹配，不改写存储值）。
+
+    与注册/登录共用 `app.services.phone` 的同一份国家区号数据：
+    `+66 81 234 5678`、`0066...`、`66812345678`、`0812345678` 都会产出同一组
+    比对键；这里返回其中的规范键（优先「区号+号码」数字形态）。
+    """
+    keys = phone_keys(raw)
+    if not keys:
+        return ""
+    parsed = to_e164(raw)
+    if parsed:
+        return parsed.lstrip("+")
+    return sorted(keys, key=len, reverse=True)[0]
+
+
+def _users_by_phone(session: Session, phones: list[str]) -> list[User]:
+    """按归一化手机号找已注册账号（命中多个时由调用方报冲突）。"""
+    wanted: set[str] = set()
+    for phone in phones:
+        wanted |= phone_keys(phone)
+    if not wanted:
+        return []
+    # 归一化无法用 SQL 稳定表达（库函数差异大，且历史数据带分隔符），
+    # 这里取有手机号的用户逐一归一后比较。users 表规模可控；后续扩容可新增
+    # phone_normalized 列并建索引，替换该全表扫描。
+    candidates = session.exec(
+        select(User).where(User.phone.is_not(None), User.deleted_at.is_(None))
+    ).all()
+    return [u for u in candidates if phone_keys(u.phone) & wanted]
 
 
 @router.post("/conversations", response_model=ConversationOut)
@@ -330,11 +394,12 @@ def create_conversation(
     user: User = Depends(get_current_user),
 ):
     """创建会话。payload: {title?, participant_user_ids: [uuid...], participant_phones: [str],
-    participant_emails: [str], entity_type?, entity_id?, listing_id?}
+    participant_emails: [str], lead_id?, entity_type?, entity_id?, listing_id?}
 
-    CRM「联系客户-发消息」解析客户账号：按 participant_user_ids 直接指定，或按
-    participant_phones / participant_emails 命中已注册账号（多端客户可能仅用邮箱
-    或手机号注册）。解析不到的客户不自动建号，若最终除发起者外没有任何参与人则 404。
+    CRM「联系客户-发消息」按多路识别客户账号，任一命中即可建会话：
+    线索已关联的 user_id → 邮箱 → 归一化手机号（泰国号码 +66/0066/0 开头视为同号）。
+    多路指向不同账号、同一手机号/邮箱命中多个账号时返回 409 冲突，不随机取；
+    全部未命中返回 404 并指明未注册的联系方式。命中后会回写 `lead.user_id`。
 
     C 端「联系经纪人」：传 listing_id，由服务端从公开上架单解析发布人账号，
     前端不需要也不应该拿到经纪人内部 user id。已存在同房源会话时直接复用。
@@ -342,6 +407,7 @@ def create_conversation(
     raw_ids = payload.get("participant_user_ids") or []
     raw_phones = payload.get("participant_phones") or []
     raw_emails = payload.get("participant_emails") or []
+    raw_lead_id = payload.get("lead_id")
     raw_listing_id = payload.get("listing_id")
     raw_property_id = payload.get("property_id")
     listing: Optional[Listing] = None
@@ -366,19 +432,15 @@ def create_conversation(
         if listing is None or listing.deleted_at or listing.status != ListingStatus.active:
             raise HTTPException(status_code=404, detail="Listing not found")
         # 明确指定了参与者时以显式列表为准；只给 listing_id 时联系发布人
-        if not raw_ids and not raw_phones and not raw_emails:
+        if not raw_ids and not raw_phones and not raw_emails and not raw_lead_id:
             raw_ids = [listing.publisher_user_id]
-    if not raw_ids and not raw_phones and not raw_emails:
+    if not raw_ids and not raw_phones and not raw_emails and not raw_lead_id:
         raise HTTPException(
             status_code=400,
-            detail="participant_user_ids / participant_phones / participant_emails / listing_id required",
+            detail="participant_user_ids / participant_phones / participant_emails / lead_id / listing_id required",
         )
 
     normalized: list[str] = []
-
-    def _push(u: Optional[User]) -> None:
-        if u is not None and str(u.id) not in normalized:
-            normalized.append(str(u.id))
 
     for value in raw_ids:
         try:
@@ -392,40 +454,143 @@ def create_conversation(
         if uid not in normalized:
             normalized.append(uid)
 
-    # 按手机号 / 邮箱 / 姓名命中已注册账号（客户可能仅邮箱或仅手机号注册）
-    for phone in raw_phones:
-        p = str(phone).strip()
-        if p:
-            _push(session.exec(select(User).where(User.phone == p)).first())
-    for email in raw_emails:
-        e = str(email).strip().lower()
-        if e:
-            _push(session.exec(select(User).where(User.email == e)).first())
+    # ---- 多路识别客户账号：线索已关联 user_id → 邮箱 → 归一化手机号 ----
+    lead: Optional[Lead] = None
+    if raw_lead_id:
+        try:
+            lead = session.get(Lead, uuid.UUID(str(raw_lead_id)))
+        except (ValueError, AttributeError, TypeError):
+            raise HTTPException(status_code=400, detail="Invalid lead_id")
+        if lead is None or lead.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="线索不存在或已删除")
+
+    # 1) 线索已关联账号：最高优先级；关联失效（账号被删）时继续走邮箱/手机号
+    linked_user: Optional[User] = None
+    if lead is not None and lead.user_id is not None:
+        linked_user = session.get(User, lead.user_id)
+        if linked_user is not None and linked_user.deleted_at is not None:
+            linked_user = None
+
+    phone_values = [str(p).strip() for p in raw_phones if str(p).strip()]
+    email_values = [str(e).strip().lower() for e in raw_emails if str(e).strip()]
+    # 前端只传 lead_id 时，用线索自身的联系方式兜底参与匹配
+    if lead is not None:
+        if lead.phone and lead.phone.strip():
+            phone_values.append(lead.phone.strip())
+        if lead.email and lead.email.strip():
+            email_values.append(lead.email.strip().lower())
+    phone_values = list(dict.fromkeys(phone_values))
+    email_values = list(dict.fromkeys(email_values))
+
+    # 2) 邮箱匹配（大小写不敏感）；同一邮箱命中多个账号时报冲突，不随机取
+    email_users: list[User] = []
+    email_ids: set[str] = set()
+    for email in email_values:
+        hits = session.exec(
+            select(User).where(
+                func.lower(User.email) == email, User.deleted_at.is_(None)
+            )
+        ).all()
+        if len(hits) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail=f"邮箱 {email} 匹配到多个账号，无法确定客户身份，请人工核对",
+            )
+        if hits and str(hits[0].id) not in email_ids:
+            email_ids.add(str(hits[0].id))
+            email_users.append(hits[0])
+
+    # 3) 手机号匹配：归一化后比较；命中多个账号时报冲突，不随机取
+    phone_users = _users_by_phone(session, phone_values)
+    phone_ids = {str(u.id) for u in phone_users}
+    if len(phone_ids) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="手机号匹配到多个账号，无法确定客户身份，请人工核对后再发起会话",
+        )
+
+    resolved = set(email_ids) | phone_ids
+    if linked_user is not None:
+        resolved.add(str(linked_user.id))
+
+    # 多路命中不同账号：拒绝并由人工核对，绝不猜一个继续
+    if len(resolved) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "客户身份信息冲突：线索关联账号、邮箱、手机号分别指向不同账号，"
+                "请先核对线索里的邮箱/手机号后再发起会话"
+            ),
+        )
+    # 显式 user_id 与其它识别结果不一致也按冲突处理
+    if resolved and normalized and not resolved.issubset(set(normalized)):
+        raise HTTPException(
+            status_code=409,
+            detail="客户身份信息冲突：指定的用户与邮箱/手机号匹配到的账号不一致，请人工核对",
+        )
+    for uid in sorted(resolved):
+        if uid not in normalized:
+            normalized.append(uid)
+
+    # 匹配成功后回写线索关联，后续发起直接走最高优先级路径
+    if (
+        lead is not None
+        and lead.user_id is None
+        and len(resolved) == 1
+        and str(user.id) not in resolved
+    ):
+        lead.user_id = uuid.UUID(next(iter(resolved)))
+        session.add(lead)
+        session.commit()
 
     if str(user.id) not in normalized:
         normalized.append(str(user.id))
     if len(normalized) <= 1:
-        raise HTTPException(
-            status_code=404,
-            detail="客户尚未注册账号，暂无法在 App 内发消息，请先通过电话联系",
-        )
+        # 联系方式/线索关联到的就是发起者本人：同样不能自聊
+        if str(user.id) in resolved:
+            raise HTTPException(
+                status_code=400,
+                detail="该线索关联的账号或联系方式对应您自己，无法与自己发起会话",
+            )
+        # 发布人自己点「联系经纪/发送消息」：没有可对话的另一方，给明确原因，
+        # 否则会落到下面「客户尚未注册账号」的误导性提示。
+        if listing is not None and str(listing.publisher_user_id) == str(user.id):
+            raise HTTPException(
+                status_code=400,
+                detail="这是您自己发布的房源，无法与自己发起会话",
+            )
+        # 明确告诉员工是哪个联系方式没注册，便于改为电话联系或补录
+        if phone_values and email_values:
+            detail = (
+                f"客户尚未注册账号：手机号 {phone_values[0]} 与邮箱 {email_values[0]} "
+                "均未匹配到已注册用户，请先通过电话联系"
+            )
+        elif phone_values:
+            detail = f"手机号 {phone_values[0]} 未注册账号，暂无法在 App 内发消息，请先通过电话联系"
+        elif email_values:
+            detail = f"邮箱 {email_values[0]} 未注册账号，暂无法在 App 内发消息，请先通过电话联系"
+        else:
+            detail = "客户尚未注册账号，暂无法在 App 内发消息，请先通过电话联系"
+        raise HTTPException(status_code=404, detail=detail)
 
     entity_type = payload.get("entity_type") or ("listing" if listing else None)
     entity_id = payload.get("entity_id") or (listing.id if listing else None)
 
-    # 同一房源重复点击「联系经纪人」时复用已有会话，避免每点一次多一条空会话
-    if listing is not None:
-        wanted = set(normalized)
-        existing = session.exec(
-            select(Conversation).where(
-                Conversation.entity_type == "listing",
-                Conversation.entity_id == listing.id,
-                Conversation.deleted_at.is_(None),
-            )
-        ).all()
-        for c in existing:
-            if set(participant_ids(c)) == wanted:
-                return _conversation_payload(c)
+    # 同一实体 + 同一组参与者重复发起时复用已有会话，避免每点一次多一条空会话
+    # （房源「联系经纪人」与 CRM「联系客户-发消息」共用此规则）
+    wanted = set(normalized)
+    existing = session.exec(
+        select(Conversation)
+        .where(
+            Conversation.entity_type == entity_type,
+            Conversation.entity_id == entity_id,
+            Conversation.deleted_at.is_(None),
+        )
+        .order_by(Conversation.created_at.desc())
+    ).all()
+    for c in existing:
+        if set(participant_ids(c)) == wanted:
+            return _conversation_payload(c)
 
     conv = Conversation(
         title=payload.get("title") or "咨询会话",
@@ -461,6 +626,41 @@ def list_messages(
         stmt = stmt.where(Message.created_at < before)
     rows = session.exec(stmt.order_by(Message.created_at.desc()).limit(limit)).all()
     return [_message_payload(m) for m in reversed(rows)]
+
+
+@router.post("/conversations/{conversation_id}/read")
+def mark_conversation_read(
+    conversation_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """把会话内「发给当前用户」的消息标为已读（进入会话时调用，未读数随之清零）。"""
+    conv = _ensure_participant(session.get(Conversation, conversation_id), user)
+    rows = session.exec(
+        select(Message).where(
+            Message.conversation_id == conv.id,
+            Message.sender_id != user.id,
+        )
+    ).all()
+    now = datetime.utcnow()
+    updated = 0
+    for m in rows:
+        # 必须逐项复制 dict：JSON 列按值比较脏数据，若直接原地改内部 dict 再赋回
+        # 同一个列表，SQLAlchemy 看到的新旧值仍是同一对象，判定「未变化」而不发 UPDATE。
+        snapshot = [dict(item) for item in (m.recipients_read or [])]
+        changed = False
+        for item in snapshot:
+            if str(item.get("user_id")) == str(user.id) and not item.get("read"):
+                item["read"] = True
+                item["read_at"] = now.isoformat()
+                changed = True
+        if changed:
+            m.recipients_read = snapshot
+            session.add(m)
+            updated += 1
+    if updated:
+        session.commit()
+    return {"updated": updated}
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageOut)

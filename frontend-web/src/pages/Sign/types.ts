@@ -1,5 +1,5 @@
 export type Phase = 'loading' | 'ready' | 'done'
-export type FailType = 'expired' | 'signed' | 'generic' | null
+export type FailType = 'expired' | 'closed' | 'signed' | 'generic' | null
 export type TrayKind = 'seal' | 'sign'
 
 export interface ContractDoc {

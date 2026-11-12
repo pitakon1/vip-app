@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import { Platform } from 'react-native';
 import { useAuthStore } from '../stores/auth';
 import { refreshTokenStorage, tokenStorage } from './storage';
 
@@ -226,6 +227,30 @@ export async function contractPdfPageUrl(
   const token = await tokenStorage.get();
   if (!token) return null;
   return `${API_BASE_URL}/contracts/${contractId}/pdf-pages/${page}?token=${encodeURIComponent(token)}`;
+}
+
+/**
+ * 受保护二进制文件下载（已签合同 / 存证报告）。
+ *
+ * 后端这两个接口只认 `Authorization` 头，不能像 PDF 页图那样拼 `?token=`，
+ * 因此先带登录态取 Blob，再在 Web 端触发浏览器下载。原生端没有等价的
+ * 「保存到文件」能力（未引入 expo-file-system），返回 false 交由调用方提示。
+ */
+export async function downloadProtectedFile(path: string, filename: string): Promise<boolean> {
+  const res = await apiClient.get(path, {
+    responseType: 'blob',
+    transformResponse: (raw) => raw,
+  });
+  if (Platform.OS !== 'web') return false;
+  const raw = res.data as unknown;
+  const blob = raw instanceof Blob ? raw : new Blob([raw as BlobPart]);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  return true;
 }
 
 /**

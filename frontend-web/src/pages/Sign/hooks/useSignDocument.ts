@@ -1,8 +1,8 @@
-﻿import { useEffect, useState } from 'react'
+﻿﻿import { useEffect, useState } from 'react'
 import { contractsPublicApi } from '@/services/api'
 import type { ContractDoc, FailType, Phase } from '../types'
 
-/** 加载公开签署页数据：410 → 过期；其余 → 通用失败 */
+/** 加载公开签署页数据：410 → 过期 / 终态失效；其余 → 通用失败 */
 export const useSignDocument = (token: string) => {
   const [phase, setPhase] = useState<Phase>('loading')
   const [doc, setDoc] = useState<ContractDoc | null>(null)
@@ -19,8 +19,11 @@ export const useSignDocument = (token: string) => {
       })
       .catch((err) => {
         if (!mounted) return
-        if (err?.response?.status === 410) setFail('expired')
-        else setFail('generic')
+        if (err?.response?.status === 410) {
+          // 拒签/作废/撤回后链接统一 410，用 detail 区分「过期」与「合同已关闭」
+          const detail = err?.response?.data?.detail
+          setFail(detail === 'Contract closed' ? 'closed' : 'expired')
+        } else setFail('generic')
         setPhase('done')
       })
     return () => {

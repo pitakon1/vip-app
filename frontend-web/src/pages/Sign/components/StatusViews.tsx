@@ -69,15 +69,19 @@ export const FailView = ({
   const title =
     fail === 'expired'
       ? t('contracts.errLinkExpired')
-      : fail === 'signed'
-        ? t('contracts.errAlreadySigned')
-        : t('contracts.errGetContract')
+      : fail === 'closed'
+        ? t('contracts.errLinkClosed')
+        : fail === 'signed'
+          ? t('contracts.errAlreadySigned')
+          : t('contracts.errGetContract')
   const desc =
     fail === 'expired'
       ? t('contracts.failExpiredDesc')
-      : fail === 'signed'
-        ? t('contracts.failSignedDesc')
-        : t('contracts.failGenericDesc')
+      : fail === 'closed'
+        ? t('contracts.failClosedDesc')
+        : fail === 'signed'
+          ? t('contracts.failSignedDesc')
+          : t('contracts.failGenericDesc')
   const contact = hasInitiator(doc)
   // 上传型合同给原文；PDF 合同给首页图（与 DocumentPanel 同一地址口径）
   const downloadUrl = doc?.file_url || (doc?.pdf_available ? contractsPublicApi.pdfPageUrl(token, 1) : null)

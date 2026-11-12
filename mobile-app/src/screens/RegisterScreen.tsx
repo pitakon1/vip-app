@@ -19,7 +19,15 @@ import { useAuthStore } from '@/stores/auth';
 import { authApi } from '@/services/api';
 import { tokenStorage } from '@/lib/storage';
 import { notify, notifyError } from '@/utils/feedback';
-import { useOtp, COUNTRY_CODES, useDefaultCountry } from '@/hooks/useOtp';
+import {
+  useOtp,
+  useDefaultCountry,
+  isValidPhone,
+  phoneLengthHint,
+  phoneToE164,
+  displayCountry,
+  searchCountries,
+} from '@/hooks/useOtp';
 import { useOAuth } from '@/hooks/useOAuth';
 import OAuthButtons from '@/components/OAuthButtons';
 import OAuthMockModal from '@/components/OAuthMockModal';
@@ -56,7 +64,7 @@ export default function RegisterScreen() {
     closeMock,
     mockBusy,
   } = useOAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   // Reddit 式分步：choose = 方式选择屏，form = 对应表单屏
   const [stage, setStage] = useState<Stage>('choose');
@@ -64,6 +72,7 @@ export default function RegisterScreen() {
   // 手机号模式
   const { country, selectCountry } = useDefaultCountry();
   const [countryVisible, setCountryVisible] = useState(false);
+  const [countryQuery, setCountryQuery] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   // 邮箱模式
@@ -84,8 +93,12 @@ export default function RegisterScreen() {
       setError(t('login.phoneRequired'));
       return;
     }
+    if (!isValidPhone(country, phone.trim())) {
+      setError(t('login.phoneInvalid', { n: phoneLengthHint(country) }));
+      return;
+    }
     setError('');
-    const dev = await sendOtp(`${country.value}${phone.trim()}`, 'sms');
+    const dev = await sendOtp(phoneToE164(country, phone.trim()), 'sms');
     if (dev) setCode(dev);
   };
 
@@ -95,6 +108,10 @@ export default function RegisterScreen() {
     let field: FocusField | 'agree' | null = null;
     if (method === 'phone' && !phone.trim()) {
       msg = t('login.phoneRequired');
+      field = 'phone';
+      ok = false;
+    } else if (method === 'phone' && !isValidPhone(country, phone.trim())) {
+      msg = t('login.phoneInvalid', { n: phoneLengthHint(country) });
       field = 'phone';
       ok = false;
     }
@@ -140,7 +157,7 @@ export default function RegisterScreen() {
     try {
       const payload =
         method === 'phone'
-          ? { phone: `${country.value}${phone.trim()}`, code: code.trim(), full_name: name.trim(), role }
+          ? { phone: phoneToE164(country, phone.trim()), code: code.trim(), full_name: name.trim(), role }
           : { email: email.trim(), password, full_name: name.trim(), role };
       const { data } = await authApi.register(payload);
       const token: string | undefined = data?.token ?? data?.access_token;
@@ -251,7 +268,7 @@ export default function RegisterScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t('login.selectCountryCode')}
               >
-                <Text style={styles.countryText}>{t(country.labelKey)}</Text>
+                <Text style={styles.countryText}>{displayCountry(country, lang)}</Text>
                 <Ionicons name="chevron-down" size={16} color={colors.ink3} />
               </TouchableOpacity>
 
@@ -456,24 +473,36 @@ export default function RegisterScreen() {
         >
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>{t('login.selectCountry')}</Text>
-            {COUNTRY_CODES.map((c) => {
-              const active = c.value === country.value;
-              return (
-                <TouchableOpacity
-                  key={c.value}
-                  style={styles.option}
-                  onPress={() => {
-                    selectCountry(c);
-                    setCountryVisible(false);
-                  }}
-                >
-                  <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                    {t(c.labelKey)}
-                  </Text>
-                  {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
-                </TouchableOpacity>
-              );
-            })}
+            <TextInput
+              style={styles.countrySearch}
+              placeholder={t('login.searchCountry')}
+              placeholderTextColor={colors.ink3}
+              value={countryQuery}
+              onChangeText={setCountryQuery}
+              autoCorrect={false}
+              accessibilityLabel={t('login.searchCountry')}
+            />
+            <ScrollView style={styles.countryList} keyboardShouldPersistTaps="handled">
+              {searchCountries(countryQuery).map((c) => {
+                const active = c.iso2 === country.iso2;
+                return (
+                  <TouchableOpacity
+                    key={c.iso2}
+                    style={styles.option}
+                    onPress={() => {
+                      selectCountry(c);
+                      setCountryVisible(false);
+                      setCountryQuery('');
+                    }}
+                  >
+                    <Text style={[styles.optionText, active && styles.optionTextActive]}>
+                      {displayCountry(c, lang)}
+                    </Text>
+                    {active ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -630,8 +659,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sheet: {
-    width: '72%',
-    maxWidth: 280,
+    width: '86%',
+    maxWidth: 340,
     backgroundColor: colors.surface,
     borderRadius: colors.radius.xl,
     paddingVertical: 8,
@@ -639,6 +668,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...colors.shadow.lg,
+  },
+  countrySearch: {
+    height: 40,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  countryList: {
+    maxHeight: 360,
   },
   sheetTitle: {
     fontSize: 16,

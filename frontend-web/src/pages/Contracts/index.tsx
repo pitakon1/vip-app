@@ -11,6 +11,7 @@ import GenerateContractCard from './GenerateContractCard'
 import UploadContractCard from './UploadContractCard'
 import ContractList from './ContractList'
 import ContractStatsBar from './ContractStatsBar'
+import ApprovalCenterCard from './ApprovalCenterCard'
 import ContractDetailCard from './ContractDetailCard'
 import ContractEditModal from './ContractEditModal'
 import AddPartyModal from './AddPartyModal'
@@ -75,6 +76,8 @@ const Contracts = () => {
         onRetry={() => { void list.loadStats() }}
       />
 
+      <ApprovalCenterCard />
+
       <ContractList
         contracts={list.contracts}
         loading={list.contractsLoading}
@@ -109,6 +112,7 @@ const Contracts = () => {
           onDecline={detail.openDecline}
           onOpenSignOrder={() => detail.setSignOrderOpen(true)}
           onOpenCallback={detail.openCallback}
+          onSubmitApproval={detail.handleSubmitApproval}
         />
       )}
 

@@ -319,3 +319,20 @@ def test_staff_cannot_sign_on_behalf_of_bound_party(api):
         assert s.exec(select(SignatureRecord)).all() == [], "代签不得留下任何留痕"
         p = s.get(ContractParty, party_id)
         assert p.signed is False
+
+
+# ------------------------------------------------------------ 验签：签署方本人可查
+def test_verify_allows_party_and_rejects_stranger(api):
+    """签署方本人可验自己参与的合同；无关登录用户 403。"""
+    tenant = api.mk_user(UserRole.tenant)
+    stranger = api.mk_user(UserRole.tenant)
+    contract_id, _, _ = _seed_contract(
+        api.engine, tenant_user=tenant, other_user=stranger
+    )
+
+    own = api.login(tenant).get(f"/api/v1/contracts/{contract_id}/verify")
+    assert own.status_code == 200, own.text
+    assert "verified" in own.json()
+
+    other = api.login(stranger).get(f"/api/v1/contracts/{contract_id}/verify")
+    assert other.status_code == 403, other.text

@@ -54,6 +54,10 @@ export interface Contract {
   source?: string
   file_path?: string
   can_edit?: boolean
+  /** 审批闸门：员工且处于草稿/待审批时可提交审批（后端计算态） */
+  can_submit_approval?: boolean
+  /** 最新一张审批单（含命中规则、意见与分级审批留痕） */
+  approval?: ContractApproval | null
   /** 是否可撤回（员工 + 未完成签署的流转中合同；后端计算态） */
   can_revoke?: boolean
   pdf_available?: boolean
@@ -190,8 +194,103 @@ export const FIELD_METHOD: Record<string, string> = {
   date: 'date',
 }
 
+// 合同审批（GET /contracts/{id}.approval、GET /contracts/approvals）
+export interface ApprovalRuleHit {
+  rule_id: string
+  field: string
+  operator: string
+  threshold: number
+  threshold_max?: number | null
+  value: number
+  approval_role: string
+  approval_level: number
+  priority?: number
+  note?: string | null
+}
+
+export interface ApprovalStep {
+  level: number
+  role: string
+  approver_id?: string
+  approver_name?: string
+  decision: 'approved' | 'rejected'
+  comment?: string | null
+  at: string
+}
+
+export interface ApprovalLevel {
+  level: number
+  role: string
+  rule_ids: string[]
+}
+
+export interface ContractApproval {
+  id: string
+  object_type: string
+  object_id: string
+  contract_id: string
+  contract_title?: string | null
+  contract_no?: string | null
+  contract_status?: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  submitter_id: string
+  submitter_name?: string | null
+  submitted_at?: string | null
+  current_level: number
+  required_level: number
+  current_role?: string | null
+  levels: ApprovalLevel[]
+  rule_hits: ApprovalRuleHit[]
+  steps: ApprovalStep[]
+  approver_id?: string | null
+  approver_name?: string | null
+  comment?: string | null
+  processed_at?: string | null
+  cancelled_at?: string | null
+  reminded_at?: string | null
+  remind_count?: number
+  document_hash?: string | null
+}
+
+export const approvalStatusLabel: Record<string, string> = {
+  pending: 'contracts.approval.statusPending',
+  approved: 'contracts.approval.statusApproved',
+  rejected: 'contracts.approval.statusRejected',
+  cancelled: 'contracts.approval.statusCancelled',
+}
+
+export const approvalRoleLabel: Record<string, string> = {
+  supervisor: 'contracts.approval.roleSupervisor',
+  finance: 'contracts.approval.roleFinance',
+  director: 'contracts.approval.roleDirector',
+  admin: 'contracts.approval.roleAdmin',
+  employee: 'contracts.approval.roleEmployee',
+}
+
+// 规则字段 → 文案 key；未收录的字段直接展示原字段名，避免配置新字段时前端空白
+export const approvalFieldLabel: Record<string, string> = {
+  rent_ratio: 'contracts.approval.fieldRentRatio',
+  rent_free_days: 'contracts.approval.fieldRentFreeDays',
+  term_months: 'contracts.approval.fieldTermMonths',
+  deposit_months: 'contracts.approval.fieldDepositMonths',
+  total_discount_rate: 'contracts.approval.fieldTotalDiscount',
+  contract_total: 'contracts.approval.fieldContractTotal',
+}
+
+export const approvalOperatorLabel: Record<string, string> = {
+  lt: '<',
+  lte: '≤',
+  gt: '>',
+  gte: '≥',
+  eq: '=',
+  neq: '≠',
+  between: '∈',
+  outside: '∉',
+}
+
 export const statusLabel: Record<string, string> = {
   draft: 'contracts.stDraft',
+  pending_approval: 'contracts.stPendingApproval',
   sent: 'contracts.stPendingSign',
   partially_signed: 'contracts.stPendingSign',
   signed: 'contracts.stSigned',

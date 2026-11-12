@@ -18,7 +18,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Linking,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -29,8 +28,10 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RemoteImage from '@/components/RemoteImage';
+import { toast } from '@/components/Toast';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { dialPhone } from '@/lib/dial';
 import { HomeIcon, goMainHome } from '@/components/BeikeHeader';
 import { publicApi, type PublicListing, type PublicListingDetail } from '@/services/publicApi';
 import { favoritesApi, chatApi, priceAlertsApi, viewingsApi } from '@/services/api';
@@ -45,7 +46,7 @@ import {
   type TFunction,
 } from '@/lib/publicSite';
 import { formatUnitPrice, fmtMoney, currencySymbol } from '@/utils/format';
-import { notify, getErrorMessage } from '@/utils/feedback';
+import { notify, notifyError, getErrorMessage } from '@/utils/feedback';
 import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
 import PublicListingRow from './PublicListingRow';
@@ -168,15 +169,17 @@ export default function PublicListingDetailScreen() {
     try {
       const res: any = await chatApi.createConversation({
         listing_id: data.id,
-        title: data.room_number || data.project_name || '',
+        // 会话标题带上房源上下文，进入 ChatDetail 后能看出是在咨询哪套房
+        title: [data.project_name, data.room_number].filter(Boolean).join(' '),
       });
       const conv = res?.data?.data ?? res?.data;
-      if (conv?.id) {
-        navigation.navigate('ChatDetail', { conversationId: String(conv.id) });
-      }
-    } catch {
-      // 建会话失败时给出可见反馈（Toast），而不是写进预约表单的错误状态里
-      notify(t('actionFailed'));
+      // 没有会话 id 说明后端没建成功：抛出去走统一的失败提示，避免静默停在原页
+      if (!conv?.id) throw new Error(t('actionFailed'));
+      navigation.navigate('ChatDetail', { conversationId: String(conv.id) });
+    } catch (err) {
+      // 展示后端原因（如「客户尚未注册账号」「这是您自己发布的房源」），
+      // 而不是只有一句笼统的「操作失败」——用户才知道下一步该做什么
+      notifyError(t('prop.contactBroker'), err);
     } finally {
       setContactBusy(false);
     }
@@ -368,10 +371,32 @@ export default function PublicListingDetailScreen() {
     };
   }, [id]);
 
-  const call = useCallback((phone?: string | null) => {
-    if (!phone) return;
-    void Linking.openURL(`tel:${phone}`);
-  }, []);
+  // 点击即进系统拨号：号码先归一化（库里存在 `+66 00 000 0000` 这类带空格的值，
+  // 直接拼 tel: 在部分 Android ROM 上会弹出「打开方式」选择层而不是拨号盘）。
+  const call = useCallback(
+    async (phone?: string | null, name?: string | null) => {
+      const result = await dialPhone(phone);
+      if (result === 'ok') return;
+      if (result === 'empty') {
+        toast.show({
+          type: 'error',
+          title: t('contact.noPhoneTitle'),
+          message: t('contact.noPhoneMsg', { name: name || t('contact.unnamed') }),
+        });
+        return;
+      }
+      if (result === 'invalid') {
+        toast.show({
+          type: 'error',
+          title: t('contact.invalidPhoneTitle'),
+          message: t('contact.invalidPhoneMsg'),
+        });
+        return;
+      }
+      toast.show({ type: 'error', title: t('contact.callFail'), message: phone ?? undefined });
+    },
+    [t],
+  );
 
   if (loading) {
     // 加载中保留悬浮返回：此前整页只有转圈，用户想退出只能等或用手势
@@ -733,7 +758,7 @@ export default function PublicListingDetailScreen() {
               {data.broker.phone ? (
                 <TouchableOpacity
                   style={[styles.callRow, !isLoggedIn && styles.callRowLocked]}
-                  onPress={() => isLoggedIn && call(data.broker?.phone)}
+                  onPress={() => isLoggedIn && call(data.broker?.phone, data.broker?.real_name)}
                   disabled={!isLoggedIn}
                 >
                   <Ionicons

@@ -426,6 +426,8 @@ export const chatApi = {
     request({ url: `/chat/conversations/${id}/messages`, method: 'GET', data: params }),
   sendMessage: (id: string, data: any) =>
     request({ url: `/chat/conversations/${id}/messages`, method: 'POST', data }),
+  markRead: (id: string) =>
+    request({ url: `/chat/conversations/${id}/read`, method: 'POST' }),
   wsUrl: (id: string | number) => chatWsUrl(id)
 }
 

@@ -22,6 +22,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
+import { toast } from '@/components/Toast';
+import { dialPhone } from '@/lib/dial';
 import { publicApi, type PublicSchoolDetail } from '@/services/publicApi';
 import {
   curriculumLabel,
@@ -117,6 +119,21 @@ export default function PublicSchoolDetailScreen() {
   const photos = photoUrls(school.photos);
   const listings = school.nearby_listings ?? [];
 
+  // 点击即调起系统拨号；号码带格式字符或为空时给出明确提示
+  const callSchool = async () => {
+    const result = await dialPhone(school.phone);
+    if (result === 'ok') return;
+    if (result === 'failed') {
+      toast.show({ type: 'error', title: t('contact.callFail'), message: school.phone ?? undefined });
+      return;
+    }
+    toast.show({
+      type: 'error',
+      title: t('contact.invalidPhoneTitle'),
+      message: t('contact.invalidPhoneMsg'),
+    });
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
@@ -147,7 +164,7 @@ export default function PublicSchoolDetailScreen() {
           {school.phone ? (
             <TouchableOpacity
               style={styles.callRow}
-              onPress={() => void Linking.openURL(`tel:${school.phone}`)}
+              onPress={() => void callSchool()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
               accessibilityLabel={`${school.phone} · ${t('pub.call')}`}

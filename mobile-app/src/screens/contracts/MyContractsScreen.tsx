@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * 租客 / 业主「我的合同」签署页（只读为主）。
  *
  * 列出当前用户可见的合同（contractsApi.list：本人作为签署方或挂在本人租约下）。
@@ -29,6 +29,7 @@ import SignaturePad from '@/components/SignaturePad';
 import SignAssetPicker from '@/components/SignAssetPicker';
 import { SvgXml } from 'react-native-svg';
 import { contractsApi } from '@/services/api';
+import VerifyModal from './contracts/components/VerifyModal';
 import { notify, notifyError } from '@/utils/feedback';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
@@ -186,6 +187,10 @@ export default function MyContractsScreen() {
   const [declineReason, setDeclineReason] = useState('');
   const [declineBusy, setDeclineBusy] = useState(false);
 
+  // 验签报告（签署方本人可查；终态页也保留入口）
+  const [verifyData, setVerifyData] = useState<any>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+
   const isWide = useWindowDimensions().width >= 720;
 
   // 打开签署台（每次进入重置本次制作/落章内容）
@@ -266,6 +271,10 @@ export default function MyContractsScreen() {
   );
   const myPendingFields = myFields.filter((f: any) => !f?.signed);
   const mySignedFields = myFields.filter((f: any) => !!f?.signed);
+  // 终态合同（撤回/拒签/作废/过期）：签署方不再有任何签署动作，仅只读查看。
+  const isTerminal = ['revoked', 'rejected', 'voided', 'expired'].includes(
+    String(detail?.status ?? ''),
+  );
   const mySortedFields = sortSignFields(myFields);
   const myDoneCount = mySortedFields.filter((f: any) => isFieldDone(f, stamps)).length;
   const myRemainingCount = mySortedFields.length - myDoneCount;
@@ -531,9 +540,22 @@ export default function MyContractsScreen() {
     }
   };
 
+  // ===== 验签（签署方本人可查看本人参与的合同） =====
+  const doVerify = async () => {
+    if (!detail?.id || verifyLoading) return;
+    setVerifyLoading(true);
+    try {
+      const res: any = await contractsApi.verify(detail.id);
+      setVerifyData(res?.data ?? {});
+    } catch (e) {
+      notifyError(t('contract.verifyError'), e);
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
   // 渲染待签署 / 已签署的字段行
-  const renderSignField = (f: any, signed: boolean, idx: number) => {
-    const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
+  const renderSignField = (f: any, signed: boolean, idx: number) => {    const meta = SIGN_TYPE_META[f?.field_type ?? 'signature'] ?? SIGN_TYPE_META.signature;
     // 归属姓名：发起方放置签署区时指定的签署方（此前条目只显示类型与页码，
     // 用户看不到「这个签署区是谁的」，故补上归属姓名）
     const owner = (detail?.parties ?? []).find(
@@ -544,8 +566,10 @@ export default function MyContractsScreen() {
         key={f?.id ?? idx}
         style={styles.fieldCard}
         activeOpacity={0.8}
-        disabled={signed}
-        onPress={() => openStudio()}
+        disabled={signed || isTerminal}
+        onPress={() => {
+          if (!isTerminal) openStudio();
+        }}
       >
         <Ionicons name={meta.icon as any} size={18} color={signed ? colors.success : colors.primary} />
         <View style={styles.fieldBody}>
@@ -558,7 +582,7 @@ export default function MyContractsScreen() {
               {t('contract.page')} {f.page}
             </Text>
           )}
-          {!signed && <Text style={styles.fieldMeta}>{t('contract.tapFieldToSign')}</Text>}
+          {!signed && !isTerminal && <Text style={styles.fieldMeta}>{t('contract.tapFieldToSign')}</Text>}
           {!!f?.signed_at && (
             <Text style={styles.fieldMeta}>
               {t('contract.signedAt')}{t('common.colon')}{fmtDate(f.signed_at)}
@@ -1149,21 +1173,21 @@ export default function MyContractsScreen() {
                 </>
               )}
 
-              {!!myPendingFields.length && (
+              {!!myPendingFields.length && !isTerminal && (
                 <View style={styles.doneBanner}>
                   <Ionicons name="thumbs-up-outline" size={16} color={colors.success} />
                   <Text style={styles.doneBannerText}>{t('contract.signYourFieldsHint')}</Text>
                 </View>
               )}
 
-              {!!myParty && !myParty?.signed && !myParty?.declined_at && (
+              {!!myParty && !myParty?.signed && !myParty?.declined_at && !isTerminal && (
                 <TouchableOpacity style={styles.detailSignBtn} activeOpacity={0.85} onPress={openStudio}>
                   <Ionicons name="create-outline" size={18} color={colors.primaryForeground} />
                   <Text style={styles.detailSignBtnText}>{t('contract.sign')}</Text>
                 </TouchableOpacity>
               )}
 
-              {!!myParty && !myParty?.signed && !myParty?.declined_at && (
+              {!!myParty && !myParty?.signed && !myParty?.declined_at && !isTerminal && (
                 <TouchableOpacity
                   style={styles.declineEntry}
                   activeOpacity={0.8}
@@ -1177,10 +1201,40 @@ export default function MyContractsScreen() {
                   <Text style={styles.declineEntryText}>{t('contract.decline')}</Text>
                 </TouchableOpacity>
               )}
+              {isTerminal && (
+                <View style={styles.doneBanner}>
+                  <Ionicons name="lock-closed-outline" size={16} color={colors.ink3} />
+                  <Text style={styles.doneBannerText}>{t('contract.readOnlyFinalSigner')}</Text>
+                </View>
+              )}
+
+              {!!myParty && (!!myParty?.signed || isTerminal) && (
+                <TouchableOpacity
+                  style={[styles.declineEntry, { borderColor: colors.primary }]}
+                  activeOpacity={0.8}
+                  onPress={doVerify}
+                  disabled={verifyLoading}
+                >
+                  {verifyLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
+                  )}
+                  <Text style={[styles.declineEntryText, { color: colors.primary }]}>
+                    {t('contract.verify')}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           )}
         </View>
       </Modal>
+
+      <VerifyModal
+        verifyData={verifyData}
+        verifyLoading={verifyLoading}
+        onClose={() => setVerifyData(null)}
+      />
 
       {/* 手写签名制作弹窗（产出 SVG，尽力导出 PNG；完成后回填托盘使其可拖拽） */}
       <Modal visible={makeSignVisible} animationType="slide" transparent onRequestClose={() => setMakeSignVisible(false)}>

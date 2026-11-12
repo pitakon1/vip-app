@@ -25,6 +25,7 @@ import {
 } from '@/lib/publicSite'
 import { fmtMoney } from '@/utils/format'
 import { recordHistory } from '@/utils/browseHistory'
+import { errorText } from '@/lib/errorText'
 import { useI18n } from '@/i18n'
 import useAuthStore from '@/stores/auth'
 import PublicInquiryForm from '@/components/PublicInquiryForm'
@@ -214,7 +215,13 @@ export default function PublicListingDetailPage() {
         ['WhatsApp', broker.whatsapp ?? '']
       ]
     : []
-  const goLogin = () => Taro.navigateTo({ url: '/pages/login/index' })
+  // 登录后回到当前房源（而不是被登录页重定向到首页）：把当前页地址交给登录页
+  const goLogin = () =>
+    Taro.navigateTo({
+      url: `/pages/login/index?redirect=${encodeURIComponent(
+        `/pages/public/listing-detail/index?id=${id}`
+      )}`
+    })
 
   const toggleFavorite = async () => {
     if (!isLoggedIn) return goLogin()
@@ -265,17 +272,16 @@ export default function PublicListingDetailPage() {
     try {
       const res: any = await chatApi.createConversation({
         listing_id: data.id,
-        title: data.room_number || data.project_name || ''
+        // 标题带上房源上下文，进入会话详情后能看出在咨询哪套房
+        title: [data.project_name, data.room_number].filter(Boolean).join(' ')
       })
       const conv = res?.data?.data ?? res?.data ?? res
-      if (conv?.id) {
-        Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
-      } else {
-        Taro.navigateTo({ url: '/pages/chat/list/index' })
-      }
+      if (!conv?.id) throw new Error(t('common.opFailed'))
+      // 不要再退到会话列表：列表里没有这条上下文，用户会以为没建成功
+      Taro.navigateTo({ url: `/pages/chat/detail/index?id=${conv.id}` })
     } catch (err) {
       console.error('[public contact broker] 创建会话失败', err)
-      Taro.showToast({ title: t('common.opFailed'), icon: 'none' })
+      Taro.showToast({ title: errorText(err, t('common.opFailed')), icon: 'none' })
     } finally {
       setContactBusy(false)
     }

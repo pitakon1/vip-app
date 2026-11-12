@@ -7,15 +7,32 @@ import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import OAuthButtons from '@/components/OAuthButtons'
+import CountrySelect from '@/components/CountrySelect'
+import {
+  detectDefaultCountry,
+  findCountryByIso2,
+  isValidNationalNumber,
+  phoneLengthHint,
+  toE164,
+  type Country,
+} from '@/data/countries'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './login.css'
 import { errorText } from '@/lib/errorText'
 
-// 国家码下拉（带 + 前缀，如 +86），手机号最终提交为「国家码 + 无前导0手机号」
-const COUNTRY_CODES = ['+86', '+1', '+66', '+55']
+// 记住上次选择的国家/地区（数据源为 src/data/countries.ts，三端共享）
+const COUNTRY_STORAGE_KEY = 'auth.country_iso2'
 
-const phoneWithCode = (countryCode: string, phone: string): string =>
-  `${countryCode}${phone.replace(/^0/, '')}`
+const resolveInitialCountry = (lang: string): Country => {
+  try {
+    const saved = window.localStorage.getItem(COUNTRY_STORAGE_KEY)
+    const hit = saved ? findCountryByIso2(saved) : undefined
+    if (hit) return hit
+    return detectDefaultCountry(lang, window.navigator.language)
+  } catch {
+    return detectDefaultCountry(lang)
+  }
+}
 
 // 根据角色返回对应首页路径
 const roleRedirectPath = (role: string): string => {
@@ -62,7 +79,7 @@ const safeRedirectPath = (raw: string | null): string | null => {
 
 const Login = () => {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [searchParams] = useSearchParams()
   const login = useAuthStore((s) => s.login)
   const [submitting, setSubmitting] = useState(false)
@@ -75,12 +92,34 @@ const Login = () => {
   // Reddit 分步式：方式选择屏(choose) → 对应表单屏(form)
   const [stage, setStage] = useState<'choose' | 'form'>('choose')
   const [method, setMethod] = useState<'phone' | 'email'>('email')
-  const [countryCode, setCountryCode] = useState('+86')
+  const [country, setCountry] = useState<Country>(() => resolveInitialCountry(i18n.language))
   const [phone, setPhone] = useState('')
   const [smsCode, setSmsCode] = useState('')
   const [sending, setSending] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const countdownRef = useRef<number | null>(null)
+
+  const selectCountry = (next: Country) => {
+    setCountry(next)
+    try {
+      window.localStorage.setItem(COUNTRY_STORAGE_KEY, next.iso2)
+    } catch {
+      // 隐私模式下 localStorage 不可写，忽略即可
+    }
+  }
+
+  /** 按所选国家校验本地号码位数（东南亚/中国/欧美均有规则，其余 4-15 位宽松） */
+  const ensurePhoneValid = (): boolean => {
+    if (!phone.trim()) {
+      message.warning(t('login.phoneRequired'))
+      return false
+    }
+    if (!isValidNationalNumber(country, phone)) {
+      message.warning(t('login.phoneInvalid', { n: phoneLengthHint(country) }))
+      return false
+    }
+    return true
+  }
 
   // 验证码 60 秒倒计时
   useEffect(() => {
@@ -121,10 +160,7 @@ const Login = () => {
       setErrors(nextErrors)
       if (nextErrors.email || nextErrors.password) return
     } else {
-      if (!phone) {
-        message.warning(t('login.phoneRequired'))
-        return
-      }
+      if (!ensurePhoneValid()) return
       if (!smsCode) {
         message.warning(t('login.codeRequired'))
         return
@@ -134,7 +170,7 @@ const Login = () => {
     setFormError('')
     try {
       const res = method === 'phone'
-        ? await authApi.loginByOtp(phoneWithCode(countryCode, phone), smsCode)
+        ? await authApi.loginByOtp(toE164(country, phone), smsCode)
         : await authApi.login(email, password)
       if (!handleAuthSuccess(res)) return
     } catch (err: any) {
@@ -152,13 +188,10 @@ const Login = () => {
 
   // 请求发送短信验证码
   const handleRequestOtp = async () => {
-    if (!phone) {
-      message.warning(t('login.phoneRequired'))
-      return
-    }
+    if (!ensurePhoneValid()) return
     setSending(true)
     try {
-      const res = await authApi.requestOtp(phoneWithCode(countryCode, phone), 'sms')
+      const res = await authApi.requestOtp(toE164(country, phone), 'sms')
       const devCode = res.data?.dev_code
       if (devCode) {
         setSmsCode(String(devCode))
@@ -326,16 +359,7 @@ const Login = () => {
                     <div className="rent-form-group">
                       <label className="rent-form-label" htmlFor="login-phone">{t('login.phone')}</label>
                       <div className="rent-phone-row">
-                        <select
-                          id="login-country"
-                          className="rent-form-select"
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                        >
-                          {COUNTRY_CODES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                        <CountrySelect id="login-country" value={country} onChange={selectCountry} />
                         <input
                           type="tel"
                           id="login-phone"

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Spin, message } from 'antd'
+import { Modal, Select, Spin, message } from 'antd'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import api from '@/lib/api'
+import useAuthStore from '@/stores/auth'
 import { authApi, chatApi } from '@/services/api'
 import './chat.css'
 
@@ -12,6 +14,8 @@ interface Conv {
   entity_id?: string | null
   participant_ids: string[]
   created_at: string
+  /** 当前用户视角的未读数（进入会话后清零） */
+  unread_count?: number
 }
 
 interface Msg {
@@ -47,6 +51,12 @@ const Chat = () => {
   const [searchParams] = useSearchParams()
   const urlId = searchParams.get('id')
   const [myId, setMyId] = useState('')
+  const currentUser = useAuthStore((s) => s.user)
+  // 管理员主动发起会话：选择账号 → 建会话 → 直接进入
+  const [newOpen, setNewOpen] = useState(false)
+  const [userOptions, setUserOptions] = useState<{ label: string; value: string }[]>([])
+  const [newUserId, setNewUserId] = useState<string>()
+  const [newLoading, setNewLoading] = useState(false)
 
   // 加载会话列表 + 当前用户 id（用于区分“我发的”）
   useEffect(() => {
@@ -61,11 +71,29 @@ const Chat = () => {
       .catch(() => setMyId(''))
   }, [])
 
+  // 停留在会话列表时定时刷新：对端新消息的未读角标无需手动刷新即可出现
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      chatApi
+        .conversations()
+        .then((res) => setConvs(res.data || []))
+        .catch(() => undefined)
+    }, 15000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   const clearRetry = () => {
     if (retryRef.current !== null) {
       window.clearTimeout(retryRef.current)
       retryRef.current = null
     }
+  }
+
+  // 本地先清零角标，再异步通知后端标记已读（失败不回滚：下次列表刷新会以服务端为准）
+  const clearUnread = (id: string) => {
+    setConvs((prev) => prev.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c)))
+    chatApi.markRead(id).catch(() => undefined)
   }
 
   // 建立 WebSocket（可重入）：断线后按退避重试，最多 MAX_WS_RETRY 次。
@@ -96,6 +124,8 @@ const Chat = () => {
               created_at: data.created_at || new Date().toISOString(),
             },
           ])
+          // 正在看这个会话：新消息直接算已读
+          clearUnread(id)
         }
       } catch {
         /* ignore */
@@ -135,13 +165,58 @@ const Chat = () => {
     chatApi
       .messages(id)
       .then((res) => {
-        if (activeIdRef.current === id) setMsgs(res.data || [])
+        if (activeIdRef.current === id) {
+          setMsgs(res.data || [])
+          clearUnread(id)
+        }
       })
       .catch(() => message.warning(t('chat.loadMsgsFailed')))
       .finally(() => {
         if (activeIdRef.current === id) setMsgsLoading(false)
       })
     connectWs(id)
+  }
+
+  // 管理员主动发起：拉取可对话账号（客户/业主/员工/合作方），选中后建会话
+  const openNewConv = async () => {
+    setNewOpen(true)
+    if (userOptions.length) return
+    setNewLoading(true)
+    try {
+      const res = await api.get('/admin/users', { params: { page_size: 100 } })
+      const payload = res.data?.data ?? res.data
+      const items: any[] = payload?.items ?? []
+      setUserOptions(
+        items
+          .filter((u) => u.id !== currentUser?.id)
+          .map((u) => ({
+            value: u.id,
+            label: `${u.full_name || u.email}（${u.email}）`,
+          }))
+      )
+    } catch (err: any) {
+      message.warning(err?.response?.data?.detail || t('chat.loadUsersFailed'))
+      setNewOpen(false)
+    } finally {
+      setNewLoading(false)
+    }
+  }
+
+  const createConv = async () => {
+    if (!newUserId) return
+    setNewLoading(true)
+    try {
+      const res = await chatApi.createConversation({ participant_user_ids: [newUserId] })
+      const conv = res.data
+      setConvs((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)])
+      setNewOpen(false)
+      setNewUserId(undefined)
+      openConv(conv.id)
+    } catch (err: any) {
+      message.error(err?.response?.data?.detail || t('chat.createConvFailed'))
+    } finally {
+      setNewLoading(false)
+    }
   }
 
   // URL ?id= 直接打开会话（CRM「发消息」跳转）
@@ -158,6 +233,21 @@ const Chat = () => {
     },
     []
   )
+
+  // WS 重试耗尽（代理阻断/弱网）时降级轮询：仍能收到对端新消息，而不是只能手动刷新
+  useEffect(() => {
+    if (!activeId || wsStatus !== 'offline') return
+    const id = activeId
+    const timer = window.setInterval(() => {
+      chatApi
+        .messages(id)
+        .then((res) => {
+          if (activeIdRef.current === id) setMsgs(res.data || [])
+        })
+        .catch(() => undefined)
+    }, 15000)
+    return () => window.clearInterval(timer)
+  }, [activeId, wsStatus])
 
   const handleSend = async () => {
     if (!draft.trim() || !activeId || sending) return
@@ -196,6 +286,14 @@ const Chat = () => {
       <div className="rent-chat">
         {/* 会话列表 */}
         <aside className="rent-chat__side">
+          <div className="rent-chat__side-head">
+            <span>{t('chat.convList')}</span>
+            {currentUser?.role === 'admin' ? (
+              <button className="rent-btn rent-btn--primary rent-chat__new" onClick={openNewConv}>
+                {t('chat.newConversation')}
+              </button>
+            ) : null}
+          </div>
           <div className="rent-chat__list">
             {convsLoading ? (
               <div className="rent-empty rent-p-4">{t('common.loading')}</div>
@@ -208,7 +306,14 @@ const Chat = () => {
                   className={`rent-chat__item${activeId === c.id ? ' is-active' : ''}`}
                   onClick={() => openConv(c.id)}
                 >
-                  <div className="rent-chat__item-title">{c.title}</div>
+                  <div className="rent-chat__item-head">
+                    <div className="rent-chat__item-title">{c.title}</div>
+                    {c.unread_count ? (
+                      <span className="rent-chat__badge">
+                        {c.unread_count > 99 ? '99+' : c.unread_count}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="rent-chat__item-meta">
                     {c.entity_type ? `${c.entity_type} · ` : ''}
                     {t('chat.peopleCount', { n: c.participant_ids.length })}
@@ -271,6 +376,27 @@ const Chat = () => {
           )}
         </section>
       </div>
+
+      <Modal
+        title={t('chat.newConversation')}
+        open={newOpen}
+        onCancel={() => setNewOpen(false)}
+        onOk={createConv}
+        okText={t('chat.startChat')}
+        cancelText={t('common.cancel')}
+        okButtonProps={{ loading: newLoading, disabled: !newUserId }}
+      >
+        <Select
+          showSearch
+          style={{ width: '100%' }}
+          placeholder={t('chat.pickUser')}
+          options={userOptions}
+          value={newUserId}
+          onChange={setNewUserId}
+          loading={newLoading}
+          optionFilterProp="label"
+        />
+      </Modal>
     </div>
   )
 }

@@ -41,16 +41,71 @@ export default function ChatDetailPage() {
   const [myId, setMyId] = useState('')
   const socketRef = useRef<any>(null)
   const unloadedRef = useRef(false)
+  const pollTimerRef = useRef<any>(null)
+  const retryTimerRef = useRef<any>(null)
+  const retryCountRef = useRef(0)
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (silent = false) => {
     if (!conversationId) return
     try {
       const res = await chatApi.messages(conversationId)
       setMessages(pickMessages(res))
+      // 拉取成功即标记已读，会话列表的未读角标随之清零
+      chatApi.markRead(conversationId).catch(() => undefined)
     } catch (error) {
       console.error('[ChatDetail] 获取消息失败', error)
-      Taro.showToast({ title: t('chat.loadMsgFailed'), icon: 'none' })
+      if (!silent) Taro.showToast({ title: t('chat.loadMsgFailed'), icon: 'none' })
     }
+  }
+
+  // 断线（切网/切后台）后按退避重连，最多 3 次；重连前先关掉旧连接，避免重复收消息
+  const connectSocket = () => {
+    if (unloadedRef.current || !conversationId) return
+    Taro.connectSocket({ url: chatApi.wsUrl(conversationId) })
+      .then((task: any) => {
+        if (unloadedRef.current) {
+          task?.close?.({})
+          return
+        }
+        socketRef.current?.close?.({})
+        socketRef.current = task
+        retryCountRef.current = 0
+        task.onMessage((res: any) => {
+          try {
+            const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+            if (data.event === 'message') {
+              // 按服务端 id 去重：轮询/重连可能带来同一条消息
+              setMessages((prev) =>
+                data.id && prev.some((m) => String(m.id) === String(data.id))
+                  ? prev
+                  : [
+                      ...prev,
+                      {
+                        id: data.id ?? `rt-${Date.now()}`,
+                        body: data.body,
+                        sender_id: data.sender_id,
+                        created_at: data.created_at
+                      }
+                    ]
+              )
+              // 正在看这个会话：新消息直接算已读
+              chatApi.markRead(conversationId).catch(() => undefined)
+            }
+          } catch (error) {
+            console.error('[ChatDetail] WS 消息解析失败', error)
+          }
+        })
+        task.onClose?.(() => {
+          if (unloadedRef.current || retryCountRef.current >= 3) return
+          retryCountRef.current += 1
+          retryTimerRef.current = setTimeout(connectSocket, 1500 * retryCountRef.current)
+        })
+      })
+      .catch(() => {
+        if (unloadedRef.current || retryCountRef.current >= 3) return
+        retryCountRef.current += 1
+        retryTimerRef.current = setTimeout(connectSocket, 1500 * retryCountRef.current)
+      })
   }
 
   useDidShow(() => {
@@ -66,39 +121,18 @@ export default function ChatDetailPage() {
       if (me) setMyId(String(me))
     }).catch(() => undefined)
     // 建立实时接收通道：发送走 REST，WebSocket 仅接收对端消息
-    if (conversationId) {
-      Taro.connectSocket({ url: chatApi.wsUrl(conversationId) })
-        .then((task: any) => {
-          if (unloadedRef.current) {
-            task?.close?.({})
-            return
-          }
-          socketRef.current = task
-          task.onMessage((res: any) => {
-            try {
-              const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-              if (data.event === 'message') {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: data.id ?? `rt-${Date.now()}`,
-                    body: data.body,
-                    sender_id: data.sender_id,
-                    created_at: data.created_at
-                  }
-                ])
-              }
-            } catch (error) {
-              console.error('[ChatDetail] WS 消息解析失败', error)
-            }
-          })
-        })
-        .catch(() => undefined)
-    }
+    connectSocket()
+    // 兜底轮询：小程序 WS 被后台/弱网掐断时，仍能收到新消息（15s 一次，静默失败）
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+    pollTimerRef.current = setInterval(() => {
+      void fetchMessages(true)
+    }, 15000)
   })
 
   useUnload(() => {
     unloadedRef.current = true
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
     if (socketRef.current) {
       socketRef.current.close({ code: 1000, reason: 'page unload' })
       socketRef.current = null

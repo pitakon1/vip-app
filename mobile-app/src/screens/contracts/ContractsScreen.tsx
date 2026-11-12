@@ -29,6 +29,10 @@ import GenerateContractModal from './contracts/components/GenerateContractModal'
 import AddPartyModal from './contracts/components/AddPartyModal';
 import EditContractModal from './contracts/components/EditContractModal';
 import VoidContractModal from './contracts/components/VoidContractModal';
+import RevokeModal from './contracts/components/RevokeModal';
+import RemindModal from './contracts/components/RemindModal';
+import ShareQrModal from './contracts/components/ShareQrModal';
+import ApprovalCenterModal from './contracts/components/ApprovalCenterModal';
 import DeclineModal from './contracts/components/DeclineModal';
 import VerifyModal from './contracts/components/VerifyModal';
 import SignFieldStudio from './contracts/components/SignFieldStudio';
@@ -70,6 +74,7 @@ export default function ContractsScreen() {
         onRetry={() => load()}
         onOpenDetail={openDetail}
         onGenerate={() => actions.setShowGenerate(true)}
+        onOpenApproval={() => actions.setShowApproval(true)}
       />
 
       {/* ===== 生成合同 ===== */}
@@ -109,6 +114,58 @@ export default function ContractsScreen() {
         onOpenSealLib={studio.openSealLib}
         onDecline={() => actions.openDecline(parties)}
         onVoid={() => actions.setShowVoid(true)}
+        onRemind={actions.openRemind}
+        onRevoke={actions.openRevoke}
+        onQr={() => actions.openQr(parties)}
+        onDownloadSigned={actions.downloadSigned}
+        onDownloadEvidence={actions.downloadEvidence}
+        onSubmitApproval={actions.submitApproval}
+        onOpenApproval={() => actions.setShowApproval(true)}
+        approvalBusy={actions.approvalBusy}
+      />
+
+      {/* ===== 催办 ===== */}
+      <RemindModal
+        visible={actions.showRemind}
+        onClose={() => actions.setShowRemind(false)}
+        parties={parties}
+        selectedPartyId={actions.remindPartyId}
+        setSelectedPartyId={actions.setRemindPartyId}
+        busy={actions.remindBusy}
+        onSubmit={actions.submitRemind}
+      />
+
+      {/* ===== 撤回 ===== */}
+      <RevokeModal
+        visible={actions.showRevoke}
+        onClose={() => actions.setShowRevoke(false)}
+        reason={actions.revokeReason}
+        setReason={actions.setRevokeReason}
+        busy={actions.revokeBusy}
+        onSubmit={actions.doRevoke}
+      />
+
+      {/* ===== 签署二维码 ===== */}
+      <ShareQrModal
+        visible={actions.showQr}
+        onClose={() => actions.setShowQr(false)}
+        parties={parties}
+        selectedPartyId={actions.qrPartyId}
+        setSelectedPartyId={actions.setQrPartyId}
+        busy={actions.qrBusy}
+        link={actions.qrLink}
+        onGenerate={actions.generateQr}
+        onCopy={actions.copyQrLink}
+      />
+
+      {/* ===== 审批中心（待我审 / 我提交的）===== */}
+      <ApprovalCenterModal
+        visible={actions.showApproval}
+        onClose={() => actions.setShowApproval(false)}
+        onChanged={() => {
+          load();
+          if (detail?.id) openDetail(detail.id);
+        }}
       />
 
       {/* ===== 追加签署方 ===== */}

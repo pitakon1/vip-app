@@ -17,6 +17,7 @@ interface ContractsListProps {
   onRetry: () => void;
   onOpenDetail: (id: string) => void;
   onGenerate: () => void;
+  onOpenApproval: () => void;
 }
 
 export default function ContractsList({
@@ -27,6 +28,7 @@ export default function ContractsList({
   onRetry,
   onOpenDetail,
   onGenerate,
+  onOpenApproval,
 }: ContractsListProps) {
   const { t } = useI18n();
 
@@ -53,6 +55,11 @@ export default function ContractsList({
           >
             <Ionicons name="add" size={18} color={colors.primaryForeground} />
             <Text style={styles.primaryBtnText}>{t('contract.generateTitle')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.approvalEntry} activeOpacity={0.85} onPress={onOpenApproval}>
+            <Ionicons name="file-tray-full-outline" size={16} color={colors.primary} />
+            <Text style={styles.approvalEntryText}>{t('contract.approval.center')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.ink3} />
           </TouchableOpacity>
           <Text style={styles.sectionTitle}>{t('contract.manage')}</Text>
         </View>

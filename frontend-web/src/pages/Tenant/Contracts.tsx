@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import DataState from '@/components/DataState'
@@ -51,6 +52,7 @@ const statusMeta: Record<string, { text: string; cls: string }> = {
 
 const TenantContracts = () => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const [list, setList] = useState<ContractRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -182,9 +184,23 @@ const TenantContracts = () => {
         <div className="rent-card" style={{ marginTop: 16 }}>
           <div className="rent-card__header">
             <h3 className="rent-card__title">{detail.contract.title}</h3>
-            <span className={`rent-badge ${(statusMeta[detail.contract.status] || statusMeta.draft).cls}`}>
-              {t((statusMeta[detail.contract.status] || statusMeta.draft).text)}
-            </span>
+            <div className="rent-flex" style={{ gap: 8, alignItems: 'center' }}>
+              {(() => {
+                const myParty = detail.parties.find(isMe)
+                const terminal = ['revoked', 'rejected', 'voided', 'expired'].includes(detail.contract!.status)
+                return myParty && (myParty.signed || terminal) ? (
+                  <button
+                    className="rent-btn rent-btn--ghost rent-btn--sm"
+                    onClick={() => navigate(`/tenant/contracts/verify?id=${detail.contract!.id}`)}
+                  >
+                    {t('contracts.verifyBtn')}
+                  </button>
+                ) : null
+              })()}
+              <span className={`rent-badge ${(statusMeta[detail.contract.status] || statusMeta.draft).cls}`}>
+                {t((statusMeta[detail.contract.status] || statusMeta.draft).text)}
+              </span>
+            </div>
           </div>
           <div className="rent-card__body">
             {detail.parties.length === 0 ? (

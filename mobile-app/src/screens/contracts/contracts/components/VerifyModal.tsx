@@ -40,6 +40,12 @@ export default function VerifyModal({ verifyData, verifyLoading, onClose }: Veri
                   </Text>
                 </View>
               )}
+              {verifyData?.verified != null && (
+                <DetailField
+                  label={t('contract.verifyOverall')}
+                  value={t(verifyData.verified ? 'contract.verifyOk' : 'contract.verifyFail')}
+                />
+              )}
               {verifyData?.document_hash != null && <DetailField label={t('contract.verifyDocumentHash')} value={String(verifyData.document_hash)} />}
               {!!verifyData?.sign_types_summary && <DetailField label={t('contract.verifySignTypes')} value={fmtSignTypesSummary(t, verifyData.sign_types_summary)} />}
               <Text style={styles.sectionTitle}>{t('contract.verifySignatures')}</Text>
@@ -55,6 +61,20 @@ export default function VerifyModal({ verifyData, verifyLoading, onClose }: Veri
                 ))
               ) : (
                 <Text style={styles.partyNone}>{t('contract.verifyNoSig')}</Text>
+              )}
+              {Array.isArray(verifyData?.pdf_signature) && verifyData.pdf_signature.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>{t('contract.verifyPdfDomains')}</Text>
+                  {verifyData.pdf_signature.map((d: any, idx: number) => (
+                    <DetailField
+                      key={idx}
+                      label={`#${idx + 1}${
+                        d?.signer_name || d?.signed_by ? ` ${d.signer_name || d.signed_by}` : ''
+                      }`}
+                      value={t(Number(d?.valid) === 1 ? 'contract.verifyOk' : 'contract.verifyFail')}
+                    />
+                  ))}
+                </>
               )}
             </ScrollView>
           )}

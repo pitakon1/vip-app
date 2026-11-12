@@ -37,14 +37,13 @@ from app.providers.notification.sms_provider import SMSProvider
 from app.providers.notification.email_provider import EmailProvider
 from app.services import wechat as wechat_service
 from app.services import oauth as oauth_service
+from app.services.phone import phone_keys, to_e164
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 logger = logging.getLogger(__name__)
 
-_PHONE_RE = re.compile(r"^\+?[0-9\-\s]{6,15}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
 # 头像上传：落盘目录 / 静态 URL 前缀 / 体积上限 / 允许的扩展名与魔数。
 # backend/uploads/avatars 由 main.py 以 /uploads/avatars 静态托管（同 properties）。
 AVATAR_UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "avatars"
@@ -60,7 +59,29 @@ ALLOWED_AVATAR_TYPES: dict[str, tuple[str, object]] = {
 
 
 def _is_valid_phone(value: str) -> bool:
-    return bool(value) and bool(_PHONE_RE.match(value.strip()))
+    """手机号是否可解析为 E.164（供公共签署页等复用同一套国家区号规则）。"""
+    return to_e164(value) is not None
+
+
+def _canonical_phone(value: str, default_iso: str | None = None) -> str:
+    """把任意写法收敛成 E.164；无法解析时返回 400，避免脏号码入库。"""
+    canonical = to_e164(value, default_iso)
+    if not canonical:
+        raise HTTPException(status_code=400, detail="Invalid phone number")
+    return canonical
+
+
+def _users_by_phone(session: Session, phone: str) -> list[User]:
+    """按多形态比对键找已注册账号（兼容存量非 E.164 号码）。
+
+    归一化无法用 SQL 稳定表达（库函数差异大，且历史数据带分隔符/本地前缀），
+    这里取有手机号的用户逐一比对；users 表规模可控，后续可加 phone_normalized 列。
+    """
+    keys = phone_keys(phone)
+    if not keys:
+        return []
+    candidates = session.exec(select(User).where(User.phone.is_not(None))).all()
+    return [u for u in candidates if phone_keys(u.phone) & keys]
 
 
 def _is_valid_email(value: str) -> bool:
@@ -162,12 +183,13 @@ def _build_token_response(user: User) -> TokenResponse:
 
 
 def _resolve_user_by_identifier(session: Session, identifier: str) -> User | None:
-    """按登录标识解析用户：含 @ 按邮箱，否则按手机号。"""
+    """按登录标识解析用户：含 @ 按邮箱，否则按手机号（多种写法均可命中）。"""
     if not identifier:
         return None
     if "@" in identifier:
         return session.exec(select(User).where(User.email == identifier)).first()
-    return session.exec(select(User).where(User.phone == identifier)).first()
+    users = _users_by_phone(session, identifier)
+    return users[0] if len(users) == 1 else None
 
 
 def _finalize_login(session: Session, user: User) -> TokenResponse:
@@ -320,10 +342,9 @@ def register(
     email = (req.email or "").strip() or None
 
     if phone and req.code:
-        # 方式一：手机号 + 验证码
-        if not _is_valid_phone(phone):
-            raise HTTPException(status_code=400, detail="Invalid phone number")
-        if session.exec(select(User).where(User.phone == phone)).first():
+        # 方式一：手机号 + 验证码；统一收敛为 E.164 后入库（+区号+本地号码）
+        phone = _canonical_phone(phone)
+        if _users_by_phone(session, phone):
             raise HTTPException(status_code=409, detail="Phone already registered")
         _consume_otp(session, phone, (req.code or "").strip())
         # 手机号用户无真实密码（占位邮箱满足 email 非空唯一）
@@ -380,8 +401,8 @@ def request_otp(
     recipient = (req.recipient or "").strip()
     channel = (req.channel or "sms").lower().strip()
     if channel == "sms":
-        if not _is_valid_phone(recipient):
-            raise HTTPException(status_code=400, detail="Invalid phone number")
+        # 收码人与后续登录/注册使用同一个 E.164 键，避免写法不同导致验证码对不上
+        recipient = _canonical_phone(recipient)
     elif channel == "email":
         if not _is_valid_email(recipient):
             raise HTTPException(status_code=400, detail="Invalid email address")
@@ -428,12 +449,16 @@ def login_by_otp(
     session: Session = Depends(get_session),
 ):
     """手机号 + 验证码登录（含手机号注册后首次登录）。"""
-    phone = (req.phone or "").strip()
-    if not _is_valid_phone(phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-    user = session.exec(select(User).where(User.phone == phone)).first()
-    if not user:
+    phone = _canonical_phone((req.phone or "").strip())
+    candidates = _users_by_phone(session, phone)
+    if not candidates:
         raise HTTPException(status_code=404, detail="No account found for this phone")
+    if len(candidates) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="该手机号匹配到多个账号，请改用邮箱登录或联系客服",
+        )
+    user = candidates[0]
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
     _consume_otp(session, phone, (req.code or "").strip())
@@ -484,13 +509,11 @@ def wx_bind_phone(
     """登录态下用微信手机号授权 code 绑定手机号（查重 409）。"""
     if not settings.WECHAT_APPID or not settings.WECHAT_SECRET:
         raise HTTPException(status_code=503, detail="WeChat binding not configured")
-    phone = wechat_service.get_phone_number((req.code or "").strip())
+    phone = to_e164(wechat_service.get_phone_number((req.code or "").strip()))
     if not phone:
         raise HTTPException(status_code=400, detail="Failed to get phone number")
-    clash = session.exec(
-        select(User).where(User.phone == phone, User.id != user.id)
-    ).first()
-    if clash:
+    clashes = _users_by_phone(session, phone)
+    if any(str(u.id) != str(user.id) for u in clashes):
         raise HTTPException(status_code=409, detail="Phone already bound to another account")
     user.phone = phone
     session.add(user)
@@ -708,16 +731,18 @@ def update_me(
         if clash:
             raise HTTPException(status_code=409, detail="Email already in use")
         user.email = new_email
-    new_phone = data.get("phone")
-    if new_phone is not None and new_phone != user.phone:
-        # 先查重再消耗验证码，避免把有效验证码烧在注定失败的请求上
-        clash = session.exec(
-            select(User).where(User.phone == new_phone, User.id != user.id)
-        ).first()
-        if clash:
+    new_phone_raw = data.get("phone")
+    if new_phone_raw is not None and new_phone_raw != user.phone:
+        # 先按原始写法查重（兼容存量非 E.164 号码，命中即 409），
+        # 再规范化并消耗验证码——避免把有效验证码烧在注定失败的请求上。
+        clashes = [
+            u
+            for u in _users_by_phone(session, new_phone_raw)
+            if str(u.id) != str(user.id)
+        ]
+        if clashes:
             raise HTTPException(status_code=409, detail="Phone already in use")
-        if not _is_valid_phone(new_phone):
-            raise HTTPException(status_code=400, detail="Invalid phone number")
+        new_phone = _canonical_phone(new_phone_raw)
         _consume_otp(session, new_phone, (req.code or "").strip())
         user.phone = new_phone
     if data.get("full_name") is not None:

@@ -26,7 +26,12 @@ from app.core.auth import require_role
 from app.core.envelope import register_envelope_middleware
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.core.migrations import backfill_serial_numbers, ensure_schema, seed_options
+from app.core.migrations import (
+    backfill_serial_numbers,
+    ensure_schema,
+    seed_approval_rules,
+    seed_options,
+)
 from app.core.metrics import observe
 from app.core.rate_limit import apply_default_limit, limiter
 from app.core.rbac import seed_permissions
@@ -242,6 +247,8 @@ async def lifespan(app: FastAPI):
     ensure_schema(engine)
     # 幂等补种内置数据字典（只补不缺，不覆盖后台改动）
     seed_options(engine)
+    # 幂等补种合同审批默认规则（阈值可后台改，不覆盖已改配置）
+    seed_approval_rules(engine)
     # 幂等回填历史单据编号（只补 NULL 行）
     backfill_serial_numbers(engine)
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）

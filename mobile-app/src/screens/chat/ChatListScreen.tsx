@@ -18,6 +18,8 @@ interface Conversation {
   id: string;
   title?: string;
   created_at?: string;
+  /** 后端按当前用户视角统计的未读数（进入会话后清零） */
+  unread_count?: number;
   [key: string]: any;
 }
 
@@ -32,7 +34,7 @@ export default function ChatListScreen() {
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const res = await chatApi.conversations();
       const data = res.data;
@@ -42,8 +44,11 @@ export default function ChatListScreen() {
       setConversations(items as Conversation[]);
       setLoadError(false);
     } catch (err: any) {
-      setLoadError(true);
-      notifyError(t('loadFailed'), err);
+      // 轮询失败不打扰用户，只有用户主动进入/下拉时才提示
+      if (!silent) {
+        setLoadError(true);
+        notifyError(t('loadFailed'), err);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -53,6 +58,15 @@ export default function ChatListScreen() {
   useEffect(() => {
     // 未登录不请求会话列表（匿名必 401），只展示访客引导
     if (isFocused && user) load();
+  }, [isFocused, load, user]);
+
+  // 停留在列表页时定时刷新，对端新消息的未读角标不必等手动下拉
+  useEffect(() => {
+    if (!isFocused || !user) return;
+    const timer = setInterval(() => {
+      void load(true);
+    }, 15000);
+    return () => clearInterval(timer);
   }, [isFocused, load, user]);
 
   const onRefresh = useCallback(() => {
@@ -104,6 +118,13 @@ export default function ChatListScreen() {
       <Text style={styles.msgTitle} numberOfLines={1}>
         {item.title ?? t('chat.untitled')}
       </Text>
+      {item.unread_count ? (
+        <View style={styles.unreadBadge}>
+          <Text style={styles.unreadText}>
+            {item.unread_count > 99 ? '99+' : item.unread_count}
+          </Text>
+        </View>
+      ) : null}
       <Text style={styles.msgTime}>{fmtDateTime(item.created_at)}</Text>
     </TouchableOpacity>
   );
@@ -204,5 +225,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   msgTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: colors.ink },
+  unreadBadge: {
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   msgTime: { fontSize: 12, color: colors.ink3 },
 });

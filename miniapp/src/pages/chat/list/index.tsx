@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { View, Text } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { chatApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
@@ -17,6 +17,8 @@ interface Conversation {
   peer_name?: string
   created_at?: string
   updated_at?: string
+  /** 当前用户视角的未读数（进入会话后清零） */
+  unread_count?: number
 }
 
 function pickList<T>(res: any): T[] {
@@ -37,17 +39,21 @@ export default function ChatListPage() {
   const [loadError, setLoadError] = useState(false)
   // 访客态：浏览无需注册；消息是需登录的动作 → 站内引导登录（对齐 App ChatListScreen）
   const [guest, setGuest] = useState(false)
+  const pollTimerRef = useRef<any>(null)
 
-  const load = async () => {
-    setLoading(true)
-    setLoadError(false)
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true)
+    if (!silent) setLoadError(false)
     try {
       const convRes = await chatApi.conversations()
       setConversations(pickList<Conversation>(convRes))
     } catch (error) {
       console.error('[ChatList] 获取会话失败', error)
-      setLoadError(true)
-      Taro.showToast({ title: t('chat.loadConvFailed'), icon: 'none' })
+      // 轮询失败保持原列表，不弹 toast 打扰
+      if (!silent) {
+        setLoadError(true)
+        Taro.showToast({ title: t('chat.loadConvFailed'), icon: 'none' })
+      }
     } finally {
       setLoading(false)
     }
@@ -62,6 +68,18 @@ export default function ChatListPage() {
     }
     setGuest(false)
     void load()
+    // 停留在列表页时定时刷新，对端新消息的未读角标无需下拉即可出现
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+    pollTimerRef.current = setInterval(() => {
+      void load(true)
+    }, 15000)
+  })
+
+  useDidHide(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
   })
 
   // 下拉刷新（对齐 App 的 RefreshControl）；访客没有会话可刷新
@@ -128,6 +146,11 @@ export default function ChatListPage() {
                       </Text>
                     </View>
                     <Text className='conv-title'>{c.peer_name || c.title || t('chat.unnamedConv')}</Text>
+                    {c.unread_count ? (
+                      <Text className='conv-badge'>
+                        {c.unread_count > 99 ? '99+' : c.unread_count}
+                      </Text>
+                    ) : null}
                     <Text className='conv-time'>
                       {fmtDateTime(c.created_at || c.updated_at)}
                     </Text>

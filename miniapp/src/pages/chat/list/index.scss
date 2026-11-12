@@ -113,6 +113,21 @@
         white-space: nowrap;
       }
 
+      .conv-badge {
+        flex-shrink: 0;
+        margin-left: 16rpx;
+        min-width: 36rpx;
+        height: 36rpx;
+        padding: 0 10rpx;
+        border-radius: 18rpx;
+        background-color: var(--error);
+        color: #fff;
+        font-size: 22rpx;
+        font-weight: 700;
+        line-height: 36rpx;
+        text-align: center;
+      }
+
       .conv-time {
         flex-shrink: 0;
         margin-left: 16rpx;

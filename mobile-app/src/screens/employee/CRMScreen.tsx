@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Modal,
-  Linking,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -27,6 +27,7 @@ import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '../../components/EmptyState';
 import ListState from '../../components/ListState';
 import { toast } from '@/components/Toast';
+import { dialPhone } from '@/lib/dial';
 import { chatApi, leadsApi } from '../../services/api';
 import { useCrmLeads, type Lead } from '@/hooks/useCrmLeads';
 import { currencySymbol } from '@/lib/currency';
@@ -95,6 +96,7 @@ export default function CRMScreen() {
   const [form, setForm] = useState({
     name: '',
     phone: '',
+    email: '',
     source: '',
     property: '',
     stage: STAGES[0].key,
@@ -103,16 +105,29 @@ export default function CRMScreen() {
   const [saving, setSaving] = useState(false);
   const navigation = useNavigation<any>();
 
-  // 联系客户：直接拨打
-  const callCustomer = (l: Lead) => {
-    const phone = (l.phone || '').trim();
-    if (!phone) {
+  // 联系客户：点击即调起系统拨号
+  const callCustomer = async (l: Lead) => {
+    const result = await dialPhone(l.phone);
+    if (result === 'ok') {
+      // 浏览器没有系统拨号盘，tel: 会被静默丢弃：把号码显式展示出来
+      if (Platform.OS === 'web') {
+        notify(t('crm.contactCustomer'), `${t('crm.dialWebHint')} ${l.phone ?? ''}`.trim());
+      }
+      return;
+    }
+    if (result === 'empty') {
       notify(t('crm.contactCustomer'), t('crm.noPhone'));
       return;
     }
-    Linking.openURL(`tel:${phone.replace(/\s/g, '')}`).catch(() => {
-      toast.show({ type: 'error', title: t('crm.callFail') });
-    });
+    if (result === 'invalid') {
+      toast.show({
+        type: 'error',
+        title: t('contact.invalidPhoneTitle'),
+        message: t('contact.invalidPhoneMsg'),
+      });
+      return;
+    }
+    toast.show({ type: 'error', title: t('crm.callFail'), message: l.phone ?? undefined });
   };
 
   // 联系客户：App 内发消息（按手机号/邮箱解析客户账号并创建/进入会话）
@@ -127,6 +142,8 @@ export default function CRMScreen() {
       const res = await chatApi.createConversation({
         // 会话标题属于落库内容，按约定保持中文不动
         title: l.name?.trim() || '客户咨询',
+        // 后端按 lead_id 走多路识别：线索关联账号 → 邮箱 → 归一化手机号
+        lead_id: l.id,
         ...(phone ? { participant_phones: [phone] } : {}),
         ...(email ? { participant_emails: [email] } : {}),
       });
@@ -145,6 +162,7 @@ export default function CRMScreen() {
     setForm({
       name: l.name || '',
       phone: l.phone || '',
+      email: l.email || '',
       source: l.source || '',
       property: String(l.interested_projects?.[0] ?? ''),
       stage: l.stage || STAGES[0].key,
@@ -163,6 +181,7 @@ export default function CRMScreen() {
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
         source: form.source.trim() || null,
         stage: form.stage,
         notes: form.notes.trim() || null,
@@ -431,6 +450,9 @@ export default function CRMScreen() {
 
               <Text style={styles.fieldLabel}>{t('crm.formPhone')}</Text>
               <TextInput style={styles.fieldInput} value={form.phone} onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))} placeholderTextColor={colors.ink3} />
+
+              <Text style={styles.fieldLabel}>{t('crm.formEmail')}</Text>
+              <TextInput style={styles.fieldInput} value={form.email} onChangeText={(v) => setForm((f) => ({ ...f, email: v }))} autoCapitalize="none" keyboardType="email-address" placeholderTextColor={colors.ink3} />
 
               <Text style={styles.fieldLabel}>{t('crm.formSource')}</Text>
               <TextInput style={styles.fieldInput} value={form.source} onChangeText={(v) => setForm((f) => ({ ...f, source: v }))} placeholderTextColor={colors.ink3} />

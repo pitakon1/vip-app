@@ -39,6 +39,10 @@ ACTION_AUTHORIZATION_REVOKE = "contract.authorization_revoke"
 ACTION_DOWNLOAD_SIGNED = "contract.download_signed"
 ACTION_DOWNLOAD_EVIDENCE = "contract.download_evidence"
 ACTION_PERMISSION_DENIED = "contract.permission_denied"
+# 审批流：提交审批 / 审批通过 / 审批驳回
+ACTION_SUBMIT_APPROVAL = "contract.submit_approval"
+ACTION_APPROVE = "contract.approve"
+ACTION_REJECT = "contract.reject"
 
 # 审计详情上限：防止把大对象（签章图 base64 / 正文）写进审计表
 _MAX_DETAIL_CHARS = 2000

@@ -23,6 +23,7 @@ import { useI18n, LANG_LABELS } from '@/i18n';
 import { authApi, chatApi, companyApi } from '@/services/api';
 import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { clearCache } from '@/lib/cache';
+import { dialPhone } from '@/lib/dial';
 import type { UserRole } from '@/types';
 
 // 从本地 uri 推断图片扩展名（expo image-picker 未必给 fileName）
@@ -275,24 +276,15 @@ export default function ProfileScreen() {
     Linking.openURL(url).catch(() => showInfo(t('profile.rateUnavailable')));
   };
 
-  // 联系客服：先弹「营业时间 + 呼叫 / 取消」确认层，确认后真实拨号
-  const confirmCall = () => {
-    const raw = (appInfo.phone || '').trim();
-    const tel = raw.replace(/[^\d+]/g, '');
-    if (tel.replace(/\D/g, '').length === 0) {
+  // 联系客服：点击即调起系统拨号，不再先弹「营业时间 + 呼叫/取消」确认层
+  const contactSupport = async () => {
+    const result = await dialPhone(appInfo.phone);
+    if (result === 'ok') return;
+    if (result === 'empty') {
       showInfo(t('profile.phoneUnset'));
       return;
     }
-    const call = () =>
-      Linking.openURL(`tel:${tel}`).catch(() => showInfo(t('profile.callFail')));
-    if (Platform.OS === 'web') {
-      if (window.confirm(`${t('profile.serviceHours')}\n${raw}`)) call();
-      return;
-    }
-    Alert.alert(t('profile.serviceHours'), raw, [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('profile.callNow'), onPress: call },
-    ]);
+    showInfo(result === 'invalid' ? t('contact.invalidPhoneMsg') : t('profile.callFail'));
   };
 
   // 检查更新：本地安装版本 vs 后端公开接口版本，语义化比对
@@ -380,8 +372,8 @@ export default function ProfileScreen() {
       return;
     }
     if (item.key === 'contactSupport') {
-      // 对齐贝壳：先弹「营业时间 + 呼叫/取消」确认层，再真实拨号
-      confirmCall();
+      // 对齐系统拨号：点击即拨，不再插入确认层
+      void contactSupport();
       return;
     }
     if (item.key === 'rate') {
@@ -511,7 +503,7 @@ export default function ProfileScreen() {
       color: colors.ink2,
       bg: colors.surface2,
     },
-    // 联系客服：拨号确认弹层 → 真实拨号（电话取自公开接口 /company/info）
+    // 联系客服：点击即调起系统拨号（电话取自公开接口 /company/info）
     {
       key: 'contactSupport',
       icon: 'headset-outline',

@@ -47,6 +47,11 @@ class Lead(TimestampMixin, table=True):
     assigned_to: Optional[uuid.UUID] = Field(
         default=None, foreign_key="employees.id"
     )
+    # 线索对应的已注册客户账号。由「联系客户-发消息」按邮箱/手机号匹配成功后回写，
+    # 后续再次发起会话时优先用该关联，避免号码格式变化导致匹配失败。
+    user_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
     notes: Optional[str] = None
     source: Optional[str] = None  # 来源渠道
     # 客户需求描述：Web CRM 表单有该字段并在编辑时回填，此前后端无此列，

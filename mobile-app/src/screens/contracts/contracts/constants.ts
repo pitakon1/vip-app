@@ -46,11 +46,14 @@ export const SOURCE_META: Record<string, { labelKey: string; color: string; bg: 
 
 export const STATUS_META: Record<string, { color: string; bg: string }> = {
   draft: { color: colors.ink2, bg: colors.surface2 },
+  pending_approval: { color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1) },
   sent: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   partially_signed: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   signed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
   rejected: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  revoked: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.12) },
   voided: { color: colors.error, bg: colors.alpha(colors.errorRgb, 0.1) },
+  expired: { color: colors.warning, bg: colors.alpha(colors.warningRgb, 0.1) },
   completed: { color: colors.success, bg: colors.alpha(colors.successRgb, 0.12) },
 };
 

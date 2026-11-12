@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform, Clipboard } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { contractsApi } from '@/services/api';
-import { toPublicSignUrl } from '@/lib/api';
+import { downloadProtectedFile, toPublicSignUrl } from '@/lib/api';
 import { notify, notifyError } from '@/utils/feedback';
 import { useI18n } from '@/i18n';
 import { FALLBACK_TEMPLATES, FIELD_META, KIND_FIELDS } from '../constants';
@@ -50,6 +50,26 @@ export function useContractActions({ detail, openDetail, reload, closeDetail }: 
   const [voidBusy, setVoidBusy] = useState(false);
 
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  // 催办（单个 / 全部，24 小时抑制由后端判定）
+  const [showRemind, setShowRemind] = useState(false);
+  const [remindPartyId, setRemindPartyId] = useState('');
+  const [remindBusy, setRemindBusy] = useState(false);
+
+  // 撤回
+  const [showRevoke, setShowRevoke] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [revokeBusy, setRevokeBusy] = useState(false);
+
+  // 二维码（生成链接会覆盖旧 token）
+  const [showQr, setShowQr] = useState(false);
+  const [qrPartyId, setQrPartyId] = useState('');
+  const [qrLink, setQrLink] = useState<string | null>(null);
+  const [qrBusy, setQrBusy] = useState(false);
+
+  // 审批
+  const [showApproval, setShowApproval] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState(false);
 
   // 拒签
   const [showDecline, setShowDecline] = useState(false);
@@ -243,6 +263,131 @@ export function useContractActions({ detail, openDetail, reload, closeDetail }: 
     }
   };
 
+  /* ===== 催办 ===== */
+  const openRemind = useCallback(() => {
+    setRemindPartyId('');
+    setShowRemind(true);
+  }, []);
+  const submitRemind = async () => {
+    if (!detail?.id) return;
+    setRemindBusy(true);
+    try {
+      const res: any = await contractsApi.remindContract(
+        detail.id,
+        remindPartyId ? { party_id: remindPartyId } : {},
+      );
+      const data = res?.data ?? {};
+      notify(t('contract.remindDone'), t('contract.remindResult', {
+        reminded: data?.reminded ?? 0,
+        throttled: data?.throttled ?? 0,
+      }));
+      setShowRemind(false);
+      await openDetail(detail.id);
+    } catch (e) {
+      notifyError(t('contract.remind'), e);
+    } finally {
+      setRemindBusy(false);
+    }
+  };
+
+  /* ===== 撤回 ===== */
+  const openRevoke = useCallback(() => {
+    setRevokeReason('');
+    setShowRevoke(true);
+  }, []);
+  const doRevoke = async () => {
+    if (!detail?.id) return;
+    setRevokeBusy(true);
+    try {
+      await contractsApi.revokeContract(detail.id, revokeReason.trim() || undefined);
+      notify(t('contract.revokeDone'));
+      setShowRevoke(false);
+      setRevokeReason('');
+      await openDetail(detail.id);
+      await reload(true);
+    } catch (e) {
+      notifyError(t('contract.revoke'), e);
+    } finally {
+      setRevokeBusy(false);
+    }
+  };
+
+  /* ===== 已签文件 / 存证报告 ===== */
+  const downloadSigned = async () => {
+    if (!detail?.id) return;
+    setBusyAction('signed');
+    try {
+      const name = `${detail.contract_no || 'contract'}_signed.pdf`;
+      const ok = await downloadProtectedFile(`/contracts/${detail.id}/signed-file`, name);
+      notify(ok ? t('contract.downloadDone') : t('contract.downloadNativeHint'));
+    } catch (e) {
+      notifyError(t('contract.downloadSigned'), e);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+  const downloadEvidence = async () => {
+    if (!detail?.id) return;
+    setBusyAction('evidence');
+    try {
+      const name = `${detail.contract_no || 'contract'}_evidence.pdf`;
+      const ok = await downloadProtectedFile(`/contracts/${detail.id}/evidence-report`, name);
+      notify(ok ? t('contract.downloadDone') : t('contract.downloadNativeHint'));
+    } catch (e) {
+      notifyError(t('contract.downloadEvidence'), e);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  /* ===== 二维码 ===== */
+  const openQr = useCallback((parties: any[]) => {
+    const target = parties.find((p: any) => !p?.signed && !p?.declined_at && !!p?.id) ?? parties[0];
+    setQrPartyId(String(target?.id ?? ''));
+    setQrLink(null);
+    setShowQr(true);
+  }, []);
+  const generateQr = async () => {
+    if (!detail?.id || !qrPartyId) return;
+    setQrBusy(true);
+    try {
+      const res: any = await contractsApi.createShareLink(detail.id, qrPartyId);
+      const url = res?.data?.url ?? res?.data?.token ?? '';
+      setQrLink(url ? toPublicSignUrl(url) : null);
+    } catch (e) {
+      notifyError(t('contract.qrTitle'), e);
+    } finally {
+      setQrBusy(false);
+    }
+  };
+  const copyQrLink = () => {
+    if (qrLink) {
+      Clipboard.setString(qrLink);
+      notify(t('contract.linkCopied'), qrLink);
+    }
+  };
+
+  /* ===== 提交审批 ===== */
+  const submitApproval = async () => {
+    if (!detail?.id) return;
+    setApprovalBusy(true);
+    try {
+      const res: any = await contractsApi.submitApproval(detail.id);
+      const data = res?.data ?? {};
+      notify(
+        data?.requires_approval
+          ? t('contract.approval.msgSubmitted')
+          : t('contract.approval.msgNotRequired'),
+      );
+      await openDetail(detail.id);
+      await reload(true);
+    } catch (e) {
+      notifyError(t('contract.approval.submit'), e);
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
   /* ===== 上传电子合同 ===== */
   const handleUpload = async () => {
     if (!detail?.id) return;
@@ -319,6 +464,35 @@ export function useContractActions({ detail, openDetail, reload, closeDetail }: 
     handleShareLink,
     handleSend,
     handleUpload,
+    showRemind,
+    setShowRemind,
+    remindPartyId,
+    setRemindPartyId,
+    remindBusy,
+    openRemind,
+    submitRemind,
+    showRevoke,
+    setShowRevoke,
+    revokeReason,
+    setRevokeReason,
+    revokeBusy,
+    openRevoke,
+    doRevoke,
+    downloadSigned,
+    downloadEvidence,
+    showQr,
+    setShowQr,
+    qrPartyId,
+    setQrPartyId,
+    qrLink,
+    qrBusy,
+    openQr,
+    generateQr,
+    copyQrLink,
+    showApproval,
+    setShowApproval,
+    approvalBusy,
+    submitApproval,
     showDecline,
     setShowDecline,
     declinePartyId,

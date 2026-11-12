@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Linking,
   RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +19,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import api from '@/lib/api';
+import { dialPhone } from '@/lib/dial';
 import { useI18n } from '@/i18n';
 import { toast } from '@/components/Toast';
 import { notify } from '@/utils/feedback';
@@ -122,18 +122,24 @@ export default function ContactScreen() {
   const total = groups.reduce((sum, g) => sum + g.members.length, 0);
 
   const callPhone = async (phone?: string | null, name?: string | null) => {
-    if (!phone) {
+    const result = await dialPhone(phone);
+    if (result === 'ok') return;
+    if (result === 'empty') {
       notify(
         t('contact.noPhoneTitle'),
         t('contact.noPhoneMsg', { name: name || t('contact.unnamed') }),
       );
       return;
     }
-    try {
-      await Linking.openURL(`tel:${phone.replace(/\s/g, '')}`);
-    } catch {
-      toast.show({ type: 'error', title: t('contact.callFail'), message: phone });
+    if (result === 'invalid') {
+      toast.show({
+        type: 'error',
+        title: t('contact.invalidPhoneTitle'),
+        message: t('contact.invalidPhoneMsg'),
+      });
+      return;
     }
+    toast.show({ type: 'error', title: t('contact.callFail'), message: phone ?? undefined });
   };
 
   if (loading) {

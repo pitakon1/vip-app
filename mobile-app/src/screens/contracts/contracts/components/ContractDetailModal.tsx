@@ -33,6 +33,14 @@ interface ContractDetailModalProps {
   onOpenSealLib: () => void;
   onDecline: () => void;
   onVoid: () => void;
+  onRemind: () => void;
+  onRevoke: () => void;
+  onQr: () => void;
+  onDownloadSigned: () => void;
+  onDownloadEvidence: () => void;
+  onSubmitApproval: () => void;
+  onOpenApproval: () => void;
+  approvalBusy: boolean;
 }
 
 export default function ContractDetailModal({
@@ -55,8 +63,32 @@ export default function ContractDetailModal({
   onOpenSealLib,
   onDecline,
   onVoid,
+  onRemind,
+  onRevoke,
+  onQr,
+  onDownloadSigned,
+  onDownloadEvidence,
+  onSubmitApproval,
+  onOpenApproval,
+  approvalBusy,
 }: ContractDetailModalProps) {
   const { t } = useI18n();
+
+  const approval = detail?.approval;
+  const approvalStatusText = approval
+    ? approval.status === 'approved'
+      ? t('contract.approval.statusApproved')
+      : approval.status === 'rejected'
+      ? t('contract.approval.statusRejected')
+      : approval.status === 'cancelled'
+      ? t('contract.approval.statusCancelled')
+      : t('contract.approval.statusPending')
+    : '';
+  const isExpired = detail?.status === 'expired';
+  const canRemind = ['sent', 'partially_signed', 'expired'].includes(detail?.status);
+  const canRevoke = ['draft', 'sent', 'partially_signed', 'expired'].includes(detail?.status);
+  const canDownloadSigned = ['partially_signed', 'signed', 'completed'].includes(detail?.status);
+  const canDownloadEvidence = ['partially_signed', 'signed', 'completed'].includes(detail?.status);
 
   return (
     <Modal visible={!!detail} animationType="slide" onRequestClose={onClose}>
@@ -76,6 +108,48 @@ export default function ContractDetailModal({
               <SourceBadge source={detail?.source} />
               <StatusBadge status={detail?.status} />
             </View>
+
+            {approval ? (
+              <View style={styles.approvalSummary}>
+                <View style={styles.approvalSummaryHead}>
+                  <Text style={styles.approvalSummaryTitle}>{t('contract.approval.title')}</Text>
+                  <Text
+                    style={[
+                      styles.approvalStatusText,
+                      {
+                        color:
+                          approval.status === 'approved'
+                            ? colors.success
+                            : approval.status === 'rejected'
+                            ? colors.error
+                            : colors.warning,
+                      },
+                    ]}
+                  >
+                    {approvalStatusText}
+                  </Text>
+                </View>
+                <Text style={styles.approvalItemMeta}>
+                  {`${t('contract.approval.levelProgress')}：${approval.current_level}/${approval.required_level}`}
+                </Text>
+                {(approval.rule_hits || []).map((hit: any, idx: number) => (
+                  <Text key={`${hit.rule_id || idx}`} style={styles.approvalRule}>
+                    {`${hit.field} ${hit.operator} ${hit.threshold} · ${t('contract.approval.actualValue')} ${
+                      hit.value
+                    }`}
+                  </Text>
+                ))}
+                {approval.comment ? (
+                  <Text style={styles.approvalItemMeta}>{`${t('contract.approval.opinion')}：${approval.comment}`}</Text>
+                ) : null}
+                {approval.status === 'pending' ? (
+                  <Text style={styles.approvalPendingHint}>{t('contract.approval.pendingHint')}</Text>
+                ) : null}
+                {approval.status === 'rejected' ? (
+                  <Text style={styles.approvalRejectedHint}>{t('contract.approval.rejectedHint')}</Text>
+                ) : null}
+              </View>
+            ) : null}
             <DetailField label={t('contract.titleLabel')} value={detail?.title} />
             <DetailField
               label={t('contract.kind')}
@@ -125,10 +199,73 @@ export default function ContractDetailModal({
             {canEdit ? (
               <>
                 <View style={styles.actionWrap}>
-                  <TouchableOpacity style={[styles.actionBtn, busyAction === 'send' && styles.btnDisabled]} onPress={onSend} disabled={busyAction === 'send'}>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      (busyAction === 'send' || detail?.status === 'pending_approval') && styles.btnDisabled,
+                    ]}
+                    onPress={onSend}
+                    disabled={busyAction === 'send' || detail?.status === 'pending_approval'}
+                  >
                     <Ionicons name="paper-plane-outline" size={16} color={colors.primary} />
-                    <Text style={styles.actionBtnText}>{t('contract.sendNotice')}</Text>
+                    <Text style={styles.actionBtnText}>
+                      {isExpired ? t('contract.renewSend') : t('contract.sendNotice')}
+                    </Text>
                   </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, approvalBusy && styles.btnDisabled]}
+                    onPress={onSubmitApproval}
+                    disabled={approvalBusy || approval?.status === 'pending'}
+                  >
+                    <Ionicons name="checkmark-done-outline" size={16} color={colors.primary} />
+                    <Text style={styles.actionBtnText}>
+                      {approval?.status === 'pending'
+                        ? t('contract.approval.inProgress')
+                        : t('contract.approval.submit')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionBtn} onPress={onOpenApproval}>
+                    <Ionicons name="file-tray-full-outline" size={16} color={colors.primary} />
+                    <Text style={styles.actionBtnText}>{t('contract.approval.center')}</Text>
+                  </TouchableOpacity>
+                  {canRemind ? (
+                    <TouchableOpacity style={styles.actionBtn} onPress={onRemind}>
+                      <Ionicons name="notifications-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.remind')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {canRevoke ? (
+                    <TouchableOpacity style={styles.actionBtn} onPress={onRevoke}>
+                      <Ionicons name="arrow-undo-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.revoke')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {parties.some((p: any) => !p?.signed && !p?.declined_at) ? (
+                    <TouchableOpacity style={styles.actionBtn} onPress={onQr}>
+                      <Ionicons name="qr-code-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.qrTitle')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {canDownloadSigned ? (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, busyAction === 'signed' && styles.btnDisabled]}
+                      onPress={onDownloadSigned}
+                      disabled={busyAction === 'signed'}
+                    >
+                      <Ionicons name="download-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.downloadSigned')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {canDownloadEvidence ? (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, busyAction === 'evidence' && styles.btnDisabled]}
+                      onPress={onDownloadEvidence}
+                      disabled={busyAction === 'evidence'}
+                    >
+                      <Ionicons name="document-attach-outline" size={16} color={colors.primary} />
+                      <Text style={styles.actionBtnText}>{t('contract.downloadEvidence')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <TouchableOpacity style={styles.actionBtn} onPress={onAddFields}>
                     <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
                     <Text style={styles.actionBtnText}>{t('contract.addSignField')}</Text>
@@ -164,7 +301,15 @@ export default function ContractDetailModal({
                 </View>
               </>
             ) : (
-              <Text style={styles.readOnlyHint}>{t('contract.onlyEditable')}</Text>
+              <>
+                <Text style={styles.readOnlyHint}>{t('contract.readOnlyFinal')}</Text>
+                <View style={styles.actionWrap}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={onVerify}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color={colors.primary} />
+                    <Text style={styles.actionBtnText}>{t('contract.verify')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             )}
 
             {!!detail?.content_html && (

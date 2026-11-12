@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿﻿﻿﻿/**
  * 合同详情及其行内操作（发送通知 / 复制签署链接 / 编辑 / 追加签署方 / 作废 / 拒签）。
  *
  * 纯结构拆分自 pages/Contracts/index.tsx：详情字段映射、请求参数与
@@ -65,6 +65,8 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
           file_path: data.file_path,
           can_edit: data.can_edit,
           can_revoke: data.can_revoke,
+          can_submit_approval: data.can_submit_approval,
+          approval: data.approval || null,
           pdf_available: data.pdf_available,
           pdf_page_count: data.pdf_page_count,
           // 计算态与新增编排字段：不映射会导致详情页横幅、下载按钮、过期提示全部失效
@@ -206,8 +208,29 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
         }
       })
       .catch((err) => {
+        // 命中审批规则但未通过：后端 409 APPROVAL_REQUIRED，给出可操作提示
+        if (err?.response?.status === 409 && err?.response?.data?.detail === 'APPROVAL_REQUIRED') {
+          message.error(t('contracts.approval.sendBlocked'))
+          handleOpen(detail.contract!.id)
+          return
+        }
         message.error(errorText(err, t('contracts.errSend')))
       })
+  }
+
+  // 提交审批：命中规则则进入 pending_approval，未命中提示无需审批
+  const handleSubmitApproval = async () => {
+    const c = detail.contract
+    if (!c) return
+    try {
+      const res = await contractsApi.submitApproval(c.id)
+      if (res.data?.requires_approval) message.success(t('contracts.approval.msgSubmitted'))
+      else message.info(t('contracts.approval.msgNotRequired'))
+      onChanged()
+      handleOpen(c.id)
+    } catch (err) {
+      message.error(errorText(err, t('contracts.approval.errSubmit')))
+    }
   }
 
   // 编辑合同
@@ -478,6 +501,7 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     qrUrl,
     qrPartyName,
     handleSend,
+    handleSubmitApproval,
     openEdit,
     handleEditSave,
     setEditOpen,

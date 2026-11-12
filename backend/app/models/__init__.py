@@ -102,6 +102,11 @@ from .contract import (
     ContractSignAuthorization,
     ContractTemplate,
     ContractTemplateVersion,
+    ApprovalObjectType,
+    ApprovalRuleOperator,
+    ContractApprovalStatus,
+    ContractApprovalRule,
+    ContractApprovalRequest,
     ContractAuditLog,
 )
 from .backup import BackupJob, BackupStatus, BackupType
@@ -271,6 +276,11 @@ __all__ = [
     "ContractSignAuthorization",
     "ContractTemplate",
     "ContractTemplateVersion",
+    "ApprovalObjectType",
+    "ApprovalRuleOperator",
+    "ContractApprovalStatus",
+    "ContractApprovalRule",
+    "ContractApprovalRequest",
     "ContractAuditLog",
     "BackupJob",
     "BackupStatus",

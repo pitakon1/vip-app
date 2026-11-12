@@ -54,6 +54,14 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
         ("review:service", "服务订单审核", "受理/流转增值服务订单"),
         ("review:contract", "合同审批", "合同签约/审阅流转"),
     ],
+    # 合同审批分层权限：L1 主管、L2 财务/总监。
+    # 两级默认不授予同一角色，避免同一账号连续批完两级导致分级失效；
+    # 如业务确需同账号连批两级，必须由管理员在「角色权限配置」里显式同时勾选
+    # 两项（不推荐，等于取消分级）。
+    "contract": [
+        ("contract.approve.l1", "合同审批 L1（主管）", "审批合同第 1 级（主管）"),
+        ("contract.approve.l2", "合同审批 L2（财务/总监）", "审批合同第 2 级（财务/总监）"),
+    ],
     "data": [
         ("data:view", "经营数据查看", "查看经营概览与报表"),
         ("data:scope:manage", "数据范围配置", "配置角色/用户的行级数据可见范围"),
@@ -83,9 +91,14 @@ def permission_codes() -> list[str]:
     return [c for (c, _, _) in FLAT_PERMISSIONS]
 
 
+CONTRACT_APPROVE_L1 = "contract.approve.l1"
+CONTRACT_APPROVE_L2 = "contract.approve.l2"
+
 # 角色默认权限分配（首次初始化；管理员可在配置页调整后覆盖）
+# 合同审批 L1 默认给员工（一线主管），L2 默认给管理员（财务/总监）；
+# admin 默认**不含** L1，保证默认情况下没有任何单一账号能连批两级。
 DEFAULT_ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
-    UserRole.admin: permission_codes(),
+    UserRole.admin: [c for c in permission_codes() if c != CONTRACT_APPROVE_L1],
     UserRole.agent: [
         "data:view",
         "review:maintenance",
@@ -93,7 +106,7 @@ DEFAULT_ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
         "review:contract",
         "commission:manage",
     ],
-    UserRole.employee: ["data:view"],
+    UserRole.employee: ["data:view", CONTRACT_APPROVE_L1],
     UserRole.owner: [],
     UserRole.tenant: [],
     UserRole.partner_admin: [

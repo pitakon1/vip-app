@@ -7,6 +7,15 @@ import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import OAuthButtons from '@/components/OAuthButtons'
+import CountrySelect from '@/components/CountrySelect'
+import {
+  detectDefaultCountry,
+  findCountryByIso2,
+  isValidNationalNumber,
+  phoneLengthHint,
+  toE164,
+  type Country,
+} from '@/data/countries'
 import brandLogo from '@/assets/haofang-logo.jpg'
 import './register.css'
 import { errorText } from '@/lib/errorText'
@@ -14,11 +23,19 @@ import { errorText } from '@/lib/errorText'
 // 可自助注册的角色：业主 / 租客（员工、经纪、管理员需由后台开通）
 type RegRole = 'owner' | 'tenant'
 
-// 国家码下拉（带 + 前缀，如 +86），手机号最终提交为「国家码 + 无前导0手机号」
-const COUNTRY_CODES = ['+86', '+1', '+66', '+55']
+// 记住上次选择的国家/地区（数据源为 src/data/countries.ts，三端共享）
+const COUNTRY_STORAGE_KEY = 'auth.country_iso2'
 
-const phoneWithCode = (countryCode: string, phone: string): string =>
-  `${countryCode}${phone.replace(/^0/, '')}`
+const resolveInitialCountry = (lang: string): Country => {
+  try {
+    const saved = window.localStorage.getItem(COUNTRY_STORAGE_KEY)
+    const hit = saved ? findCountryByIso2(saved) : undefined
+    if (hit) return hit
+    return detectDefaultCountry(lang, window.navigator.language)
+  } catch {
+    return detectDefaultCountry(lang)
+  }
+}
 
 const roleRedirectPath = (role: string): string => {
   switch (role) {
@@ -45,7 +62,7 @@ const EmailIcon = () => (
 
 const Register = () => {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const login = useAuthStore((s) => s.login)
 
   const [submitting, setSubmitting] = useState(false)
@@ -58,11 +75,33 @@ const Register = () => {
   // Reddit 分步式：方式选择屏(choose) → 对应表单屏(form)
   const [stage, setStage] = useState<'choose' | 'form'>('choose')
   const [method, setMethod] = useState<'phone' | 'email'>('email')
-  const [countryCode, setCountryCode] = useState('+86')
+  const [country, setCountry] = useState<Country>(() => resolveInitialCountry(i18n.language))
   const [smsCode, setSmsCode] = useState('')
   const [sending, setSending] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const countdownRef = useRef<number | null>(null)
+
+  const selectCountry = (next: Country) => {
+    setCountry(next)
+    try {
+      window.localStorage.setItem(COUNTRY_STORAGE_KEY, next.iso2)
+    } catch {
+      // 隐私模式下 localStorage 不可写，忽略即可
+    }
+  }
+
+  /** 按所选国家校验本地号码位数（提交前统一收敛为 E.164） */
+  const ensurePhoneValid = (): boolean => {
+    if (!phone.trim()) {
+      message.warning(t('register.phoneRequired'))
+      return false
+    }
+    if (!isValidNationalNumber(country, phone)) {
+      message.warning(t('login.phoneInvalid', { n: phoneLengthHint(country) }))
+      return false
+    }
+    return true
+  }
 
   // 验证码 60 秒倒计时
   useEffect(() => {
@@ -94,11 +133,8 @@ const Register = () => {
 
   // 请求发送短信验证码
   const handleRequestOtp = async () => {
-    if (!phone) {
-      message.warning(t('register.phoneRequired'))
-      return
-    }
-    const recipient = phoneWithCode(countryCode, phone)
+    if (!ensurePhoneValid()) return
+    const recipient = toE164(country, phone)
     setSending(true)
     try {
       const res = await authApi.requestOtp(recipient, 'sms')
@@ -133,10 +169,7 @@ const Register = () => {
         return
       }
     } else {
-      if (!phone) {
-        message.warning(t('register.phoneRequired'))
-        return
-      }
+      if (!ensurePhoneValid()) return
       if (!smsCode) {
         message.warning(t('register.codeRequired'))
         return
@@ -147,7 +180,7 @@ const Register = () => {
       // 注册即返回 token，注册成功后自动登录并直达对应角色首页
       const res: any = method === 'phone'
         ? await authApi.register({
-            phone: phoneWithCode(countryCode, phone),
+            phone: toE164(country, phone),
             code: smsCode,
             full_name: fullName,
             role,
@@ -239,16 +272,7 @@ const Register = () => {
                     <div className="rent-form-group">
                       <label className="rent-form-label" htmlFor="reg-phone">{t('register.phone')}</label>
                       <div className="rent-phone-row">
-                        <select
-                          id="reg-country"
-                          className="rent-form-select"
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                        >
-                          {COUNTRY_CODES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
+                        <CountrySelect id="reg-country" value={country} onChange={selectCountry} />
                         <input
                           type="tel"
                           id="reg-phone"

@@ -248,6 +248,8 @@ const App = () => {
             <Route path="/tenant/deals" element={<TenantDeals />} />
             <Route path="/tenant/deals/:id" element={<TenantDealDetail />} />
             <Route path="/tenant/contracts" element={<TenantContracts />} />
+            {/* 签署方（租客/业主）也可对本人参与的合同验签 */}
+            <Route path="/tenant/contracts/verify" element={<Verify />} />
             {/* 业主功能页（无租客对应）：仅业主，租客一律拦回 /portal */}
             <Route path="/tenant/my-properties" element={<ProtectedRoute denyRoles={['tenant']}><OwnerProperties /></ProtectedRoute>} />
             <Route path="/tenant/income" element={<ProtectedRoute denyRoles={['tenant']}><OwnerIncome /></ProtectedRoute>} />
