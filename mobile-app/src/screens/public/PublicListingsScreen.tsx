@@ -754,8 +754,8 @@ const styles = StyleSheet.create({
   activeChipText: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '600' },
   activeChipX: { fontSize: colors.fontSize.xs, color: colors.primary, fontWeight: '700' },
   chip: {
-     minHeight: colors.touch.min,
-     maxWidth: 200,
+    minHeight: colors.touch.chip,
+    maxWidth: 200,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: colors.fontSize.sm, color: colors.ink2, marginTop: 16, marginBottom: 8 },
   radiusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   radiusChip: {
-    minHeight: colors.touch.min,
+    minHeight: colors.touch.chip,
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,

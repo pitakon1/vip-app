@@ -426,8 +426,10 @@ const styles = StyleSheet.create({
   /* chips */
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.lg },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 16,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface,

@@ -238,39 +238,6 @@ export default function AdminHomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 顶部欢迎区 */}
-      <View style={[styles.hero, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.heroLeft}>
-          <Text style={styles.heroTitle}>{t('admHome.heroTitle')}</Text>
-          <Text style={styles.heroSub}>{t('admHome.heroSub')}</Text>
-        </View>
-        <View style={styles.heroBadge}>
-          <Ionicons name="shield" size={14} color={colors.primaryForeground} />
-          <Text style={styles.heroBadgeText}>ADMIN</Text>
-        </View>
-      </View>
-
-      {/* Tab 导航 */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabRow}>
-        {TABS.map((tabItem) => (
-          <TouchableOpacity
-            key={tabItem.key}
-            style={[styles.tabItem, tab === tabItem.key && styles.tabItemActive]}
-            onPress={() => switchTab(tabItem.key)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={tabItem.icon}
-              size={18}
-              color={tab === tabItem.key ? colors.primaryForeground : colors.ink2}
-            />
-            <Text style={[styles.tabLabel, tab === tabItem.key && styles.tabLabelActive]}>
-              {t(tabItem.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       <ScrollView
         style={styles.body}
         contentContainerStyle={[styles.bodyContent, respContainer]}
@@ -284,6 +251,44 @@ export default function AdminHomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* 顶部欢迎区（随内容一起滚动，不再冻结在顶部遮挡内容） */}
+        <View style={[styles.hero, { paddingTop: insets.top + 16, marginHorizontal: -colors.spacing.lg }]}>
+          <View style={styles.heroLeft}>
+            <Text style={styles.heroTitle}>{t('admHome.heroTitle')}</Text>
+            <Text style={styles.heroSub}>{t('admHome.heroSub')}</Text>
+          </View>
+          <View style={styles.heroBadge}>
+            <Ionicons name="shield" size={14} color={colors.primaryForeground} />
+            <Text style={styles.heroBadgeText}>ADMIN</Text>
+          </View>
+        </View>
+
+        {/* Tab 导航 */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.tabScroll, { marginHorizontal: -colors.spacing.lg }]}
+          contentContainerStyle={styles.tabRow}
+        >
+          {TABS.map((tabItem) => (
+            <TouchableOpacity
+              key={tabItem.key}
+              style={[styles.tabItem, tab === tabItem.key && styles.tabItemActive]}
+              onPress={() => switchTab(tabItem.key)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={tabItem.icon}
+                size={18}
+                color={tab === tabItem.key ? colors.primaryForeground : colors.ink2}
+              />
+              <Text style={[styles.tabLabel, tab === tabItem.key && styles.tabLabelActive]}>
+                {t(tabItem.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         {(loading || loadError) && (
           <View style={styles.loadingWrap}>
             <DataState
@@ -337,34 +342,19 @@ export default function AdminHomeScreen() {
               <Text style={styles.sectionHint}>{t('admHome.realtime')}</Text>
             </View>
             <View style={styles.statRow}>
-              {statCards.map((s) => {
-                const isPrimary = s.key === 'revenue';
-                return (
-                  <View
-                    key={s.key}
-                    style={[styles.statCard, isPrimary && styles.statCardPrimary, isTablet && styles.statCardWide]}
-                  >
-                    <Text style={[styles.statLabel, isPrimary && styles.statLabelPrimary]}>{s.label}</Text>
-                    <Text style={[styles.statNum, isPrimary && styles.statNumPrimary]} numberOfLines={1}>
-                      {s.value}
-                    </Text>
-                    {!!s.badge && (
-                      <View
-                        style={[
-                          styles.statBadge,
-                          isPrimary
-                            ? styles.statBadgePrimary
-                            : { backgroundColor: colors.alpha(s.toneRgb, 0.12) },
-                        ]}
-                      >
-                        <Text style={[styles.statBadgeText, isPrimary ? styles.statBadgeTextPrimary : { color: s.tone }]}>
-                          {s.badge}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+              {statCards.map((s) => (
+                <View key={s.key} style={[styles.statCard, isTablet && styles.statCardWide]}>
+                  <Text style={styles.statLabel}>{s.label}</Text>
+                  <Text style={styles.statNum} numberOfLines={1}>
+                    {s.value}
+                  </Text>
+                  {!!s.badge && (
+                    <View style={[styles.statBadge, { backgroundColor: colors.alpha(s.toneRgb, 0.12) }]}>
+                      <Text style={[styles.statBadgeText, { color: s.tone }]}>{s.badge}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
             </View>
 
             {/* 经营趋势 · 收入（近 7 个月营收） */}
@@ -483,6 +473,7 @@ const styles = StyleSheet.create({
 
   /* ===== Tab 导航 ===== */
   tabScroll: {
+    flexShrink: 0,
     maxHeight: 72,
   },
   tabRow: {
@@ -576,9 +567,7 @@ const styles = StyleSheet.create({
     ...colors.shadow.sm,
   },
   statCardWide: { flexBasis: '23%' },
-  statCardPrimary: { backgroundColor: colors.primary, ...colors.shadow.primary },
   statLabel: { fontSize: 12, color: colors.ink3, fontWeight: '500' },
-  statLabelPrimary: { color: colors.primaryForeground },
   statNum: {
     fontSize: colors.fontSize.xl,
     fontWeight: colors.fontWeight.bold,
@@ -595,9 +584,6 @@ const styles = StyleSheet.create({
     borderRadius: colors.radius.full,
   },
   statBadgeText: { fontSize: colors.fontSize.xs, fontWeight: '700', lineHeight: colors.lineHeight.tight},
-  statNumPrimary: { color: colors.primaryForeground },
-  statBadgePrimary: { backgroundColor: 'rgba(255,255,255,0.18)' },
-  statBadgeTextPrimary: { color: colors.primaryForeground },
 
   /* ===== 最近动态 ===== */
   activityItem: {

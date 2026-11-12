@@ -1152,7 +1152,8 @@ const styles = StyleSheet.create({
   /* 双业务 Tab */
   bizTabs: { flexDirection: 'row', gap: colors.spacing.sm, marginBottom: colors.spacing.md },
   bizTab: {
-    minHeight: 44,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: colors.spacing.lg,
     paddingVertical: colors.spacing.sm,

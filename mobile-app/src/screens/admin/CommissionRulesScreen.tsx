@@ -740,8 +740,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 14,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: colors.radius.full,
     backgroundColor: colors.background,

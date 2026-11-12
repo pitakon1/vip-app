@@ -1750,8 +1750,10 @@ const styles = StyleSheet.create({
   formLabel: { fontSize: 13, fontWeight: '600', color: colors.ink2, marginTop: colors.spacing.md },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: colors.spacing.sm },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 12,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,

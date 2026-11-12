@@ -256,6 +256,8 @@ export const colors = {
   // 视觉尺寸可小于 44，用 hitSlop 或外层 padding 补足到 44
   touch: {
     min: 44,
+    /** 胶囊 chip / 页签的视觉高度：视觉上不撑成椭圆，点击区域由行间距补足 */
+    chip: 34,
     /** 34px 视觉控件补足到 44 时的默认外扩 */
     hitSlop: { top: 5, bottom: 5, left: 5, right: 5 },
   },

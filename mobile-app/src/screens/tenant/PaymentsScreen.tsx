@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
   heroStatLabel: { fontSize: colors.fontSize.xs, color: colors.alpha('255, 255, 255', 0.7), marginBottom: 2, lineHeight: colors.lineHeight.tight},
   heroStatVal: { fontSize: 17, fontWeight: '700', color: colors.primaryForeground, fontVariant: ['tabular-nums'] },
   chips: { flexDirection: 'row', gap: 8, marginHorizontal: 12, marginBottom: 12 },
-  chip: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 7, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  chip: { minHeight: colors.touch.chip, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 7, borderRadius: colors.radius.full, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 14, fontWeight: '500', color: colors.ink2 },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },

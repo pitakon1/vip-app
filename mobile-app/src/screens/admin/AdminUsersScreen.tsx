@@ -945,8 +945,10 @@ const styles = StyleSheet.create({
   chipScroll: { flexGrow: 0, marginBottom: 12 },
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 14,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: colors.radius.full,
     borderWidth: 1,

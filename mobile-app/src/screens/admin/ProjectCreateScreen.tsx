@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
+  chip: { minHeight: colors.touch.chip, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: colors.radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface2 },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { fontSize: 13, color: colors.ink2, fontWeight: '500' },
   chipTextActive: { color: colors.primaryForeground, fontWeight: '600' },

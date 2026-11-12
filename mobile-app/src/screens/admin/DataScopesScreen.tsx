@@ -246,8 +246,10 @@ const styles = StyleSheet.create({
   sourceOff: { color: colors.ink3 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 12,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.background,

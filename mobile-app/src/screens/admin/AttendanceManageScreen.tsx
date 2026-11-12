@@ -1818,7 +1818,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
 
-  tabBarScroll: { flexGrow: 0 },
+  tabBarScroll: { flexGrow: 0, flexShrink: 0 },
   tabBar: {
     flexDirection: 'row',
     gap: 8,
@@ -1869,8 +1869,10 @@ const styles = StyleSheet.create({
   fieldHint: { fontSize: colors.fontSize.xs, color: colors.ink3, marginTop: 4, lineHeight: colors.lineHeight.tight},
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 12,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: colors.radius.full,
     backgroundColor: colors.fieldFill,

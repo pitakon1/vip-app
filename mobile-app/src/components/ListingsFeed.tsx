@@ -2353,7 +2353,8 @@ const styles = StyleSheet.create({
   recentClear: { fontSize: 12, color: colors.ink3, paddingVertical: 2 },
   recentGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   recentChip: {
-    minHeight: colors.touch.min,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 5,

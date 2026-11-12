@@ -90,8 +90,10 @@ export const styles = StyleSheet.create({
   fieldSectionTitle: { fontSize: 13, fontWeight: '700', color: colors.ink3, marginBottom: 8 },
   langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   chip: {
-     minHeight: 44,
-     paddingHorizontal: 16,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: colors.radius.full,
     backgroundColor: colors.surface2,

@@ -38,7 +38,7 @@ export function Badge({ text, primary }: { text: string; primary?: boolean }) {
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 44, // 触控最小高度 44pt（iOS HIG / Android 48dp 折中基准）
+    minHeight: colors.touch.chip, // 视觉高度 34，点击区域由行间距补足（44pt 触控下限）
     borderRadius: colors.radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,

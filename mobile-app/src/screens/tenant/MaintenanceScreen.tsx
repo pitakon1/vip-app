@@ -625,7 +625,8 @@ const styles = StyleSheet.create({
   // 状态 Tabs
   statusTabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
   statusTab: {
-    minHeight: 44,
+    minHeight: colors.touch.chip,
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
