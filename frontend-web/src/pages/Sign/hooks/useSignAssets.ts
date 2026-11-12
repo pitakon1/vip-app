@@ -1,7 +1,7 @@
 ﻿import { useRef, useState } from 'react'
 import { message } from 'antd'
 import { useTranslation } from 'react-i18next'
-import { signAssetsApi } from '@/services/api'
+import { contractsPublicApi } from '@/services/api'
 import { errorText } from '@/lib/errorText'
 import { CANVAS_W, CANVAS_H } from '../constants'
 import { svgToPngDataUrl } from '../utils'
@@ -57,7 +57,8 @@ export const useSignAssets = () => {
     }
     setSealGenerating(true)
     try {
-      const res: any = await signAssetsApi.generateSeal({
+      // 公开签署页无登录态，必须走匿名端点（/sign-assets/generate-seal 会 401）
+      const res: any = await contractsPublicApi.generateSealPreview({
         company_name: sealCompanyName.trim(),
         middle_text: sealMiddleText.trim() || t('contracts.sealMiddleTextDefault'),
       })

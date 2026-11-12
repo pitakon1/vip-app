@@ -179,3 +179,30 @@
   font-size: 11px;
   opacity: 0.85;
 }
+
+/* 报表统计条：原各项计数与终止类聚合并列展示 */
+.kf-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: baseline;
+}
+.kf-stats__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+}
+.kf-stats__label {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-text-secondary, #6b7280);
+}
+.kf-stats__value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.kf-stats__rate {
+  font-size: 11px;
+  opacity: 0.7;
+}

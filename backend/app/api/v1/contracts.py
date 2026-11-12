@@ -31,7 +31,7 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -44,6 +44,7 @@ from fastapi import (
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import func
 from sqlmodel import Session, select
 from starlette.responses import FileResponse, Response
 
@@ -62,7 +63,7 @@ from .auth import (
     _issue_otp,
     _send_code,
 )
-from app.core.uploads import resolve_stored_path, save_upload
+from app.core.uploads import detect_document_mime, resolve_stored_path, save_upload
 from app.db import get_session
 from app.models import (
     Notification,
@@ -70,6 +71,10 @@ from app.models import (
     NotificationStatus,
     User, Contract, ContractStatus, ContractKind, ContractSource, ContractParty,
     ContractSignOrder, ContractCallbackEvent, ContractCallbackStatus,
+    ContractCallbackSubscription,
+    ContractSignAuthorization,
+    ContractTemplate,
+    ContractTemplateVersion,
     SignerRole, SignatureRecord, ContractSignField, SignFieldType, SignMethod,
 )
 from app.providers.notification.base import (
@@ -79,6 +84,7 @@ from app.providers.notification.base import (
 from app.providers.notification.router import notification_router
 from app.services import esign_service
 from app.services import contract_jobs
+from app.services import contract_audit as audit
 from app.services.contract_identity import MATCHED, ContractIdentityResolver
 from app.services.serial_number import next_no
 from .documents import ALLOWED_DOCUMENT_TYPES
@@ -93,6 +99,9 @@ logger = logging.getLogger(__name__)
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "contracts"
 MAX_CONTRACT_SIZE = 20 * 1024 * 1024  # 单个合同文件 20MB
 STORED_URL_PREFIX = "/uploads/contracts/"
+# 授权书（代签授权凭证）与合同同域落盘，但不与合同文件混放
+AUTHORIZATION_DIR = UPLOAD_DIR / "authorizations"
+AUTHORIZATION_URL_PREFIX = STORED_URL_PREFIX + "authorizations/"
 
 # 免登录签署链接默认有效期（天）。免登录链接是「持有即可签」的强凭据，
 # 默认 3 天、上限 7 天：足够客户走完签署，又不至于长期滞留可被转发的链接。
@@ -101,12 +110,31 @@ _DEFAULT_TOKEN_DAYS = 3
 _MAX_TOKEN_DAYS = 7
 
 
-def _get_visible_contract(session: Session, user: User, contract_id: uuid.UUID) -> Contract:
-    """取合同并做归属校验；不可见时统一 404（不回显「存在但你没权限」）。"""
+def _get_visible_contract(
+    session: Session,
+    user: User,
+    contract_id: uuid.UUID,
+    request: Optional[Request] = None,
+) -> Contract:
+    """取合同并做归属校验；不可见时统一 404（不回显「存在但你没权限」）。
+
+    不可见时额外落一条 `contract.permission_denied` 审计（含操作人与 IP），
+    合同本身不存在则不记，避免把「无效 id 探测」混入权限拒绝口径。
+    """
     contract = session.get(Contract, contract_id)
     if not contract or contract.deleted_at:
         raise HTTPException(status_code=404, detail="Contract not found")
     if not can_view_contract(session, user, contract):
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_PERMISSION_DENIED,
+            contract_id=contract_id,
+            result="failure",
+            actor=user,
+            request=request,
+            detail={"reason": "not_visible"},
+            error="contract_not_visible",
+        )
         raise HTTPException(status_code=404, detail="Contract not found")
     return contract
 
@@ -154,6 +182,7 @@ class ContractDetailResponse(BaseModel):
 @router.post("/generate")
 def generate_contract(
     payload: dict,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
@@ -202,6 +231,18 @@ def generate_contract(
     session.add(contract)
     session.commit()
     session.refresh(contract)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_CREATE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "source": contract.source.value,
+            "kind": contract.kind.value,
+            "language": contract.language,
+        },
+    )
     return {
         "id": str(contract.id),
         "title": contract.title,
@@ -223,6 +264,811 @@ def list_contract_templates(user: User = Depends(require_employee)):
      {kind: "broker", title: "经纪人协议"}]
     """
     return esign_service.list_templates()
+
+
+# ---------------------------------------------------------------------------
+# 代签授权链
+#
+# 员工代签他人身份前必须有覆盖该合同的有效授权；授权过期/撤销后立即失效。
+# 授权范围 = 房源集合 + 合同类型集合 + 允许的签章方式（均为空表示不限）。
+# ---------------------------------------------------------------------------
+AUTHORIZATION_MAX_SIZE = 10 * 1024 * 1024  # 授权书 10MB
+_AUTHORIZATION_TYPES = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _parse_iso_dt(value, field: str) -> Optional[datetime]:
+    """解析 ISO 时间串为 UTC naive 时间；空值返回 None，非法值 400。"""
+    if value in (None, ""):
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _parse_str_list(value, field: str) -> Optional[List[str]]:
+    """把字符串列表去重规整；None/空列表返回 None（语义：不限）。"""
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    out: List[str] = []
+    for item in value:
+        text = str(item).strip()
+        if text and text not in out:
+            out.append(text)
+    return out or None
+
+
+def _authorization_status(auth: ContractSignAuthorization, now: Optional[datetime] = None) -> str:
+    now = now or datetime.utcnow()
+    if auth.revoked_at:
+        return "revoked"
+    if auth.valid_until and auth.valid_until < now:
+        return "expired"
+    if auth.valid_from and auth.valid_from > now:
+        return "pending"
+    return "active"
+
+
+def _serialize_authorization(session: Session, auth: ContractSignAuthorization) -> dict:
+    grantor = session.get(User, auth.grantor_user_id)
+    grantee = session.get(User, auth.grantee_user_id)
+    return {
+        "id": str(auth.id),
+        "grantor_user_id": str(auth.grantor_user_id),
+        "grantor_name": (grantor.full_name or grantor.email) if grantor else None,
+        "grantee_user_id": str(auth.grantee_user_id),
+        "grantee_name": (grantee.full_name or grantee.email) if grantee else None,
+        "property_ids": auth.property_ids or [],
+        "contract_kinds": auth.contract_kinds or [],
+        "seal_scope": auth.seal_scope or [],
+        "valid_from": auth.valid_from.isoformat() if auth.valid_from else None,
+        "valid_until": auth.valid_until.isoformat() if auth.valid_until else None,
+        "revoked_at": auth.revoked_at.isoformat() if auth.revoked_at else None,
+        "credential_path": auth.credential_path,
+        "note": auth.note,
+        "status": _authorization_status(auth),
+        "created_at": auth.created_at.isoformat() if auth.created_at else None,
+    }
+
+
+def _authorization_covers(
+    auth: ContractSignAuthorization,
+    contract: Contract,
+    methods: List[SignMethod],
+) -> bool:
+    """授权范围是否覆盖本次代签（房源 / 合同类型 / 签章方式）。"""
+    if auth.property_ids:
+        if contract.property_id is None:
+            return False
+        allowed = {str(x) for x in auth.property_ids}
+        if str(contract.property_id) not in allowed:
+            return False
+    if auth.contract_kinds:
+        kind = contract.kind.value if contract.kind else None
+        if kind not in set(auth.contract_kinds):
+            return False
+    if auth.seal_scope:
+        allowed_methods = set(auth.seal_scope)
+        if any((m or SignMethod.personal_handwrite).value not in allowed_methods for m in methods):
+            return False
+    return True
+
+
+def _resolve_proxy_authorization(
+    session: Session,
+    contract: Contract,
+    party: ContractParty,
+    employee: User,
+    authorization_id_raw,
+    methods: List[SignMethod],
+) -> ContractSignAuthorization:
+    """找到覆盖本次代签的有效授权；不满足时抛出带明确错误码的 403。
+
+    错误码：
+    - `PROXY_AUTHORIZATION_MISSING`：该员工对这位授权人没有任何授权
+    - `PROXY_AUTHORIZATION_REVOKED`：授权已撤销
+    - `PROXY_AUTHORIZATION_EXPIRED`：授权不在有效期内
+    - `PROXY_AUTHORIZATION_SCOPE_MISMATCH`：授权不覆盖该房源/合同类型/签章方式
+    """
+    authorization_id = None
+    if authorization_id_raw:
+        try:
+            authorization_id = uuid.UUID(str(authorization_id_raw))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid authorization_id")
+
+    rows = session.exec(
+        select(ContractSignAuthorization)
+        .where(ContractSignAuthorization.grantee_user_id == employee.id)
+        .order_by(ContractSignAuthorization.created_at.desc())
+    ).all()
+    # 授权人必须是该签署方本人（user_id 命中或邮箱归属），否则授权不覆盖此合同
+    candidates = []
+    for auth in rows:
+        grantor = session.get(User, auth.grantor_user_id)
+        if grantor and party_belongs_to_user(party, grantor):
+            candidates.append(auth)
+    if authorization_id is not None:
+        candidates = [a for a in candidates if a.id == authorization_id]
+        if not candidates:
+            raise HTTPException(status_code=404, detail="Authorization not found")
+
+    if not candidates:
+        raise HTTPException(status_code=403, detail="PROXY_AUTHORIZATION_MISSING")
+
+    now = datetime.utcnow()
+    live = [a for a in candidates if not a.revoked_at]
+    if not live:
+        raise HTTPException(status_code=403, detail="PROXY_AUTHORIZATION_REVOKED")
+
+    in_time = [
+        a
+        for a in live
+        if (a.valid_from is None or a.valid_from <= now)
+        and (a.valid_until is None or a.valid_until >= now)
+    ]
+    if not in_time:
+        raise HTTPException(status_code=403, detail="PROXY_AUTHORIZATION_EXPIRED")
+
+    covered = [a for a in in_time if _authorization_covers(a, contract, methods)]
+    if not covered:
+        raise HTTPException(status_code=403, detail="PROXY_AUTHORIZATION_SCOPE_MISMATCH")
+    return covered[0]
+
+
+@router.post("/authorizations")
+def create_sign_authorization(
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """建立代签授权。payload: {grantor_user_id, grantee_user_id?, property_ids?,
+    contract_kinds?, seal_scope?, valid_from?, valid_until, note?}
+
+    授权人 = 被代签的当事人；被授权人默认当前员工。授权凭证通过
+    `POST /contracts/authorizations/{id}/credential` 上传。
+    """
+    def _as_uuid(value, field: str) -> uuid.UUID:
+        try:
+            return uuid.UUID(str(value))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail=f"Invalid {field}")
+
+    grantor_id = _as_uuid(payload.get("grantor_user_id"), "grantor_user_id")
+    grantee_id = (
+        _as_uuid(payload["grantee_user_id"], "grantee_user_id")
+        if payload.get("grantee_user_id")
+        else user.id
+    )
+    if grantor_id == grantee_id:
+        raise HTTPException(status_code=400, detail="Grantor and grantee must differ")
+
+    grantor = session.get(User, grantor_id)
+    if not grantor or not grantor.is_active:
+        raise HTTPException(status_code=404, detail="Grantor not found")
+    grantee = session.get(User, grantee_id)
+    if not grantee or not grantee.is_active:
+        raise HTTPException(status_code=404, detail="Grantee not found")
+    if grantee.role not in STAFF_ROLES:
+        raise HTTPException(status_code=400, detail="Grantee must be staff")
+
+    valid_until = _parse_iso_dt(payload.get("valid_until"), "valid_until")
+    if valid_until is None:
+        raise HTTPException(status_code=400, detail="valid_until is required")
+    valid_from = _parse_iso_dt(payload.get("valid_from"), "valid_from")
+    if valid_from and valid_from >= valid_until:
+        raise HTTPException(status_code=400, detail="valid_from must be before valid_until")
+
+    property_ids = _parse_str_list(payload.get("property_ids"), "property_ids")
+    contract_kinds = _parse_str_list(payload.get("contract_kinds"), "contract_kinds")
+    if contract_kinds:
+        invalid = [k for k in contract_kinds if k not in {x.value for x in ContractKind}]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid contract_kinds: {invalid}")
+    seal_scope = _parse_str_list(payload.get("seal_scope"), "seal_scope")
+    if seal_scope:
+        invalid = [m for m in seal_scope if m not in {x.value for x in SignMethod}]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"Invalid seal_scope: {invalid}")
+
+    auth = ContractSignAuthorization(
+        grantor_user_id=grantor_id,
+        grantee_user_id=grantee_id,
+        property_ids=property_ids,
+        contract_kinds=contract_kinds,
+        seal_scope=seal_scope,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        note=(payload.get("note") or None),
+        created_by=user.id,
+    )
+    session.add(auth)
+    session.commit()
+    session.refresh(auth)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_AUTHORIZATION_GRANT,
+        actor=user,
+        request=request,
+        detail={
+            "authorization_id": str(auth.id),
+            "grantor_user_id": str(grantor_id),
+            "grantee_user_id": str(grantee_id),
+            "property_ids": property_ids,
+            "contract_kinds": contract_kinds,
+            "seal_scope": seal_scope,
+            "valid_until": valid_until.isoformat(),
+        },
+    )
+    return _serialize_authorization(session, auth)
+
+
+@router.get("/authorizations")
+def list_sign_authorizations(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """列出与当前账号相关的授权：管理员看全部，员工看自己授出/获得的。"""
+    stmt = select(ContractSignAuthorization).order_by(
+        ContractSignAuthorization.created_at.desc()
+    )
+    if user.role != "admin":
+        stmt = stmt.where(
+            (ContractSignAuthorization.grantor_user_id == user.id)
+            | (ContractSignAuthorization.grantee_user_id == user.id)
+        )
+    rows = session.exec(stmt).all()
+    return [_serialize_authorization(session, a) for a in rows]
+
+
+def _get_authorization_for_update(
+    session: Session, authorization_id: uuid.UUID, user: User
+) -> ContractSignAuthorization:
+    auth = session.get(ContractSignAuthorization, authorization_id)
+    if not auth:
+        raise HTTPException(status_code=404, detail="Authorization not found")
+    # 授权人、被授权人、创建人（代客户建档的员工）与管理员可撤销/补凭证
+    allowed = (auth.grantor_user_id, auth.grantee_user_id, auth.created_by)
+    if user.role != "admin" and user.id not in allowed:
+        raise HTTPException(status_code=403, detail="Not allowed to manage this authorization")
+    return auth
+
+
+@router.delete("/authorizations/{authorization_id}")
+def revoke_sign_authorization(
+    authorization_id: uuid.UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """撤销授权：撤销后立即失效（代签会被拒绝）。幂等。"""
+    auth = _get_authorization_for_update(session, authorization_id, user)
+    if not auth.revoked_at:
+        auth.revoked_at = datetime.utcnow()
+        auth.revoked_by = user.id
+        session.add(auth)
+        session.commit()
+        session.refresh(auth)
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_AUTHORIZATION_REVOKE,
+            actor=user,
+            request=request,
+            detail={
+                "authorization_id": str(auth.id),
+                "grantor_user_id": str(auth.grantor_user_id),
+                "grantee_user_id": str(auth.grantee_user_id),
+            },
+        )
+    return _serialize_authorization(session, auth)
+
+
+@router.post("/authorizations/{authorization_id}/credential")
+def upload_authorization_credential(
+    authorization_id: uuid.UUID,
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """上传授权书（授权凭证）：PDF / JPG / PNG / WEBP，限 10MB。"""
+    auth = _get_authorization_for_update(session, authorization_id, user)
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _AUTHORIZATION_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported credential type: {ext or 'none'}（支持 PDF / JPG / PNG / WEBP）",
+        )
+    file_url = save_upload(
+        file,
+        AUTHORIZATION_DIR,
+        AUTHORIZATION_MAX_SIZE,
+        _AUTHORIZATION_TYPES,
+        {ext: {"application/pdf"} if ext == ".pdf" else {"image/png", "image/jpeg", "image/webp"}},
+        detector=detect_document_mime,
+        name_prefix="auth",
+        url_prefix=AUTHORIZATION_URL_PREFIX,
+        label="credential",
+        supported_text="（支持 PDF / JPG / PNG / WEBP）",
+    )
+    auth.credential_path = file_url
+    session.add(auth)
+    session.commit()
+    session.refresh(auth)
+    return _serialize_authorization(session, auth)
+
+
+@router.get("/authorizations/{authorization_id}/credential")
+def download_authorization_credential(
+    authorization_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """下载授权书（授权人与被授权人均可查看）。"""
+    auth = session.get(ContractSignAuthorization, authorization_id)
+    if not auth:
+        raise HTTPException(status_code=404, detail="Authorization not found")
+    if user.role != "admin" and user.id not in (auth.grantor_user_id, auth.grantee_user_id):
+        raise HTTPException(status_code=403, detail="Not allowed to read this credential")
+    if not auth.credential_path:
+        raise HTTPException(status_code=404, detail="Credential not uploaded")
+    path = resolve_stored_path(auth.credential_path, AUTHORIZATION_DIR, AUTHORIZATION_URL_PREFIX)
+    return FileResponse(path)
+
+
+# ---------------------------------------------------------------------------
+# 合同模板库
+#
+# 模板 = 标题 + 字段（变量占位符）+ 条款；生成合同时一次性渲染并落库，
+# 因此后续编辑模板不会影响已经创建的合同（旧合同保留自身正文与版本号）。
+# 与既有手填/内置生成流程并存，不改变原有入口。
+# ---------------------------------------------------------------------------
+_DEFAULT_TEMPLATE_SEEDS = [
+    {
+        "name": "住宅租赁合同（标准模板）",
+        "kind": "lease",
+        "business_scope": "住宅租赁",
+        "title": "房屋租赁合同",
+        "fields": [
+            {"key": "contract_no", "label": "合同编号"},
+            {"key": "property_address", "label": "物业地址"},
+            {"key": "room_number", "label": "房号"},
+            {"key": "monthly_rent", "label": "月租金（元）", "default": "8000"},
+            {"key": "deposit", "label": "押金（元）", "default": "16000"},
+            {"key": "start_date", "label": "租赁开始日期"},
+            {"key": "term_months", "label": "租期（月）", "default": "12"},
+            {"key": "tenant_name", "label": "租客姓名"},
+            {"key": "tenant_id_number", "label": "租客证件号"},
+            {"key": "landlord_name", "label": "业主/房东姓名"},
+            {"key": "landlord_id_number", "label": "业主证件号"},
+            {"key": "sign_date", "label": "签署日期"},
+        ],
+        "clauses": [
+            "出租方将上述房屋出租给承租方使用，承租方确认已实地查看并认可房屋现状。",
+            "月租金为人民币 {{monthly_rent}} 元，承租方应于每月 5 日前支付当月租金。",
+            "承租方应于签约时支付押金人民币 {{deposit}} 元，租赁期满无违约且房屋完好时无息退还。",
+            "租赁期限自 {{start_date}} 起共 {{term_months}} 个月。",
+            "水、电、燃气、物业等费用由承租方按实际使用承担；房屋主体结构维修由出租方负责。",
+            "任何一方提前解除合同应提前 30 日书面通知对方，并按合同约定承担违约责任。",
+        ],
+    },
+    {
+        "name": "房屋买卖合同（标准模板）",
+        "kind": "purchase",
+        "business_scope": "二手房买卖",
+        "title": "房屋买卖合同",
+        "fields": [
+            {"key": "contract_no", "label": "合同编号"},
+            {"key": "property_address", "label": "房屋坐落"},
+            {"key": "room_number", "label": "房号"},
+            {"key": "property_area", "label": "建筑面积（㎡）"},
+            {"key": "total_price", "label": "房屋总价（元）"},
+            {"key": "down_payment", "label": "定金（元）", "default": "50000"},
+            {"key": "delivery_date", "label": "交付日期"},
+            {"key": "seller_name", "label": "出卖方姓名"},
+            {"key": "seller_id_number", "label": "出卖方证件号"},
+            {"key": "buyer_name", "label": "买受方姓名"},
+            {"key": "buyer_id_number", "label": "买受方证件号"},
+            {"key": "sign_date", "label": "签署日期"},
+        ],
+        "clauses": [
+            "出卖方自愿将上述房屋出售给买受方，买受方已实地查看并认可房屋现状。",
+            "房屋成交总价为人民币 {{total_price}} 元，买受方于签约时支付定金人民币 {{down_payment}} 元。",
+            "买卖双方应于 {{delivery_date}} 前共同办理网签、过户及物业交割手续。",
+            "交易税费按国家及当地规定由双方各自承担。",
+        ],
+    },
+    {
+        "name": "经纪人协议（标准模板）",
+        "kind": "broker",
+        "business_scope": "经纪服务",
+        "title": "经纪人协议",
+        "fields": [
+            {"key": "contract_no", "label": "协议编号"},
+            {"key": "broker_name", "label": "经纪人姓名"},
+            {"key": "broker_company", "label": "所属公司"},
+            {"key": "broker_phone", "label": "联系电话"},
+            {"key": "broker_id_number", "label": "证件号"},
+            {"key": "listing_address", "label": "服务房源"},
+            {"key": "commission_rate", "label": "佣金比例", "default": "1.5%"},
+            {"key": "sign_date", "label": "签署日期"},
+        ],
+        "clauses": [
+            "经纪人 {{broker_name}}（{{broker_company}}）负责上述房源的带看、撮合与签约协助。",
+            "佣金比例为成交价的 {{commission_rate}}，于交易完成且款项到账后结算。",
+            "经纪人应如实披露房源信息，不得隐瞒重大瑕疵或重复收取费用。",
+        ],
+    },
+]
+
+
+def _serialize_template(t: ContractTemplate, *, detail: bool = False) -> dict:
+    data = {
+        "id": str(t.id),
+        "name": t.name,
+        "kind": t.kind.value if t.kind else None,
+        "business_scope": t.business_scope,
+        "title": t.title,
+        "fields": t.fields or [],
+        "clauses": t.clauses or [],
+        "variable_keys": esign_service.template_variable_keys(
+            t.title, t.fields, t.clauses
+        ),
+        "version": t.version_no,
+        "active": t.active,
+        "note": t.note,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+    if detail:
+        preview_rows = []
+        for f in t.fields or []:
+            key = (f or {}).get("key")
+            if not key:
+                continue
+            preview_rows.append(
+                ((f or {}).get("label") or key, (f or {}).get("default") or "＿＿＿＿")
+            )
+        data["preview_html"] = esign_service.render_structured_html(
+            t.title, preview_rows, t.clauses or []
+        )
+    return data
+
+
+def _serialize_template_version(v: ContractTemplateVersion) -> dict:
+    return {
+        "template_id": str(v.template_id),
+        "version": v.version_no,
+        "name": v.name,
+        "kind": v.kind.value if v.kind else None,
+        "business_scope": v.business_scope,
+        "title": v.title,
+        "fields": v.fields or [],
+        "clauses": v.clauses or [],
+        "note": v.note,
+        "created_at": v.created_at.isoformat() if v.created_at else None,
+    }
+
+
+def _snapshot_template_version(
+    session: Session, t: ContractTemplate, user: User
+) -> ContractTemplateVersion:
+    snap = ContractTemplateVersion(
+        template_id=t.id,
+        version_no=t.version_no,
+        name=t.name,
+        kind=t.kind,
+        business_scope=t.business_scope,
+        title=t.title,
+        fields=list(t.fields or []),
+        clauses=list(t.clauses or []),
+        note=t.note,
+        created_by=user.id,
+    )
+    session.add(snap)
+    return snap
+
+
+def _get_template(session: Session, template_id: uuid.UUID) -> ContractTemplate:
+    t = session.get(ContractTemplate, template_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return t
+
+
+def _normalize_template_fields(value) -> list:
+    if not isinstance(value, list):
+        raise HTTPException(status_code=400, detail="Invalid fields")
+    out = []
+    seen = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Invalid fields")
+        key = str(item.get("key") or "").strip()
+        if not key:
+            raise HTTPException(status_code=400, detail="Field key is required")
+        if key in seen:
+            raise HTTPException(status_code=400, detail=f"Duplicate field key: {key}")
+        seen.add(key)
+        row = {"key": key, "label": str(item.get("label") or key)}
+        if item.get("default") not in (None, ""):
+            row["default"] = str(item["default"])
+        out.append(row)
+    return out
+
+
+def _normalize_template_clauses(value) -> list:
+    if not isinstance(value, list):
+        raise HTTPException(status_code=400, detail="Invalid clauses")
+    return [str(c).strip() for c in value if str(c).strip()]
+
+
+@router.get("/template-library")
+def list_template_library(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """合同模板库列表（含变量占位符与当前版本号）。"""
+    rows = session.exec(
+        select(ContractTemplate).order_by(ContractTemplate.created_at.desc())
+    ).all()
+    return [_serialize_template(t) for t in rows]
+
+
+@router.post("/template-library/seed")
+def seed_template_library(
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """按当前在用的合同类型导入标准模板（幂等：同名同类型已存在则跳过）。"""
+    created = []
+    for seed in _DEFAULT_TEMPLATE_SEEDS:
+        exists = session.exec(
+            select(ContractTemplate).where(
+                ContractTemplate.name == seed["name"],
+                ContractTemplate.kind == ContractKind(seed["kind"]),
+            )
+        ).first()
+        if exists:
+            continue
+        t = ContractTemplate(
+            name=seed["name"],
+            kind=ContractKind(seed["kind"]),
+            business_scope=seed["business_scope"],
+            title=seed["title"],
+            fields=seed["fields"],
+            clauses=seed["clauses"],
+            version_no=1,
+            created_by=user.id,
+            updated_by=user.id,
+        )
+        session.add(t)
+        session.commit()
+        session.refresh(t)
+        _snapshot_template_version(session, t, user)
+        session.commit()
+        created.append(_serialize_template(t))
+    return {"created": created, "skipped": len(_DEFAULT_TEMPLATE_SEEDS) - len(created)}
+
+
+@router.post("/template-library")
+def create_template(
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """新建合同模板（v1）。payload: {name, kind, business_scope?, title, fields, clauses, note?}"""
+    name = str(payload.get("name") or "").strip()
+    title = str(payload.get("title") or "").strip()
+    if not name or not title:
+        raise HTTPException(status_code=400, detail="name and title are required")
+    try:
+        kind = ContractKind(payload.get("kind", "lease"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid kind")
+
+    t = ContractTemplate(
+        name=name,
+        kind=kind,
+        business_scope=(payload.get("business_scope") or None),
+        title=title,
+        fields=_normalize_template_fields(payload.get("fields") or []),
+        clauses=_normalize_template_clauses(payload.get("clauses") or []),
+        version_no=1,
+        note=(payload.get("note") or None),
+        created_by=user.id,
+        updated_by=user.id,
+    )
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    _snapshot_template_version(session, t, user)
+    session.commit()
+    return _serialize_template(t, detail=True)
+
+
+@router.patch("/template-library/{template_id}")
+def update_template(
+    template_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """编辑模板（保留版本历史）：version+1，旧版本快照不可变。
+
+    已生成的合同正文已物化在合同表，不受本次编辑影响。
+    """
+    t = _get_template(session, template_id)
+    if "name" in payload:
+        t.name = str(payload.get("name") or "").strip() or t.name
+    if "title" in payload:
+        t.title = str(payload.get("title") or "").strip() or t.title
+    if "business_scope" in payload:
+        t.business_scope = payload.get("business_scope") or None
+    if "note" in payload:
+        t.note = payload.get("note") or None
+    if "kind" in payload:
+        try:
+            t.kind = ContractKind(payload["kind"])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid kind")
+    if "fields" in payload:
+        t.fields = _normalize_template_fields(payload.get("fields"))
+    if "clauses" in payload:
+        t.clauses = _normalize_template_clauses(payload.get("clauses"))
+
+    t.version_no = (t.version_no or 1) + 1
+    t.updated_by = user.id
+    session.add(t)
+    session.commit()
+    session.refresh(t)
+    _snapshot_template_version(session, t, user)
+    session.commit()
+    return _serialize_template(t, detail=True)
+
+
+@router.get("/template-library/{template_id}")
+def get_template(
+    template_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    return _serialize_template(_get_template(session, template_id), detail=True)
+
+
+@router.get("/template-library/{template_id}/versions")
+def list_template_versions(
+    template_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    _get_template(session, template_id)
+    rows = session.exec(
+        select(ContractTemplateVersion)
+        .where(ContractTemplateVersion.template_id == template_id)
+        .order_by(ContractTemplateVersion.version_no.desc())
+    ).all()
+    return [_serialize_template_version(v) for v in rows]
+
+
+@router.get("/template-library/{template_id}/versions/{version}")
+def get_template_version(
+    template_id: uuid.UUID,
+    version: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    _get_template(session, template_id)
+    snap = session.exec(
+        select(ContractTemplateVersion).where(
+            ContractTemplateVersion.template_id == template_id,
+            ContractTemplateVersion.version_no == version,
+        )
+    ).first()
+    if not snap:
+        raise HTTPException(status_code=404, detail="Template version not found")
+    return _serialize_template_version(snap)
+
+
+@router.post("/template-library/{template_id}/generate")
+def generate_from_template(
+    template_id: uuid.UUID,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """用模板生成合同：variables 替换占位符后一次性物化正文与 PDF。
+
+    payload: {variables: {key: value}, lease_id?, property_id?, language?, title?}
+    缺少必填变量（既未传值也无默认值）时 400 并列出缺失项。
+    """
+    t = _get_template(session, template_id)
+    variables = payload.get("variables") or {}
+    if not isinstance(variables, dict):
+        raise HTTPException(status_code=400, detail="Invalid variables")
+
+    defaults = {
+        (f or {}).get("key"): (f or {}).get("default")
+        for f in (t.fields or [])
+        if (f or {}).get("key")
+    }
+    missing = [
+        key
+        for key in esign_service.template_variable_keys(t.title, t.fields, t.clauses)
+        if key not in variables and defaults.get(key) in (None, "")
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=400, detail=f"MISSING_TEMPLATE_VARIABLES: {missing}"
+        )
+
+    def _to_uuid(value, field: str):
+        if value in (None, ""):
+            return None
+        try:
+            return uuid.UUID(str(value))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail=f"Invalid {field}")
+
+    meta = esign_service.generate_from_template(
+        t.title,
+        t.fields,
+        t.clauses,
+        variables,
+        language=payload.get("language") or "zh",
+    )
+    contract = Contract(
+        contract_no=next_no(session, "HT"),
+        lease_id=_to_uuid(payload.get("lease_id"), "lease_id"),
+        property_id=_to_uuid(payload.get("property_id"), "property_id"),
+        title=(str(payload.get("title")).strip() if payload.get("title") else meta["title"]),
+        kind=t.kind,
+        source=ContractSource.generated,
+        created_by=user.id,
+        language=meta["language"],
+        content_html=meta["content_html"],
+        document_hash=meta["document_hash"],
+        file_path=meta["file_path"],
+        pdf_path=meta.get("pdf_path"),
+        counters=variables,
+        template_id=t.id,
+        template_version=t.version_no,
+        status=ContractStatus.draft,
+    )
+    session.add(contract)
+    session.commit()
+    session.refresh(contract)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_CREATE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "source": contract.source.value,
+            "kind": contract.kind.value,
+            "language": contract.language,
+            "template_id": str(t.id),
+            "template_version": t.version_no,
+        },
+    )
+    return {
+        "id": str(contract.id),
+        "title": contract.title,
+        "kind": contract.kind.value,
+        "status": contract.status.value,
+        "document_hash": contract.document_hash,
+        "content_html": contract.content_html,
+        "template_id": str(t.id),
+        "template_version": t.version_no,
+        "rendered_fields": meta["rendered_fields"],
+    }
 
 
 @router.post("/{contract_id}/parties")
@@ -420,6 +1266,7 @@ def list_contract_callbacks(
             "next_attempt_at": e.next_attempt_at.isoformat() if e.next_attempt_at else None,
             "delivered_at": e.delivered_at.isoformat() if e.delivered_at else None,
             "idempotency_key": e.idempotency_key,
+            "subscription_id": str(e.subscription_id) if e.subscription_id else None,
         }
         for e in events
     ]
@@ -450,6 +1297,100 @@ def retry_contract_callback(
         "last_error": event.last_error,
         "next_attempt_at": event.next_attempt_at.isoformat() if event.next_attempt_at else None,
     }
+
+
+@router.get("/{contract_id}/subscriptions")
+def list_contract_subscriptions(
+    contract_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """查看合同的多回调订阅（未配置时返回空列表，此时走默认单地址回调）。"""
+    _get_visible_contract(session, user, contract_id)
+    subs = session.exec(
+        select(ContractCallbackSubscription)
+        .where(ContractCallbackSubscription.contract_id == contract_id)
+        .order_by(ContractCallbackSubscription.created_at)
+    ).all()
+    return [
+        {
+            "id": str(s.id),
+            "url": s.url,
+            "label": s.label,
+            "active": s.active,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+        }
+        for s in subs
+    ]
+
+
+@router.post("/{contract_id}/subscriptions")
+def add_contract_subscription(
+    contract_id: uuid.UUID,
+    payload: dict,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """新增一个回调订阅。payload: {url, label?}
+
+    同一合同下同一 URL 只保留一条（重复添加返回已存在的那条，不新建）。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    url = (payload.get("url") or "").strip()
+    if not url or len(url) > 500 or not re.match(r"^https?://", url, re.I):
+        raise HTTPException(status_code=400, detail="Invalid callback url")
+    existing = session.exec(
+        select(ContractCallbackSubscription).where(
+            ContractCallbackSubscription.contract_id == contract.id,
+            ContractCallbackSubscription.url == url,
+        )
+    ).first()
+    if existing is not None:
+        return {
+            "id": str(existing.id),
+            "url": existing.url,
+            "label": existing.label,
+            "active": existing.active,
+            "created_at": existing.created_at.isoformat() if existing.created_at else None,
+        }
+    sub = ContractCallbackSubscription(
+        contract_id=contract.id,
+        url=url,
+        label=(payload.get("label") or "").strip()[:64] or None,
+        created_by=user.id,
+    )
+    session.add(sub)
+    if not contract.callback_secret:
+        # 订阅同样需要签名密钥；生成后与旧接口共用同一个 secret
+        contract.callback_secret = secrets.token_urlsafe(32)
+        session.add(contract)
+    session.commit()
+    session.refresh(sub)
+    return {
+        "id": str(sub.id),
+        "url": sub.url,
+        "label": sub.label,
+        "active": sub.active,
+        "created_at": sub.created_at.isoformat() if sub.created_at else None,
+        "callback_secret": contract.callback_secret,
+    }
+
+
+@router.delete("/{contract_id}/subscriptions/{subscription_id}")
+def delete_contract_subscription(
+    contract_id: uuid.UUID,
+    subscription_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """删除一个回调订阅（已产生的投递记录保留，可继续排障/重投）。"""
+    _get_visible_contract(session, user, contract_id)
+    sub = session.get(ContractCallbackSubscription, subscription_id)
+    if sub is None or sub.contract_id != contract_id:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    session.delete(sub)
+    session.commit()
+    return {"deleted": str(subscription_id)}
 
 
 @router.post("/{contract_id}/sign-fields")
@@ -616,11 +1557,19 @@ def _issue_sign_token(party: ContractParty, expires_in_days: int) -> str:
     return token
 
 
+# 已进入终态、不再接受任何签署动作的合同状态（作废 / 拒签 / 撤回）
+_FINALIZED_STATUSES = (
+    ContractStatus.voided,
+    ContractStatus.rejected,
+    ContractStatus.revoked,
+)
+
+
 def _require_editable(contract: Contract) -> None:
-    """已签署/已作废/已拒签的合同不允许再改内容或作废。"""
+    """已签署/已作废/已拒签/已撤回的合同不允许再改内容或作废。"""
     if contract.status in (ContractStatus.signed, ContractStatus.completed):
         raise HTTPException(status_code=409, detail="Contract already signed")
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract already finalized")
 
 
@@ -642,6 +1591,8 @@ def _ensure_not_expired(session: Session, contract: Contract) -> None:
         contract.status = ContractStatus.expired
         session.add(contract)
         session.commit()
+        # 与后台过期扫描可能同时触发：两者写入同一幂等键，冲突由内部吞掉
+        contract_jobs.emit_expired_callback(session, contract)
     raise HTTPException(status_code=409, detail="CONTRACT_EXPIRED")
 
 
@@ -655,70 +1606,108 @@ def _deliver_callback(session: Session, event: ContractCallbackEvent) -> None:
     contract_jobs.deliver_callback(session, event)
 
 
+def _callback_payload(
+    session: Session,
+    contract: Contract,
+    event: str,
+    extra: Optional[dict] = None,
+) -> dict:
+    """构造回调请求体快照（同一合同的多订阅共用同一份快照）。"""
+    parties = session.exec(
+        select(ContractParty).where(ContractParty.contract_id == contract.id)
+    ).all()
+    payload = {
+        "event": event,
+        "contract_id": str(contract.id),
+        "contract_no": contract.contract_no,
+        "title": contract.title,
+        "status": contract.status.value,
+        "language": contract.language,
+        "document_hash": contract.document_hash,
+        "signed_at": contract.signed_at.isoformat() if contract.signed_at else None,
+        "parties": [
+            {
+                "id": str(p.id),
+                "name": p.name,
+                "role": p.role.value,
+                "signed": p.signed,
+                "signed_at": p.signed_at.isoformat() if p.signed_at else None,
+            }
+            for p in parties
+        ],
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
 def _emit_contract_callback(
     session: Session,
     contract: Contract,
     event: str = "contract.signed",
     extra: Optional[dict] = None,
 ) -> None:
-    """合同状态变化时生成并投递回调（未配置 callback_url 时跳过）。
+    """合同状态变化时生成并投递回调。
 
-    - `contract.signed`：全部签署方签完；
-    - `contract.declined`：拒签导致流程终止（status=rejected）；
-    - `contract.voided`：合同被人工作废。
-    `extra` 用于补充事件专属字段（拒签方/原因、作废原因等）。
+    投递目标分两种情况，互不干扰：
+
+    - **未配置订阅**：沿用 `contract.callback_url` 单地址，幂等键 `合同id:事件`
+      （与旧版完全一致，已配置的单地址回调不受影响）；
+    - **配置了订阅**：每个启用中的订阅各投递一份，幂等键
+      `合同id:事件#订阅id`，各自独立记录状态与重试，一个失败不影响另一个。
     """
-    if not contract.callback_url:
-        return
-    key = f"{contract.id}:{event}"
-    existing = session.exec(
-        select(ContractCallbackEvent).where(ContractCallbackEvent.idempotency_key == key)
-    ).first()
-    if existing is not None and existing.status == ContractCallbackStatus.delivered:
-        return  # 已成功投递，重复触发不再发送（幂等）
-    if existing is None:
-        if not contract.callback_secret:
-            contract.callback_secret = secrets.token_urlsafe(32)
-            session.add(contract)
-        parties = session.exec(
-            select(ContractParty).where(ContractParty.contract_id == contract.id)
-        ).all()
-        payload = {
-            "event": event,
-            "contract_id": str(contract.id),
-            "contract_no": contract.contract_no,
-            "title": contract.title,
-            "status": contract.status.value,
-            "language": contract.language,
-            "document_hash": contract.document_hash,
-            "signed_at": contract.signed_at.isoformat() if contract.signed_at else None,
-            "parties": [
-                {
-                    "id": str(p.id),
-                    "name": p.name,
-                    "role": p.role.value,
-                    "signed": p.signed,
-                    "signed_at": p.signed_at.isoformat() if p.signed_at else None,
-                }
-                for p in parties
-            ],
-        }
-        if extra:
-            payload.update(extra)
-        existing = ContractCallbackEvent(
-            contract_id=contract.id,
-            event=event,
-            url=contract.callback_url,
-            payload=payload,
-            idempotency_key=key,
+    subs = session.exec(
+        select(ContractCallbackSubscription).where(
+            ContractCallbackSubscription.contract_id == contract.id,
+            ContractCallbackSubscription.active.is_(True),
         )
-        session.add(existing)
-        session.commit()
-        session.refresh(existing)
-    try:
-        _deliver_callback(session, existing)
-    except Exception:  # noqa: BLE001  回调是旁路，任何异常都不得影响签署
-        logger.exception("contract.callback_crashed", extra={"contract_id": str(contract.id)})
+    ).all()
+    targets = [s.url for s in subs]
+    if not targets:
+        if not contract.callback_url:
+            return
+        targets = [contract.callback_url]
+
+    if not contract.callback_secret:
+        contract.callback_secret = secrets.token_urlsafe(32)
+        session.add(contract)
+
+    payload: Optional[dict] = None
+    for sub in subs or [None]:
+        url = sub.url if sub is not None else contract.callback_url
+        key = (
+            f"{contract.id}:{event}#{sub.id}"
+            if sub is not None
+            else f"{contract.id}:{event}"
+        )
+        existing = session.exec(
+            select(ContractCallbackEvent).where(
+                ContractCallbackEvent.idempotency_key == key
+            )
+        ).first()
+        if existing is not None and existing.status == ContractCallbackStatus.delivered:
+            continue  # 该目标已成功投递，重复触发不再发送（幂等）
+        if existing is None:
+            if payload is None:
+                payload = _callback_payload(session, contract, event, extra)
+            existing = ContractCallbackEvent(
+                contract_id=contract.id,
+                event=event,
+                url=url,
+                payload=payload,
+                idempotency_key=key,
+                subscription_id=sub.id if sub is not None else None,
+            )
+            session.add(existing)
+            session.commit()
+            session.refresh(existing)
+        try:
+            _deliver_callback(session, existing)
+        except Exception:  # noqa: BLE001  回调是旁路，任何异常都不得影响签署
+            logger.exception(
+                "contract.callback_crashed",
+                extra={"contract_id": str(contract.id), "subscription_id": key},
+            )
 
 
 def _can_sign_now(session: Session, contract: Contract, party: ContractParty) -> bool:
@@ -817,6 +1806,7 @@ def _convert_upload_to_pdf(contract: Contract, stored: Path) -> tuple[bool, Opti
 @router.post("/{contract_id}/upload")
 def upload_contract_file(
     contract_id: uuid.UUID,
+    request: Request,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -830,7 +1820,7 @@ def upload_contract_file(
     Gotenberg）。转换失败**不阻断上传**，响应里 `pdf_converted=false` 并给出
     `pdf_convert_error`，前端据此提示「该合同只能留痕、无法在 PDF 上落章」。
     """
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     _require_editable(contract)
     url = save_upload(
         file,
@@ -856,6 +1846,18 @@ def upload_contract_file(
     session.add(contract)
     session.commit()
     session.refresh(contract)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_CREATE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "source": contract.source.value,
+            "pdf_converted": pdf_ok,
+            "file_path": contract.file_path,
+        },
+    )
     return {
         "id": str(contract.id),
         "file_path": contract.file_path,
@@ -896,21 +1898,68 @@ def create_share_link(
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
-    """为某签署方生成免登录签署链接。payload: {party_id, expires_in_days?, reuse?}
+    """为某签署方生成免登录签署链接。payload: {party_id, expires_in_days?, reuse?, rotate?}
 
     用于「客户没走平台流程 / 未注册账号」的场景：链接可转发给客户，
     打开即免登录签署（一次性，签署后令牌清空）。
-    `reuse=true` 时复用未过期的既有令牌（展示二维码不打扰已复制的链接）。
+    `reuse=true` 时复用未过期的既有令牌（展示二维码不打扰已复制的链接）；
+    `rotate=true` 是显式「重新生成链接」：仅在当前链接**未过期**时可用，
+    立即作废旧令牌（旧链接此后 404），新令牌按默认 3 天签发，并写操作留痕。
     """
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     _require_editable(contract)
     party = _get_party(session, contract_id, payload.get("party_id"))
     if party.signed:
         raise HTTPException(status_code=409, detail="Party already signed")
 
     reuse = bool(payload.get("reuse"))
+    rotate = bool(payload.get("rotate"))
     existing = party.sign_token
-    if reuse and existing and party.sign_token_expires_at and party.sign_token_expires_at > datetime.utcnow():
+    active = bool(
+        existing
+        and party.sign_token_expires_at
+        and party.sign_token_expires_at > datetime.utcnow()
+    )
+    if rotate and not active:
+        # 没有可作废的在途链接时不提供「重新生成」，避免误判为「刷新了旧链接」
+        raise HTTPException(status_code=409, detail="NO_ACTIVE_LINK")
+    if rotate:
+        token = _issue_sign_token(party, payload.get("expires_in_days"))
+        # 操作留痕：与 void_contract 写 counters 的口径一致，保留最近 20 次
+        counters = dict(contract.counters or {})
+        trail = list(counters.get("link_rotations") or [])
+        trail.append(
+            {
+                "at": datetime.utcnow().isoformat(),
+                "by": str(user.id),
+                "party_id": str(party.id),
+            }
+        )
+        counters["link_rotations"] = trail[-20:]
+        contract.counters = counters
+        session.add(party)
+        session.add(contract)
+        session.commit()
+        session.refresh(party)
+        logger.info(
+            "contract.sign_link_rotated",
+            extra={"contract_id": str(contract.id), "party_id": str(party.id), "by": str(user.id)},
+        )
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_LINK_ROTATE,
+            contract_id=contract.id,
+            actor=user,
+            request=request,
+            detail={
+                "party_id": str(party.id),
+                "previous_invalidated": bool(existing),
+                "expires_at": party.sign_token_expires_at.isoformat()
+                if party.sign_token_expires_at
+                else None,
+            },
+        )
+    elif reuse and active:
         token = existing
     else:
         token = _issue_sign_token(party, payload.get("expires_in_days"))
@@ -926,6 +1975,8 @@ def create_share_link(
         "token": token,
         "url": url,
         "qr_data_url": _qr_data_url(abs_url),
+        "rotated": rotate,
+        "previous_invalidated": bool(rotate and existing),
         "expires_at": party.sign_token_expires_at.isoformat()
         if party.sign_token_expires_at
         else None,
@@ -935,6 +1986,7 @@ def create_share_link(
 @router.post("/{contract_id}/send")
 def send_contract(
     contract_id: uuid.UUID,
+    request: Request,
     payload: Optional[dict] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
@@ -946,28 +1998,53 @@ def send_contract(
     只能收到邮件，正文里带上免登录签署链接。
     """
     payload = payload or {}
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     _require_editable(contract)
+    # 与签署/撤回串行化：续期会回写状态与签署链接，必须基于最新已提交状态判定
+    contract = _lock_contract_row(session, contract)
+
+    # 续期判定：状态已 expired，或有效期已过但尚未被惰性/后台标记。
+    # 首次发送（expires_at 为空）不算续期。
+    now = datetime.utcnow()
+    renewing = contract.status == ContractStatus.expired or (
+        contract.expires_at is not None and contract.expires_at < now
+    )
 
     # 签署有效期：首次发送开始计时（默认 30 天，允许 1–90 天）。
     # 已到期/已过期的合同重新发送时续期并把状态从 expired 拉回签署中。
-    if contract.expires_at is None or contract.expires_at < datetime.utcnow():
+    if contract.expires_at is None or contract.expires_at < now:
         try:
             days = int(payload.get("sign_expires_in_days") or 30)
         except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="Invalid sign_expires_in_days")
-        contract.expires_at = datetime.utcnow() + timedelta(days=min(90, max(1, days)))
-        if contract.status == ContractStatus.expired:
+        contract.expires_at = now + timedelta(days=min(90, max(1, days)))
+        if renewing:
+            signed_any = session.exec(
+                select(ContractParty.id).where(
+                    ContractParty.contract_id == contract_id,
+                    ContractParty.signed.is_(True),
+                )
+            ).first()
             contract.status = (
-                ContractStatus.partially_signed
-                if any(p.signed for p in session.exec(
-                    select(ContractParty).where(ContractParty.contract_id == contract_id)
-                ).all())
-                else ContractStatus.draft
+                ContractStatus.partially_signed if signed_any else ContractStatus.sent
             )
+            # 续期留痕：次数 + 每次的时间/操作人/新有效期（只追加，保留最近 20 次）
+            counters = dict(contract.counters or {})
+            trail = list(counters.get("renewals") or [])
+            trail.append(
+                {
+                    "at": now.isoformat(),
+                    "by": str(user.id),
+                    "expires_at": contract.expires_at.isoformat(),
+                }
+            )
+            counters["renewals"] = trail[-20:]
+            counters["renewal_count"] = int(counters.get("renewal_count") or 0) + 1
+            contract.counters = counters
         session.add(contract)
 
-    raw_ids = payload.get("party_ids") or []
+    # 续期必须覆盖全部未签方（重签链接 + 重新通知），忽略局部的 party_ids 选择
+    raw_ids = [] if renewing else (payload.get("party_ids") or [])
     if raw_ids:
         wanted = set()
         for raw in raw_ids:
@@ -991,11 +2068,15 @@ def send_contract(
 
     channels = payload.get("channels") or ["in_app", "email"]
     expires_in_days = payload.get("expires_in_days")
+    # 续期与首次邀请使用不同模板，便于签署方区分「新邀请」与「期限更新后重发」
+    invite_template = "contract_renewed" if renewing else "contract_sign_invite"
+    invite_subject = "合同签署已续期" if renewing else "合同待签署"
     results = []
     for party in parties:
-        # 未注册客户只能走免登录链接；已注册客户无令牌也能在站内签，但仍带链接方便查看
-        if not party.sign_token or (
-            party.sign_token_expires_at and party.sign_token_expires_at < datetime.utcnow()
+        # 未注册客户只能走免登录链接；已注册客户无令牌也能在站内签，但仍带链接方便查看。
+        # 续期时强制重签链接（旧 token 立即失效），常规发送仅在缺失/过期时补发。
+        if renewing or not party.sign_token or (
+            party.sign_token_expires_at and party.sign_token_expires_at < now
         ):
             token = _issue_sign_token(party, expires_in_days)
         else:
@@ -1003,7 +2084,11 @@ def send_contract(
         url = _sign_url(token)
         session.add(party)
         delivered = []
-        content = f"您的合同《{contract.title}》等待签署，请点击链接完成签署：{url}"
+        content = (
+            f"您的合同《{contract.title}》签署期限已更新，请重新点击链接完成签署：{url}"
+            if renewing
+            else f"您的合同《{contract.title}》等待签署，请点击链接完成签署：{url}"
+        )
 
         if "in_app" in channels and party.user_id:
             session.add(
@@ -1011,9 +2096,9 @@ def send_contract(
                     id=uuid.uuid4(),
                     user_id=party.user_id,
                     channel=NotificationChannel.in_app,
-                    template_key="contract_sign_invite",
+                    template_key=invite_template,
                     recipient=str(party.user_id),
-                    subject="合同待签署",
+                    subject=invite_subject,
                     content=content,
                     status=NotificationStatus.queued,
                     related_entity_type="contract",
@@ -1026,7 +2111,7 @@ def send_contract(
                 NotificationMessage(
                     channel=ProviderChannel.EMAIL,
                     recipient=party.email,
-                    title="合同待签署",
+                    title=invite_subject,
                     content=content,
                     metadata={"contract_id": str(contract.id), "sign_url": url},
                     related_entity_type="contract",
@@ -1039,7 +2124,7 @@ def send_contract(
                 NotificationMessage(
                     channel=ProviderChannel.SMS,
                     recipient=party.phone,
-                    title="合同待签署",
+                    title=invite_subject,
                     content=content,
                     metadata={"contract_id": str(contract.id), "sign_url": url},
                     related_entity_type="contract",
@@ -1061,19 +2146,172 @@ def send_contract(
         contract.status = ContractStatus.sent
         session.add(contract)
     session.commit()
-    return {"contract_id": str(contract.id), "status": contract.status.value, "results": results}
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_RENEW if renewing else audit.ACTION_SEND,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "renewed": renewing,
+            "renewal_count": int((contract.counters or {}).get("renewal_count") or 0),
+            "party_count": len(results),
+            "channels": channels,
+            "expires_at": contract.expires_at.isoformat()
+            if contract.expires_at
+            else None,
+        },
+    )
+    return {
+        "contract_id": str(contract.id),
+        "status": contract.status.value,
+        "renewed": renewing,
+        "renewal_count": int((contract.counters or {}).get("renewal_count") or 0),
+        "expires_at": contract.expires_at.isoformat() if contract.expires_at else None,
+        "results": results,
+    }
+
+
+_REMIND_THROTTLE = timedelta(hours=24)
+
+
+@router.post("/{contract_id}/remind")
+def remind_contract(
+    contract_id: uuid.UUID,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """催办未签签署方（站内信 + 邮件）。
+
+    payload: `{party_id?: "..." | null, channels?: ["in_app","email"]}`；
+    不传 `party_id` 时对全部未签方一键催办。
+
+    防刷口径：**同一签署方 24 小时内只发一次**，重复请求返回
+    `reminded=false, reason="throttled"`，不会新增任何通知。
+    催办不轮换签署链接（避免把已发出的链接变无效）。
+    """
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    if contract.status not in (
+        ContractStatus.draft,
+        ContractStatus.sent,
+        ContractStatus.partially_signed,
+    ):
+        raise HTTPException(status_code=409, detail="合同当前状态不可催办")
+    _ensure_not_expired(session, contract)
+
+    party_id_raw = payload.get("party_id")
+    if party_id_raw:
+        try:
+            wanted = uuid.UUID(str(party_id_raw))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid party_id")
+        parties = session.exec(
+            select(ContractParty).where(
+                ContractParty.contract_id == contract_id,
+                ContractParty.id == wanted,
+            )
+        ).all()
+        if not parties:
+            raise HTTPException(status_code=404, detail="Party not found")
+    else:
+        parties = session.exec(
+            select(ContractParty).where(ContractParty.contract_id == contract_id)
+        ).all()
+    parties = [p for p in parties if not p.signed and not p.declined_at]
+    if not parties:
+        raise HTTPException(status_code=400, detail="No pending party to remind")
+
+    channels = payload.get("channels") or ["in_app", "email"]
+    now = datetime.utcnow()
+    results = []
+    reminded = 0
+    for party in parties:
+        if party.last_reminded_at and now - party.last_reminded_at < _REMIND_THROTTLE:
+            results.append(
+                {
+                    "party_id": str(party.id),
+                    "name": party.name,
+                    "reminded": False,
+                    "reason": "throttled",
+                    "last_reminded_at": party.last_reminded_at.isoformat(),
+                    "reminded_count": party.reminded_count or 0,
+                }
+            )
+            continue
+        # 已有有效令牌就直接复用；缺失或过期才补发，催办绝不主动作废旧链接
+        if not party.sign_token or (
+            party.sign_token_expires_at and party.sign_token_expires_at < now
+        ):
+            _issue_sign_token(party, None)
+            session.add(party)
+        url = _sign_url(party.sign_token or "")
+        content = (
+            f"您的合同《{contract.title}》仍在等待签署，请尽快点击链接完成签署：{url}"
+        )
+        delivered = contract_jobs.notify_party(
+            session,
+            contract,
+            party,
+            template_key="contract_reminder",
+            title="合同签署催办",
+            content=content,
+            channels=channels,
+        )
+        party.reminded_count = (party.reminded_count or 0) + 1
+        party.last_reminded_at = now
+        session.add(party)
+        reminded += 1
+        results.append(
+            {
+                "party_id": str(party.id),
+                "name": party.name,
+                "reminded": True,
+                "reason": None,
+                "last_reminded_at": now.isoformat(),
+                "reminded_count": party.reminded_count,
+                "channels": delivered,
+                "url": url,
+            }
+        )
+
+    session.commit()
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_REMIND,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "reminded": reminded,
+            "throttled": len(results) - reminded,
+            "channels": channels,
+            "party_ids": [r["party_id"] for r in results if r["reminded"]],
+        },
+    )
+    return {
+        "contract_id": str(contract.id),
+        "reminded": reminded,
+        "throttled": len(results) - reminded,
+        "results": results,
+    }
 
 
 @router.post("/{contract_id}/void")
 def void_contract(
     contract_id: uuid.UUID,
+    request: Request,
     payload: Optional[dict] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_employee),
 ):
     """作废合同（不可再签署）。payload: {reason?}"""
     payload = payload or {}
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    # 与签署串行化：锁住合同行后再读状态，避免「签署刚完成、作废基于旧状态」
+    # 或两边同时判定可写导致的终态互相覆盖（PG 生效，SQLite 单写锁天然串行）。
+    contract = _lock_contract_row(session, contract)
     if contract.status == ContractStatus.voided:
         raise HTTPException(status_code=409, detail="Contract already voided")
     contract.status = ContractStatus.voided
@@ -1096,7 +2334,114 @@ def void_contract(
         )
     except Exception:  # noqa: BLE001  回调是旁路
         logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_VOID,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={"reason": reason or None, "status": contract.status.value},
+    )
     return {"id": str(contract.id), "status": contract.status.value}
+
+
+@router.post("/{contract_id}/revoke")
+def revoke_contract(
+    contract_id: uuid.UUID,
+    request: Request,
+    payload: Optional[dict] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """撤回合同（`revoked` 终态）。payload: {reason?}
+
+    - 仅员工可撤回；仅限「尚未全部签署完成」的流转中合同（草稿/已发送/部分签署/已过期）；
+    - 已签署完成的合同不允许撤回，应走作废（保留已签结果的可追溯性）；
+    - 撤回后：旧签署链接全部立即失效、未签方收到站内 + 邮件通知、对外发
+      `contract.revoked` 回调、操作留痕写入 `counters.revocations`。
+    """
+    payload = payload or {}
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    # 与签署串行化：锁内复核状态，避免「最后一方刚签完就被撤回」
+    contract = _lock_contract_row(session, contract)
+    if contract.status == ContractStatus.revoked:
+        raise HTTPException(status_code=409, detail="Contract already revoked")
+    if contract.status not in (
+        ContractStatus.draft,
+        ContractStatus.sent,
+        ContractStatus.partially_signed,
+        ContractStatus.expired,
+    ):
+        raise HTTPException(status_code=409, detail="CONTRACT_NOT_REVOCABLE")
+
+    reason = (payload.get("reason") or "").strip()
+    now = datetime.utcnow()
+    contract.status = ContractStatus.revoked
+    counters = dict(contract.counters or {})
+    trail = list(counters.get("revocations") or [])
+    trail.append({"at": now.isoformat(), "by": str(user.id), "reason": reason or None})
+    counters["revocations"] = trail[-20:]
+    counters["revoked_at"] = now.isoformat()
+    if reason:
+        counters["revoke_reason"] = reason
+    contract.counters = counters
+    session.add(contract)
+
+    # 旧签署链接立即失效：清空所有未签方的免登录令牌（已签方令牌签署时已清空）
+    unsigned = session.exec(
+        select(ContractParty).where(
+            ContractParty.contract_id == contract_id,
+            ContractParty.signed.is_(False),
+        )
+    ).all()
+    for party in unsigned:
+        party.sign_token = None
+        party.sign_token_expires_at = None
+        session.add(party)
+    session.commit()
+    session.refresh(contract)
+
+    # 通知未签签署方（站内 + 邮件）：失败只记日志，不影响撤回结果
+    try:
+        contract_jobs.notify_unsigned_parties(
+            session,
+            contract,
+            template_key="contract_revoked",
+            title="合同已撤回",
+            content=(
+                f"合同《{contract.title}》已被撤回，签署流程已终止，原签署链接已失效。"
+                "如有疑问请联系经纪人。"
+            ),
+        )
+    except Exception:  # noqa: BLE001  通知是旁路
+        logger.exception("contract.revoke_notify_failed", extra={"contract_id": str(contract.id)})
+    # 对外回调：下游据此中止审批/付款等流程（投递失败由后台任务按计划重投）
+    try:
+        _emit_contract_callback(
+            session,
+            contract,
+            "contract.revoked",
+            extra={"reason": reason or None, "revoked_by": str(user.id)},
+        )
+    except Exception:  # noqa: BLE001  回调是旁路
+        logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_REVOKE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "reason": reason or None,
+            "status": contract.status.value,
+            "invalidated_links": len(unsigned),
+        },
+    )
+    return {
+        "id": str(contract.id),
+        "status": contract.status.value,
+        "revoked_at": now.isoformat(),
+    }
 
 
 def _mask_contact(contact: str) -> str:
@@ -1168,7 +2513,7 @@ def send_sign_intent_code(
     与外端请求/身份认证分开——这是签署行为的独立意愿确认，随签署提交一起校验。
     """
     contract = _get_visible_contract(session, user, contract_id)
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract not signable")
     party = _get_party(session, contract_id, payload.get("party_id"))
     if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
@@ -1183,6 +2528,7 @@ def send_sign_intent_code(
 def decline_contract(
     contract_id: uuid.UUID,
     payload: dict,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -1191,8 +2537,11 @@ def decline_contract(
     行为对齐开放签「拒签」：拒签方置 declined_at/decline_reason；
     若再无其他必签未签方 → 合同状态置为 rejected（签署流程终止，不可恢复）。
     """
-    contract = _get_visible_contract(session, user, contract_id)
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    # 与签署/作废串行化：并发拒签若不锁合同行，两方会各自看到「对方未拒签」，
+    # 结果没有任何一方把合同置为 rejected（PG 生效，SQLite 单写锁天然串行）。
+    contract = _lock_contract_row(session, contract)
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract not signable")
     party = _get_party(session, contract_id, payload.get("party_id"))
     if user.role not in STAFF_ROLES and not party_belongs_to_user(party, user):
@@ -1236,6 +2585,20 @@ def decline_contract(
             )
         except Exception:  # noqa: BLE001  回调是旁路
             logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_DECLINE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "reason": reason or None,
+            "contract_status": contract.status.value,
+        },
+    )
     return {
         "party_id": str(party.id),
         "declined": True,
@@ -1411,7 +2774,10 @@ def _sanitize_signature_svg(raw: str) -> str:
     return value
 
 
-def _pdf_signature_stamp(contract, party, method, field, img_override: Optional[bytes] = None) -> tuple:
+def _pdf_signature_stamp(
+    contract, party, method, field, img_override: Optional[bytes] = None,
+    proxy_reason: Optional[str] = None,
+) -> tuple:
     """决定要盖到 PDF 上的图片与位置。
 
     返回 (img_bytes, page, x, y, w, h, reason)：
@@ -1419,6 +2785,7 @@ def _pdf_signature_stamp(contract, party, method, field, img_override: Optional[
     - company_seal → 公司公章（公司名）盖章；
     - 其余（手写/私章/日期）→ 用引擎把手写姓名/日期渲染为 PNG。
     未放置签署区字段时退回整页签名栏默认坐标。
+    - `proxy_reason` 非空表示代签：写进 PDF 签名域的 Reason，与本人签署可区分。
     """
     from app.services import kaifang_sign_service
 
@@ -1441,6 +2808,9 @@ def _pdf_signature_stamp(contract, party, method, field, img_override: Optional[
     else:
         page, x, y, w, h = 1, 55.0, 90.0, 24.0, 9.0
     reason = f"{party.name} 电子签署"
+    if proxy_reason:
+        # 代签：在 PDF 签名域 Reason 中写明「代签 + 授权来源」
+        reason = f"{party.name} 代签（{proxy_reason}）"
     return img, page, x, y, w, h, reason
 
 
@@ -1497,6 +2867,7 @@ def _apply_pdf_signatures(
     contract: Contract,
     party: ContractParty,
     placements: list,
+    proxy_reason: Optional[str] = None,
 ) -> Optional[bool]:
     """把一次签署动作里的所有落章位置写进同一份 PDF 存档。
 
@@ -1505,7 +2876,8 @@ def _apply_pdf_signatures(
       避免中途失败留下半签文件；
     - 引擎签名只追加，不重写已有内容，因此前序签署人的签名始终有效；
     - 没有引擎 PDF（上传型非 PDF 合同）返回 None，仍走签名留痕；
-    - 任一环节异常 → 502，且合同状态不推进。
+    - 任一环节异常 → 502，且合同状态不推进；
+    - `proxy_reason` 非空时写进 PDF 签名域 Reason，标记代签与授权来源。
     """
     src = _pdf_signing_baseline(contract)
     if src is None:
@@ -1519,7 +2891,7 @@ def _apply_pdf_signatures(
         data = src.read_bytes()
         for field, method, img_override in placements:
             img, page, x, y, w, h, reason = _pdf_signature_stamp(
-                contract, party, method, field, img_override
+                contract, party, method, field, img_override, proxy_reason=proxy_reason
             )
             data = eng.sign_pdf(data, img, page=page, x=x, y=y, w=w, h=h, reason=reason)
 
@@ -1542,6 +2914,69 @@ def _apply_pdf_signatures(
         return None
 
 
+def _lock_contract_row(session: Session, contract: Contract) -> Contract:
+    """锁住合同行并刷新到最新已提交状态（R10 并发签署串行化）。
+
+    - PostgreSQL：真正执行 `SELECT ... FOR UPDATE`，同一合同上的并发签署、
+      作废、拒签在此排队，后到者看到的是前者提交后的状态；
+    - SQLite（开发/测试）：方言忽略 `FOR UPDATE`，单库写锁天然串行；
+    - `populate_existing` 确保拿到锁后重读，避免命中身份映射里的旧对象。
+    """
+    locked = session.exec(
+        select(Contract)
+        .where(Contract.id == contract.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).first()
+    if locked is None:
+        raise HTTPException(status_code=404, detail="Contract not found")
+    return locked
+
+
+def _assert_party_unsigned(session: Session, party: ContractParty) -> None:
+    """锁内复核签署方是否已被并发签署，避免重复留痕。
+
+    只读 `signed` 列、不 refresh 对象本身：公开签署链路会在调用前修改
+    `party.name/phone` 但尚未提交，refresh 会把客户填写的实名信息丢掉。
+    """
+    signed = session.exec(
+        select(ContractParty.signed).where(ContractParty.id == party.id)
+    ).first()
+    if signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+
+
+def _mark_required_fields_covered(
+    session: Session,
+    contract_id: uuid.UUID,
+    party_id: uuid.UUID,
+    rects: List[tuple],
+) -> None:
+    """把本次落章**实际覆盖到**的该方必签区置为已签（R6 严格判定）。
+
+    `rects` 为本次提交的签章矩形 `(page, x, y, w, h)`，坐标口径与签署区一致（百分比）。
+    仅当必签区中心点落在某个落章矩形内才算签完：签署方拖放的框没有覆盖预置必签区时，
+    该必签区保持未签，合同不会被判完成（不再「签了名就自动把本人必签区全部置已签」）。
+    """
+    pending = session.exec(
+        select(ContractSignField).where(
+            ContractSignField.contract_id == contract_id,
+            ContractSignField.party_id == party_id,
+            ContractSignField.required.is_(True),
+            ContractSignField.signed.is_(False),
+        )
+    ).all()
+    for field in pending:
+        cx = field.x + field.w / 2
+        cy = field.y + field.h / 2
+        for page, x, y, w, h in rects:
+            if field.page == page and x <= cx <= x + w and y <= cy <= y + h:
+                field.signed = True
+                field.signed_at = datetime.utcnow()
+                session.add(field)
+                break
+
+
 def _apply_signature(
     session: Session,
     contract: Contract,
@@ -1552,6 +2987,8 @@ def _apply_signature(
     signature_svg: Optional[str] = None,
     field_id: Optional[uuid.UUID] = None,
     method: Optional[SignMethod] = None,
+    proxy_authorization_id: Optional[uuid.UUID] = None,
+    proxy_reason: Optional[str] = None,
 ) -> str:
     """写入签名 + 留痕，并推进合同状态机。返回签名哈希。
 
@@ -1565,6 +3002,10 @@ def _apply_signature(
     - 合同存在引擎 PDF（pdf_path/signed_pdf_path）时，同时用 kaifangqian->Python
       引擎在该字段坐标处盖手写签名/公章并做增量数字签名（写回 signed_pdf_path）。
     """
+    # 并发签署串行化：先锁合同并复核该方未被并发签署，再做任何写操作
+    contract = _lock_contract_row(session, contract)
+    _assert_party_unsigned(session, party)
+
     # 有效期与串行顺序：在签章/落痕之前拦下，保证失败不产生任何副作用
     _ensure_not_expired(session, contract)
     _ensure_sign_turn(session, contract, party)
@@ -1586,12 +3027,20 @@ def _apply_signature(
         contract,
         party,
         [(field, method or party.sign_method or SignMethod.personal_handwrite, None)],
+        proxy_reason=proxy_reason,
     )
 
     if field is not None:
         field.signed = True
         field.signed_at = datetime.utcnow()
         session.add(field)
+        # R6：本次落章覆盖到的其他必签区一并置已签（未覆盖的保持未签）
+        _mark_required_fields_covered(
+            session,
+            contract.id,
+            party.id,
+            [(field.page, field.x, field.y, field.w, field.h)],
+        )
 
     return _finalize_party_signed(
         session,
@@ -1602,6 +3051,7 @@ def _apply_signature(
         signature_svg=signature_svg,
         method=method or party.sign_method or SignMethod.personal_handwrite,
         field_id=field_id,
+        proxy_authorization_id=proxy_authorization_id,
     )
 
 
@@ -1615,6 +3065,7 @@ def _finalize_party_signed(
     signature_svg: Optional[str],
     method: SignMethod,
     field_id: Optional[uuid.UUID],
+    proxy_authorization_id: Optional[uuid.UUID] = None,
 ) -> str:
     """写入签署留痕并推进合同状态机，返回签名哈希。
 
@@ -1639,23 +3090,10 @@ def _finalize_party_signed(
     party.sign_token_expires_at = None
     session.add(party)
 
-    # 签署动作即视为完成该方**自己名下**仍未签的必签区。
-    # 背景：发起方会预置 required=True 的签署区（归属某方），而开放签式
-    # 「一次性落区并签」里签署方只提交自己拖放的签区（required=False）。
-    # 若预置区始终没人签，下面 fields_done 永远为假，合同会永久卡在
-    # partially_signed（状态机死锁）。因此在这条公共尾巴里把该方遗留的
-    # 必签区一并置为已签，与「该方已签署」的语义保持一致。
-    for own_field in session.exec(
-        select(ContractSignField).where(
-            ContractSignField.contract_id == contract.id,
-            ContractSignField.party_id == party.id,
-            ContractSignField.required.is_(True),
-            ContractSignField.signed.is_(False),
-        )
-    ).all():
-        own_field.signed = True
-        own_field.signed_at = datetime.utcnow()
-        session.add(own_field)
+    # 字段级完成判定按「真实落章」执行：签署动作本身不再把该方未落章的
+    # required 字段置为已签。调用方（sign-batch / sign-self）在落章后按
+    # 实际坐标覆盖关系调用 `_mark_required_fields_covered`，只有被签章真正
+    # 覆盖到的必签区才算签完；未覆盖的保持未签，合同不会被判完成。
 
     session.add(
         SignatureRecord(
@@ -1668,6 +3106,7 @@ def _finalize_party_signed(
             signature_svg=sig_svg,
             signature_hash=sig_hash,
             ip=ip,
+            proxy_authorization_id=proxy_authorization_id,
         )
     )
     session.commit()
@@ -1766,8 +3205,8 @@ def sign_contract(
       否则任何登录用户都能用任意 party_id 冒充他人签署；
     - IP 取真实请求来源，不再信任客户端自报。
     """
-    contract = _get_visible_contract(session, user, contract_id)
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
@@ -1827,6 +3266,22 @@ def sign_contract(
         field_id=field_id,
         method=method,
     )
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_SIGN,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "channel": "staff",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "method": (method or party.sign_method or SignMethod.personal_handwrite).value,
+            "field_id": str(field_id) if field_id else None,
+            "contract_status": contract.status.value,
+        },
+    )
     return {
         "party_id": str(party.id),
         "signed": True,
@@ -1852,8 +3307,8 @@ def sign_self(
       （field_type=method，required=False）随后立即签署并盖到 PDF；
     - 不发明文姓名：姓名一律取服务端 `party.name`。
     """
-    contract = _get_visible_contract(session, user, contract_id)
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
@@ -1929,6 +3384,22 @@ def sign_self(
         method=method,
     )
     session.commit()
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_SIGN,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "channel": "staff",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "method": method.value,
+            "field_id": str(field.id),
+            "contract_status": contract.status.value,
+        },
+    )
     return {
         "party_id": str(party.id),
         "signed": True,
@@ -1976,8 +3447,8 @@ def sign_batch(
     - 所有 item 处理完后**统一**标记该方已签并推进合同状态——一次提交只产生一次落痕，
       与开放签 demo 的 `POST /openSign/sign`（坐标 + 签章内容同体提交）语义一致。
     """
-    contract = _get_visible_contract(session, user, contract_id)
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    if contract.status in _FINALIZED_STATUSES:
         raise HTTPException(status_code=409, detail="Contract already finalized")
     party = _get_party(session, contract_id, payload.get("party_id"))
 
@@ -2023,6 +3494,22 @@ def sign_batch(
         ip=(request.client.host if request.client else None),
         created_by=user.id,
     )
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_SIGN,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "channel": "staff",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "field_count": len(created),
+            "pdf_signed": pdf_signed,
+            "contract_status": contract.status.value,
+        },
+    )
     return {
         "party_id": str(party.id),
         "signed": True,
@@ -2042,12 +3529,18 @@ def _sign_batch_core(
     signer_user_id: Optional[uuid.UUID],
     ip: Optional[str],
     created_by: Optional[uuid.UUID],
+    proxy: Optional[dict] = None,
 ) -> tuple:
-    """「一次性落区并签署」共用内核（站内 `/sign-batch` 与免登录公开端共用）。
+    """「一次性落区并签署」共用内核（站内 `/sign-batch`、代签与免登录公开端共用）。
 
     逐 item 新建签署区（required=False）并按坐标把签章图盖到 PDF；`image_data_url`
     优先使用，缺省按类型生成；最后统一落痕并推进状态机，返回 (created, signature_hash)。
+    `proxy` 为代签上下文（`authorization_id` / `reason`），为空表示本人签署。
     """
+    # 并发签署串行化：先锁合同并复核该方未被并发签署，再做任何写操作
+    contract = _lock_contract_row(session, contract)
+    _assert_party_unsigned(session, party)
+
     # 有效期与串行顺序在落任何签区之前校验，避免产生半成品签署区
     _ensure_not_expired(session, contract)
     _ensure_sign_turn(session, contract, party)
@@ -2070,6 +3563,7 @@ def _sign_batch_core(
     first_svg: Optional[str] = None
     created: List[dict] = []
     placements: list = []
+    rects: List[tuple] = []
 
     for it in items:
         method = _method_map.get(
@@ -2082,6 +3576,7 @@ def _sign_batch_core(
         w = min(100.0, max(1.0, float(it.get("w", 0) or 0) or 20.0))
         h = min(100.0, max(1.0, float(it.get("h", 0) or 0) or 8.0))
         ft = _ft_map.get(method, SignFieldType.signature)
+        rects.append((page, x, y, w, h))
 
         # 先做纯校验（SVG 黑名单、图片解码），任何一项失败都不产生副作用。
         raw_svg = it.get("signature_svg")
@@ -2121,12 +3616,18 @@ def _sign_batch_core(
             first_svg = svg
 
     # 全部落章先在内存里跑完，成功后才原子替换 PDF；失败则 502 且不置已签。
-    pdf_signed = _apply_pdf_signatures(session, contract, party, placements) is True
+    pdf_signed = _apply_pdf_signatures(
+        session, contract, party, placements,
+        proxy_reason=(proxy or {}).get("reason"),
+    ) is True
 
     for field, _method, _img in placements:
         field.signed = True
         field.signed_at = datetime.utcnow()
         session.add(field)
+
+    # R6：只把本次落章真实覆盖到的必签区置已签，未覆盖的保持未签
+    _mark_required_fields_covered(session, contract.id, party.id, rects)
 
     sig_hash = _finalize_party_signed(
         session,
@@ -2137,8 +3638,108 @@ def _sign_batch_core(
         signature_svg=first_svg,
         method=first_method or SignMethod.personal_handwrite,
         field_id=first_field_id,
+        proxy_authorization_id=(proxy or {}).get("authorization_id"),
     )
     return created, sig_hash, pdf_signed
+
+
+# 签署入口的 method/field_type 字符串 → 签署方式（代签范围校验用）
+_SIGN_METHOD_BY_NAME = {
+    "signature": SignMethod.personal_handwrite,
+    "personal_handwrite": SignMethod.personal_handwrite,
+    "personal_seal": SignMethod.personal_seal,
+    "seal": SignMethod.company_seal,
+    "company_seal": SignMethod.company_seal,
+    "date": SignMethod.date,
+}
+
+
+@router.post("/{contract_id}/sign-proxy")
+def sign_proxy(
+    contract_id: uuid.UUID,
+    payload: dict,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """员工代签：必须有覆盖该合同的有效授权，否则拒绝并返回明确错误码。
+
+    payload: {party_id, authorization_id?, items:[{page,x,y,w,h,method,signature_svg?,image_data_url?}]}
+    - 授权人必须是被代签的签署方本人；被授权人必须是当前员工；
+    - 授权须未撤销、在有效期内、且范围覆盖该合同的房源/类型/签章方式；
+    - 代签在审计（`contract.proxy_sign`）与 PDF 签名域 Reason 上都标记「代签 + 授权来源」，
+      并与本人签署在验签报告中可区分（`is_proxy`）。
+    """
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    if contract.status in _FINALIZED_STATUSES:
+        raise HTTPException(status_code=409, detail="Contract already finalized")
+    party = _get_party(session, contract_id, payload.get("party_id"))
+    if party.signed:
+        raise HTTPException(status_code=409, detail="Party already signed")
+    if party.declined_at:
+        raise HTTPException(status_code=409, detail="Party already declined")
+
+    items = payload.get("items")
+    if not isinstance(items, list) or not items:
+        raise HTTPException(status_code=400, detail="No sign items")
+    items = [it for it in items[:MAX_SIGN_BATCH_ITEMS] if isinstance(it, dict)]
+    if not items:
+        raise HTTPException(status_code=400, detail="No valid sign items")
+
+    methods = [
+        _SIGN_METHOD_BY_NAME.get(
+            str(it.get("method") or it.get("field_type") or ""),
+            SignMethod.personal_handwrite,
+        )
+        for it in items
+    ]
+
+    auth = _resolve_proxy_authorization(
+        session, contract, party, user, payload.get("authorization_id"), methods
+    )
+    grantor = session.get(User, auth.grantor_user_id)
+    grantor_name = (grantor.full_name or grantor.email) if grantor else str(auth.grantor_user_id)
+    proxy_reason = f"授权人 {grantor_name}，授权编号 {str(auth.id)[:8]}"
+
+    created, sig_hash, pdf_signed = _sign_batch_core(
+        session,
+        contract,
+        party,
+        items=items,
+        signer_user_id=user.id,
+        ip=(request.client.host if request.client else None),
+        created_by=user.id,
+        proxy={"authorization_id": auth.id, "reason": proxy_reason},
+    )
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_PROXY_SIGN,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "channel": "proxy",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "authorization_id": str(auth.id),
+            "grantor_user_id": str(auth.grantor_user_id),
+            "grantee_user_id": str(auth.grantee_user_id),
+            "field_count": len(created),
+            "pdf_signed": pdf_signed,
+            "contract_status": contract.status.value,
+        },
+    )
+    return {
+        "party_id": str(party.id),
+        "signed": True,
+        "fields": created,
+        "signature_hash": sig_hash,
+        "pdf_signed": pdf_signed,
+        "contract_status": contract.status.value,
+        "proxy": True,
+        "authorization_id": str(auth.id),
+    }
 
 
 def _activate_broker_role_if_agreement(session: Session, contract: Contract) -> None:
@@ -2238,6 +3839,9 @@ def list_contracts(
             "created_at": c.created_at.isoformat(),
             "signed_at": c.signed_at.isoformat() if c.signed_at else None,
             "signature_health": _pdf_signature_health(c) if is_staff else None,
+            # 最近一次签章失败（员工可见）：列表即标红，不必点进详情才知道
+            "sign_error": bool(is_staff and c.last_sign_error),
+            "sign_error_message": (c.last_sign_error or None) if is_staff else None,
             # 签署有效期（过期只是展示态；实际状态由签署/读取接口推进为 expired）
             "expires_at": c.expires_at.isoformat() if c.expires_at else None,
             "sign_order_type": c.sign_order_type.value
@@ -2246,6 +3850,87 @@ def list_contracts(
         }
         items.append(item)
     return items
+
+
+@router.get("/stats")
+def contract_stats(
+    start_at: Optional[str] = None,
+    end_at: Optional[str] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_employee),
+):
+    """合同报表统计（员工）。新增「终止类」聚合，不改变任何既有计数。
+
+    口径（写死在返回值 `period`/`terminated` 里，避免前端各自解释）：
+
+    - **归期字段：`contracts.created_at`（合同创建时间）**，与列表默认排序一致；
+      `start_at`/`end_at` 均为闭区间，`end_at` 含当天最后一刻（调用方传 ISO 时间）。
+    - **分母**：归期内、未软删除的全部合同数（`total`）。
+    - **分子（终止类）**：归期内状态为 `voided` / `rejected` / `revoked` 的合同数之和。
+    - **`rate`** = 终止类数 / total，`total = 0` 时为 `0`，保留 4 位小数。
+    - `by_status` 保留 9 个状态各自计数，**`voided`、`rejected` 仍独立呈现**，
+      终止类是并列的新增聚合字段，不替换、不合并原有数字。
+    - **为什么撤回并入终止类**：作废、拒签、撤回的共性都是「签署流程在完成前被终止，
+      合同不会再推进到已签」，差异只在发起方（员工作废 / 签署方拒签 / 员工撤回）
+      与留痕原因；报表若只加作废+拒签，会漏掉撤回，导致「终止总量」偏小。
+      三者仍分别计数，需要分因分析时按 `by_status` 取明细。
+    """
+    def _parse(raw: Optional[str], field: str) -> Optional[datetime]:
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail=f"Invalid {field}")
+
+    start = _parse(start_at, "start_at")
+    end = _parse(end_at, "end_at")
+    if start and end and start > end:
+        raise HTTPException(status_code=400, detail="start_at must be <= end_at")
+
+    conditions = [Contract.deleted_at.is_(None)]
+    if start:
+        conditions.append(Contract.created_at >= start)
+    if end:
+        conditions.append(Contract.created_at <= end)
+
+    rows = session.exec(
+        select(Contract.status, func.count(Contract.id))
+        .where(*conditions)
+        .group_by(Contract.status)
+    ).all()
+    # 兼容驱动返回枚举或字符串两种形态
+    counts = {}
+    for status_value, count in rows:
+        key = status_value.value if hasattr(status_value, "value") else str(status_value)
+        counts[key] = int(count)
+
+    by_status = {s.value: counts.get(s.value, 0) for s in ContractStatus}
+    total = sum(by_status.values())
+    terminated_count = sum(
+        by_status.get(s.value, 0)
+        for s in (ContractStatus.voided, ContractStatus.rejected, ContractStatus.revoked)
+    )
+    return {
+        "period": {
+            "basis": "created_at",
+            "start_at": start.isoformat() if start else None,
+            "end_at": end.isoformat() if end else None,
+        },
+        "total": total,
+        "by_status": by_status,
+        # 新增聚合列：与 by_status.voided / by_status.rejected 并列，不改动原值
+        "terminated": {
+            "count": terminated_count,
+            "rate": round(terminated_count / total, 4) if total else 0.0,
+            "components": {
+                "voided": by_status.get("voided", 0),
+                "rejected": by_status.get("rejected", 0),
+                "revoked": by_status.get("revoked", 0),
+            },
+        },
+        "generated_at": datetime.utcnow().isoformat(),
+    }
 
 
 @router.get("/preview/{preview_token}")
@@ -2375,6 +4060,7 @@ def get_contract_pdf_page(
 @router.get("/{contract_id}", response_model=ContractDetailResponse)
 def get_contract(
     contract_id: uuid.UUID,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -2383,7 +4069,7 @@ def get_contract(
     正文含双方证件号，属 PII：可见性走 `can_view_contract()`，
     不可见时返回 404（不暴露「存在但你没权限」）。
     """
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     parties = session.exec(
         select(ContractParty).where(ContractParty.contract_id == contract_id)
     ).all()
@@ -2415,7 +4101,21 @@ def get_contract(
         "callback_url": contract.callback_url if is_staff else None,
         "can_edit": is_staff
         and contract.status
-        not in (ContractStatus.signed, ContractStatus.completed, ContractStatus.voided),
+        not in (
+            ContractStatus.signed,
+            ContractStatus.completed,
+            ContractStatus.voided,
+            ContractStatus.revoked,
+        ),
+        # 可撤回：员工 + 未完成签署的流转中合同（已签/已作废/已拒签/已撤回均不可）
+        "can_revoke": is_staff
+        and contract.status
+        in (
+            ContractStatus.draft,
+            ContractStatus.sent,
+            ContractStatus.partially_signed,
+            ContractStatus.expired,
+        ),
         "created_at": contract.created_at.isoformat(),
         "parties": [
             {
@@ -2436,6 +4136,11 @@ def get_contract(
                 "can_sign_now": _can_sign_now(session, contract, p),
                 "declined_at": p.declined_at.isoformat() if p.declined_at else None,
                 "decline_reason": p.decline_reason,
+                # 催办留痕：签署页/详情页可据此展示「已催办」状态
+                "reminded_count": p.reminded_count or 0,
+                "last_reminded_at": (
+                    p.last_reminded_at.isoformat() if p.last_reminded_at else None
+                ),
                 # 签署令牌属敏感凭据：只对员工回显（业主/租客本就无需链接）
                 "sign_token": p.sign_token if is_staff else None,
                 "sign_token_expires_at": (
@@ -2528,6 +4233,8 @@ def build_verify_report(
                     "signer_user_id": str(rec.signer_user_id)
                     if rec.signer_user_id
                     else None,
+                    "is_proxy": False,
+                    "proxy_authorization_id": None,
                     "x": None,
                     "y": None,
                     "w": None,
@@ -2565,6 +4272,11 @@ def build_verify_report(
                 "field_id": str(rec.field_id) if rec.field_id else None,
                 "signer_user_id": str(rec.signer_user_id)
                 if rec.signer_user_id
+                else None,
+                # 代签与本人签署在验签报告中可区分
+                "is_proxy": rec.proxy_authorization_id is not None,
+                "proxy_authorization_id": str(rec.proxy_authorization_id)
+                if rec.proxy_authorization_id
                 else None,
                 "x": field.x if field else None,
                 "y": field.y if field else None,
@@ -2638,14 +4350,23 @@ def verify_contract(
 @router.get("/{contract_id}/signed-file")
 def download_signed_contract(
     contract_id: uuid.UUID,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """下载已签 PDF（需可见权限；不暴露上传目录）。未产出已签件时 404。"""
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     signed = getattr(contract, "signed_pdf_path", None)
     if not signed or not Path(signed).exists():
         raise HTTPException(status_code=404, detail="Signed file not available")
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_DOWNLOAD_SIGNED,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={"contract_status": contract.status.value},
+    )
     name = f"{contract.contract_no or 'contract'}_signed.pdf"
     return FileResponse(
         Path(signed), media_type="application/pdf", filename=name
@@ -2805,11 +4526,12 @@ def _build_evidence_report_pdf(contract: Contract, report: dict, parties) -> byt
 @router.get("/{contract_id}/evidence-report")
 def download_evidence_report(
     contract_id: uuid.UUID,
+    request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """下载存证报告（PDF，需可见权限，含内容哈希与签名校验结论）。"""
-    contract = _get_visible_contract(session, user, contract_id)
+    contract = _get_visible_contract(session, user, contract_id, request=request)
     report = build_verify_report(session, contract)
     parties = session.exec(
         select(ContractParty)
@@ -2817,6 +4539,17 @@ def download_evidence_report(
         .order_by(ContractParty.created_at.asc())
     ).all()
     content = _build_evidence_report_pdf(contract, report, parties)
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_DOWNLOAD_EVIDENCE,
+        contract_id=contract.id,
+        actor=user,
+        request=request,
+        detail={
+            "contract_status": contract.status.value,
+            "tampered": report.get("tampered"),
+        },
+    )
     name = f"{contract.contract_no or 'contract'}_evidence.pdf"
     return Response(
         content=content,

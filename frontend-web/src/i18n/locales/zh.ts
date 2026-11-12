@@ -4046,6 +4046,14 @@ const zh = {
     stVoided: "已作废",
     // 已过期：公共签署链接失效、租客/业主端合同过期
     stExpired: "已过期",
+    // 已撤回：员工在签署完成前撤回，终态、旧链接失效
+    stRevoked: "已撤回",
+    // 报表统计条：终止类 = 作废 + 拒签 + 撤回（新增聚合，原各项计数照旧）
+    statsTotal: "合同总数",
+    statsVoided: "已作废",
+    statsRejected: "已拒签",
+    statsTerminated: "终止类",
+    statsRate: "占总合同",
     addParty: "追加签署方",
     // 上传电子合同
     uploadTitle: "上传电子合同",
@@ -4068,6 +4076,12 @@ const zh = {
     qrTip: "手机扫码即可打开免登录签署页；二维码编码的是当前有效的签署链接。",
     qrFailed: "二维码生成失败，请复制上方链接",
     errQr: "获取签署二维码失败",
+    rotateLink: "重新生成链接",
+    rotateLinkConfirmTitle: "确认重新生成签署链接？",
+    rotateLinkConfirmBody: "「{{name}}」当前的签署链接将立即失效，已发出的链接无法再打开；系统会签发一个 3 天有效的新链接，并记录本次操作。",
+    rotateLinkOk: "作废并重新生成",
+    msgLinkRotated: "已重新生成签署链接，旧链接立即失效",
+    errRotateLink: "重新生成签署链接失败",
     sendNotice: "发送签署通知",
     msgSent: "签署通知已发送",
     errSend: "发送签署通知失败",
@@ -4089,6 +4103,20 @@ const zh = {
     void: "作废",
     msgVoided: "合同已作废",
     errVoid: "作废失败",
+    // 撤回（终态 revoked，旧签署链接立即失效）
+    revoke: "撤回",
+    revokeConfirmTitle: "撤回合同",
+    revokeConfirmBody: "撤回后合同进入终态，所有未签方的旧签署链接立即失效，并通知未签签署方。已完成的合同请使用「作废」。确认撤回？",
+    revokeOk: "确认撤回",
+    msgRevoked: "合同已撤回",
+    errRevoke: "撤回失败",
+    // 签署催办（同一签署方 24 小时内只发一次）
+    remind: "催办",
+    remindAll: "全部催办",
+    remindedCount: "已催办 {{n}} 次",
+    msgReminded: "已催办 {{n}} 位签署方",
+    msgRemindThrottled: "24 小时内已催办过，本次未重复发送",
+    errRemind: "催办失败",
     // 公共签署页
     fillInfo: "填写签署信息",
     namePlaceholder: "请输入姓名",
@@ -4170,6 +4198,8 @@ const zh = {
     verifyPdfValid: "校验通过",
     verifyPdfInvalid: "校验未通过",
     signatureInvalidShort: "历史签名异常",
+    signErrorShort: "签章失败",
+    signErrorTip: "最近一次签章/落区操作失败，合同未推进为已签。请打开详情查看原因并重新发起签署。",
     signatureInvalid: "历史签名异常，建议重签",
     signatureInvalidTip: "该合同已签 PDF 中存在校验未通过的签名域（多为修复前多人签署导致）。原文件与审计链已原样保留，建议重新签署一份新合同。",
     method_personal_handwrite: "手写签名",

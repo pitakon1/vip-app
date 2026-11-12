@@ -13,28 +13,36 @@ import type { ContractDetail } from './hooks/useSignFields'
 export default function ContractDetailCard({
   detail,
   canEdit,
+  canRevoke,
   onCopyLink,
   onShowQr,
+  onRotateLink,
   onSend,
   onOpenPreview,
   onOpenSigLib,
   onOpenEdit,
   onOpenParty,
   onOpenVoid,
+  onRevoke,
+  onRemind,
   onDecline,
   onOpenSignOrder,
   onOpenCallback,
 }: {
   detail: ContractDetail
   canEdit?: boolean
+  canRevoke?: boolean
   onCopyLink: (partyId: string) => void
   onShowQr: (partyId: string) => void
+  onRotateLink: (partyId: string) => void
   onSend: () => void
   onOpenPreview: () => void
   onOpenSigLib: (type: string) => void
   onOpenEdit: () => void
   onOpenParty: () => void
   onOpenVoid: () => void
+  onRevoke: () => void
+  onRemind: (partyId?: string) => void
   onDecline: (partyId: string) => void
   onOpenSignOrder: () => void
   onOpenCallback: () => void
@@ -148,6 +156,29 @@ export default function ContractDetailCard({
                       {t('contracts.showQr')}
                     </button>
                   )}
+                  {!p.signed && canEdit && (
+                    <button
+                      className="rent-btn rent-btn--ghost rent-btn--sm"
+                      // 仅当前链接未过期时可用：过期后复制/二维码会自动签发新链接，无需「作废」动作
+                      disabled={!p.sign_token_expires_at || Date.parse(p.sign_token_expires_at) <= Date.now()}
+                      onClick={() => onRotateLink(p.id)}
+                    >
+                      {t('contracts.rotateLink')}
+                    </button>
+                  )}
+                  {!p.signed && !!p.reminded_count && (
+                    <div className="rent-text-sm rent-text-muted">
+                      {t('contracts.remindedCount', { n: p.reminded_count })}
+                      {p.last_reminded_at
+                        ? `（${new Date(p.last_reminded_at).toLocaleString()}）`
+                        : ''}
+                    </div>
+                  )}
+                  {!p.signed && !p.declined_at && canEdit && (
+                    <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => onRemind(p.id)}>
+                      {t('contracts.remind')}
+                    </button>
+                  )}
                   {!p.signed && !p.declined_at && canEdit && (
                     <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={() => onDecline(p.id)}>
                       {t('contracts.decline')}
@@ -160,6 +191,9 @@ export default function ContractDetailCard({
         </div>
         {canEdit && (
           <div className="rent-flex" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+            <button className="rent-btn rent-btn--ghost rent-btn--sm" onClick={() => onRemind()}>
+              {t('contracts.remindAll')}
+            </button>
             <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={onSend}>
               {t('contracts.sendNotice')}
             </button>
@@ -184,6 +218,11 @@ export default function ContractDetailCard({
             <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={onOpenVoid}>
               {t('contracts.void')}
             </button>
+            {canRevoke && (
+              <button className="rent-btn rent-btn--danger rent-btn--sm" onClick={onRevoke}>
+                {t('contracts.revoke')}
+              </button>
+            )}
           </div>
         )}
         <div className="rent-flex" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>

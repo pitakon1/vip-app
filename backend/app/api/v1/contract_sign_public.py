@@ -18,6 +18,7 @@
 - 上传的合同文件（PDF 等）同样只经本模块带令牌校验的读取接口分发，
   不经静态托管。
 """
+import base64
 import hashlib
 import re
 import secrets
@@ -44,6 +45,8 @@ from app.models import (
     ContractSignField,
     SignMethod,
 )
+from app.services import contract_jobs, kaifang_sign_service
+from app.services import contract_audit as audit
 
 from .auth import (
     _is_valid_email,
@@ -62,6 +65,7 @@ from .contracts import (
     _serialize_sign_field,
     _sign_batch_core,
     _can_sign_now,
+    _lock_contract_row,
     build_verify_report,
 )
 
@@ -105,8 +109,12 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
     contract = session.get(Contract, party.contract_id)
     if not contract or contract.deleted_at:
         raise HTTPException(status_code=404, detail="Contract not found")
-    if contract.status in (ContractStatus.voided, ContractStatus.rejected):
-        raise HTTPException(status_code=409, detail="Contract voided")
+    if contract.status in (
+        ContractStatus.voided,
+        ContractStatus.rejected,
+        ContractStatus.revoked,
+    ):
+        raise HTTPException(status_code=409, detail="Contract closed")
     # 签署有效期：过期即终态（同一处推进，避免只读页与签署接口口径不一致）
     if contract.expires_at and contract.expires_at < datetime.utcnow():
         if contract.status in (
@@ -117,6 +125,8 @@ def _resolve_party(session: Session, token: str) -> ContractParty:
             contract.status = ContractStatus.expired
             session.add(contract)
             session.commit()
+            # 与后台扫描并发时写同一幂等键，冲突由内部吞掉
+            contract_jobs.emit_expired_callback(session, contract)
         raise HTTPException(status_code=410, detail="CONTRACT_EXPIRED")
     return party
 
@@ -266,6 +276,7 @@ def download_signed_file(
     contract_id: uuid.UUID,
     exp: int,
     sig: str,
+    request: Request,
     session: Session = Depends(get_session),
 ):
     """凭签署完成后下发的 HMAC 凭证下载已签文件。
@@ -284,6 +295,15 @@ def download_signed_file(
     path = _download_artifact(contract)
     if path is None:
         raise HTTPException(status_code=404, detail="Signed file not found")
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_DOWNLOAD_SIGNED,
+        contract_id=contract.id,
+        actor_role="signer",
+        actor_name=None,
+        request=request,
+        detail={"channel": "public_download_token", "contract_status": contract.status.value},
+    )
     name = f"{contract.contract_no or 'contract'}{path.suffix or '.pdf'}"
     return FileResponse(path, filename=name)
 
@@ -538,7 +558,21 @@ def decline_contract(
     拒签方置 declined_at/decline_reason；无其他必签未签方 → 合同置 rejected。
     """
     party = _resolve_party(session, token)
-    contract = session.get(Contract, party.contract_id)
+    # 与签署/作废串行化：并发拒签时若不锁合同行，两方会各自看到「对方未拒签」，
+    # 结果没有任何一方把合同置为 rejected（PG 生效，SQLite 单写锁天然串行）。
+    contract = _lock_contract_row(session, session.get(Contract, party.contract_id))
+    state = session.exec(
+        select(ContractParty.signed, ContractParty.declined_at).where(
+            ContractParty.id == party.id
+        )
+    ).first()
+    if state is None:
+        raise HTTPException(status_code=404, detail="Invalid or expired link")
+    signed, declined_at = state
+    if signed:
+        raise HTTPException(status_code=409, detail="Already signed")
+    if declined_at is not None:
+        raise HTTPException(status_code=409, detail="Already declined")
     reason = (payload.get("reason") or "").strip()
     if len(reason) > 2000:
         raise HTTPException(status_code=400, detail="Reason too long")
@@ -560,6 +594,23 @@ def decline_contract(
         contract.status = ContractStatus.rejected
         session.add(contract)
     session.commit()
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_DECLINE,
+        contract_id=contract.id,
+        actor_user_id=party.user_id,
+        actor_name=party.name,
+        actor_role="signer",
+        request=request,
+        detail={
+            "channel": "public",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "reason": reason or None,
+            "contract_status": contract.status.value,
+        },
+    )
     return {"declined": True, "contract_status": contract.status.value, "reason": reason}
 
 
@@ -617,6 +668,24 @@ def submit_signature(
             created_by=party.user_id,
         )
         session.refresh(contract)
+        audit.record_contract_audit(
+            session,
+            action=audit.ACTION_SIGN,
+            contract_id=contract.id,
+            actor_user_id=party.user_id,
+            actor_name=party.name,
+            actor_role="signer",
+            request=request,
+            detail={
+                "channel": "public",
+                "party_id": str(party.id),
+                "party_name": party.name,
+                "party_role": party.role.value,
+                "field_count": len(created),
+                "pdf_signed": pdf_signed,
+                "contract_status": contract.status.value,
+            },
+        )
         return {
             "signed": True,
             "signature_hash": sig_hash,
@@ -658,6 +727,24 @@ def submit_signature(
         field_id=field_id,
         method=method,
     )
+    audit.record_contract_audit(
+        session,
+        action=audit.ACTION_SIGN,
+        contract_id=contract.id,
+        actor_user_id=party.user_id,
+        actor_name=party.name,
+        actor_role="signer",
+        request=request,
+        detail={
+            "channel": "public",
+            "party_id": str(party.id),
+            "party_name": party.name,
+            "party_role": party.role.value,
+            "method": (method or party.sign_method or SignMethod.personal_handwrite).value,
+            "field_id": str(field_id) if field_id else None,
+            "contract_status": contract.status.value,
+        },
+    )
     return {
         "signed": True,
         "signature_hash": sig_hash,
@@ -667,3 +754,37 @@ def submit_signature(
         "pdf_signed": bool(getattr(contract, "signed_pdf_path", None)),
         "download": _download_grant(contract),
     }
+
+
+class SealPreviewIn(BaseModel):
+    """匿名态模板制章入参（仅用于渲染 PNG，不落库）。"""
+
+    company_name: str = ""
+    middle_text: str = ""
+    size: int = 360
+    model_config = ConfigDict(extra="allow")
+
+
+@router.post("/seal/preview")
+@limiter.limit(AUTH_LIMIT)
+def generate_seal_preview_public(payload: SealPreviewIn, request: Request):
+    """匿名态「模板生成公章」（公开签署页专用，无需登录）。
+
+    修复 R11：公开签署页没有登录态，直接调 `/sign-assets/generate-seal` 会 401，
+    导致「模板制作印章」在匿名签署流程里不可用。
+
+    安全边界：
+    - 纯计算、不落库，不返回任何合同/签署方信息；
+    - 入参长度与尺寸封顶，避免超长文本放大渲染开销；
+    - 与凭证类接口同档限流（默认 10/min），防止被刷成 CPU 消耗。
+    """
+    company_name = (payload.company_name or "").strip()[:60]
+    middle_text = (payload.middle_text or "").strip()[:20]
+    if not company_name:
+        raise HTTPException(status_code=400, detail="company_name required")
+    size = max(180, min(480, int(payload.size or 360)))
+    try:
+        png = kaifang_sign_service.get_engine().make_seal(company_name, middle_text, size)
+    except Exception:  # noqa: BLE001  渲染失败统一转 400，不暴露内部异常
+        raise HTTPException(status_code=400, detail="Failed to generate seal")
+    return {"data_url": "data:image/png;base64," + base64.b64encode(png).decode("ascii")}

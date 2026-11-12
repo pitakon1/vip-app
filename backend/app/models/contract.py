@@ -6,7 +6,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import Column, JSON
 from sqlmodel import Field
@@ -23,6 +23,7 @@ class ContractStatus(str, Enum):
     voided = "voided"
     rejected = "rejected"  # 被拒签：至少一方拒签，签署流程终止
     expired = "expired"  # 超过签署有效期：不再接受签署（定向提示重发）
+    revoked = "revoked"  # 人工撤回：未完成签署前由员工撤回，终态且旧签署链接立即失效
 
 
 class ContractSignOrder(str, Enum):
@@ -116,6 +117,9 @@ class ContractParty(TimestampMixin, table=True):
     sign_token_expires_at: Optional[datetime] = None
     declined_at: Optional[datetime] = None
     decline_reason: Optional[str] = None
+    # 签署催办留痕：累计次数与最近一次时间（同一方 24 小时内不重复催办）
+    reminded_count: Optional[int] = Field(default=0)
+    last_reminded_at: Optional[datetime] = None
 
 
 class Contract(TimestampMixin, table=True):
@@ -166,6 +170,11 @@ class Contract(TimestampMixin, table=True):
     counters: Optional[Dict[str, Any]] = Field(
         default=None, sa_column=Column(JSON, nullable=True)
     )
+    # 由模板生成时记录来源与版本快照（模板后续编辑不影响已创建合同）
+    template_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contract_templates.id", index=True
+    )
+    template_version: Optional[int] = None
 
 
 class ContractSignField(TimestampMixin, table=True):
@@ -203,11 +212,17 @@ class SignatureRecord(TimestampMixin, table=True):
         default=None, foreign_key="contract_sign_fields.id", index=True
     )
     method: SignMethod = Field(default=SignMethod.personal_handwrite)
+    # 实际执行签署的账号：本人签署=本人；代签=被授权员工
     signer_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     signer_name: str
     signature_svg: Optional[str] = None
     signature_hash: Optional[str] = None
     ip: Optional[str] = None
+    # 代签留痕：非空表示本条为「员工代签」，值为所依据的授权记录；
+    # 为空表示签署方本人签署。验签报告据此区分本人签署与代签。
+    proxy_authorization_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contract_sign_authorizations.id", index=True
+    )
 
 
 class SignAssetScope(str, Enum):
@@ -269,3 +284,147 @@ class ContractCallbackEvent(TimestampMixin, table=True):
     # 下一次计划重投时间（后台补投任务据此扫描；成功/耗尽后为空）
     next_attempt_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
+    # 多订阅：该事件归属的订阅（为空表示旧版「合同级单地址」事件，保持原口径）
+    subscription_id: Optional[uuid.UUID] = Field(default=None, index=True)
+
+
+class ContractCallbackSubscription(TimestampMixin, table=True):
+    """合同回调订阅（一个合同可挂多个地址，各自独立投递与重试）。
+
+    与 `Contract.callback_url`（旧版单地址）的关系：
+    - 未配置任何订阅时，沿用 `callback_url` 单地址路径，行为完全不变；
+    - 配置了订阅后，每个订阅各生成一条 `contract_callback_events`，
+      `idempotency_key = 合同id:事件#订阅id`，失败互不影响。
+    """
+
+    __tablename__ = "contract_callback_subscriptions"
+
+    contract_id: uuid.UUID = Field(foreign_key="contracts.id", index=True)
+    url: str = Field(max_length=500)
+    label: Optional[str] = Field(default=None, max_length=64)
+    active: bool = Field(default=True)
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ContractTemplate(TimestampMixin, table=True):
+    """合同模板（可编辑、带版本历史）。
+
+    模板只描述「标题 + 字段表 + 条款」，字段 key 即变量占位符：
+    条款里可用 `{{key}}` 引用；生成合同时一次性渲染成正文并落库，
+    因此后续改模板不会影响已经创建的合同。
+    """
+
+    __tablename__ = "contract_templates"
+
+    name: str = Field(max_length=120)
+    kind: ContractKind = Field(default=ContractKind.lease)
+    # 适用业务（自由文本，如「住宅租赁」「商业租赁」「二手房买卖」）
+    business_scope: Optional[str] = Field(default=None, max_length=64)
+    title: str = Field(max_length=200)
+    # [{"key": "monthly_rent", "label": "月租金", "default": "8000"}]
+    fields: Optional[List[Dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    # 条款文本列表，支持 {{key}} 占位符
+    clauses: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    # 模板内容版本号（与 TimestampMixin.version 的乐观锁无关）
+    version_no: int = Field(default=1)
+    active: bool = Field(default=True)
+    note: Optional[str] = Field(default=None, max_length=255)
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    updated_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ContractTemplateVersion(TimestampMixin, table=True):
+    """模板版本快照：每次创建/编辑都留一份不可变副本。"""
+
+    __tablename__ = "contract_template_versions"
+
+    template_id: uuid.UUID = Field(foreign_key="contract_templates.id", index=True)
+    version_no: int
+    name: str = Field(max_length=120)
+    kind: ContractKind = Field(default=ContractKind.lease)
+    business_scope: Optional[str] = Field(default=None, max_length=64)
+    title: str = Field(max_length=200)
+    fields: Optional[List[Dict[str, Any]]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    clauses: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    note: Optional[str] = Field(default=None, max_length=255)
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ContractSignAuthorization(TimestampMixin, table=True):
+    """代签授权：谁（授权人）授权谁（员工）在什么范围内代签。
+
+    员工代签前必须有覆盖该合同的有效授权，否则拒绝签署：
+    - 授权范围：`property_ids`（房源，空=不限）、`contract_kinds`（合同类型，空=不限）、
+      `seal_scope`（允许使用的签章方式，空=不限）；
+    - 有效期：`valid_from` ~ `valid_until`（`valid_until` 必填）；
+    - 可撤销：`revoked_at` 非空后立即失效；
+    - 授权凭证：`credential_path`（上传的授权书 / 签署版授权书），供审计追溯。
+    """
+
+    __tablename__ = "contract_sign_authorizations"
+
+    grantor_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    grantee_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
+    property_ids: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    contract_kinds: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    # 允许的签章方式（SignMethod 值集合）；空表示不限
+    seal_scope: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    valid_from: Optional[datetime] = None
+    valid_until: datetime
+    revoked_at: Optional[datetime] = None
+    revoked_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    # 授权凭证（授权书）站内文件路径
+    credential_path: Optional[str] = Field(default=None, max_length=500)
+    note: Optional[str] = Field(default=None, max_length=255)
+    created_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+
+
+class ContractAuditLog(TimestampMixin, table=True):
+    """合同操作审计日志（只追加，不参与业务事务）。
+
+    覆盖合同全生命周期的关键动作：创建、发送/续期、签署、拒签、作废、撤回、
+    撤销链接、下载已签件、下载存证报告、权限拒绝。写入失败不得阻断主流程，
+    由 `app.services.contract_audit` 统一旁路处理。
+
+    **存量不追溯**：本表只记录上线后发生的操作，历史合同没有对应记录，
+    不做任何回填（回填只能凭 `counters` 里的局部留痕推测，会伪造操作人与 IP）。
+    """
+
+    __tablename__ = "contract_audit_logs"
+
+    contract_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="contracts.id", index=True
+    )
+    # 动作标识，如 contract.create / contract.sign / contract.permission_denied
+    action: str = Field(max_length=48, index=True)
+    # success / failure
+    result: str = Field(default="success", max_length=16, index=True)
+    # 操作人：站内员工/用户记 user_id，免登录签署方记签署方姓名与 role=signer
+    actor_user_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="users.id", index=True
+    )
+    actor_name: Optional[str] = Field(default=None, max_length=128)
+    actor_role: Optional[str] = Field(default=None, max_length=32)
+    # 目标对象：合同（后续可扩展 party / sign_field）
+    target_type: str = Field(default="contract", max_length=32)
+    target_id: Optional[str] = Field(default=None, max_length=64)
+    ip: Optional[str] = Field(default=None, max_length=64)
+    # 关键参数摘要（已脱敏，禁止写入签名图/正文/证件号）
+    detail: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    error: Optional[str] = Field(default=None, max_length=500)

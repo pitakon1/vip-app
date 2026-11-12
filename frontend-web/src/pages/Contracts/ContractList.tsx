@@ -86,6 +86,15 @@ export default function ContractList({
                             {t('contracts.expiredBadge')}
                           </span>
                         )}
+                      {c.sign_error && (
+                        <span
+                          className="rent-badge rent-badge--error"
+                          style={{ marginLeft: 6 }}
+                          title={c.sign_error_message || t('contracts.signErrorTip')}
+                        >
+                          {t('contracts.signErrorShort')}
+                        </span>
+                      )}
                       {c.signature_health === 'invalid' && (
                         <span
                           className="rent-badge rent-badge--warning"

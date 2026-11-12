@@ -35,6 +35,8 @@ const STATUS_META: Record<string, string> = {
   signed: 'contract.status.signed',
   rejected: 'contract.status.rejected',
   voided: 'contract.status.voided',
+  expired: 'contract.status.expired',
+  revoked: 'contract.status.revoked',
   completed: 'contract.status.completed'
 }
 
@@ -881,7 +883,7 @@ export default function MyContractsPage() {
                     <Text className={`mc-badge ${
                       detail?.status === 'signed' || detail?.status === 'completed'
                         ? 'mc-badge--success'
-                        : detail?.status === 'voided' || detail?.status === 'rejected'
+                        : detail?.status === 'voided' || detail?.status === 'rejected' || detail?.status === 'revoked'
                           ? 'mc-badge--error'
                           : 'mc-badge--warning'
                     }`}>
@@ -1103,7 +1105,7 @@ export default function MyContractsPage() {
               <View key={c.id} className='mc-card' onClick={() => openDetail(c.id)}>
                 <View className='mc-card__top'>
                   <Text className='mc-card__title'>{c.title || t('contract.unknown')}</Text>
-                  <Text className={`mc-badge ${c.status === 'signed' || c.status === 'completed' ? 'mc-badge--success' : c.status === 'voided' || c.status === 'rejected' ? 'mc-badge--error' : 'mc-badge--warning'}`}>
+                  <Text className={`mc-badge ${c.status === 'signed' || c.status === 'completed' ? 'mc-badge--success' : c.status === 'voided' || c.status === 'rejected' || c.status === 'revoked' ? 'mc-badge--error' : 'mc-badge--warning'}`}>
                     {t(STATUS_META[c.status || 'draft'])}
                   </Text>
                 </View>

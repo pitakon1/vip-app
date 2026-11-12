@@ -9,10 +9,11 @@ import hmac
 import html as html_mod
 import logging
 import math
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from app.config import settings
 
@@ -334,6 +335,22 @@ def make_seal_svg(company_name: str, org_code: str) -> str:
     )
 
 
+def _apply_seam_seal(pdf_bytes: bytes) -> bytes:
+    """新生成的合同 PDF 加盖骑缝章；失败/单页时原样返回，不阻断生成。
+
+    只在「生成新合同」链路调用：存量已签 PDF 不会被读写，因此不会破坏既有签名。
+    """
+    try:
+        from app.services import kaifang_sign_service
+
+        engine = kaifang_sign_service.get_engine()
+        seal = engine.make_seal("电子合同骑缝专用章", "骑缝", size=300)
+        return engine.apply_seam_seal(pdf_bytes, seal)
+    except Exception:  # noqa: BLE001  骑缝章失败降级为不带骑缝章的 PDF
+        logger.warning("seam seal failed, keep original pdf", exc_info=True)
+        return pdf_bytes
+
+
 def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str = "lease") -> Dict[str, Any]:
     """生成合同：渲染 + 哈希 + 落盘。返回元数据（不涉及签署）。
 
@@ -375,6 +392,7 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
         pdf_bytes = kaifang_sign_service.get_engine().render_contract_pdf(
             counters, kind=_kind
         )
+        pdf_bytes = _apply_seam_seal(pdf_bytes)
         pdf_file = base / f"contract_{uuid.uuid4().hex[:12]}.pdf"
         pdf_file.write_bytes(pdf_bytes)
         pdf_path = str(pdf_file)
@@ -391,6 +409,108 @@ def generate_contract(counters: Dict[str, Any], language: str = "zh", kind: str 
         "document_hash": digest,
         "file_path": str(file),
         "pdf_path": pdf_path,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 合同模板库：字段变量（{{key}}）+ 条款 → 正文 / PDF
+# ---------------------------------------------------------------------------
+_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
+
+
+def template_variable_keys(title: str, fields, clauses) -> list:
+    """模板用到的全部变量 key（字段 key + 标题/条款里的 {{key}}），保持首次出现顺序。"""
+    keys = []
+    for f in fields or []:
+        key = (f or {}).get("key")
+        if key and key not in keys:
+            keys.append(key)
+    for text in [title, *(clauses or [])]:
+        for key in _PLACEHOLDER_RE.findall(text or ""):
+            if key not in keys:
+                keys.append(key)
+    return keys
+
+
+def substitute_placeholders(text: str, variables: Dict[str, Any]) -> str:
+    """把 {{key}} 替换为变量值；未提供的 key 替换为空串。"""
+    return _PLACEHOLDER_RE.sub(
+        lambda m: str(variables.get(m.group(1), "") or ""), text or ""
+    )
+
+
+def render_structured_html(title: str, rows, clauses) -> str:
+    """把「标题 + 信息表 + 条款」渲染为合同正文 HTML（与 PDF 内容一致）。"""
+    trs = _table_rows([(_esc(k), _esc(v)) for k, v in rows])
+    lis = "\n".join(f"<li style='margin:6px 0'>{_esc(t)}</li>" for t in clauses or [])
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"/><title>{_esc(title)}</title></head>
+<body style="font-family:-apple-system,Segoe UI,Microsoft YaHei,sans-serif;
+color:#1f2937;max-width:820px;margin:0 auto;padding:24px">
+<h1 style="text-align:center;font-size:22px;margin:8px 0 20px">{_esc(title)}</h1>
+<table style="border-collapse:collapse;width:100%;font-size:14px">{trs}</table>
+<h2 style="font-size:16px;margin:20px 0 8px">合同条款</h2>
+<ol style="font-size:14px;line-height:1.8;padding-left:22px">{lis}</ol>
+<div style="margin-top:36px;font-size:14px">甲方(签名)：＿＿＿＿＿＿＿＿　乙方(签名)：＿＿＿＿＿＿＿＿</div>
+</body></html>"""
+
+
+def generate_from_template(
+    title: str,
+    fields,
+    clauses,
+    variables: Dict[str, Any],
+    language: str = "zh",
+) -> Dict[str, Any]:
+    """按模板生成合同：变量替换 → 渲染 HTML → 哈希 → 落盘（HTML + PDF）。
+
+    生成结果一次性物化，后续编辑模板不会改动已生成合同。
+    """
+    resolved_title = substitute_placeholders(title, variables)
+    rows = []
+    for f in fields or []:
+        item = f or {}
+        key = item.get("key")
+        if not key:
+            continue
+        value = variables.get(key)
+        if value in (None, ""):
+            value = item.get("default", "")
+        rows.append((item.get("label") or key, value))
+    resolved_clauses = [substitute_placeholders(c, variables) for c in (clauses or [])]
+
+    html_content = render_structured_html(resolved_title, rows, resolved_clauses)
+    digest = content_hash(html_content)
+
+    base = Path(settings.CONTRACT_OUTPUT_DIR)
+    base.mkdir(parents=True, exist_ok=True)
+    file = base / f"contract_{uuid.uuid4().hex[:12]}.html"
+    file.write_text(html_content, encoding="utf-8")
+
+    pdf_path = None
+    try:
+        from app.services import kaifang_sign_service
+
+        pdf_bytes = kaifang_sign_service.get_engine().render_document_pdf(
+            resolved_title,
+            [(k, _esc(v)) for k, v in rows],
+            [_esc(c) for c in resolved_clauses],
+        )
+        pdf_bytes = _apply_seam_seal(pdf_bytes)
+        pdf_file = base / f"contract_{uuid.uuid4().hex[:12]}.pdf"
+        pdf_file.write_bytes(pdf_bytes)
+        pdf_path = str(pdf_file)
+    except Exception:  # noqa: BLE001  引擎异常时回退为纯 HTML，不阻塞生成
+        logger.warning("template contract PDF render failed, fallback", exc_info=True)
+
+    return {
+        "title": resolved_title,
+        "language": language,
+        "content_html": html_content,
+        "document_hash": digest,
+        "file_path": str(file),
+        "pdf_path": pdf_path,
+        "rendered_fields": [{"label": k, "value": v} for k, v in rows],
     }
 
 

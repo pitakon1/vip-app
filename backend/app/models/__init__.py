@@ -98,6 +98,11 @@ from .contract import (
     ContractSignOrder,
     ContractCallbackEvent,
     ContractCallbackStatus,
+    ContractCallbackSubscription,
+    ContractSignAuthorization,
+    ContractTemplate,
+    ContractTemplateVersion,
+    ContractAuditLog,
 )
 from .backup import BackupJob, BackupStatus, BackupType
 from .external_trip import ExternalTripApplication, TripStatus
@@ -262,6 +267,11 @@ __all__ = [
     "ContractSignOrder",
     "ContractCallbackEvent",
     "ContractCallbackStatus",
+    "ContractCallbackSubscription",
+    "ContractSignAuthorization",
+    "ContractTemplate",
+    "ContractTemplateVersion",
+    "ContractAuditLog",
     "BackupJob",
     "BackupStatus",
     "BackupType",

@@ -54,10 +54,15 @@ export interface Contract {
   source?: string
   file_path?: string
   can_edit?: boolean
+  /** 是否可撤回（员工 + 未完成签署的流转中合同；后端计算态） */
+  can_revoke?: boolean
   pdf_available?: boolean
   pdf_page_count?: number
   /** 已签 PDF 签名域健康度（后端计算态，不落库）：invalid → 提示建议重签 */
   signature_health?: 'ok' | 'invalid' | null
+  /** 最近一次签章失败（仅员工列表返回）：列表直接标记，无需进详情 */
+  sign_error?: boolean
+  sign_error_message?: string | null
   /** 是否已产出已签 PDF 存档（决定详情页是否显示「下载已签合同」） */
   signed_pdf_available?: boolean
   /** 签署截止时间（ISO，发送时按有效期写入；为空表示不限） */
@@ -80,13 +85,30 @@ export interface Party {
   phone?: string
   declined_at?: string
   decline_reason?: string
+  /** 催办留痕：累计催办次数与最近一次时间（同一方 24 小时内不重复发送） */
+  reminded_count?: number
+  last_reminded_at?: string
   sign_url?: string
+  /** 当前免登录链接的过期时间（仅员工可见；用于「重新生成链接」的可用性判断） */
+  sign_token_expires_at?: string
   sign_method?: string
   real_name_verified?: boolean
   /** 签署顺序（0=不限；sequential 下按升序依次签署） */
   sign_order?: number
   /** 此刻是否轮到该方签署（后端计算态） */
   can_sign_now?: boolean
+}
+
+// 合同报表统计（GET /contracts/stats；terminated 为新增聚合，不改变 by_status 原值）
+export interface ContractStats {
+  total: number
+  by_status: Record<string, number>
+  terminated: {
+    count: number
+    rate: number
+    components: { voided: number; rejected: number; revoked: number }
+  }
+  period?: { basis: string; start_at: string | null; end_at: string | null }
 }
 
 // 签署区字段（与后端 SignFieldType / GET /contracts/{id} sign_fields 一致）
@@ -168,6 +190,7 @@ export const statusLabel: Record<string, string> = {
   voided: 'contracts.stVoided',
   expired: 'contracts.stExpired',
   rejected: 'contracts.stRejected',
+  revoked: 'contracts.stRevoked',
 }
 
 export const sourceLabel: Record<string, string> = {

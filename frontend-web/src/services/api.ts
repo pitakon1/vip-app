@@ -213,6 +213,8 @@ export const contractsApi = {
   get: (id: string) => api.get(`/contracts/${id}`),
   // 可用合同模板：GET /contracts/templates → [{kind, title}]
   listTemplates: () => api.get('/contracts/templates'),
+  // 合同报表统计：by_status 保留各状态原值，terminated 为新增终止类聚合
+  stats: () => api.get('/contracts/stats'),
   generate: (data: RequestBody) => api.post('/contracts/generate', data),
   addParty: (id: string, data: RequestBody) => api.post(`/contracts/${id}/parties`, data),
   // data={title?, content_html?}
@@ -223,21 +225,35 @@ export const contractsApi = {
     return api.post(`/contracts/${id}/upload`, fd)
   },
   // opts.reuse=true 复用未过期的既有令牌（展示二维码时不打断已复制的链接）
+  // opts.rotate=true 显式重新生成：仅在当前链接未过期时可用，旧 token 立即失效
   createShareLink: (
     id: string,
     partyId: string,
-    opts?: { expiresInDays?: number; reuse?: boolean },
+    opts?: { expiresInDays?: number; reuse?: boolean; rotate?: boolean },
   ) =>
     api.post(`/contracts/${id}/share-link`, {
       party_id: partyId,
       expires_in_days: opts?.expiresInDays,
       reuse: opts?.reuse,
+      rotate: opts?.rotate,
     }),
   // channels 支持 ["in_app","email","sms"]；sms 需签署方有 phone
   sendContract: (id: string, body?: RequestBody) =>
     api.post(`/contracts/${id}/send`, body || {}),
   voidContract: (id: string, reason?: string) =>
     api.post(`/contracts/${id}/void`, { reason }),
+  // 撤回（revoked 终态）：仅未完成签署的流转中合同可撤回，旧签署链接立即失效
+  revokeContract: (id: string, reason?: string) =>
+    api.post(`/contracts/${id}/revoke`, { reason }),
+  // 签署催办：不传 partyId = 全部未签方一键催办；同一方 24 小时内重复催办被抑制
+  remind: (id: string, partyId?: string) =>
+    api.post(`/contracts/${id}/remind`, partyId ? { party_id: partyId } : {}),
+  // 多回调订阅：一个合同可挂多个地址，各自独立投递与重试
+  listSubscriptions: (id: string) => api.get(`/contracts/${id}/subscriptions`),
+  addSubscription: (id: string, body: { url: string; label?: string }) =>
+    api.post(`/contracts/${id}/subscriptions`, body),
+  removeSubscription: (id: string, subscriptionId: string) =>
+    api.delete(`/contracts/${id}/subscriptions/${subscriptionId}`),
   // 批量放置/更新签署区字段：fields=[{id?, party_id, field_type, page, x, y, w, h, required?}] → 返回该合同 sign_fields
   saveSignFields: (id: string, fields: Record<string, unknown>[]) =>
     api.post(`/contracts/${id}/sign-fields`, { fields }),
@@ -355,6 +371,12 @@ export const contractsPublicApi = {
   // 公共签署 PDF 页图（无鉴权，token 即身份）：可直接作 <img src>
   pdfPageUrl: (token: string, page: number) =>
     `/api/v1/public/contract-sign/${token}/pdf-pages/${page}`,
+  // 匿名态「模板生成公章」（公开签署页用，不落库、限流）：{company_name, middle_text?, size?} → {data_url}
+  generateSealPreview: (data: {
+    company_name: string
+    middle_text?: string
+    size?: number
+  }) => api.post('/public/contract-sign/seal/preview', data),
 }
 
 // 房源上架单（发布房源 + 分佣配置 + 审核 / 下架）

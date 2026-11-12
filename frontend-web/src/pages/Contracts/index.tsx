@@ -10,6 +10,7 @@ import { useSignAssets } from './hooks/useSignAssets'
 import GenerateContractCard from './GenerateContractCard'
 import UploadContractCard from './UploadContractCard'
 import ContractList from './ContractList'
+import ContractStatsBar from './ContractStatsBar'
 import ContractDetailCard from './ContractDetailCard'
 import ContractEditModal from './ContractEditModal'
 import AddPartyModal from './AddPartyModal'
@@ -67,6 +68,8 @@ const Contracts = () => {
         onCancel={() => upload.setPendingFile(null)}
       />
 
+      <ContractStatsBar stats={list.stats} />
+
       <ContractList
         contracts={list.contracts}
         loading={list.contractsLoading}
@@ -79,14 +82,18 @@ const Contracts = () => {
         <ContractDetailCard
           detail={detail.detail}
           canEdit={detail.canEdit}
+          canRevoke={detail.canRevoke}
           onCopyLink={detail.handleCopyLink}
           onShowQr={detail.handleShowQr}
+          onRotateLink={detail.handleRotateLink}
           onSend={detail.handleSend}
           onOpenPreview={signFields.openPreview}
           onOpenSigLib={signAssets.openSigLib}
           onOpenEdit={detail.openEdit}
           onOpenParty={() => detail.setPartyOpen(true)}
           onOpenVoid={() => detail.setVoidOpen(true)}
+          onRevoke={detail.handleRevoke}
+          onRemind={detail.handleRemind}
           onDecline={detail.openDecline}
           onOpenSignOrder={() => detail.setSignOrderOpen(true)}
           onOpenCallback={detail.openCallback}

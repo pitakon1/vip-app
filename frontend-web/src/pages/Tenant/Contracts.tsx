@@ -44,6 +44,9 @@ const statusMeta: Record<string, { text: string; cls: string }> = {
   signed: { text: 'contracts.stSigned', cls: 'rent-badge--success' },
   completed: { text: 'contracts.stCompleted', cls: 'rent-badge--success' },
   voided: { text: 'contracts.stVoided', cls: 'rent-badge--error' },
+  expired: { text: 'contracts.stExpired', cls: 'rent-badge--warning' },
+  rejected: { text: 'contracts.stRejected', cls: 'rent-badge--error' },
+  revoked: { text: 'contracts.stRevoked', cls: 'rent-badge--error' },
 }
 
 const TenantContracts = () => {

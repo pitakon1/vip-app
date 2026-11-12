@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { contractsApi } from '@/services/api'
-import type { Contract, TemplateOption } from '../contractTypes'
+import type { Contract, ContractStats, TemplateOption } from '../contractTypes'
 
 export function useContractList() {
   const { t } = useTranslation()
@@ -14,6 +14,8 @@ export function useContractList() {
   const [contractsLoading, setContractsLoading] = useState(false)
   const [contractsError, setContractsError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<TemplateOption[] | null>(null)
+  // 报表聚合（新增「终止类」）；失败时静默隐藏统计条，不影响列表
+  const [stats, setStats] = useState<ContractStats | null>(null)
 
   const loadList = async () => {
     setContractsLoading(true)
@@ -26,6 +28,12 @@ export function useContractList() {
     } finally {
       setContractsLoading(false)
     }
+    try {
+      const res = await contractsApi.stats()
+      setStats(res.data || null)
+    } catch {
+      setStats(null)
+    }
   }
   useEffect(() => { void loadList() }, [])
 
@@ -37,7 +45,7 @@ export function useContractList() {
       .catch(() => setTemplates(null))
   }, [])
 
-  return { contracts, contractsLoading, contractsError, templates, loadList }
+  return { contracts, contractsLoading, contractsError, templates, stats, loadList }
 }
 
 export type ContractListState = ReturnType<typeof useContractList>

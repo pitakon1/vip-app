@@ -62,6 +62,7 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
           source: data.source,
           file_path: data.file_path,
           can_edit: data.can_edit,
+          can_revoke: data.can_revoke,
           pdf_available: data.pdf_available,
           pdf_page_count: data.pdf_page_count,
           // 计算态与新增编排字段：不映射会导致详情页横幅、下载按钮、过期提示全部失效
@@ -82,7 +83,10 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
           phone: p.phone,
           declined_at: p.declined_at,
           decline_reason: p.decline_reason,
+          reminded_count: p.reminded_count,
+          last_reminded_at: p.last_reminded_at,
           sign_url: p.sign_url,
+          sign_token_expires_at: p.sign_token_expires_at,
           sign_method: p.sign_method,
           real_name_verified: !!p.real_name_verified_at,
           sign_order: p.sign_order,
@@ -160,6 +164,30 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     } catch {
       message.error(t('contracts.errQr'))
     }
+  }
+
+  // 重新生成签署链接（二次确认）：旧链接立即失效，新链接按 3 天签发并写操作留痕
+  const handleRotateLink = (partyId: string) => {
+    const c = detail.contract
+    if (!c) return
+    const party = detail.parties.find((p) => p.id === partyId)
+    Modal.confirm({
+      title: t('contracts.rotateLinkConfirmTitle'),
+      content: t('contracts.rotateLinkConfirmBody', { name: party?.name || '' }),
+      okText: t('contracts.rotateLinkOk'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const res = await contractsApi.createShareLink(c.id, partyId, { rotate: true })
+          if (!res.data?.url) throw new Error('no url')
+          message.success(t('contracts.msgLinkRotated'))
+          onChanged()
+        } catch (err) {
+          message.error(errorText(err, t('contracts.errRotateLink')))
+        }
+      },
+    })
   }
 
   // 发送签署通知
@@ -268,6 +296,50 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
   }
 
   const canEdit = detail.contract?.can_edit
+  const canRevoke = detail.contract?.can_revoke
+
+  // 撤回（二次确认）：终态 revoked，旧签署链接立即失效；已签完成的不给入口（走作废）
+  // 催办：不传 partyId 即全部未签方一键催办；同一方 24 小时内重复催办会被后端抑制
+  const handleRemind = async (partyId?: string) => {
+    const c = detail.contract
+    if (!c) return
+    try {
+      const res = await contractsApi.remind(c.id, partyId)
+      const reminded = res.data?.reminded ?? 0
+      const throttled = res.data?.throttled ?? 0
+      if (reminded > 0) {
+        message.success(t('contracts.msgReminded', { n: reminded }))
+      } else if (throttled > 0) {
+        message.info(t('contracts.msgRemindThrottled'))
+      }
+      onChanged()
+      handleOpen(c.id)
+    } catch (err) {
+      message.error(errorText(err, t('contracts.errRemind')))
+    }
+  }
+
+  const handleRevoke = () => {
+    const c = detail.contract
+    if (!c) return
+    Modal.confirm({
+      title: t('contracts.revokeConfirmTitle'),
+      content: t('contracts.revokeConfirmBody'),
+      okText: t('contracts.revokeOk'),
+      cancelText: t('common.cancel'),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await contractsApi.revokeContract(c.id)
+          message.success(t('contracts.msgRevoked'))
+          onChanged()
+          handleOpen(c.id)
+        } catch (err) {
+          message.error(errorText(err, t('contracts.errRevoke')))
+        }
+      },
+    })
+  }
 
   // 拒签：打开弹窗（选择签署方 + 填写原因）
   const openDecline = (partyId: string) => {
@@ -365,9 +437,12 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     detail,
     setDetail,
     canEdit,
+    canRevoke,
+    handleRevoke,
     handleOpen,
     handleCopyLink,
     handleShowQr,
+    handleRotateLink,
     qrOpen,
     setQrOpen,
     qrDataUrl,
@@ -400,6 +475,7 @@ export function useContractDetail({ onChanged }: { onChanged: () => void }) {
     setDeclineReason,
     openDecline,
     handleDecline,
+    handleRemind,
     signOrderOpen,
     setSignOrderOpen,
     handleSaveSignOrder,

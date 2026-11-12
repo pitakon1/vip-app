@@ -326,13 +326,16 @@ class KaifangSignEngine:
                 "本合同自双方电子签名之日起生效，对双方均具有法律约束力。",
             ]
 
+        return self._build_pdf(title, rows, clauses)
+
+    def _build_pdf(self, title: str, rows, clauses) -> bytes:
+        """把「标题 + 信息表 + 条款」渲染为 A4 PDF（内置模板与模板库共用）。"""
         buf = io.BytesIO()
         doc = self._pdf_doc(buf)
         A4 = (doc.pagesize[0], doc.pagesize[1])  # 595 x 842 pts
         from reportlab.lib import colors
         from reportlab.platypus import (
             Paragraph,
-            SimpleDocTemplate,
             Spacer,
             Table,
             TableStyle,
@@ -373,6 +376,10 @@ class KaifangSignEngine:
         doc.build(story)
         buf.seek(0)
         return buf.getvalue()
+
+    def render_document_pdf(self, title: str, rows, clauses) -> bytes:
+        """按模板库的「标题 + 字段表 + 条款」渲染 PDF，供模板生成合同使用。"""
+        return self._build_pdf(title, rows, clauses)
 
     # ---------------- 定位签署（/document/sign · POSITION） ----------------
     def sign_pdf(
@@ -525,6 +532,68 @@ class KaifangSignEngine:
                 "signed_by": str(getattr(r.signing_cert, "subject", "")),
             })
         return results
+
+    # ---------------- 骑缝章（仅新建合同启用） ----------------
+    def apply_seam_seal(
+        self,
+        pdf_bytes: bytes,
+        seal_png: bytes,
+        *,
+        ratio: float = 0.22,
+        margin: float = 3.0,
+    ) -> bytes:
+        """给多页 PDF 的每一页右侧页缝加盖骑缝章切片，返回改写后的 PDF 字节。
+
+        做法：圆章直径取页面短边 * ratio，按页数把圆章纵向均分为 N 条切片，
+        第 i 页承载第 i 条并贴在右边缘同一垂直中心。页序决定切片位置，
+        按顺序叠页即可复原完整圆章，因此「位置与页序」一一对应。
+
+        安全约束：
+        - 单页 PDF 原样返回（无页缝可骑）；
+        - PDF 内已存在数字签名时原样返回——骑缝章需全量重写页面内容流，
+          会破坏既有签名的 ByteRange，绝不改写已签存量合同。
+        """
+        import fitz
+        from pyhanko.pdf_utils.reader import PdfFileReader
+        from pyhanko.sign.validation.pdf_embedded import collect_embedded_signatures
+
+        try:
+            rdr = PdfFileReader(io.BytesIO(pdf_bytes))
+            if any(True for _ in collect_embedded_signatures(rdr)):
+                return pdf_bytes
+        except Exception:  # noqa: BLE001  读不出结构的 PDF 不做骑缝章改写
+            logger.warning("seam_seal.skip_unreadable_pdf", exc_info=True)
+            return pdf_bytes
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            n = doc.page_count
+            if n < 2:
+                return pdf_bytes
+            seal = Image.open(io.BytesIO(seal_png)).convert("RGBA")
+            sw, sh = seal.size
+            for pno in range(n):
+                page = doc[pno]
+                rect = page.rect
+                diameter = min(rect.width, rect.height) * ratio
+                cy = rect.y0 + rect.height / 2
+                x1 = rect.x1 - margin
+                x0 = max(rect.x0, x1 - diameter / n)
+                y0, y1 = cy - diameter / 2, cy + diameter / 2
+                if x1 <= x0 or y1 <= y0:
+                    continue
+                # 第 pno 页取圆章的第 pno 条纵向切片（像素边界至少 1 px）
+                left = round(pno * sw / n)
+                right = max(left + 1, round((pno + 1) * sw / n))
+                piece = seal.crop((left, 0, min(right, sw), sh))
+                buf = io.BytesIO()
+                piece.save(buf, "PNG")
+                page.insert_image(
+                    fitz.Rect(x0, y0, x1, y1), stream=buf.getvalue(), overlay=True
+                )
+            return doc.tobytes(garbage=0, deflate=True)
+        finally:
+            doc.close()
 
     # ---- 内部工具 ----
     def _font(self):

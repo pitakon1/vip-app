@@ -351,6 +351,16 @@ async def health_check():
     return {"status": "ok", "version": settings.APP_VERSION}
 
 
+@app.get("/health/housekeeping", tags=["health"])
+def housekeeping_health():
+    """后台任务观测：最近一轮过期扫描 / 回调补投的结果。
+
+    计数为**进程内**快照（`last_run_at`, `expired_count`, `retried_count`,
+    `failed_count`）；多 worker 部署时各进程独立，需按实例分别采集。
+    """
+    return contract_jobs.housekeeping_snapshot()
+
+
 def _check_database() -> dict:
     """探测数据库连通性（`SELECT 1`）。"""
     try:
