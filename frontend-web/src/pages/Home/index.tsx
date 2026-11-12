@@ -2,7 +2,7 @@ import { SHOWCASE_PAGE_SIZE } from '@/lib/pagination'
 import { useCallback, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BankOutlined, CoffeeOutlined, ContainerOutlined, EnvironmentOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
+import { ContainerOutlined, EnvironmentOutlined, HomeOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { optionalNumber } from '@/lib/displayValue'
@@ -58,14 +58,27 @@ const bannerColorFor = (seed: string) => {
  * 「公寓」不占首页入口（见截图口径），由找房列表的「类型」筛选（公寓 = apartment + condo）承载，无独立分类页。
  * 每个入口跳各自的贝壳式分类页（/category/*），而非同一个公开列表页换参数。
  * 图标沿用项目既有 antd 图标，底为一入口一色的鲜明圆（令牌 --rent-cat-*），图标统一白色。
+ * 二手房用 swap（换手/转售）与 App、小程序同一隐喻；酒店 antd 无床图标，用同规格内联 SVG。
  */
+// 新房：antd 的 Build / Apartment 语义偏「施工 / 组织架构」，用标准公寓楼形图标
+const NewHomeIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+    <path d="M17 11V3H7v4H3v14h8v-4h2v4h8V11h-4zM7 19H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V9h2v2zm4 4H9v-2h2v2zm0-4H9V9h2v2zm0-4H9V5h2v2zm4 8h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2zm4 12h-2v-2h2v2zm0-4h-2v-2h2v2z" />
+  </svg>
+)
+// 酒店：antd 图标库里没有床/酒店语义的图标，内联一枚床形图标（床头 + 枕头 + 床身）
+const HotelIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+    <path d="M7 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm12-6h-8v7H3V5H1v15h2v-3h18v3h2v-9a4 4 0 0 0-4-4z" />
+  </svg>
+)
 const GOLD_NAV: { key: string; labelKey: string; to: string; bg: string; icon: ReactNode }[] = [
   { key: 'rent', labelKey: 'category.rentTitle', to: '/category/rent', bg: 'var(--rent-cat-rent)', icon: <HomeOutlined /> },
   { key: 'resale', labelKey: 'category.resaleTitle', to: '/category/resale', bg: 'var(--rent-cat-resale)', icon: <SwapOutlined /> },
-  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', bg: 'var(--rent-cat-new)', icon: <BankOutlined /> },
+  { key: 'new', labelKey: 'category.newTitle', to: '/category/new', bg: 'var(--rent-cat-new)', icon: <NewHomeIcon /> },
   { key: 'commercial', labelKey: 'category.commTitle', to: '/category/commercial', bg: 'var(--rent-cat-commercial)', icon: <ShopOutlined /> },
   { key: 'factory', labelKey: 'category.factTitle', to: '/category/factory', bg: 'var(--rent-cat-factory)', icon: <ContainerOutlined /> },
-  { key: 'hotel', labelKey: 'category.hotelTitle', to: '/category/hotel', bg: 'var(--rent-cat-hotel)', icon: <CoffeeOutlined /> },
+  { key: 'hotel', labelKey: 'category.hotelTitle', to: '/category/hotel', bg: 'var(--rent-cat-hotel)', icon: <HotelIcon /> },
   { key: 'land', labelKey: 'category.landTitle', to: '/category/land', bg: 'var(--rent-cat-land)', icon: <EnvironmentOutlined /> },
 ]
 
