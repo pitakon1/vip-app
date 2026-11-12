@@ -947,3 +947,54 @@ def test_webhook_endpoint_rejects_forged_callback(engine):
     finally:
         app.dependency_overrides.pop(get_session, None)
         session.close()
+
+
+def test_payment_and_lead_responses_hide_internal_fields(api):
+    """员工/代理侧 `/payments`、`/leads` 不下发内部台账字段。
+
+    `metadata_`（扩展元数据）与 `idempotency_key`（下单判重键）属于内部字段；
+    `deleted_at` 按约定保留给客服排查软删，见对应路由常量注释。
+    """
+    from app.models import Lead, Payment, PaymentStatus, PaymentType
+
+    client = api.login(api.mk_user(UserRole.admin))
+    with Session(api.engine) as s:
+        payer = User(
+            email="internal@test.com", hashed_password="x", full_name="内部字段用户"
+        )
+        s.add(payer)
+        s.commit()
+        pay = Payment(
+            payer_id=payer.id,
+            amount=100,
+            payment_type=PaymentType.rent,
+            status=PaymentStatus.pending,
+            idempotency_key=uuid.uuid4().hex,
+            metadata_={"raw": "channel-payload"},
+        )
+        lead = Lead(name="内部字段线索", metadata_={"import_batch": "b1"})
+        s.add(pay)
+        s.add(lead)
+        s.commit()
+        s.refresh(pay)
+        s.refresh(lead)
+        pay_id, lead_id = str(pay.id), str(lead.id)
+
+    row = next(
+        x for x in client.get("/api/v1/payments").json()["items"] if x["id"] == pay_id
+    )
+    assert "metadata_" not in row and "idempotency_key" not in row
+    assert "deleted_at" in row, "deleted_at 按约定保留给客服排查"
+
+    detail = client.get(f"/api/v1/payments/{pay_id}").json()
+    assert "metadata_" not in detail and "idempotency_key" not in detail
+
+    lead_row = next(
+        x for x in client.get("/api/v1/leads").json()["items"] if x["id"] == lead_id
+    )
+    assert "metadata_" not in lead_row
+    assert "deleted_at" in lead_row
+
+    lead_detail = client.get(f"/api/v1/leads/{lead_id}").json()
+    assert "metadata_" not in lead_detail
+    assert "deleted_at" in lead_detail

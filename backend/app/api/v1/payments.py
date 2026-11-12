@@ -72,6 +72,14 @@ from app.services.serial_number import next_no
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
+# 对外只下发业务字段。`metadata_`（扩展元数据）与 `idempotency_key`（下单判重键）
+# 属于内部台账：前者可能夹带渠道原始报文/风控标记，后者是可枚举的幂等凭证，
+# 不应出现在任何客户端响应里。
+# `deleted_at` 保留：客服/财务排查「这笔单为什么查不到」时要确认是否为软删，
+# 且该字段不含敏感信息，保留比再开一个内部接口更简单。
+_PAYMENT_INTERNAL_FIELDS = {"metadata_", "idempotency_key"}
+
+
 # 付款凭证落盘目录（backend/uploads/receipts）。
 # 与文档目录同理：该目录不经静态服务托管（main.py 只挂载了 uploads/properties），
 # 转账截图含银行账号、金额、户名，不能靠"猜文件名"公网可读，一律经下方
@@ -394,7 +402,11 @@ def payments_summary(
     }
 
 
-@router.get("", response_model=Page[Payment])
+@router.get(
+    "",
+    response_model=Page[Payment],
+    response_model_exclude={"items": {"__all__": _PAYMENT_INTERNAL_FIELDS}},
+)
 def list_payments(
     pagination: PaginationParams = Depends(),
     status: Optional[str] = Query(
@@ -918,7 +930,11 @@ def export_reconciliation_csv(
     return resp
 
 
-@router.get("/{payment_id}", response_model=Payment)
+@router.get(
+    "/{payment_id}",
+    response_model=Payment,
+    response_model_exclude=_PAYMENT_INTERNAL_FIELDS,
+)
 def get_payment(
     payment_id: uuid.UUID,
     session: Session = Depends(get_session),

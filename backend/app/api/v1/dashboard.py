@@ -115,10 +115,13 @@ def get_summary(
     """获取运营概览：房源总数、空置、已出租、即将到期合同、即将到期租金等。
 
     统计范围与 `GET /properties` 同源：按当前用户的数据范围收窄，缓存键也按
-    用户隔离，避免「管理员/员工首页总房源 25，而房源列表只显示 0 套」。
+    「角色 + 用户」隔离，避免不同角色/不同数据范围共用同一份全局缓存，出现
+    「管理员首页总房源 25，而员工首页也是 25」这类串号。
     """
     scope_conditions = property_visibility_conditions(session, user)
-    cache_key = f"cache:dashboard:summary:{user.id}"
+    # 角色前缀保证「角色变更后不会命中旧角色缓存」，用户 id 保证不同数据范围
+    # （如 agent 只看自己录入的房源）互不串用。
+    cache_key = f"cache:dashboard:summary:{user.role.value}:{user.id}"
     cached = get_cache(cache_key)
     if cached is not None:
         return cached

@@ -23,6 +23,13 @@ from app.models import Employee, Lead, LeadStage, User, UserRole
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
+# 线索对外只下发业务字段。`metadata_` 是扩展元数据，可能夹带导入批次、去重
+# 依据或渠道原始报文，不属于员工/代理需要看的 CRM 字段。
+# `deleted_at` 保留：员工反馈「线索怎么没了」时需要确认是否为软删，
+# 该字段不含客户隐私，保留给内部排查比另开接口更省事。
+_LEAD_INTERNAL_FIELDS = {"metadata_"}
+
+
 
 class LeadCreate(BaseModel):
     name: str
@@ -72,7 +79,11 @@ class LeadListOut(Page[Lead]):
     stage_counts: Dict[str, int] = Field(default_factory=dict)
 
 
-@router.get("", response_model=LeadListOut)
+@router.get(
+    "",
+    response_model=LeadListOut,
+    response_model_exclude={"items": {"__all__": _LEAD_INTERNAL_FIELDS}},
+)
 def list_leads(
     pagination: PaginationParams = Depends(),
     stage: Optional[LeadStage] = None,
@@ -175,7 +186,11 @@ def create_lead(
     return lead
 
 
-@router.get("/{lead_id}", response_model=Lead)
+@router.get(
+    "/{lead_id}",
+    response_model=Lead,
+    response_model_exclude=_LEAD_INTERNAL_FIELDS,
+)
 def get_lead(
     lead_id: uuid.UUID,
     session: Session = Depends(get_session),
