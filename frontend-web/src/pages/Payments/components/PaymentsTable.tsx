@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import DataState from '@/components/DataState'
 import type { Payment } from '@/types'
-import { CHANNEL_LABEL_KEYS, statusMeta, typeMeta } from '../constants'
+import { CHANNEL_LABEL_KEYS, PAYMENT_TYPE_LABEL_KEYS, statusMeta, typeMeta } from '../constants'
 import { formatAmount, formatDateTime, formatFee, lateFeeDue, toDisplayStatus, toDisplayType } from '../utils'
 import type { DetailType } from '../types'
 
@@ -82,7 +82,11 @@ export default function PaymentsTable({
                 <td className="rent-table__mono">{date}</td>
                 <td>{tenantName}</td>
                 <td>
-                  <span className={`rent-badge ${tMeta.badge}`}>{t(tMeta.label)}</span>
+                  <span className={`rent-badge ${tMeta.badge}`}>
+                    {PAYMENT_TYPE_LABEL_KEYS[String(p.payment_type || '')]
+                      ? t(PAYMENT_TYPE_LABEL_KEYS[String(p.payment_type)])
+                      : t(tMeta.label)}
+                  </span>
                 </td>
                 <td className="rent-money rent-num">{formatAmount(p)}</td>
                 <td className="rent-money rent-num">

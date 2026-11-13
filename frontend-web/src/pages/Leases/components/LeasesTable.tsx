@@ -1,8 +1,12 @@
 import { useTranslation } from 'react-i18next'
+import dayjs from 'dayjs'
 import DataState from '@/components/DataState'
 import type { Lease } from '@/types'
 import { displayStatusMeta } from '../constants'
 import { getDisplayStatus } from '../utils'
+
+/** 后端返回 ISO 时间串，表格只展示日期；空值给占位符而不是 "Invalid Date" */
+const fmtDate = (v?: string | null) => (v ? dayjs(v).format('YYYY-MM-DD') : '—')
 
 interface Props {
   items: Lease[]
@@ -55,7 +59,7 @@ export default function LeasesTable({
           ) : items.map((lease) => {
             const ds = getDisplayStatus(lease)
             const meta = displayStatusMeta[ds]
-            const code = (lease as any).code || `LC-${lease.id}`
+            const code = lease.contract_no || '—'
             const propName = resolvePropertyName(lease)
             const tenantName = resolveTenantName(lease)
             return (
@@ -63,8 +67,8 @@ export default function LeasesTable({
                 <td><span className="rent-mono">{code}</span></td>
                 <td>{propName}</td>
                 <td>{tenantName}</td>
-                <td className="rent-table__mono">{lease.start_date}</td>
-                <td className="rent-table__mono">{lease.end_date}</td>
+                <td className="rent-table__mono">{fmtDate(lease.start_date)}</td>
+                <td className="rent-table__mono">{fmtDate(lease.end_date)}</td>
                 <td className="rent-money"><span className="rent-num">{lease.currency || '฿'} {Number(lease.monthly_rent || 0).toLocaleString()}</span></td>
                 <td>
                   <span className={`rent-badge ${meta.badge}`}>

@@ -523,7 +523,7 @@ export default function PublicListingDetailScreen() {
               color={favorited ? colors.primary : colors.ink2}
             />
             <Text style={[styles.priceAlertText, favorited && styles.priceAlertTextOn]}>
-              {t('pub.favorite')}
+              {favorited ? t('pub.favorited') : t('pub.favorite')}
             </Text>
             {favBusy ? <ActivityIndicator size="small" color={colors.primary} /> : null}
           </TouchableOpacity>

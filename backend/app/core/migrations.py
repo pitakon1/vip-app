@@ -83,7 +83,12 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         "last_sign_error_at": "ts",
     },
     # terminated_at：退房日期（terminate 接口接收前端填写值，押金结算同步写入）
-    "leases": {"lease_no": "varchar(32)", "terminated_at": "ts"},
+    # contract_no：合同编号 HT-YYYYMMDD-NNNN（历史 NULL 行由 backfill_lease_contract_numbers 回填）
+    "leases": {
+        "lease_no": "varchar(32)",
+        "contract_no": "varchar(32)",
+        "terminated_at": "ts",
+    },
     # partner_id：多合作公司共用一套库时的支付单行级隔离字段
     "payments": {"receipt_no": "varchar(32)", "partner_id": "uuid"},
     # 佣金规则：按合作公司（Partner）差异化定价
@@ -99,7 +104,7 @@ _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "listings": ["next_revalidate_at", "verification_status"],
     "employees": ["department_id"],
     "contracts": ["contract_no"],
-    "leases": ["lease_no"],
+    "leases": ["lease_no", "contract_no"],
     "payments": ["receipt_no", "partner_id"],
     "commission_rules": ["partner_id"],
 }
@@ -444,3 +449,45 @@ def backfill_serial_numbers(engine: Engine) -> None:
             )
     if total:
         logger.info("db.serial.backfilled", count=total)
+
+
+def backfill_lease_contract_numbers(engine: Engine) -> None:
+    """为历史租约回填合同编号 `HT-YYYYMMDD-NNNN`（幂等，只补 NULL，按 created_at 升序）。
+
+    编号按行自身 created_at 的日期取当日流水，并推进同一 `serial_numbers` 游标，
+    保证后续新签租约不会与历史号重号。已存在编号的行不再处理，可重复执行。
+    """
+    from sqlalchemy import inspect as _inspect
+    from sqlmodel import Session, select
+
+    from app.models import Lease
+    from app.services.contract_number import generate_contract_no
+
+    if Lease.__tablename__ not in set(_inspect(engine).get_table_names()):
+        return
+
+    total = 0
+    try:
+        with Session(engine) as session:
+            rows = session.exec(
+                select(Lease)
+                .where(Lease.contract_no.is_(None))
+                .order_by(Lease.created_at)
+            ).all()
+            for lease in rows:
+                no = generate_contract_no(session, lease.created_at)
+                # 游标与已有编号可能不同步（例如本次上线后新建的租约），撞号时继续取
+                while session.exec(
+                    select(Lease).where(
+                        Lease.contract_no == no, Lease.id != lease.id
+                    )
+                ).first():
+                    no = generate_contract_no(session, lease.created_at)
+                lease.contract_no = no
+                session.add(lease)
+                total += 1
+            session.commit()
+    except Exception:
+        logger.warning("db.contract_no.backfill_failed", exc_info=True)
+    if total:
+        logger.info("db.contract_no.backfilled", count=total)

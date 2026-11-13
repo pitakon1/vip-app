@@ -36,10 +36,13 @@ def format_no(prefix: str, period: str, seq: int, width: int = 6) -> str:
     return f"{prefix}{period}{seq:0{width}d}"
 
 
-def next_no(
-    session: Session, prefix: str, period: Optional[str] = None, width: int = 6
-) -> str:
-    """取下一个编号并推进游标（同 session 内 flush，随主单据一起提交）。"""
+def next_seq(
+    session: Session, prefix: str, period: Optional[str] = None
+) -> int:
+    """取下一个流水号并推进游标（同 session 内 flush，随主单据一起提交）。
+
+    与 `next_no` 的区别：只返回流水数字，由调用方自行拼格式。
+    """
     period = period or current_period()
     dialect = session.get_bind().dialect.name
     for _ in range(_MAX_RETRIES):
@@ -61,5 +64,13 @@ def next_no(
         row.last_value = (row.last_value or 0) + 1
         session.add(row)
         session.flush()
-        return format_no(prefix, period, row.last_value, width)
+        return row.last_value
     raise RuntimeError(f"生成单据编号失败：{prefix}/{period} 并发冲突重试次数用尽")
+
+
+def next_no(
+    session: Session, prefix: str, period: Optional[str] = None, width: int = 6
+) -> str:
+    """取下一个编号并推进游标（同 session 内 flush，随主单据一起提交）。"""
+    period = period or current_period()
+    return format_no(prefix, period, next_seq(session, prefix, period), width)

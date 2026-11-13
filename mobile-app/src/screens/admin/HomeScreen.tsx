@@ -403,16 +403,29 @@ export default function AdminHomeScreen() {
             {recentPayments.length === 0 && !loading && (
               <EmptyState icon="time-outline" title={t('admHome.empty')} sub={t('admHome.emptySub')} />
             )}
-            {recentPayments.map((p: any) => (
+            {recentPayments.map((p: any) => {
+              // 状态感知：此前无论 pending/processing 都写「收款到账」，与事实不符
+              const received = p.status === 'succeeded';
+              const pending = p.status === 'pending' || p.status === 'processing';
+              const title = received
+                ? p.payer_name
+                  ? t('admHome.payerReceived', { name: p.payer_name })
+                  : t('admHome.paymentReceived')
+                : pending
+                  ? p.payer_name
+                    ? t('admHome.payerPending', { name: p.payer_name })
+                    : t('admHome.paymentPending')
+                  : p.payer_name
+                    ? t('admHome.payerFailed', { name: p.payer_name })
+                    : t('admHome.paymentFailed');
+              return (
               <View key={p.id} style={styles.activityItem}>
                 <View style={[styles.activityIcon, { backgroundColor: colors.alpha(colors.primaryRgb, 0.12) }]}>
                   <Ionicons name="cash-outline" size={16} color={colors.primaryText} />
                 </View>
                 <View style={styles.activityBody}>
                   <Text style={styles.activityTitle} numberOfLines={1}>
-                    {p.payer_name
-                      ? t('admHome.payerReceived', { name: p.payer_name })
-                      : t('admHome.paymentReceived')}
+                    {title}
                   </Text>
                   <Text style={styles.activitySub} numberOfLines={1}>
                     {[p.description || t('pay.type.rent'), fmtDate(p.paid_at || p.created_at)]
@@ -422,7 +435,8 @@ export default function AdminHomeScreen() {
                 </View>
                 <Text style={styles.activityAmount}>{fmtMoney(p.amount, p.currency)}</Text>
               </View>
-            ))}
+              );
+            })}
           </View>
         )}
 

@@ -127,7 +127,7 @@ export function useLeaseActions({ fetchData }: Options) {
   const handleTerminate = (record: Lease) => {
     Modal.confirm({
       title: t('leases.terminateTitle'),
-      content: t('leases.terminateContent', { code: (record as any).code || record.id }),
+      content: t('leases.terminateContent', { code: record.contract_no || record.id }),
       okText: t('common.confirm'),
       cancelText: t('common.cancel'),
       okButtonProps: { danger: true },

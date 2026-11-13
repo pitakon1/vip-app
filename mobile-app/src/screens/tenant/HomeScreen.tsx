@@ -327,7 +327,8 @@ const PropertyCard = React.memo(function PropertyCard({
   const { t } = useI18n();
   const badge = colors.badge;
   const scale = useRef(new Animated.Value(1)).current;
-  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+  // 公开接口列表项常只带封面 `cover`（photos 为 null），只认 photos 会误显示占位图
+  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : item.cover ? String(item.cover) : null;
   return (
     <Pressable
       onPress={() => onPress(item.id)}
@@ -411,7 +412,8 @@ const SaleCard = React.memo(function SaleCard({
   // 按压缩放动画值
   const { t } = useI18n();
   const scale = useRef(new Animated.Value(1)).current;
-  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+  // 公开接口列表项常只带封面 `cover`（photos 为 null），只认 photos 会误显示占位图
+  const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : item.cover ? String(item.cover) : null;
   const canOpen = !!item.id;
   return (
     <Pressable

@@ -27,6 +27,7 @@ from app.core.envelope import register_envelope_middleware
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.migrations import (
+    backfill_lease_contract_numbers,
     backfill_serial_numbers,
     ensure_schema,
     seed_approval_rules,
@@ -251,6 +252,8 @@ async def lifespan(app: FastAPI):
     seed_approval_rules(engine)
     # 幂等回填历史单据编号（只补 NULL 行）
     backfill_serial_numbers(engine)
+    # 幂等回填租约合同编号（HT-YYYYMMDD-NNNN，只补 NULL 行）
+    backfill_lease_contract_numbers(engine)
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）
     with Session(engine) as session:
         seed_permissions(session)

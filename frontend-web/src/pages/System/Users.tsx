@@ -42,6 +42,7 @@ const ROLE_LABEL: Record<string, string> = {
   employee: 'systemUsers.roleEmployee',
   owner: 'systemUsers.roleOwner',
   tenant: 'systemUsers.roleTenant',
+  partner_admin: 'systemUsers.rolePartnerAdmin',
 }
 
 const fmtTime = (v?: string) => (v ? String(v).replace('T', ' ').slice(0, 16) : '—')

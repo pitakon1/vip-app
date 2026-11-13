@@ -13,6 +13,18 @@ export const typeMeta: Record<DisplayType, { label: string; badge: string }> = {
   refund: { label: 'payments.tyRefund', badge: 'rent-badge--warning' },
 }
 
+/* 业务类型码 → i18n key：与「类型」筛选下拉保持同一口径（租金/押金/佣金…）。
+   表格此前一律显示收支方向（收款），导致筛选「租金」后列表里全是「收款」。 */
+export const PAYMENT_TYPE_LABEL_KEYS: Record<string, string> = {
+  rent: 'payments.optRent',
+  deposit: 'payments.optDeposit',
+  commission: 'payments.optCommission',
+  service_fee: 'payments.optServiceFee',
+  utility: 'payments.optUtility',
+  tax: 'payments.optTax',
+  refund: 'payments.optRefund',
+}
+
 /* 支付渠道码 → i18n key。后端落库的是枚举码（promptpay / bank_transfer …），
    筛选下拉已翻译，但表格与详情此前直接打印原始码，两处口径不一致。 */
 export const CHANNEL_LABEL_KEYS: Record<string, string> = {

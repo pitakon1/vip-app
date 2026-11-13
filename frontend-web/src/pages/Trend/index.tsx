@@ -77,7 +77,7 @@ const Trend = () => {
     labels,
     datasets: [
       {
-        label: '营收 (¥)',
+        label: '营收 (฿)',
         data: series.map((p) => Number(p.revenue || 0)),
         backgroundColor: chartTheme.primary,
         borderRadius: 6,

@@ -34,6 +34,10 @@ const CAT_LABEL: Record<string, string> = {
   review: 'menu.reviewCenter',
   data: 'systemPermissions.catData',
   commission: 'systemPermissions.catCommission',
+  partner: 'systemPermissions.catPartner',
+  contract: 'systemPermissions.catContract',
+  department: 'systemPermissions.catDepartment',
+  option: 'systemPermissions.catOption',
 }
 
 const Permissions = () => {

@@ -40,6 +40,7 @@ from app.models import (
     UserRole,
 )
 from app.core.security import get_password_hash
+from app.services.contract_number import generate_contract_no
 from app.services.payment_partner import resolve_payment_partner
 from app.services.pricing import compute_deposit_amount
 from app.services.serial_number import next_no
@@ -243,6 +244,9 @@ class LeaseRead(BaseModel):
     property_id: uuid.UUID
     tenant_id: uuid.UUID
     agent_id: Optional[uuid.UUID] = None
+    # 合同编号（HT-YYYYMMDD-NNNN）与对外租约编号：列表/详情直接展示，前端不再派生
+    contract_no: Optional[str] = None
+    lease_no: Optional[str] = None
     start_date: datetime
     end_date: datetime
     monthly_rent: float
@@ -573,6 +577,8 @@ def create_lease(
     data["deposit_status"] = data.get("deposit_status") or "held"
     # 对外租约编号（ZL+YYYYMM+6 位序号）
     data["lease_no"] = next_no(session, "ZL")
+    # 合同编号（HT-YYYYMMDD-NNNN），规则见 services/contract_number.py
+    data["contract_no"] = generate_contract_no(session)
 
     lease = Lease(**data)
     session.add(lease)
@@ -752,6 +758,7 @@ def renew_lease(
     can_override_rent = user.role in (UserRole.admin, UserRole.agent)
     new_lease = Lease(
         lease_no=next_no(session, "ZL"),
+        contract_no=generate_contract_no(session),
         property_id=old_lease.property_id,
         tenant_id=old_lease.tenant_id,
         owner_id=old_lease.owner_id,

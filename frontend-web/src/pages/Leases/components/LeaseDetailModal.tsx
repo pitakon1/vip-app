@@ -47,7 +47,7 @@ export default function LeaseDetailModal({
             <div className="rent-form-group">
               <label className="rent-form-label">{t('leases.labelCode')}</label>
               <div className="rent-mono">
-                {(lease as any).code || `LC-${lease.id}`}
+                {lease.contract_no || '—'}
               </div>
             </div>
             <div className="rent-form-group">

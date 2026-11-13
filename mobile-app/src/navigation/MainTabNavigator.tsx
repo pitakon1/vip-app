@@ -59,11 +59,13 @@ const ROLE_TABS: Record<UserRole, TabDef[]> = {
     { name: 'PartnerHome', component: PartnerHubScreen, icon: 'home', labelKey: 'tab.home' },
     { name: 'PartnerProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],
-  // 管理端 首页 / 房源(管理，含增删改查) / 客户 / 收款 / 我的
+  // 管理端 首页 / 房源(管理，含增删改查) / 客户 / 消息 / 收款 / 我的
+  // 「消息」是管理员与客户（租客）会话的唯一入口：CRM「发消息」建会话后在此持续查看回复。
   admin: [
     { name: 'AdminHome', component: AdminHomeScreen, icon: 'home', labelKey: 'tab.home' },
     { name: 'Properties', component: AdminPropertiesScreen, icon: 'business', labelKey: 'tab.properties' },
     { name: 'AdminCRM', component: AdminCRMScreen, icon: 'people', labelKey: 'tab.customers' },
+    { name: 'AdminChat', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
     { name: 'AdminPayments', component: AdminPaymentsScreen, icon: 'card', labelKey: 'tab.payments' },
     { name: 'AdminProfile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
   ],

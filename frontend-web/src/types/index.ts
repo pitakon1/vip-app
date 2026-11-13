@@ -76,6 +76,7 @@ export interface Lease {
   currency: string
   deposit_status: string
   lease_no?: string
+  contract_no?: string
   agent_id?: string
   contract_url?: string
   special_terms?: string

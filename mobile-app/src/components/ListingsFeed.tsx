@@ -423,7 +423,8 @@ const ListingCard = React.memo(function ListingCard({
 }: ListingCardProps) {
   const { t } = useI18n();
   const typeBadge = colors.badge;
-  const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
+  // 公开接口有时只给封面 `cover`（photos 为 null），此前忽略 cover 会误显示「暂无图片」
+  const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : item.cover || null;
   // 收藏红心点赞式弹簧动效：点击即弹（乐观反馈，不等后端）
   const favPop = useRef(new Animated.Value(1)).current;
   const popFav = () => {
@@ -1103,7 +1104,7 @@ export default function ListingsFeed({
   // 买房挂牌卡片（真实数据：挂牌价 / 面积 / 户型）
   const renderSaleItem = useCallback(
     ({ item }: { item: Listing }) => {
-      const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : null;
+      const photo = Array.isArray(item.photos) && item.photos.length ? String(item.photos[0]) : item.cover || null;
       return (
       <TouchableOpacity
         style={styles.card}

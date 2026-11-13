@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { ownerApi, leasesApi } from '@/services/api';
 
+
 type Bool = boolean | undefined; // undefined = 加载中/未确认
 
 export interface UserCapabilities {
@@ -38,7 +39,12 @@ export function useUserCapabilities(): UserCapabilities {
     fired.current = true;
     let alive = true;
 
-    Promise.allSettled([ownerApi.properties(), leasesApi.mine()]).then(([pRes, lRes]) => {
+    // `/owners/me/properties` 只允许 admin/owner 访问，租客/员工每次进屏都会 403；
+    // 非这两个角色直接跳过请求，按「无房源」处理（下面仍会按 role 兜底）。
+    const propsReq =
+      role === 'owner' || role === 'admin' ? ownerApi.properties() : Promise.resolve(null);
+
+    Promise.allSettled([propsReq, leasesApi.mine()]).then(([pRes, lRes]) => {
       if (!alive) return;
 
       let hasProperty: Bool;

@@ -614,7 +614,7 @@ function OwnerPaymentsView() {
               <Text style={styles.heroAmount}>{formatMoney(dueTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
-                <View><Text style={styles.heroStatLabel}>{t('pay.paidThisMonth')}</Text><Text style={styles.heroStatVal}>{formatMoney(monthPaid, ccy)}</Text></View>
+                <View><Text style={styles.heroStatLabel}>{t('pay.receivedThisMonth')}</Text><Text style={styles.heroStatVal}>{formatMoney(monthPaid, ccy)}</Text></View>
                 <View style={styles.heroStatRight}><Text style={styles.heroStatLabel}>{t('pay.type.utility')}</Text><Text style={styles.heroStatVal}>{formatMoney(utilityTotal, ccy)}</Text></View>
               </View>
             </View>

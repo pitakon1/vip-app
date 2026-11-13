@@ -58,6 +58,8 @@ export type LeaseStatus = 'active' | 'expired' | 'terminated' | 'pending';
 export interface Lease {
   id: string;
   lease_no?: string;
+  /** 合同编号（HT-YYYYMMDD-NNNN），由后端生成 */
+  contract_no?: string;
   property_id: string;
   tenant_id: string;
   owner_id: string;

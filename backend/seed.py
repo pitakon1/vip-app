@@ -8,6 +8,8 @@ from sqlmodel import Session
 
 from app.db import engine, init_db
 from app.core.security import get_password_hash
+from app.services.contract_number import generate_contract_no
+from app.services.serial_number import next_no
 from app.models.user import User, UserRole
 from app.models.project import Project
 from app.models.owner import Owner
@@ -166,6 +168,8 @@ def seed_all():
         for i, prop in enumerate(properties[:2]):
             lease = Lease(
                 id=uuid.uuid4(),
+                lease_no=next_no(session, "ZL"),
+                contract_no=generate_contract_no(session),
                 property_id=prop.id,
                 tenant_id=tenant.id,
                 owner_id=owner.id,

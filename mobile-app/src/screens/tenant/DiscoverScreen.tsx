@@ -1,4 +1,5 @@
 import { CAROUSEL_PAGE_SIZE } from '@/lib/pagination';
+
 /**
  * 发现（C 端底部 Tab）：城市行情 + 热门小区 + 国际学校。
  *
@@ -81,6 +82,20 @@ export default function DiscoverScreen() {
     [summary, t],
   );
 
+  // 卡片价格按「数值大、单位小」拆开渲染；标签口径与首页分类一致
+  const projectPrice = useCallback(
+    (p: PublicProject) => {
+      if (p.rent_price_min != null) {
+        return { value: compact(p.rent_price_min), unit: t('discover.rentUnit'), tag: t('discover.tagRent') };
+      }
+      if (p.sale_price_min != null) {
+        return { value: compact(p.sale_price_min), unit: t('discover.saleUnit'), tag: t('discover.tagSale') };
+      }
+      return null;
+    },
+    [t, lang],
+  );
+
   // 区域均价：取均价最高的 5 个区做横向对比（数据缺失时整块不渲染）
   const districts = useMemo(() => {
     const rows = (summary?.district_price_pairs ?? [])
@@ -123,8 +138,10 @@ export default function DiscoverScreen() {
         <View style={styles.statGrid}>
           {stats.map((s) => (
             <View key={s.key} style={styles.statCard}>
-              <Ionicons name={s.icon} size={18} color={s.color} />
-              <Text style={styles.statValue}>{s.value}</Text>
+              <View style={styles.statTop}>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Ionicons name={s.icon} size={16} color={s.color} style={styles.statIcon} />
+              </View>
               <Text style={styles.statLabel}>{s.label}</Text>
             </View>
           ))}
@@ -163,31 +180,40 @@ export default function DiscoverScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {projects.map((p) => (
-                <TouchableOpacity
-                  key={p.id}
-                  style={styles.projectCard}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('PublicCommunityDetail', { id: p.id })}
-                >
-                  <RemoteImage uri={p.cover} style={styles.projectCover} iconSize={26} />
-                  <View style={styles.projectBody}>
-                    <Text style={styles.projectName} numberOfLines={1}>
-                      {p.name || '—'}
-                    </Text>
-                    <Text style={styles.projectSub} numberOfLines={1}>
-                      {p.district || p.city || ''}
-                    </Text>
-                    <Text style={styles.projectPrice} numberOfLines={1}>
-                      {p.rent_price_min != null
-                        ? `${compact(p.rent_price_min)}${t('discover.rentUnit')}`
-                        : p.sale_price_min != null
-                          ? `${compact(p.sale_price_min)}${t('discover.saleUnit')}`
-                          : t('discover.noPrice')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {projects.map((p) => {
+                const price = projectPrice(p);
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={styles.projectCard}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('PublicCommunityDetail', { id: p.id })}
+                  >
+                    <View style={styles.coverWrap}>
+                      <RemoteImage uri={p.cover} style={styles.projectCover} iconSize={26} />
+                      {price ? (
+                        <View style={styles.coverTag}>
+                          <Text style={styles.coverTagText}>{price.tag}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.projectBody}>
+                      <Text style={styles.projectName} numberOfLines={2}>
+                        {p.name || '—'}
+                      </Text>
+                      <Text style={styles.projectSub} numberOfLines={1}>
+                        {p.district || p.city || ''}
+                      </Text>
+                      <View style={styles.projectPriceRow}>
+                        <Text style={styles.projectPrice}>
+                          {price ? price.value : t('discover.noPrice')}
+                        </Text>
+                        {price ? <Text style={styles.projectPriceUnit}>{price.unit}</Text> : null}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </>
         )}
@@ -209,17 +235,24 @@ export default function DiscoverScreen() {
                   activeOpacity={0.85}
                   onPress={() => navigation.navigate('PublicSchoolDetail', { id: s.id })}
                 >
-                  <RemoteImage uri={s.cover_url} style={styles.projectCover} iconSize={26} />
+                  <View style={styles.coverWrap}>
+                    <RemoteImage uri={s.cover_url} style={styles.projectCover} iconSize={26} />
+                    <View style={styles.coverTag}>
+                      <Text style={styles.coverTagText}>{t('pub.tabSchools')}</Text>
+                    </View>
+                  </View>
                   <View style={styles.projectBody}>
-                    <Text style={styles.projectName} numberOfLines={1}>
+                    <Text style={styles.projectName} numberOfLines={2}>
                       {s.name || s.name_en || '—'}
                     </Text>
                     <Text style={styles.projectSub} numberOfLines={1}>
                       {[s.district, s.curriculum].filter(Boolean).join(' · ') || ''}
                     </Text>
-                    <Text style={styles.projectPrice} numberOfLines={1}>
-                      {s.tuition_range || t('discover.noPrice')}
-                    </Text>
+                    <View style={styles.projectPriceRow}>
+                      <Text style={styles.projectPrice} numberOfLines={1}>
+                        {s.tuition_range || t('discover.noPrice')}
+                      </Text>
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -236,10 +269,12 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   heroBand: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   heroTitle: { flex: 1, fontSize: 22, fontWeight: '700', color: colors.text },
@@ -256,54 +291,77 @@ const styles = StyleSheet.create({
   },
   cityText: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.primary, maxWidth: 120 },
   scroll: { paddingHorizontal: 16, paddingTop: 16 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
   sectionHead: {
-    marginTop: 22,
+    marginTop: 24,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  sectionHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
+  sectionHint: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight },
   moreLink: { fontSize: 12, fontWeight: '600', color: colors.primary },
   statGrid: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   statCard: {
     width: '48.5%',
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 14,
+    borderRadius: 12,
+    paddingVertical: 12,
     paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  statValue: { marginTop: 8, fontSize: 22, fontWeight: '700', color: colors.text },
-  statLabel: { marginTop: 2, fontSize: 12, color: colors.ink2 },
+  statTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statIcon: { opacity: 0.8 },
+  statValue: { fontSize: 24, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
+  statLabel: { marginTop: 2, fontSize: 11, color: colors.ink3 },
   priceCard: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  priceDistrict: { width: 76, fontSize: 12, color: colors.ink2 },
-  priceTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.surface2, overflow: 'hidden' },
-  priceFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  priceValue: { width: 56, textAlign: 'right', fontSize: 12, fontWeight: '600', color: colors.text },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 34 },
+  priceDistrict: { flex: 1, fontSize: 12, color: colors.ink2 },
+  priceTrack: { width: 118, height: 6, borderRadius: 3, backgroundColor: colors.surface2, overflow: 'hidden' },
+  priceFill: { height: 6, borderRadius: 3, backgroundColor: colors.primary },
+  priceValue: { width: 64, textAlign: 'right', fontSize: 13, fontWeight: '700', color: colors.text, fontVariant: ['tabular-nums'] },
   rail: { gap: 12, paddingRight: 16 },
   projectCard: {
-    width: 190,
+    width: 168,
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  projectCover: { width: '100%', height: 96 },
-  projectBody: { paddingHorizontal: 10, paddingVertical: 9, gap: 3 },
-  projectName: { fontSize: colors.fontSize.caption, fontWeight: '600', color: colors.text },
-  projectSub: { fontSize: colors.fontSize.xs, color: colors.ink3, lineHeight: colors.lineHeight.tight},
-  projectPrice: { fontSize: colors.fontSize.caption, fontWeight: '700', color: colors.primary },
+  coverWrap: { position: 'relative' },
+  projectCover: { width: '100%', height: 112 },
+  coverTag: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  coverTagText: { fontSize: 10, fontWeight: '600', color: '#FFFFFF' },
+  projectBody: { paddingHorizontal: 10, paddingVertical: 10, gap: 4 },
+  projectName: { fontSize: 13, fontWeight: '600', color: colors.text, lineHeight: 18 },
+  projectSub: { fontSize: 11, color: colors.ink3, lineHeight: 14 },
+  projectPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
+  projectPrice: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  projectPriceUnit: { fontSize: 11, fontWeight: '500', color: colors.primary },
 });

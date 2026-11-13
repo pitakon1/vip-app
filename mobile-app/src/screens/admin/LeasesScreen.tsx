@@ -40,6 +40,7 @@ interface LeaseRow {
   currency?: string;
   deposit_amount?: number;
   status?: string | null;
+  contract_no?: string | null;
 }
 
 interface PropertyRow {
@@ -66,8 +67,8 @@ const CHIPS: { key: ChipKey; labelKey: string }[] = [
 ];
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
-// 合同编号由租约 ID 前 6 位派生，保证同一合同在各端展示一致
-const leaseNoOf = (id: string) => `LC-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+// 合同编号统一取后端字段（HT-YYYYMMDD-NNNN），前端不再派生
+const contractNoOf = (l: { contract_no?: string | null }) => l.contract_no || '—';
 
 export default function AdminLeasesScreen() {
   const insets = useSafeAreaInsets();
@@ -153,7 +154,7 @@ export default function AdminLeasesScreen() {
     const kw = keyword.trim().toLowerCase();
     if (!kw) return true;
     return (
-      leaseNoOf(l.id).toLowerCase().includes(kw) ||
+      contractNoOf(l).toLowerCase().includes(kw) ||
       propNameOf(l).toLowerCase().includes(kw) ||
       (l.tenant_id || '').toLowerCase().includes(kw)
     );
@@ -286,7 +287,7 @@ export default function AdminLeasesScreen() {
           return (
             <View key={l.id} style={styles.card}>
               <View style={styles.cardHead}>
-                <Text style={styles.leaseNo}>{leaseNoOf(l.id)}</Text>
+                <Text style={styles.leaseNo}>{contractNoOf(l)}</Text>
                 <View
                   style={[
                     styles.badge,

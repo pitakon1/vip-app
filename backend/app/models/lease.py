@@ -30,6 +30,14 @@ class Lease(TimestampMixin, table=True):
     lease_no: Optional[str] = Field(
         default=None, max_length=32, index=True, description="对外租约编号"
     )
+    # 合同编号（HT-YYYYMMDD-NNNN），创建租约时由编号服务生成，唯一
+    contract_no: Optional[str] = Field(
+        default=None,
+        max_length=32,
+        unique=True,
+        index=True,
+        description="合同编号（HT-YYYYMMDD-NNNN）",
+    )
     property_id: uuid.UUID = Field(foreign_key="properties.id", index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     owner_id: uuid.UUID = Field(foreign_key="owners.id")

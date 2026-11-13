@@ -317,7 +317,7 @@ def export_leases(
         tenant = tenants.get(lease.tenant_id)
         rows.append(
             [
-                str(lease.id),
+                lease.contract_no or "",
                 (prop.room_number or prop.address) if prop else "",
                 prop.address if prop else "",
                 tenant_names.get(tenant.user_id, "") if tenant else "",

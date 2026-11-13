@@ -136,7 +136,7 @@ export default function PropertyFormModal({
           </Col>
         </Row>
         <Row gutter={16}>
-          <Col span={12}><Form.Item label={t('property.owner')} name="owner_id"><Input placeholder={t('property.ownerPlaceholder')} /></Form.Item></Col>
+          <Col span={12}><Form.Item label={t('property.owner')} name="owner_id" rules={[{ required: true, message: t('property.ownerPlaceholder') }]}><Input placeholder={t('property.ownerPlaceholder')} /></Form.Item></Col>
           <Col span={12}>
             <Form.Item label={t('property.propertyType')} name="property_type">
               <Select placeholder={t('property.propertyTypePlaceholder')} options={Object.entries(propertyTypeMap).map(([k, v]) => ({ value: k, label: v }))} allowClear />

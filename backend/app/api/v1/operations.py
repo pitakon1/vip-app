@@ -211,12 +211,14 @@ def operations_overview(
             "rate": pct(active_leases, int(closed_leads)),
         },
     ]
-    leads_by_stage_out = {str(k): int(v) for k, v in leads_by_stage.items()}
+    # `str(LeadStage.inquiring)` 得到的是 "LeadStage.inquiring"，前端按裸值查文案
+    # 会全部命中不到、显示成枚举类名；这里统一取枚举的 value。
+    leads_by_stage_out = {getattr(k, "value", str(k)): int(v) for k, v in leads_by_stage.items()}
 
     # ---- 活跃度：按 last_login_at ----
     dau, wau, mau = _activity_counts(session, today)
     active_by_role = {
-        str(k): int(v)
+        getattr(k, "value", str(k)): int(v)
         for k, v in session.exec(
             select(User.role, func.count(User.id))
             .where(User.last_login_at >= _day_start(-29))

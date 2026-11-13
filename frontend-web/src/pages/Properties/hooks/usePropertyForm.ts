@@ -49,11 +49,17 @@ export function usePropertyForm({ onSaved }: { onSaved: () => void | Promise<voi
       setModalOpen(false)
       void onSaved()
     } catch (err) {
-      if (apiErrorBody(err)?.errorFields) {
-        form.scrollToField(apiErrorBody(err)?.errorFields?.[0]?.name ?? '')
-        return
+      // antd 表单校验失败抛的是 ValidateErrorEntity（{ errorFields }），不是 axios 错误。
+      // 之前只认 apiErrorBody 里的 errorFields，取不到就落到下面的 message.error，
+      // 于是必填项没填会弹「网络连接失败」——与真实原因完全无关。
+      const fields =
+        (err as { errorFields?: { name?: (string | number)[] | string }[] })?.errorFields ??
+        apiErrorBody(err)?.errorFields;
+      if (fields?.length) {
+        form.scrollToField(fields[0]?.name ?? '');
+        return;
       }
-      message.error(errorText(err, t('property.saveFailed')))
+      message.error(errorText(err, t('property.saveFailed')));
     } finally { setSubmitting(false) }
   }
 
