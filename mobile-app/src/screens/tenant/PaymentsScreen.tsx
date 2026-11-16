@@ -40,6 +40,7 @@ const CHANNEL_KEY: Record<string, string> = {
   bank_transfer: 'admPay.chBank',
   wechat: 'pay.channelWechat',
   stripe: 'pay.channelStripe',
+  lianlian: 'pay.channelLianlian',
   alipay: 'admPay.chAlipay',
 };
 const channelText = (t: TFunc, code?: string | null): string => {
@@ -292,14 +293,15 @@ function TenantPaymentsView() {
   const heroLabel = monthRent ? t('pay.heroThisMonthRent') : t('pay.heroDueTotal');
   const heroAmount = monthRent ? Number(monthRent.amount || 0) : dueTotal;
 
-  const channelFor = (cur?: string) => (cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay');
-  const channelLabelFor = (cur?: string) =>
-    cur === 'CNY' ? t('pay.channelWechat') : cur === 'USD' ? t('pay.channelStripe') : 'PromptPay';
+  // 只接 LianLian 聚合收银台：不传 payment_method，收银台列出商户已开通的
+  // 全部支付方式（卡 / PromptPay / 手机银行 / 支付宝 / 微信 …）由用户自选。
+  const channelFor = () => 'lianlian';
+  const channelLabelFor = () => t('pay.channelLianlian');
 
   const handlePay = async (item: Payment) => {
     setPayingId(item.id);
     try {
-      const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
+      const res: any = await paymentsApi.pay(item.id, channelFor());
       const data = res?.data ?? res;
       // 渠道发起失败时后端仍返回 HTTP 200，但 ok=false 且支付单已置为 failed；
       // 这里必须按失败处理，否则会把「发起失败」误报成「已提交支付」。
@@ -321,7 +323,7 @@ function TenantPaymentsView() {
           qr: resolution.qr,
           amount: Number(item.amount || 0),
           currency: item.currency,
-          channelLabel: channelLabelFor(item.currency),
+          channelLabel: channelLabelFor(),
         });
       } else {
         notify(t('pay.submittedTitle'), t('pay.submittedMsg'));

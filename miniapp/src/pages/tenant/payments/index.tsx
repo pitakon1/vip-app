@@ -28,6 +28,7 @@ const CHANNEL_KEY: Record<string, string> = {
   wechat: 'pay.chWechat',
   alipay: 'pay.chAlipay',
   stripe: 'pay.channelStripe',
+  lianlian: 'pay.channelLianlian',
 }
 const channelText = (
   t: (k: string, p?: Record<string, string | number>) => string,
@@ -138,13 +139,13 @@ export default function TenantPaymentsPage() {
   const dueTotal = pending.reduce((sum, p) => sum + Number(p.amount || 0), 0)
   const currency = pending[0]?.currency || payments[0]?.currency || 'THB'
 
-  const channelFor = (cur?: string) =>
-    cur === 'CNY' ? 'wechat' : cur === 'USD' ? 'stripe' : 'promptpay'
+  // 只接 LianLian 聚合收银台：不指定方式，由收银台展示全部已开通方式
+  const channelFor = () => 'lianlian'
 
   const handlePay = async (pay: Payment) => {
     Taro.showLoading({ title: t('tpay.processingEllipsis'), mask: true })
     try {
-      const res: any = await paymentsApi.pay(pay.id, { channel: channelFor(pay.currency) })
+      const res: any = await paymentsApi.pay(pay.id, { channel: channelFor() })
       Taro.hideLoading()
       const data = res?.data || res
       // 渠道发起失败时后端仍返回 HTTP 200，但 ok=false 且支付单已置为 failed；

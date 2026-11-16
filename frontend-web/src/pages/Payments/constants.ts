@@ -28,6 +28,7 @@ export const PAYMENT_TYPE_LABEL_KEYS: Record<string, string> = {
 /* 支付渠道码 → i18n key。后端落库的是枚举码（promptpay / bank_transfer …），
    筛选下拉已翻译，但表格与详情此前直接打印原始码，两处口径不一致。 */
 export const CHANNEL_LABEL_KEYS: Record<string, string> = {
+  lianlian: 'payments.chLianlian',
   promptpay: 'payments.chPromptpay',
   bank_transfer: 'payments.chBankTransfer',
   stripe: 'payments.chCreditCard',

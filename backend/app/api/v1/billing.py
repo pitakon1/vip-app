@@ -159,7 +159,9 @@ def list_integration_status(user: User = Depends(get_current_user)):
     return {
         "payment": {
             "status": "implemented",
-            "channels": ["stripe", "promptpay", "wechat", "alipay", "wise"],
+            # 当前只对接收单渠道：LianLian 聚合收银台（具体支付方式由收银台展示）。
+            # 其他 provider 仍保留注册，用于历史支付单的查询与退款。
+            "channels": ["lianlian"],
         },
         "reserved": reserved,
     }

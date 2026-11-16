@@ -39,6 +39,21 @@ PROMPTPAY_TARGET = _env("PROMPTPAY_TARGET", "")            # 收款方标识：�
 PROMPTPAY_TARGET_TYPE = _env("PROMPTPAY_TARGET_TYPE", "phone")       # 标识类型：phone / national_id / tax_id
 PROMPTPAY_MERCHANT_NAME = _env("PROMPTPAY_MERCHANT_NAME", "VIP APP")  # QR 码上显示的商户名（≤25 字符）
 
+# ═══════════ LianLian Global 泰国收单（doc.lianlianpay.co.th）═══════════
+# 网关默认指向沙箱，避免未配置时误用生产地址扣真实款项；
+# 上线时把 LIANLIAN_BASE_URL 改为 https://api.lianlianpay.co.th。
+# 私钥/公钥沿用文档里的裸 base64 或 PEM 文本，验签算法为 SHA1withRSA。
+LIANLIAN_MERCHANT_ID = _env("LIANLIAN_MERCHANT_ID", "")    # 商户号（18 位，14 开头）
+LIANLIAN_STORE_ID = _env("LIANLIAN_STORE_ID", "")          # 门店号（可选）
+LIANLIAN_PRIVATE_KEY = _env("LIANLIAN_PRIVATE_KEY", "")    # 商户 RSA 私钥（签名请求）
+LIANLIAN_PUBLIC_KEY = _env("LIANLIAN_PUBLIC_KEY", "")      # LianLian RSA 公钥（验签回调）
+LIANLIAN_BASE_URL = _env(
+    "LIANLIAN_BASE_URL", "https://sandbox-th.lianlianpay-inc.com"
+)
+LIANLIAN_NOTIFY_URL = _env("LIANLIAN_NOTIFY_URL", "")      # 支付结果回调地址
+LIANLIAN_REDIRECT_URL = _env("LIANLIAN_REDIRECT_URL", "")  # 支付完成回跳地址
+LIANLIAN_PAYMENT_METHOD = _env("LIANLIAN_PAYMENT_METHOD", "")  # 留空=收银台展示全部已开通方式
+
 # ═══════════ Stripe（国际卡）═══════════
 STRIPE_SECRET_KEY = _env("STRIPE_SECRET_KEY", "")          # 密钥：测试 sk_test_xxx，生产 sk_live_xxx
 STRIPE_WEBHOOK_SECRET = _env("STRIPE_WEBHOOK_SECRET", "")  # 回调验签密钥 whsec_xxx

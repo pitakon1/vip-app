@@ -425,6 +425,8 @@ class PaymentService:
                         reason=reason,
                         # 原单金额：部分退款时渠道要求 total=原单金额
                         original_amount=payment.amount,
+                        # 退款币种：LianLian 退款接口要求显式传 refund_currency
+                        currency=payment.currency,
                     )
                 )
                 if not result.success:

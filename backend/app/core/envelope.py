@@ -18,7 +18,9 @@ JSON 响应统一包裹成::
 - `/health*`（探针）、`/docs` `/redoc` `/openapi.json`（文档）、`/metrics`（指标）、
   `/uploads*`（静态媒体）——这些是基础设施响应，不应被业务信封污染；
 - 所有非 `application/json` 的响应（FileResponse / StreamingResponse / 纯文本 /
-  blob 导出）——由 Content-Type 自动命中跳过，无需逐端点维护清单。
+  blob 导出）——由 Content-Type 自动命中跳过，无需逐端点维护清单；
+- 支付网关回调 `/api/v1/payments/webhook/*`——渠道要求原样应答（LianLian 明确
+  要求 `{"code":200000,"message":"Success"}`），被信封包裹会被判定投递失败而重投。
 """
 from __future__ import annotations
 
@@ -41,6 +43,8 @@ _SKIP_PREFIXES = (
     "/openapi.json",
     "/uploads",
     "/metrics",
+    # 支付网关回调必须原样应答（如 LianLian 的 {"code":200000,"message":"Success"}）
+    "/api/v1/payments/webhook",
 )
 
 # 成功信封的响应头标记：三端据此单点解包

@@ -52,6 +52,7 @@ const TYPE_LABELS: Record<string, string> = {
 const CHANNEL_LABELS: Record<string, string> = {
   promptpay: 'PromptPay',
   stripe: 'Stripe',
+  lianlian: 'LianLian Pay',
   wechat: 'pay.chWechat',
   alipay: 'pay.chAlipay',
   wise: 'Wise',
@@ -63,6 +64,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 const CHANNEL_META: Record<string, { icon: IconKey; tone: string }> = {
   promptpay: { icon: 'card', tone: 'primary' },
   stripe: { icon: 'card', tone: 'info' },
+  lianlian: { icon: 'card', tone: 'success' },
   wechat: { icon: 'wechat', tone: 'success' },
   alipay: { icon: 'alipay', tone: 'info' },
   wise: { icon: 'bank', tone: 'warning' },

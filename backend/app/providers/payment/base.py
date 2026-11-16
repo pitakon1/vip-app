@@ -7,6 +7,7 @@ from enum import Enum
 
 class PaymentChannel(str, Enum):
     STRIPE = "stripe"
+    LIANLIAN = "lianlian"
     PROMPTPAY = "promptpay"
     WECHAT = "wechat"
     ALIPAY = "alipay"
@@ -71,6 +72,8 @@ class RefundRequest:
     reason: str = ""
     # 原单金额：部分退款时渠道（如微信 V3）要求 total=原单金额、refund=退款金额
     original_amount: Optional[float] = None
+    # 退款币种：LianLian 退款接口要求显式传 refund_currency，其余渠道可忽略
+    currency: Optional[str] = None
 
 
 @dataclass

@@ -2,6 +2,7 @@
 from typing import Dict
 from .base import PaymentChannel, PaymentProvider
 from .stripe_provider import StripeProvider
+from .lianlian_provider import LianLianProvider
 from .promptpay_provider import PromptPayProvider
 from .wechat_provider import WechatProvider
 from .alipay_provider import AlipayProvider
@@ -18,6 +19,7 @@ class PaymentRouter:
 
     def _register_defaults(self):
         self.register(PaymentChannel.STRIPE, StripeProvider())
+        self.register(PaymentChannel.LIANLIAN, LianLianProvider())
         self.register(PaymentChannel.PROMPTPAY, PromptPayProvider())
         self.register(PaymentChannel.WECHAT, WechatProvider())
         self.register(PaymentChannel.ALIPAY, AlipayProvider())

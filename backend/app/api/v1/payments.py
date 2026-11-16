@@ -825,13 +825,18 @@ async def payment_webhook(
         result = payment_service.handle_webhook(
             session, channel, payload, headers=webhook_headers
         )
-        return result
     except UnmatchedWebhookError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except PermissionError:
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if channel == PaymentChannel.LIANLIAN.value:
+        # LianLian 要求商户显式应答 {"code":200000,"message":"Success"}；
+        # 返回其他结构会被判定为投递失败，按 10 分钟间隔重投 13 次。
+        return {"code": 200000, "message": "Success"}
+    return result
 
 
 @router.get("/reconciliations", response_model=ReconciliationsResponse)

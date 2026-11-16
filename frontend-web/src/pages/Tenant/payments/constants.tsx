@@ -54,6 +54,7 @@ export const makeMethodLabelMap = (t: Translate): Record<string, string> => ({
   wechat: t('tenantPayments.methodWechat'),
   promptpay: t('tenantPayments.methodPromptpay'),
   credit_card: t('tenantPayments.methodCreditCard'),
+  lianlian: t('tenantPayments.methodLianlian'),
 })
 
 export const methodIconMap: Record<string, ReactNode> = {

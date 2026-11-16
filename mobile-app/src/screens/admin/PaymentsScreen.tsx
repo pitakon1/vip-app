@@ -88,6 +88,7 @@ const typeText = (t: TFunc, type?: string | null, fallback?: string) => {
 const CHANNEL_META: Record<string, { label?: string; labelKey?: string; icon: keyof typeof Ionicons.glyphMap; color: string; rgb: string }> = {
   promptpay: { label: 'PromptPay', icon: 'qr-code-outline', color: colors.primary, rgb: colors.primaryRgb },
   stripe: { label: 'Stripe', icon: 'card-outline', color: colors.info, rgb: colors.infoRgb },
+  lianlian: { labelKey: 'pay.channelLianlian', icon: 'card-outline', color: colors.success, rgb: colors.successRgb },
   bank_transfer: { labelKey: 'admPay.chBank', icon: 'business-outline', color: colors.ink2, rgb: colors.primaryRgb },
   wechat: { labelKey: 'pay.channelWechat', icon: 'chatbubble-ellipses-outline', color: colors.wechatGreen, rgb: colors.wechatGreenRgb },
   alipay: { labelKey: 'admPay.chAlipay', icon: 'wallet-outline', color: colors.info, rgb: colors.infoRgb },
