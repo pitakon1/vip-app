@@ -37,7 +37,7 @@ from app.providers.notification.sms_provider import SMSProvider
 from app.providers.notification.email_provider import EmailProvider
 from app.services import wechat as wechat_service
 from app.services import oauth as oauth_service
-from app.services.phone import phone_keys, to_e164
+from app.services.phone import find_users_by_phone, to_e164
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -72,16 +72,12 @@ def _canonical_phone(value: str, default_iso: str | None = None) -> str:
 
 
 def _users_by_phone(session: Session, phone: str) -> list[User]:
-    """按多形态比对键找已注册账号（兼容存量非 E.164 号码）。
+    """按手机号找已注册账号（索引查询 + 未回填存量行兜底）。
 
-    归一化无法用 SQL 稳定表达（库函数差异大，且历史数据带分隔符/本地前缀），
-    这里取有手机号的用户逐一比对；users 表规模可控，后续可加 phone_normalized 列。
+    归一化细节见 `app.services.phone.find_users_by_phone`；存量行回填后
+    兜底集合为空，查询退化为 `phone_normalized` 唯一索引精确命中。
     """
-    keys = phone_keys(phone)
-    if not keys:
-        return []
-    candidates = session.exec(select(User).where(User.phone.is_not(None))).all()
-    return [u for u in candidates if phone_keys(u.phone) & keys]
+    return find_users_by_phone(session, phone)
 
 
 def _is_valid_email(value: str) -> bool:
@@ -354,6 +350,7 @@ def register(
             full_name=req.full_name or "用户",
             role=req.role,
             phone=phone,
+            phone_normalized=phone,
         )
     elif email and req.password:
         # 方式二：邮箱 + 密码（无验证码，绝不能绑定未验证的手机号——
@@ -516,6 +513,7 @@ def wx_bind_phone(
     if any(str(u.id) != str(user.id) for u in clashes):
         raise HTTPException(status_code=409, detail="Phone already bound to another account")
     user.phone = phone
+    user.phone_normalized = phone
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -745,6 +743,7 @@ def update_me(
         new_phone = _canonical_phone(new_phone_raw)
         _consume_otp(session, new_phone, (req.code or "").strip())
         user.phone = new_phone
+        user.phone_normalized = new_phone
     if data.get("full_name") is not None:
         user.full_name = data["full_name"]
     if data.get("avatar_url") is not None:
@@ -885,6 +884,7 @@ def delete_me(session: Session = Depends(get_session), user: User = Depends(get_
     user.is_active = False
     user.email = f"deleted-{uuid.uuid4().hex[:12]}@deleted.local"  # 匿名化邮箱（保持唯一）
     user.phone = None
+    user.phone_normalized = None
     user.full_name = "已注销用户"
     user.avatar_url = None
     session.add(user)

@@ -21,6 +21,7 @@ import {
   type PublicSchool
 } from '@/services/publicApi'
 import { schoolStageLabel, curriculumLabel } from '@/lib/publicSite'
+import { resolveMediaUrl } from '@/lib/api'
 import { fmtMoney, fmtDate } from '@/utils/format'
 import { iconStyle, type IconKey } from '@/utils/icons'
 import { useLocationStore } from '@/stores/location'
@@ -320,7 +321,7 @@ export default function TenantHomePage() {
                   <View key={p.id} className='th-card' onClick={() => openProject(p.id)}>
                     <View className='th-card__media'>
                       {p.cover ? (
-                        <Image className='th-card__img' src={p.cover} mode='aspectFill' />
+                        <Image className='th-card__img' src={resolveMediaUrl(p.cover) || ''} mode='aspectFill' />
                       ) : (
                         <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
                       )}
@@ -338,7 +339,7 @@ export default function TenantHomePage() {
                   <View key={it.id} className='th-card' onClick={() => openListing(it.id)}>
                     <View className='th-card__media'>
                       {it.cover ? (
-                        <Image className='th-card__img' src={it.cover} mode='aspectFill' />
+                        <Image className='th-card__img' src={resolveMediaUrl(it.cover) || ''} mode='aspectFill' />
                       ) : (
                         <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
                       )}
@@ -384,7 +385,7 @@ export default function TenantHomePage() {
               <View key={s.id} className='th-card' onClick={() => openSchoolListings(s)}>
                 <View className='th-card__media'>
                   {s.cover_url ? (
-                    <Image className='th-card__img' src={s.cover_url} mode='aspectFill' />
+                    <Image className='th-card__img' src={resolveMediaUrl(s.cover_url) || ''} mode='aspectFill' />
                   ) : (
                     <View className='th-card__noimg'>{t('pub.noPhoto')}</View>
                   )}

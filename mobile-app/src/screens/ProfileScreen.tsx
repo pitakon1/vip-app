@@ -21,7 +21,6 @@ import Card from '@/components/Card';
 import colors from '@/theme/colors';
 import { useI18n, LANG_LABELS } from '@/i18n';
 import { authApi, chatApi, companyApi } from '@/services/api';
-import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { clearCache } from '@/lib/cache';
 import { dialPhone } from '@/lib/dial';
 import type { UserRole } from '@/types';
@@ -116,10 +115,13 @@ const cmpVersion = (a: string, b: string) => {
 // 取不到就留空、由调用处不渲染，不再回落到写死的 'v2.4.1'——那个值与后端版本
 // 及 app.json 的 0.1.0 都不符，等于对外报一个不存在的版本号。
 
-// C 端（业主+租客）统一「常用功能」宫格：业主与租客入口共用一个数据源，
-// 渲染时按能力过滤（见下方 cFuncs），避免租客/游客看到业主专属入口。
+// C 端统一「常用功能」宫格：产品模型上 C 端只有一种用户（有的名下有房产、有的只是租房），
+// 入口对全部登录用户完整展示，不再按 owner/tenant 或「有没有资产」隐藏；
+// 点进去没有数据时由目标页给空态 + 引导（如「还没有绑定房产，去添加」）。
 const C_FUNC_GRID: FuncEntry[] = [
-  // 业主能力项（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
+  // 添加我的房产：自助提交绑定申请，后台审核通过后才建立与房源的关联
+  { key: 'addProperty', labelKey: 'profile.addProperty', icon: 'add-circle', navigate: 'PropertyBinding' },
+  // 业主能力项（委托挂牌并入房源管理内）
   { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'OwnerProperties' },
   { key: 'incomeDetail', labelKey: 'profile.incomeDetail', icon: 'trending-up', navigate: 'OwnerIncome' },
   // 租客能力项（租客 = 在平台上租了房子）
@@ -149,16 +151,13 @@ export default function ProfileScreen() {
   // 访客态：浏览无需注册；「我的」只做引导（对齐贝壳）
   const isGuest = !user;
 
-  // 身份按「能力」判断而非单一 role：用户可能「既是业主又是租客」，名下房产/生效租约决定区块是否展示，二者可并存。
+  // 身份按「角色」区分员工端与 C 端；C 端不再按「名下有没有房产 / 生效租约」拆分身份。
   const isAdmin = user?.role === 'admin';
   // 员工端：经纪人 / 员工 / 管理员均提供「我的」账户与设置自助区块
   const isStaff =
     isAdmin || user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin';
   // 合作公司管理员：本公司管理入口
   const isPartnerAdmin = user?.role === 'partner_admin';
-  // 能力探测：业主/租客入口按真实能力（名下房源 / 生效租约）显示，
-  // 不再对租客和游客露出「房源管理」「收益明细」等业主专属项。
-  const { canManageProperty, isActiveTenant } = useUserCapabilities();
 
   // 管理端「系统设置 / 业务设置」两区块的真实值。
   // 此前时区写死 'UTC+8'、通知写死 '邮件 · 短信 · 推送'、提醒天数写死 '7/30 天前'，
@@ -470,6 +469,8 @@ export default function ProfileScreen() {
 
   // 业主「设置」五项（对齐 owner-mobile-settings.html；无接口的项点击提示暂未开放）
   const ownerSettingItems: SettingItem[] = [
+    // D-06：C 端（业主 / 租客）同样开放修改密码
+    { key: 'password', icon: 'lock-closed', label: t('profile.changePassword'), color: colors.ink2, bg: colors.surface2 },
     {
       key: 'account',
       icon: 'lock-closed',
@@ -502,6 +503,7 @@ export default function ProfileScreen() {
       label: t('profile.help'),
       color: colors.ink2,
       bg: colors.surface2,
+      route: 'HelpCenter',
     },
     // 联系客服：点击即调起系统拨号（电话取自公开接口 /company/info）
     {
@@ -581,28 +583,13 @@ export default function ProfileScreen() {
     user?.role === 'agent' || user?.role === 'employee' || user?.role === 'partner_admin'
       ? FUNC_BY_ROLE[user.role] ?? []
       : [];
-  // C 端宫格按能力过滤：
-  //  - 业主专属（房源管理 / 收益明细）→ 仅名下有房或 owner 角色
-  //  - 租客专属（我的订单 / 报修 / 增值服务）→ 仅有生效租约或 tenant 角色
-  //  - 双方共用（我的租约 / 缴费中心 / 合同 / 文档）→ 业主或租客均可
-  //  - 收藏 / 浏览历史 / 降价提醒 → 登录用户均可（游客点击会先引导登录）
-  // 游客（未登录）不具备任何 C 端能力，业主入口不再露出。
+  // C 端宫格：登录用户看到全部入口（不按资产状态裁剪）；游客只保留收藏/历史/降价提醒。
   const cFuncs = React.useMemo(
     () =>
       isGuest
         ? C_FUNC_GRID.filter((e) => ['favorites', 'history', 'priceAlerts'].includes(e.key))
-        : C_FUNC_GRID.filter((e) => {
-            if (e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty;
-            if (e.key === 'myLeases') return canManageProperty || isActiveTenant;
-            if (e.key === 'myDeals' || e.key === 'maintenance' || e.key === 'services') {
-              return isActiveTenant;
-            }
-            if (e.key === 'payments' || e.key === 'myContracts' || e.key === 'documents') {
-              return canManageProperty || isActiveTenant;
-            }
-            return true;
-          }),
-    [isGuest, canManageProperty, isActiveTenant],
+        : C_FUNC_GRID,
+    [isGuest],
   );
 
   // 统一设置行渲染（C 端「我的」为基准样式）：图标盒 + 文案 + 真实值 + 箭头。

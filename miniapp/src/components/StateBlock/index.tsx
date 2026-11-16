@@ -22,11 +22,15 @@ interface Props {
   text?: string
   /** 空态图标（缺省用通用文档图标，与 App 默认 file-tray 语义一致） */
   icon?: IconKey
+  /** 空态补充说明（如「还没有绑定房产，去添加」） */
+  sub?: string
+  /** 补充说明可点击（如跳转「添加我的房产」） */
+  onSubClick?: () => void
   onRetry?: () => void
   retryText?: string
 }
 
-export default function StateBlock({ loading, error, empty, filtered, text, icon, onRetry, retryText }: Props) {
+export default function StateBlock({ loading, error, empty, filtered, text, icon, sub, onSubClick, onRetry, retryText }: Props) {
   if (loading) {
     return (
       <View className='state-block'>
@@ -55,6 +59,14 @@ export default function StateBlock({ loading, error, empty, filtered, text, icon
         <View className='icon-svg' style={iconStyle(icon ?? (filtered ? 'search' : 'doc'), 40)} />
       </View>
       {text ? <Text className='state-block__text'>{text}</Text> : null}
+      {sub ? (
+        <Text
+          className={`state-block__sub${onSubClick ? ' state-block__sub--link' : ''}`}
+          onClick={onSubClick}
+        >
+          {sub}
+        </Text>
+      ) : null}
     </View>
   )
 }

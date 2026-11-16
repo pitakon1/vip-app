@@ -21,6 +21,7 @@ import { useUserCapabilities } from '@/hooks/useUserCapabilities';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from '@/i18n';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { fmtDate } from '@/utils/format';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -60,8 +61,6 @@ const formatSize = (bytes?: number) => {
   if (n >= 1024) return `${Math.round(n / 1024)} KB`;
   return `${n} B`;
 };
-
-const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 export default function DocumentsScreen() {
   const { isActiveTenant } = useUserCapabilities();
@@ -206,7 +205,7 @@ export default function DocumentsScreen() {
             </View>
           </View>
           <Text style={styles.cardSub} numberOfLines={1}>
-            {formatDate(item.created_at ?? item.uploadedAt)} · {formatSize(item.file_size ?? item.size)}
+            {fmtDate(item.created_at ?? item.uploadedAt)} · {formatSize(item.file_size ?? item.size)}
           </Text>
         </View>
         <View style={styles.cardActions}>

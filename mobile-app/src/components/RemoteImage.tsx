@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
+import { resolveMediaUrl } from '@/lib/api';
 
 interface RemoteImageProps {
   /** 远端图片地址；为空时直接渲染占位，不发起请求 */
@@ -44,12 +45,15 @@ export default function RemoteImage({
   fallback,
 }: RemoteImageProps) {
   const [broken, setBroken] = useState(false);
+  // 后端媒体字段是站内相对路径（/uploads/...），原生端与 Web 都无法直接加载，
+  // 统一在这里补成后端源站的绝对地址。
+  const resolved = resolveMediaUrl(uri);
 
   useEffect(() => {
     setBroken(false);
   }, [uri]);
 
-  if (!uri || broken) {
+  if (!resolved || broken) {
     if (fallback) return <>{fallback}</>;
     return (
       <View style={[styles.fallback, style]}>
@@ -60,7 +64,7 @@ export default function RemoteImage({
 
   return (
     <Image
-      source={{ uri: String(uri) }}
+      source={{ uri: resolved }}
       style={style}
       contentFit={FIT_MAP[resizeMode] ?? 'cover'}
       cachePolicy="memory-disk"

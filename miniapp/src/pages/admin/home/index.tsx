@@ -389,18 +389,37 @@ export default function AdminHomePage() {
               <View className='adm-activity__dot' />
               <View className='adm-activity__body'>
                 <Text className='adm-activity__title'>
-                  {tr('home.receipt')}
-                  {p.status === 'succeeded' ? tr('home.receiptArrived') : tr('home.receiptUpdated')} ·{' '}
-                  {p.payer_name || tr('home.payer')}
+                  {(() => {
+                    // 状态感知：pending/processing 不能再写成「收款到账」
+                    const received = p.status === 'succeeded'
+                    const pending = p.status === 'pending' || p.status === 'processing'
+                    if (received) {
+                      return p.payer_name
+                        ? tr('admHome.payerReceived', { name: p.payer_name })
+                        : tr('admHome.paymentReceived')
+                    }
+                    if (pending) {
+                      return p.payer_name
+                        ? tr('admHome.payerPending', { name: p.payer_name })
+                        : tr('admHome.paymentPending')
+                    }
+                    return p.payer_name
+                      ? tr('admHome.payerFailed', { name: p.payer_name })
+                      : tr('admHome.paymentFailed')
+                  })()}
                 </Text>
                 <Text className='adm-activity__desc'>
                   {fmtMoney(p.amount, p.currency)} · {fmtDate(p.paid_at || p.created_at)}
                 </Text>
               </View>
               <Text
-                className={`badge ${p.status === 'succeeded' ? 'badge--success' : 'badge--warning'}`}
+                className={`badge ${p.status === 'succeeded' ? 'badge--success' : p.status === 'failed' ? 'badge--error' : 'badge--warning'}`}
               >
-                {p.status === 'succeeded' ? tr('pay.received') : tr('pay.pendingShort')}
+                {p.status === 'succeeded'
+                  ? tr('pay.received')
+                  : p.status === 'failed'
+                    ? tr('admHome.paymentFailed')
+                    : tr('pay.pendingShort')}
               </Text>
             </View>
           ))}

@@ -10,8 +10,8 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 /**
  * C 端「我的」页（/tenant/my，业主 + 租客共用）
  * 统一结构：用户卡 → 常用功能宫格 → 设置 → 退出。
- * 宫格按角色过滤：业主专属入口（房源/上架单/收益）不对租客展示，
- * 路由侧同样有 denyRoles 守卫（见 App.tsx）。
+ * 宫格对全部登录用户完整展示：C 端只有一种用户，不按角色隐藏入口；
+ * 没有数据时由目标页面给空态与引导，写操作仍由后端按资源权限判权。
  */
 
 const APP_COMPANY = 'HaoFang.World'
@@ -75,15 +75,18 @@ const TenantMy = () => {
   }
 
   // ===== 常用功能宫格 =====
-  // roles 缺省 = 业主/租客都可见；业主专属（房源、上架单、收益）只对 owner 展示，
-  // 避免租客点进没有数据归属的业主页。
-  type FuncItem = { key: string; label: string; route: string; icon: React.ReactNode; roles?: string[] }
+  // 产品模型：C 端只有一种用户（有的名下有房产、有的只是租房），
+  // 入口对全部登录用户完整展示，不再按 owner/tenant 隐藏；
+  // 没有数据时由各页面给空态 + 引导（如「还没有绑定房产，去添加」）。
+  type FuncItem = { key: string; label: string; route: string; icon: React.ReactNode }
   const C_FUNC_GRID: FuncItem[] = [
-    { key: 'manageProperties', label: t('menu.myProperties'), route: '/tenant/my-properties', roles: ['owner'], icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg> },
-    { key: 'myListings', label: t('menu.myListings'), route: '/tenant/my-listings', roles: ['owner'], icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
-    { key: 'incomeDetail', label: t('menu.income'), route: '/tenant/income', roles: ['owner'], icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 17 9 11 13 15 21 7" /><polyline points="15 7 21 7 21 13" /></svg> },
+    { key: 'addProperty', label: t('menu.addProperty'), route: '/tenant/property-binding', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /><line x1="12" y1="9" x2="12" y2="15" /><line x1="9" y1="12" x2="15" y2="12" /></svg> },
+    { key: 'manageProperties', label: t('menu.myProperties'), route: '/tenant/my-properties', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg> },
+    { key: 'myListings', label: t('menu.myListings'), route: '/tenant/my-listings', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+    { key: 'incomeDetail', label: t('menu.income'), route: '/tenant/income', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 17 9 11 13 15 21 7" /><polyline points="15 7 21 7 21 13" /></svg> },
     { key: 'myLeases', label: t('menu.myLeases'), route: '/tenant/leases', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
     { key: 'myDeals', label: t('tenantMy.myDeals'), route: '/tenant/deals', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="10" y1="9" x2="8" y2="9" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg> },
+    { key: 'favorites', label: t('menu.favorites'), route: '/tenant/favorites', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" /></svg> },
     { key: 'payments', label: t('menu.myPayments'), route: '/tenant/payments', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" /><line x1="1" y1="10" x2="23" y2="10" /></svg> },
     { key: 'maintenance', label: t('menu.maintenance'), route: '/tenant/maintenance', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg> },
     { key: 'services', label: t('menu.services'), route: '/tenant/services', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg> },
@@ -176,7 +179,7 @@ const TenantMy = () => {
         </div>
         <div className="rent-card__body" style={{ padding: 16 }}>
           <div className="rent-my__grid">
-            {C_FUNC_GRID.filter((c) => !c.roles || !user || c.roles.includes(user.role)).map((c) => (
+            {C_FUNC_GRID.map((c) => (
               <div key={c.key} className="rent-my__cell" onClick={() => navigate(c.route)}>
                 <div className="rent-my__cell-icon">{c.icon}</div>
                 <div className="rent-my__cell-label">{c.label}</div>
@@ -204,7 +207,14 @@ const TenantMy = () => {
             <span className="rent-text-sm">{t('tenantMy.notify')}</span>
             <span className="rent-text-sm" style={{ color: 'var(--state-success)' }}>{t('tenantMy.notifyOn')}</span>
           </div>
-          <div className="rent-my__row">
+          <div
+            className="rent-my__row"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/tenant/help')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate('/tenant/help') }}
+          >
             <span className="rent-text-sm">{t('tenantMy.help')}</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--rent-ink-2)' }}><polyline points="9 18 15 12 9 6"/></svg>
           </div>

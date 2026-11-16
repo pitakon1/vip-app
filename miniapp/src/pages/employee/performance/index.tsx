@@ -110,9 +110,9 @@ const buildSettleMeta = (
   paid: { label: t('perf.stPaid'), cls: 'perf-tag--success' }
 })
 
-const fmtMoney = (v?: number, currency?: string) => {
-  const sym: Record<string, string> = { CNY: '¥', THB: '', USD: '$', EUR: '€' }
-  return `${sym[currency || 'THB'] || '฿'}${Number(v || 0).toLocaleString()}`
+const fmtMoney = (v?: number, currency = 'THB') => {
+  const sym = currency === 'USD' ? '$' : currency === 'CNY' ? '¥' : currency === 'MYR' ? 'RM ' : '฿'
+  return `${sym}${Number(v || 0).toLocaleString()}`
 }
 
 // 佣金比例：后端 rate>1 视为百分比，否则视为月租倍数

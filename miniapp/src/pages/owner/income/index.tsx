@@ -84,6 +84,7 @@ export default function OwnerIncomePage() {
   interface IncomePayload {
     income: IncomeData
     byMonth: AnnualMonth[]
+    annualTotals: { received: number; pending: number; overdue: number }
   }
 
   const { data, loading, error, refresh } = useSwrCache<IncomePayload>({
@@ -106,12 +107,18 @@ export default function OwnerIncomePage() {
           vacant_count: Number(d.vacant_count ?? 0),
           records: Array.isArray(d.records) ? d.records : []
         },
-        byMonth: Array.isArray(annD.by_month) ? annD.by_month : []
+        byMonth: Array.isArray(annD.by_month) ? annD.by_month : [],
+        annualTotals: {
+          received: Number(annD?.totals?.received ?? 0),
+          pending: Number(annD?.totals?.pending ?? 0),
+          overdue: Number(annD?.totals?.overdue ?? 0)
+        }
       }
     },
   })
   const income = data?.income ?? EMPTY_INCOME
   const byMonth = data?.byMonth ?? []
+  const annualTotals = data?.annualTotals ?? { received: 0, pending: 0, overdue: 0 }
 
   useDidShow(() => {
     loadFromStorage()
@@ -123,22 +130,22 @@ export default function OwnerIncomePage() {
   })
 
   // 本月 / 本年累计收入均由逐笔记录真实汇总
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  // by_month 只包含「有账单的月份」，直接取最后一个桶会把上个月（或更早）的
+  // 收入当成「本月收入」。这里按当前自然月精确取桶，无数据时为 0。
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const thisMonth = monthKey(new Date())
   const thisYear = String(new Date().getFullYear())
   const receivedRecords = income.records.filter((r) => r.status === 'received')
-  const monthReceived = receivedRecords
-    .filter((r) => r.month === thisMonth)
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0)
-  const yearReceived = receivedRecords
-    .filter((r) => String(r.month || '').startsWith(thisYear))
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0)
-  const pendingTotal = income.records
-    .filter((r) => r.status === 'pending')
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0)
-  const overdueTotal = income.records
-    .filter((r) => r.status === 'overdue')
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0)
-  const receivable = income.receivable_total || pendingTotal + overdueTotal
+  const monthReceived =
+    byMonth.find((m) => m.month === thisMonth)?.received ??
+    receivedRecords.filter((r) => r.month === thisMonth).reduce((sum, r) => sum + Number(r.amount || 0), 0)
+  const yearReceived =
+    annualTotals.received || income.total_income || receivedRecords
+      .filter((r) => String(r.month || '').startsWith(thisYear))
+      .reduce((sum, r) => sum + Number(r.amount || 0), 0)
+  // 待收 = 全部未付账单（pending + overdue），与 App 口径一致
+  const receivable =
+    (annualTotals.pending || income.receivable_total || 0) + (annualTotals.overdue || income.overdue_total || 0)
 
   // 月度趋势：取年度汇总最近 6 个月，柱高由当月已收 / 峰值算得
   const trend = byMonth.slice(-6)
@@ -147,7 +154,10 @@ export default function OwnerIncomePage() {
   const filtered =
     activeFilter === 'all'
       ? income.records
-      : income.records.filter((r) => r.status === activeFilter)
+      : activeFilter === 'pending'
+        // D-02：KPI「待收」= 全部未付账单（pending + overdue），明细筛选同口径
+        ? income.records.filter((r) => r.status === 'pending' || r.status === 'overdue')
+        : income.records.filter((r) => r.status === activeFilter)
 
   return (
     <View className='owner-income-page'>
@@ -238,6 +248,12 @@ export default function OwnerIncomePage() {
               empty
               filtered={income.records.length > 0}
               text={income.records.length === 0 ? t('ownerIncome.noRecords') : t('ownerIncome.noFiltered')}
+              sub={income.records.length === 0 ? t('pb.noPropertySub') : undefined}
+              onSubClick={
+                income.records.length === 0
+                  ? () => Taro.navigateTo({ url: '/pages/property-binding/index' })
+                  : undefined
+              }
             />
           )}
           {!loading && error && income.records.length === 0 && (

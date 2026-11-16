@@ -24,6 +24,9 @@ export const authApi = {
   loginByOtp: (phone: string, code: string) =>
     api.post('/auth/login/otp', { phone, code }),
   me: () => api.get('/auth/me'),
+  // 修改当前用户密码：成功后后端递增 token_version，旧会话全部失效，需重新登录
+  changePassword: (data: { old_password: string; new_password: string }) =>
+    api.post('/auth/me/password', data),
   // 头像上传（multipart）：后端校验、落盘到 /uploads/avatars 并回写 avatar_url
   uploadAvatar: (file: File) => {
     const fd = new FormData()
@@ -163,6 +166,32 @@ export const ownersApi = {
   pricingSuggestion: () => api.get('/owners/me/pricing-suggestion'),
   annualFinancialSummary: (year?: number) =>
     api.get('/owners/me/annual-financial-summary', { params: { year } }),
+}
+
+// 房产自助绑定：C 端提交申请 + 后台审核
+// 附件不公开托管，只给「本人 + 内部员工」的带鉴权接口读取。
+export const propertyBindingsApi = {
+  // 上传证明材料（multipart，PDF / JPG / PNG / WEBP，≤20MB）→ {name,url,size,content_type}
+  uploadAttachment: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/property-bindings/attachments', fd)
+  },
+  // 我的申请（含历史驳回记录，倒序）
+  mine: () => api.get('/property-bindings/me'),
+  // 提交前匹配系统内已有房源：命中则走「认领」，未命中走「新建房源」
+  match: (params: QueryParams) => api.get('/property-bindings/match', { params }),
+  create: (data: RequestBody) => api.post('/property-bindings', data),
+  // 后台审核队列：status=pending|approved|rejected，keyword 模糊匹配地址/房号
+  list: (params?: QueryParams) => api.get('/property-bindings', { params }),
+  get: (id: string) => api.get(`/property-bindings/${id}`),
+  approve: (id: string, note?: string, propertyId?: string) =>
+    api.post(`/property-bindings/${id}/approve`, { note, property_id: propertyId }),
+  reject: (id: string, reason: string, note?: string) =>
+    api.post(`/property-bindings/${id}/reject`, { reason, note }),
+  // 附件下载为二进制（需 Bearer），调用方转 objectURL 后打开
+  attachmentBlob: (id: string, index: number) =>
+    api.get(`/property-bindings/${id}/attachments/${index}`, { responseType: 'blob' }),
 }
 
 // Company

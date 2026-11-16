@@ -155,7 +155,16 @@ export default function StaffListingsPage() {
           />
         )}
         {!loading && !loadError && visible.length === 0 && (
-          <StateBlock empty text={t('staff.empty')} />
+          <StateBlock
+            empty
+            text={listings.length === 0 ? t('myListings.emptyTitle') : t('staff.empty')}
+            sub={listings.length === 0 ? t('profile.addProperty') : undefined}
+            onSubClick={
+              listings.length === 0
+                ? () => Taro.navigateTo({ url: '/pages/property-binding/index' })
+                : undefined
+            }
+          />
         )}
         {visible.map((l) => {
           const st = getStatus(STATUS_META, l.status)

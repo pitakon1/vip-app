@@ -7,7 +7,7 @@
  * 枚举文案按 i18n key 映射（见 `src/i18n/index.ts` 的 pub.* 字典），运行时通过
  * `useI18n.getState().t(...)` 取当前语言的文案；未知取值原样返回，比显示空白更可读。
  */
-import { request } from '@/lib/api'
+import { request, resolveMediaUrl } from '@/lib/api'
 import { useI18n } from '@/i18n'
 
 const ORIENTATION: Record<string, string> = {
@@ -136,13 +136,13 @@ export const CURRICULUM_OPTIONS = [
   ['other', 'pub.curriculum.other']
 ] as const
 
-/** 照片字段历史上出现过 `string[]` 与 `{url|path}[]` 两种形态，统一取 URL。 */
+/** 照片字段历史上出现过 `string[]` 与 `{url|path}[]` 两种形态，统一取 URL（并补全为绝对地址）。 */
 export const photoUrl = (item: unknown): string | null => {
-  if (typeof item === 'string') return item
+  if (typeof item === 'string') return resolveMediaUrl(item)
   if (item && typeof item === 'object') {
     const record = item as Record<string, unknown>
     const value = record.url ?? record.path
-    if (typeof value === 'string') return value
+    if (typeof value === 'string') return resolveMediaUrl(value)
   }
   return null
 }
@@ -154,7 +154,7 @@ export const photoUrls = (photos: unknown): string[] => {
 
 /** 卡片封面：优先用后端裁好的 `cover`，没有再从相册取第一张。 */
 export const coverOf = (item: { cover?: string | null; photos?: unknown[] | null }): string =>
-  item.cover || photoUrls(item.photos)[0] || ''
+  resolveMediaUrl(item.cover) || photoUrls(item.photos)[0] || ''
 
 // ==================== 双币展示 ====================
 

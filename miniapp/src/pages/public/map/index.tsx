@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Image, Map, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { publicApi, type PublicMapPoint } from '@/services/publicApi'
+import { resolveMediaUrl } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import { useLocationStore } from '@/stores/location'
@@ -259,7 +260,7 @@ export default function PublicMapPage() {
                 <View key={p.id} className='pub-listing' onClick={() => openDetail(p.id)}>
                   <View className='pub-listing__media'>
                     {p.cover ? (
-                      <Image className='pub-listing__img' src={p.cover} mode='aspectFill' />
+                      <Image className='pub-listing__img' src={resolveMediaUrl(p.cover) || ''} mode='aspectFill' />
                     ) : (
                       <View className='pub-listing__noimg'>
                         <Text>{t('pub.noPhoto')}</Text>

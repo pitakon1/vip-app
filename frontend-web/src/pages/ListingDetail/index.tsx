@@ -248,9 +248,13 @@ const ListingDetailPage = () => {
       .catch((err) => {
         if (!cancelled) {
           setDetail(null)
+          // 详情页是只读页，用户没有任何可「填写」的输入：路径里的 id 非法（422）
+          // 或房源已下架/删除（404）都按「房源不存在」呈现，不要把校验文案甩给用户。
+          const status = (err as { response?: { status?: number } })?.response?.status
+          const missing = status === 404 || status === 422
           setLoadError({
-            text: errorText(err, t('publicSite.listingNotFound')),
-            kind: errorKind(err),
+            text: missing ? t('publicSite.listingNotFound') : errorText(err, t('publicSite.listingNotFound')),
+            kind: missing ? 'notFound' : errorKind(err),
           })
         }
       })
@@ -262,12 +266,13 @@ const ListingDetailPage = () => {
     }
   }, [id, t, retryKey])
 
-  // 相似房源推荐：进详情页顺带取一次（失败静默置空，不阻塞主内容）
+  // 相似房源推荐：详情加载成功后再取（失败静默置空，不阻塞主内容）。
+  // 详情本身 404/422 时不再发这个请求——目标 id 非法，它一定也是 422。
   useEffect(() => {
-    if (!id) return
+    if (!detail?.id) return
     let cancelled = false
     api
-      .get(`/public/listings/${id}/similar`)
+      .get(`/public/listings/${detail.id}/similar`)
       .then((res) => {
         if (!cancelled) setSimilar(res.data ?? [])
       })
@@ -277,7 +282,7 @@ const ListingDetailPage = () => {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [detail?.id])
 
   const photos = useMemo(() => photoUrls(detail?.photos), [detail?.photos])
 
@@ -333,7 +338,7 @@ const ListingDetailPage = () => {
       if (isLoggedIn) {
         await viewingsApi.create({
           property_id: detail?.property_id,
-          scheduled_at: viewingTime.toISOString(),
+          scheduled_at: viewingTime.format('YYYY-MM-DDTHH:mm:ss'),
           notes: viewingNote,
         })
       } else {
@@ -342,7 +347,7 @@ const ListingDetailPage = () => {
           property_id: detail?.property_id,
           name: viewingName.trim(),
           phone: viewingPhone.trim(),
-          scheduled_at: viewingTime.toISOString(),
+          scheduled_at: viewingTime.format('YYYY-MM-DDTHH:mm:ss'),
           notes: viewingNote || undefined,
         })
       }

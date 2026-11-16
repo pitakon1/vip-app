@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user
+from app.core.datetime_utils import UtcInstant
 from app.models import User, UserCalendarEvent
 
 router = APIRouter(prefix="/calendar-events", tags=["calendar-events"])
@@ -20,16 +21,16 @@ router = APIRouter(prefix="/calendar-events", tags=["calendar-events"])
 
 class CalendarEventCreate(BaseModel):
     title: str = ""
-    start_at: datetime
-    end_at: Optional[datetime] = None
+    start_at: UtcInstant
+    end_at: Optional[UtcInstant] = None
     all_day: bool = False
     note: Optional[str] = None
 
 
 class CalendarEventUpdate(BaseModel):
     title: Optional[str] = None
-    start_at: Optional[datetime] = None
-    end_at: Optional[datetime] = None
+    start_at: Optional[UtcInstant] = None
+    end_at: Optional[UtcInstant] = None
     all_day: Optional[bool] = None
     note: Optional[str] = None
 

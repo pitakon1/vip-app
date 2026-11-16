@@ -531,14 +531,15 @@ export default function PropertiesScreen() {
     sort,
   ]);
 
-  // 统计（名下房源/在租/空置/在售，口径与旧版一致）
+  // 统计（D-04：在租 / 空置 / 维护中 / 续约中 四类相加等于名下总数）
   const stats = useMemo(() => {
-    const count = { total: properties.length, rented: 0, vacant: 0, forSale: 0 };
+    const count = { total: properties.length, rented: 0, vacant: 0, maintenance: 0, renewing: 0 };
     properties.forEach((p) => {
       const s = String(p.status || '').toLowerCase();
-      if (s === 'vacant' || s === 'available') count.vacant += 1;
-      else if (s === 'for_sale' || s === 'on_sale' || s === 'sale') count.forSale += 1;
+      if (s === 'maintenance') count.maintenance += 1;
+      else if (s === 'renewing') count.renewing += 1;
       else if (s === 'rented' || s === 'active') count.rented += 1;
+      else count.vacant += 1;
     });
     return count;
   }, [properties]);
@@ -1169,8 +1170,12 @@ export default function PropertiesScreen() {
             <Text style={[styles.statValue, { color: colors.warning }]}>{stats.vacant}</Text>
           </View>
           <View style={styles.statCell}>
-            <Text style={styles.statLabel}>{t('prop.statForSale')}</Text>
-            <Text style={[styles.statValue, { color: colors.ink3 }]}>{stats.forSale}</Text>
+            <Text style={styles.statLabel}>{t('status.maintenance')}</Text>
+            <Text style={[styles.statValue, { color: colors.info }]}>{stats.maintenance}</Text>
+          </View>
+          <View style={styles.statCell}>
+            <Text style={styles.statLabel}>{t('prop.status.renewing')}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{stats.renewing}</Text>
           </View>
         </View>
 
@@ -1219,6 +1224,8 @@ export default function PropertiesScreen() {
             icon="business-outline"
             title={hasFilter ? t('prop.emptyFiltered') : t('prop.emptyNone')}
             sub={hasFilter ? t('prop.emptyFilteredSub') : t('prop.emptyNoneSub')}
+            actionLabel={hasFilter ? undefined : t('profile.addProperty')}
+            onAction={hasFilter ? undefined : () => navigation.navigate('PropertyBinding')}
           />
         ) : view === 'grid' ? (
           /* ===== 宫格视图：2 列色块卡（顶部状态色浅背景）===== */

@@ -17,6 +17,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import get_current_user, require_employee
+from app.core.datetime_utils import UtcInstant
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.services.data_scope import staff_employee_ids_in_scope
 from app.models import (
@@ -51,7 +52,8 @@ _VIEWING_TRANSITIONS = {
 
 class ViewingCreate(BaseModel):
     property_id: uuid.UUID
-    scheduled_at: datetime
+    # 统一归一化为 UTC naive：带时区的直接换算，不带时区的按业务时区解释
+    scheduled_at: UtcInstant
     notes: Optional[str] = None
     # 未登录访客信息
     visitor_name: Optional[str] = None
@@ -61,9 +63,9 @@ class ViewingCreate(BaseModel):
 
 class ViewingUpdate(BaseModel):
     status: Optional[ViewingStatus] = None
-    scheduled_at: Optional[datetime] = None
+    scheduled_at: Optional[UtcInstant] = None
     assigned_to: Optional[uuid.UUID] = None
-    completed_at: Optional[datetime] = None
+    completed_at: Optional[UtcInstant] = None
     cancel_reason: Optional[str] = None
 
 

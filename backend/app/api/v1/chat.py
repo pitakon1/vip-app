@@ -25,12 +25,13 @@ from starlette.concurrency import run_in_threadpool
 from app.config import settings
 from app.db import engine, get_session
 from app.core.auth import get_current_user, user_from_token
+from app.core.datetime_utils import UtcInstant
 from app.models import ChatParticipant, Conversation, Lead, Listing, Message, MessageType, User
 from app.models.listing import ListingStatus
 from app.models.user import UserRole
 from app.schemas.chat import ConversationOut, MessageOut
 from app.services.chat_participants import is_participant, participant_ids, sync_participants
-from app.services.phone import phone_keys, to_e164
+from app.services.phone import find_users_by_phone, phone_keys, to_e164
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -372,19 +373,11 @@ def normalize_phone(raw: Any) -> str:
 
 
 def _users_by_phone(session: Session, phones: list[str]) -> list[User]:
-    """按归一化手机号找已注册账号（命中多个时由调用方报冲突）。"""
-    wanted: set[str] = set()
-    for phone in phones:
-        wanted |= phone_keys(phone)
-    if not wanted:
-        return []
-    # 归一化无法用 SQL 稳定表达（库函数差异大，且历史数据带分隔符），
-    # 这里取有手机号的用户逐一归一后比较。users 表规模可控；后续扩容可新增
-    # phone_normalized 列并建索引，替换该全表扫描。
-    candidates = session.exec(
-        select(User).where(User.phone.is_not(None), User.deleted_at.is_(None))
-    ).all()
-    return [u for u in candidates if phone_keys(u.phone) & wanted]
+    """按归一化手机号找已注册账号（命中多个时由调用方报冲突）。
+
+    查询走 `users.phone_normalized` 索引；尚未回填的存量行做兜底比对。
+    """
+    return find_users_by_phone(session, phones, exclude_deleted=True)
 
 
 @router.post("/conversations", response_model=ConversationOut)
@@ -611,7 +604,7 @@ def create_conversation(
 def list_messages(
     conversation_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
-    before: Optional[datetime] = None,
+    before: Optional[UtcInstant] = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):

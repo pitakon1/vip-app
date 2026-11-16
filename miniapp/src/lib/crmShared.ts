@@ -57,7 +57,10 @@ export function computeLeadStats(leads: LeadLike[], total: number) {
   const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   return {
     total: total || leads.length,
-    intent: leads.filter((l) => l.stage === 'inquiring').length,
+    // 意向客户 = 咨询中 + 已约看 + 洽谈中（与 App 保持一致）
+    intent: leads.filter(
+      (l) => l.stage === 'inquiring' || l.stage === 'viewing_scheduled' || l.stage === 'negotiating'
+    ).length,
     closed: leads.filter((l) => l.stage === 'closed').length,
     newThisMonth: leads.filter((l) => String(l.created_at || '').startsWith(monthPrefix)).length
   }

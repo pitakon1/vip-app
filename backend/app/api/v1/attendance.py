@@ -8,7 +8,7 @@
 时区漂移。迟到分界 = 上班时间 + 宽限，早退分界 = 下班时间 − 宽限。
 """
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -18,6 +18,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.audit import log_audit
 from app.core.auth import require_admin, require_employee, require_role
+from app.core.datetime_utils import UtcInstant
 from app.core.rbac import require_permission
 from app.models import (
     AppealStatus, Attendance, AttendanceAppeal, AttendanceGroup, AttendanceGroupMember,
@@ -550,8 +551,8 @@ def today_attendance(
         {
             "checked_in": attendance.check_in_time is not None,
             "checked_out": attendance.check_out_time is not None,
-            "check_in_time": attendance.check_in_time.isoformat() if attendance.check_in_time else None,
-            "check_out_time": attendance.check_out_time.isoformat() if attendance.check_out_time else None,
+            "check_in_time": _iso_utc(attendance.check_in_time),
+            "check_out_time": _iso_utc(attendance.check_out_time),
             "status": attendance.status.value if attendance.status else None,
             "check_in_location": attendance.check_in_location,
             "check_out_location": attendance.check_out_location,
@@ -560,6 +561,13 @@ def today_attendance(
         }
     )
     return base
+
+
+def _iso_utc(dt: Optional[datetime]) -> Optional[str]:
+    """打卡时间入库为 UTC（naive），返回时补上时区标记，避免前端按本地时间解析。"""
+    if dt is None:
+        return None
+    return (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt).isoformat()
 
 
 @router.get("/me", response_model=List[Attendance])
@@ -576,6 +584,12 @@ def my_attendance(
         )
         .order_by(Attendance.date.desc())
     ).all()
+    # 入库时间为 UTC（naive），补上时区标记后再序列化，前端才能按本地时间正确显示
+    for record in records:
+        if record.check_in_time and record.check_in_time.tzinfo is None:
+            record.check_in_time = record.check_in_time.replace(tzinfo=timezone.utc)
+        if record.check_out_time and record.check_out_time.tzinfo is None:
+            record.check_out_time = record.check_out_time.replace(tzinfo=timezone.utc)
     return records
 
 
@@ -819,8 +833,8 @@ def admin_attendance_records(
                 {
                     "date": a.date.isoformat(),
                     "status": a.status.value,
-                    "check_in": a.check_in_time.isoformat() if a.check_in_time else None,
-                    "check_out": a.check_out_time.isoformat() if a.check_out_time else None,
+                    "check_in": _iso_utc(a.check_in_time),
+                    "check_out": _iso_utc(a.check_out_time),
                     "notes": a.notes,
                     "late_minutes": meta.get("late_minutes"),
                     "early_out_minutes": meta.get("early_out_minutes"),
@@ -858,8 +872,8 @@ class AttendanceCalibrateIn(BaseModel):
 
     date: date
     status: Optional[AttendanceStatus] = None
-    check_in_time: Optional[datetime] = None
-    check_out_time: Optional[datetime] = None
+    check_in_time: Optional[UtcInstant] = None
+    check_out_time: Optional[UtcInstant] = None
     notes: Optional[str] = None
 
 

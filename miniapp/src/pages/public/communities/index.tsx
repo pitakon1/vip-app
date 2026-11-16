@@ -10,6 +10,7 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { publicApi, unwrapPage, type PublicProject } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
+import { resolveMediaUrl } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
@@ -108,7 +109,7 @@ export default function PublicCommunitiesPage() {
           />
         </View>
 
-        <Text className='pub-count'>{t('pub.totalCount', { n: total })}</Text>
+        <Text className='pub-count'>{t('pub.communityCount', { n: total })}</Text>
 
         {loading ? (
           <StateBlock loading text={t('pub.loading')} />
@@ -137,7 +138,7 @@ export default function PublicCommunitiesPage() {
                   }
                 >
                   {project.cover ? (
-                    <Image className='pub-project__cover' src={project.cover} mode='aspectFill' />
+                    <Image className='pub-project__cover' src={resolveMediaUrl(project.cover) || ''} mode='aspectFill' />
                   ) : (
                     <View className='pub-project__nophoto'>
                       <Text>{t('pub.noPhoto')}</Text>

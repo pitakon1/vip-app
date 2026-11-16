@@ -13,7 +13,7 @@
  * - 只返回 `status=active` 的上架单；
  * - 除留资（`inquiry`）外全部是只读接口。
  */
-import { request } from '@/lib/api'
+import { buildQuery, request } from '@/lib/api'
 
 // 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
 declare const API_BASE: string
@@ -402,37 +402,13 @@ export const publicApi = {
   /**
    * 公开房源列表（服务端分页 + 筛选；school_id 走空间筛选并按距离排序）。
    *
-   * `keywords` / `property_type` / `amenity` 单独拼到 URL 上：Taro 的 GET 序列化对数组
-   * 用下标格式（`property_type[0]=office`），而 FastAPI 的 `List[str] = Query(...)` 只认重复键
-   * （`property_type=office&property_type=shop`），混在一起传会被后端**静默忽略**——
-   * 表现为「商铺办公/厂房入口勾选了类型、列表却完全没变」，且无任何报错。
+   * 所有查询参数（含数组型 keywords / property_type / amenity）都经 buildQuery 拼进 URL：
+   * Taro 的 GET 一旦同时传 data，会重新序列化整条查询串并把重复键折叠成最后一个值，
+   * 后端 `List[str] = Query(...)` 只认重复键，于是筛选「勾了却完全没变」甚至列表恒为空。
    */
   listings: (params?: PublicListingQuery) => {
-    const { keywords, property_type, amenity, ...rest } = params ?? {}
-    // 小程序 wx.request 会把 undefined/null 序列化成字符串 "undefined"/"null"，
-    // 后端 Pydantic 校验 `listing_type` 枚举与 `price_min` 数值时直接 422，
-    // 表现为「房源列表永远加载失败、共 0 套」。公开查询里这些「未填」的键必须剔除。
-    const clean = Object.fromEntries(
-      Object.entries(rest).filter(([, v]) => v !== undefined && v !== null && v !== '')
-    )
-    const query = (
-      [
-        ['keywords', keywords],
-        ['property_type', property_type],
-        ['amenity', amenity]
-      ] as const
-    )
-      .flatMap(([key, list]) =>
-        Array.isArray(list)
-          ? list.filter(Boolean).map((v) => `${key}=${encodeURIComponent(String(v))}`)
-          : []
-      )
-      .join('&')
-    return request<any>({
-      url: `${PUBLIC}/listings${query ? `?${query}` : ''}`,
-      method: 'GET',
-      data: clean
-    })
+    const qs = buildQuery(params as Record<string, unknown>)
+    return request<any>({ url: `${PUBLIC}/listings${qs ? `?${qs}` : ''}`, method: 'GET' })
   },
   /** 公开房源详情 */
   listing: (id: string) => request<any>({ url: `${PUBLIC}/listings/${id}` }),
@@ -442,15 +418,12 @@ export const publicApi = {
   /**
    * 区域聚合（找房/分类页「区域」筛选的真实数据面）。
    *
-   * `property_type` 与 listings 同理单独拼重复键：Taro 的 GET 序列化对数组用下标
-   * 格式，FastAPI 的 `List[str] = Query(...)` 只认重复键，混在 data 里传会被静默忽略。
+   * `property_type` 是数组，与 listings 同理必须整串走 URL：
+   * 同时传 data 会让 Taro 重排查询串并折叠重复键，后端只会收到最后一个类型。
    */
   districts: (params?: { city?: string; listing_type?: 'rent' | 'sell'; property_type?: string[] }) => {
-    const { property_type, ...rest } = params ?? {}
-    const query = Array.isArray(property_type)
-      ? property_type.filter(Boolean).map((v) => `property_type=${encodeURIComponent(String(v))}`).join('&')
-      : ''
-    return request<any>({ url: `${PUBLIC}/districts${query ? `?${query}` : ''}`, method: 'GET', data: rest })
+    const qs = buildQuery(params as Record<string, unknown>)
+    return request<any>({ url: `${PUBLIC}/districts${qs ? `?${qs}` : ''}`, method: 'GET' })
   },
   /** 城市聚合（key 为 slug 化形态，匹配 cityKey 前须 slugCity） */
   cities: () => request<any>({ url: `${PUBLIC}/cities`, method: 'GET' }),

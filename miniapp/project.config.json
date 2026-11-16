@@ -2,9 +2,9 @@
   "miniprogramRoot": "./dist",
   "projectname": "rental-miniapp",
   "description": "房地产租赁管理系统小程序",
-  "appid": "touristappid",
+  "appid": "wxc4b43b510362e4b3",
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": false,
     "enhance": false,
     "postcss": false,

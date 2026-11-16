@@ -76,6 +76,22 @@ export default function ContractList({
                   <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(c.id)}>
                     <td>
                       <div className="rent-text-bold">{c.title}</div>
+                      {(c.contract_no || c.lease_no || c.amount != null || c.created_at) && (
+                        <div className="rent-text-sm rent-text-muted" style={{ marginTop: 2 }}>
+                          {[
+                            c.contract_no ? `${t('contracts.contractNo')}: ${c.contract_no}` : '',
+                            c.lease_no ? `${t('contracts.linkedLease')}: ${c.lease_no}` : '',
+                            c.amount != null
+                              ? `${t('contracts.monthlyRent')}: ${c.currency || 'THB'} ${Number(c.amount).toLocaleString()}`
+                              : '',
+                            c.created_at
+                              ? `${t('contracts.createdAt')}: ${new Date(c.created_at).toLocaleDateString()}`
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </div>
+                      )}
                       {c.document_hash && (
                         <div className="rent-text-sm rent-text-muted">hash: {c.document_hash.slice(0, 16)}…</div>
                       )}

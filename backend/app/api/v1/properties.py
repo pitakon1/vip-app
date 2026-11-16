@@ -30,6 +30,10 @@ from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.uploads import detect_image_mime, save_upload
 from app.models import (
     Property,
+    PropertyBinding,
+    PropertyBindingKind,
+    PropertyBindingStatus,
+    PropertyReviewStatus,
     PropertyStatus,
     Lease,
     LeaseStatus,
@@ -310,8 +314,8 @@ def _ensure_owner_access(user: User, prop: Property, session: Session) -> None:
         if prop.created_by is None or prop.created_by != user.id:
             raise HTTPException(status_code=403, detail="只能操作自己添加的房源")
         return
-    if role != UserRole.owner.value:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # C 端统一身份：不再以 role 判断，而是以「是否有 Owner 档案 + 房源是否归属该档案」
+    # 判权。审核通过的租客同样可以管理自己名下的房源。
     owner = session.exec(
         select(Owner).where(
             Owner.user_id == user.id,
@@ -880,7 +884,15 @@ def create_property(
     """
     payload = req.model_dump()
     role = _role_value(user)
-    if role == UserRole.owner.value:
+    is_c_end = role not in {
+        UserRole.admin.value,
+        UserRole.agent.value,
+        UserRole.employee.value,
+    }
+    if is_c_end:
+        # C 端统一身份：不再要求「先有审核通过的绑定」才能录房。
+        # 房源先以 review_status=pending 落库并生成一条绑定审核申请，
+        # 审核通过前不对外展示、不能被搜索、也不能挂牌。
         owner = session.exec(
             select(Owner).where(
                 Owner.user_id == user.id,
@@ -888,11 +900,12 @@ def create_property(
             )
         ).first()
         if not owner:
-            raise HTTPException(status_code=404, detail="Owner profile not found")
+            owner = Owner(user_id=user.id)
+            session.add(owner)
+            session.flush()
         payload["owner_id"] = owner.id
+        payload["review_status"] = PropertyReviewStatus.pending
     else:
-        if role not in {UserRole.admin.value, UserRole.agent.value, UserRole.employee.value}:
-            raise HTTPException(status_code=403, detail="Access denied")
         if not payload.get("owner_id"):
             raise HTTPException(status_code=400, detail="owner_id is required")
         # 内部角色可以代客录房，但 owner_id 必须是**真实存在且未软删除**的业主。
@@ -919,16 +932,57 @@ def create_property(
         room_number=payload["room_number"],
         address=payload.get("address") or "",
     )
-    if dedupe["existing"] is not None:
-        raise HTTPException(status_code=409, detail="该房源已存在于系统中，请勿重复建档")
-    # 未命中：把去重定位字段一并落库，与列表查/发布链路的唯一口径保持一致
-    payload["dedupe_type"] = dedupe["dedupe_type"]
-    payload["dedupe_key"] = dedupe["dedupe_key"]
-    payload["address_norm"] = dedupe["address_norm"]
-    # 对外房源编号（FY+YYYYMM+6 位序号）：先取号再构造实体，避免取号重试回滚冲掉写入
-    payload["listing_no"] = next_no(session, "FY")
-    prop = Property(**payload)
-    session.add(prop)
+    existing = dedupe["existing"]
+    if existing is not None:
+        # C 端：命中自己上一轮被驳回、尚未审核通过的房源时复用同一条记录，
+        # 避免重复建档 / 撞 dedupe_key 唯一索引；其余命中一律提示走「认领」。
+        reusable = (
+            is_c_end
+            and existing.review_status == PropertyReviewStatus.pending
+            and existing.created_by == user.id
+        )
+        if not reusable:
+            raise HTTPException(
+                status_code=409,
+                detail="该房源已存在于系统中，请勿重复建档（如需认领请在「添加我的房产」中选择该房源）",
+            )
+        for key, value in payload.items():
+            if key == "review_status":
+                continue
+            if hasattr(Property, key):
+                setattr(existing, key, value)
+        existing.review_status = PropertyReviewStatus.pending
+        if not existing.listing_no:
+            existing.listing_no = next_no(session, "FY")
+        session.add(existing)
+        session.flush()
+        prop = existing
+    else:
+        # 未命中：把去重定位字段一并落库，与列表查/发布链路的唯一口径保持一致
+        payload["dedupe_type"] = dedupe["dedupe_type"]
+        payload["dedupe_key"] = dedupe["dedupe_key"]
+        payload["address_norm"] = dedupe["address_norm"]
+        # 对外房源编号（FY+YYYYMM+6 位序号）：先取号再构造实体，避免取号重试回滚冲掉写入
+        payload["listing_no"] = next_no(session, "FY")
+        prop = Property(**payload)
+        session.add(prop)
+        session.flush()
+    if is_c_end:
+        # 审核准入：C 端录入的房源统一生成待审申请，进入后台审核队列
+        session.add(
+            PropertyBinding(
+                user_id=user.id,
+                kind=PropertyBindingKind.new,
+                status=PropertyBindingStatus.pending,
+                address=prop.address,
+                room_number=prop.room_number,
+                size_sqm=prop.size_sqm,
+                property_type=prop.property_type,
+                note=prop.description,
+                attachments=None,
+                property_id=prop.id,
+            )
+        )
     session.commit()
     session.refresh(prop)
     delete_cache_pattern("cache:properties:*")
@@ -1154,7 +1208,7 @@ def update_property(
     if role == UserRole.owner.value:
         # 业主不可通过 PATCH 转移房源归属
         update_data.pop("owner_id", None)
-    ensure_version(prop, update_data.pop("version", None), "房源")
+    ensure_version(prop, update_data.pop("version", None), "房源", session=session)
     # 必须在覆盖之前抓旧月租：改完就再也拿不到「原价」，降价判定依赖它
     old_rent = prop.monthly_rent
     for key, value in update_data.items():

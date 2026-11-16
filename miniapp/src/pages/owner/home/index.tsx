@@ -445,7 +445,7 @@ export default function OwnerHomePage() {
               <Text className='section-head__title'>{t('ownerHome.myListings')}</Text>
               <Text
                 className='section-head__link'
-                onClick={() => go('/pages/tenant/listings/index')}
+                onClick={() => go('/pages/staff/listings/index')}
               >
                 {t('ownerHome.viewAllListings', { n: listings.length })}
               </Text>
@@ -465,7 +465,7 @@ export default function OwnerHomePage() {
                       key={l.id}
                       className='entity-row'
                       hoverClass='entity-row--hover'
-                      onClick={() => go('/pages/tenant/listings/index')}
+                      onClick={() => go('/pages/staff/listings/index')}
                     >
                       <View className={`entity-row__icon entity-row__icon--${st.cls}`}>
                         <View

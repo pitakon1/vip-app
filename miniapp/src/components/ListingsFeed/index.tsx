@@ -18,12 +18,15 @@ import type { MetroLine } from '@/data/locationMetro'
 import type { DistrictOptionNode } from '@/lib/categoryShared'
 import { AREA_TIERS_5, PRICE_TIERS } from '@/constants/filters'
 import { EARTH_RADIUS_KM } from '@/constants/location'
+import { resolveMediaUrl } from '@/lib/api'
 import { useI18n } from '@/i18n'
 
 // ==================== 类型 ====================
 export interface Listing {
   id: string
   title?: string
+  // 后端房源没有 title 字段，对外可读名称是 project_name（与 Web 卡片口径一致）
+  project_name?: string
   room_number?: string
   address?: string
   property_type?: string
@@ -261,8 +264,11 @@ const matchArea = (sqm: number, min: number, max: number): boolean => {
   return true
 }
 
-// 命中关键词：房源地址/标题任一包含即可
+// 命中关键词：房源地址/标题任一包含即可。
+// 空关键词数组表示「不限制」——找房页的筛选已由服务端完成，这里传空数组，
+// 若按 `[].some()` 处理会恒为 false，把整页房源全部过滤掉（表现为「暂无房源」）。
 const matchLocation = (item: any, kws: string[]): boolean =>
+  !kws.length ||
   kws.some((k) =>
     [item.address, item.title, item.room_number, item.city, item.district, item.area]
       .filter(Boolean)
@@ -1224,7 +1230,10 @@ export default function ListingsFeed(props: ListingsFeedProps) {
           </View>
         )}
         {items.map((item) => {
-          const photo = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : ''
+          // 公开接口有时只给封面 `cover`（photos 为 null），此前忽略 cover 会误显示「暂无图片」
+          const photo = Array.isArray(item.photos) && item.photos.length
+            ? resolveMediaUrl(item.photos[0])
+            : resolveMediaUrl(item.cover) || ''
           const statusMeta = statusMetaOf(t, item.status)
           // 租售混合档案在出租 Tab 下按租金展示，只有买房 Tab 才用售价
           const isSaleItem = biz === 'sale' && Number(item.sale_price) > 0
@@ -1262,7 +1271,7 @@ export default function ListingsFeed(props: ListingsFeedProps) {
                 </View>
               </View>
               <View className='house-info'>
-                <Text className='house-title'>{item.title || item.room_number || t('prop.unnamed')}</Text>
+                <Text className='house-title'>{item.title || item.project_name || item.room_number || t('prop.unnamed')}</Text>
                 <Text className='house-addr'>{item.address || t('tl.noAddress')}</Text>
                 <View className='house-tags'>
                   {cardTags.map((tag) => (

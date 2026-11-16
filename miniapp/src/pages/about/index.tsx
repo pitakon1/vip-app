@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { companyApi } from '@/services/api'
+import { resolveMediaUrl } from '@/lib/api'
 import { iconStyle } from '@/utils/icons'
 import { useI18n } from '@/i18n'
 import './index.scss'
@@ -76,7 +77,7 @@ export default function AboutPage() {
       {/* 品牌区：图标 + 名称 + 标语 */}
       <View className='about-brand'>
         {info.logo_url ? (
-          <Image className='about-logo' src={info.logo_url} mode='aspectFill' />
+          <Image className='about-logo' src={resolveMediaUrl(info.logo_url) || ''} mode='aspectFill' />
         ) : (
           <View className='about-logo about-logo--fallback'>
             <View className='icon-svg' style={iconStyle('building', 72)} />

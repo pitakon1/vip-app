@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import Column, String
 from sqlmodel import Field
 
 from .base import TimestampMixin
@@ -40,6 +41,13 @@ class User(TimestampMixin, table=True):
 
     email: str = Field(unique=True, index=True)
     phone: Optional[str] = Field(default=None, index=True)
+    # 归一化手机号（E.164）：注册/绑定/改号时写入，用于唯一约束与索引查询。
+    # 历史数据由 scripts/backfill_phone_normalized.py 回填；无法解析的号码保持 NULL，
+    # 查询侧仍会兜底扫描 NULL 行（集合随回填推进而缩小，不会长期全表扫描）。
+    phone_normalized: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(20), nullable=True, unique=True, index=True),
+    )
     # 小程序微信登录态：code2session 返回的 openid。占位邮箱 `wx{openid}@wx.local`
     wechat_openid: Optional[str] = Field(default=None, index=True)
     hashed_password: str

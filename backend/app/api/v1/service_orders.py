@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import STAFF_ROLES, get_current_user
+from app.core.datetime_utils import UtcInstant
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.services.pricing import service_quote
@@ -48,7 +49,7 @@ class ServiceOrderCreate(BaseModel):
     orderer_type: str  # owner/tenant
     property_id: uuid.UUID
     service_type: ServiceType
-    scheduled_at: Optional[datetime] = None
+    scheduled_at: Optional[UtcInstant] = None
     provider_id: Optional[str] = None
     amount: float = Field(default=0, ge=0)
     currency: str = "THB"
@@ -66,8 +67,8 @@ class ServiceOrderStatusUpdate(BaseModel):
 
     status: ServiceOrderStatus
     provider_id: Optional[str] = None
-    scheduled_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    scheduled_at: Optional[UtcInstant] = None
+    completed_at: Optional[UtcInstant] = None
     notes: Optional[str] = None
 
 

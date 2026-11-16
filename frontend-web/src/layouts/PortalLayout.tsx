@@ -1,9 +1,10 @@
-import { useMemo, useEffect, startTransition } from 'react'
+import { useMemo, useEffect, startTransition, useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Dropdown } from 'antd'
+import { Dropdown, Form, Input, Modal, message } from 'antd'
 import type { MenuProps } from 'antd'
 import useAuthStore from '@/stores/auth'
+import { authApi } from '@/services/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import NotificationsBell from '@/components/NotificationsBell'
 import { ROLE_SECTIONS, C_PORTAL_NAV_KEYS, resolveLabelKey } from '@/config/roleMenus'
@@ -55,6 +56,11 @@ const PortalLayout = () => {
   const { user, logout } = useAuthStore()
   const { t } = useTranslation()
 
+  // D-06：C 端（业主 / 租客）也开放修改密码入口
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [pwdSaving, setPwdSaving] = useState(false)
+  const [pwdForm] = Form.useForm()
+
   const nav = useMemo(() => buildNav(t), [t])
 
   const selectedKey = useMemo(() => {
@@ -93,7 +99,37 @@ const PortalLayout = () => {
     })
   }
 
+  const submitPassword = async () => {
+    try {
+      const values = await pwdForm.validateFields()
+      setPwdSaving(true)
+      await authApi.changePassword({
+        old_password: values.old_password,
+        new_password: values.new_password,
+      })
+      setPwdOpen(false)
+      pwdForm.resetFields()
+      message.success(t('common.pwdChanged'))
+      // 改密后旧令牌全部失效，直接回登录页，避免后续请求 401
+      logout()
+      navigate('/login', { replace: true })
+    } catch (e: any) {
+      if (e?.errorFields) return
+      message.error(e?.response?.data?.detail || t('common.pwdChangeFailed'))
+    } finally {
+      setPwdSaving(false)
+    }
+  }
+
   const userMenu: MenuProps['items'] = [
+    {
+      key: 'changePassword',
+      label: t('common.changePassword'),
+      onClick: () => {
+        pwdForm.resetFields()
+        setPwdOpen(true)
+      },
+    },
     {
       key: 'logout',
       label: t('common.logout'),
@@ -156,6 +192,53 @@ const PortalLayout = () => {
       <main className="rent-portal__main">
         <Outlet />
       </main>
+
+      <Modal
+        title={t('common.changePassword')}
+        open={pwdOpen}
+        onOk={submitPassword}
+        confirmLoading={pwdSaving}
+        onCancel={() => setPwdOpen(false)}
+        okText={t('common.confirm')}
+        cancelText={t('common.cancel')}
+        destroyOnHidden
+      >
+        <Form form={pwdForm} layout="vertical">
+          <Form.Item
+            name="old_password"
+            label={t('common.oldPassword')}
+            rules={[{ required: true, message: t('common.pwdIncomplete') }]}
+          >
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            name="new_password"
+            label={t('common.newPassword')}
+            rules={[
+              { required: true, message: t('common.pwdIncomplete') },
+              { min: 6, message: t('common.pwdTooShort') },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            name="confirm_password"
+            label={t('common.confirmPassword')}
+            dependencies={['new_password']}
+            rules={[
+              { required: true, message: t('common.pwdIncomplete') },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('new_password') === value) return Promise.resolve()
+                  return Promise.reject(new Error(t('common.pwdMismatch')))
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

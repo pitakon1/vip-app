@@ -18,6 +18,7 @@ import DataState from '@/components/DataState'
 import { formatMoney } from '@/lib/money'
 import { chartTheme } from '@/lib/chartTheme'
 import { useCachedQuery } from '@/lib/queryCache'
+import { channelLabel } from '@/pages/Payments/constants'
 import './dashboard.css'
 
 ChartJS.register(
@@ -476,7 +477,7 @@ const Dashboard = () => {
       tenant: p.payer_name || '—',
       amount: formatMoney(p.amount),
       date: p.paid_at ? dayjs(p.paid_at).format('YYYY-MM-DD') : p.created_at ? dayjs(p.created_at).format('YYYY-MM-DD') : '—',
-      method: p.channel || PAY_TYPE_TEXT[p.payment_type ?? ''] || '—',
+      method: p.channel ? channelLabel(p.channel, t) : (PAY_TYPE_TEXT[p.payment_type ?? ''] || '—'),
       status: st.tone,
       statusText: st.text,
     }

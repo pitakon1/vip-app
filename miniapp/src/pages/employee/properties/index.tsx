@@ -8,6 +8,7 @@ import { publicApi, type PublicSchool } from '@/services/publicApi'
 import { AREA_GROUPS } from '@/data/locationArea'
 import { AREA_TIERS_5, PRICE_TIERS, SCHOOL_RADIUS_OPTIONS } from '@/constants/filters'
 import { buildListingPayload } from '@/lib/listingPayload'
+import { resolveMediaUrl } from '@/lib/api'
 import { errorText } from '@/lib/errorText'
 import { useI18n } from '@/i18n'
 import '@/styles/filter-panel.scss'
@@ -808,7 +809,7 @@ export default function EmployeePropertiesPage() {
         ) : (
           listings.map((it) => {
             const st = getStatus(it.status)
-            const photo = Array.isArray(it.photos) && it.photos.length ? it.photos[0] : ''
+            const photo = Array.isArray(it.photos) && it.photos.length ? resolveMediaUrl(it.photos[0]) || '' : ''
             const tags = tagsOf(it)
             return (
               <View

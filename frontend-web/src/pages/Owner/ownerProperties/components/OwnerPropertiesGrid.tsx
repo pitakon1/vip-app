@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import DataState from '@/components/DataState'
 import OwnerPropertyCard from './OwnerPropertyCard'
 import type { OwnerProperty } from '../types'
@@ -48,10 +49,17 @@ const OwnerPropertiesGrid = ({
       <DataState
         empty
         emptyTitle={t('ownerProperties.empty')}
+        emptySub={t('propertyBinding.noPropertySub')}
         emptyAction={
-          <button type="button" className="rent-btn rent-btn--primary rent-btn--sm" onClick={onCreate}>
-            {t('ownerProperties.createTitle')}
-          </button>
+          <div className="rent-flex rent-gap-2">
+            {/* C 端只有一种用户：没有房源时先引导绑定房产，再回来新建 */}
+            <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
+              {t('menu.addProperty')}
+            </Link>
+            <button type="button" className="rent-btn rent-btn--secondary rent-btn--sm" onClick={onCreate}>
+              {t('ownerProperties.createTitle')}
+            </button>
+          </div>
         }
       />
     )

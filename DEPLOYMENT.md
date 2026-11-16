@@ -318,3 +318,34 @@
 - 新用户首单常有 1–3 折活动，建议用新账号购买首单
 - 泰国本地服务（AIS/TrueMove）需用泰铢结算，汇率按 ฿1 ≈ ¥0.2 估算
 - 支付通道费率可随交易量增长与渠道商议价降低
+
+---
+
+## 九、环境变量：Google Maps Key 接入（2026-11-16）
+
+项目已有 Google Maps 能力：Web 端用 `@react-google-maps/api` 渲染地图/搜索/路线/逆地理编码，
+后端用 Geocoding API 做服务端地理编码与考勤定位。Key 按端拆分，**不要混用**。
+
+| 端 | 变量 | Key 类型 / 限制 | 现状 |
+| --- | --- | --- | --- |
+| Web（frontend-web） | `VITE_GOOGLE_MAPS_WEB_API_KEY` | HTTP 来源（Referer）限制 | 已接入并注入构建 |
+| App（mobile-app / Expo） | `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` | HTTP 来源限制 | 已留配置位；App 暂无地图渲染组件 |
+| App（Android） | `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY` | 未设应用限制 | 已留配置位（未接入地图库） |
+| App（iOS） | `EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY` | 未设应用限制 | 已留配置位（未接入地图库） |
+| 后端（服务端地理编码） | `GOOGLE_MAPS_SERVER_API_KEY` | 建议 IP 限制 | **暂空**；旧名 `GOOGLE_MAPS_API_KEY` 兼容回退 |
+| 小程序（miniapp） | 无 | 微信原生 `<Map>`（腾讯底图） | 不使用 Google Key，未接 Google 地图 |
+
+启动方式：
+- Web：把 `frontend-web/.env.example` 复制为 `frontend-web/.env` 并填 `VITE_GOOGLE_MAPS_WEB_API_KEY`，
+  `npm run dev`（改动 `.env` 后需重启 dev server 才生效）。
+- App：复制 `mobile-app/.env.example` 为 `.env`，填三个 `EXPO_PUBLIC_GOOGLE_MAPS_*`；
+  由于当前未安装 `expo-maps` / `react-native-maps`，变量只作为配置位，位置能力仍走
+  `GET /api/v1/geo/geocode`（后端）。后续接入地图库时还需在 `app.json` 增加平台 Key 配置。
+- 后端：复制 `backend/.env.example` 为 `.env`。服务端 Key 目前留空——在 Google Cloud
+  结算账号恢复「有效」并关联 Vip App 之前，真实调用会被拒（`You must enable Billing`），
+  配置了也无法验证；此时 geocode 走确定性站内 mock，不影响前端地图。
+
+说明：Key 已在 Google Cloud 的 `Vip App`（ace-slice-514907-c7）项目启用，共 8 个地图接口；
+在结算账号生效前，浏览器端可能看到 `ApiNotActivatedMapError` / `You must enable Billing`，
+属预期，不代表配置错误。前端未配置 Key 时会渲染「地图未配置」占位块，不会白屏。
+

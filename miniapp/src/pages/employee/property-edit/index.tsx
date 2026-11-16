@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { View, Text, Input, Textarea, Picker, Switch, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { propertiesApi } from '@/services/api'
-import { unwrapUploadResult } from '@/lib/api'
+import { unwrapUploadResult, resolveMediaUrl } from '@/lib/api'
 import { useI18n } from '@/i18n'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
@@ -491,7 +491,7 @@ export default function EmployeePropertyEditPage() {
             <View className='pe-photo-grid'>
               {form.photos.map((url: string, idx: number) => (
                 <View key={idx} className='pe-photo'>
-                  <Image className='pe-photo__img' src={url} mode='aspectFill' />
+                  <Image className='pe-photo__img' src={resolveMediaUrl(url) || ''} mode='aspectFill' />
                   <View
                     className='pe-photo__del'
                     onClick={() => removePhoto(url)}

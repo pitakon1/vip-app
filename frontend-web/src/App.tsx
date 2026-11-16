@@ -34,9 +34,10 @@ const MarketIntelligence = lazy(() => import('@/pages/MarketIntelligence'))
 // 我的上架单 / 经纪人在线签约
 const MyListings = lazy(() => import('@/pages/MyListings'))
 const BrokerAgreements = lazy(() => import('@/pages/BrokerAgreements'))
-// 运营管理：平台上架审核 / 去重审核队列
+// 运营管理：平台上架审核 / 去重审核队列 / 房产绑定审核
 const ListingReview = lazy(() => import('@/pages/ListingReview'))
 const DedupeReview = lazy(() => import('@/pages/DedupeReview'))
+const PropertyBindingReview = lazy(() => import('@/pages/PropertyBindingReview'))
 
 // 业主端专属页面（无租客对应）：仅换注册路径，统一挂在 /tenant/* 门户下
 const OwnerProperties = lazy(() => import('@/pages/Owner/Properties'))
@@ -46,6 +47,7 @@ const OwnerMarketing = lazy(() => import('@/pages/Owner/Marketing'))
 // C 端页面（业主 + 租客共用同一实现，数据差异按角色自然呈现）
 const TenantDashboard = lazy(() => import('@/pages/Tenant/Dashboard'))
 const TenantMy = lazy(() => import('@/pages/Tenant/My'))
+const TenantHelp = lazy(() => import('@/pages/Tenant/Help'))
 const TenantPropertyDetail = lazy(() => import('@/pages/Tenant/PropertyDetail'))
 const TenantPayments = lazy(() => import('@/pages/Tenant/Payments'))
 const TenantDocuments = lazy(() => import('@/pages/Tenant/Documents'))
@@ -54,8 +56,10 @@ const TenantMaintenance = lazy(() => import('@/pages/Tenant/Maintenance'))
 const TenantLeases = lazy(() => import('@/pages/Tenant/Leases'))
 const TenantLeaseDetail = lazy(() => import('@/pages/Tenant/LeaseDetail'))
 const TenantDeals = lazy(() => import('@/pages/Tenant/Deals'))
+const TenantFavorites = lazy(() => import('@/pages/Tenant/Favorites'))
 const TenantDealDetail = lazy(() => import('@/pages/Tenant/DealDetail'))
 const TenantContracts = lazy(() => import('@/pages/Tenant/Contracts'))
+const TenantPropertyBinding = lazy(() => import('@/pages/Tenant/PropertyBinding'))
 
 // 员工端页面
 const EmployeeDashboard = lazy(() => import('@/pages/Employee/Dashboard'))
@@ -175,29 +179,29 @@ const App = () => {
             {/* 房源库/详情属 B 端，租客走门户壳（/tenant/listings、/tenant/properties/:id） */}
             <Route path="/properties" element={<ProtectedRoute denyRoles={['tenant']}><Properties /></ProtectedRoute>} />
             <Route path="/properties/detail/:id" element={<ProtectedRoute denyRoles={['tenant']}><PropertyDetail /></ProtectedRoute>} />
-            <Route path="/crm" element={<ProtectedRoute denyRoles={['tenant']}><CRM /></ProtectedRoute>} />
+            <Route path="/crm" element={<ProtectedRoute denyRoles={['tenant', 'owner']}><CRM /></ProtectedRoute>} />
             <Route path="/leases" element={<ProtectedRoute denyRoles={['tenant']}><Leases /></ProtectedRoute>} />
             <Route path="/payments" element={<ProtectedRoute denyRoles={['tenant']}><Payments /></ProtectedRoute>} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/contracts" element={<ProtectedRoute denyRoles={['tenant']}><Contracts /></ProtectedRoute>} />
             <Route path="/verify" element={<ProtectedRoute denyRoles={['tenant']}><Verify /></ProtectedRoute>} />
-            <Route path="/employees" element={<ProtectedRoute denyRoles={['tenant']}><Employees /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute denyRoles={['tenant']}><Settings /></ProtectedRoute>} />
-            <Route path="/viewings" element={<ProtectedRoute denyRoles={['tenant']}><Viewings /></ProtectedRoute>} />
-            <Route path="/trend" element={<ProtectedRoute denyRoles={['tenant']}><Trend /></ProtectedRoute>} />
-            <Route path="/commission-rules" element={<ProtectedRoute denyRoles={['tenant']}><CommissionRules /></ProtectedRoute>} />
-            <Route path="/audit-logs" element={<ProtectedRoute denyRoles={['tenant']}><AuditLogs /></ProtectedRoute>} />
+            <Route path="/employees" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'agent', 'partner_admin']}><Employees /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'agent', 'partner_admin']}><Settings /></ProtectedRoute>} />
+            <Route path="/viewings" element={<ProtectedRoute denyRoles={['tenant', 'owner']}><Viewings /></ProtectedRoute>} />
+            <Route path="/trend" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'agent', 'partner_admin']}><Trend /></ProtectedRoute>} />
+            <Route path="/commission-rules" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'agent', 'partner_admin']}><CommissionRules /></ProtectedRoute>} />
+            <Route path="/audit-logs" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'agent', 'partner_admin']}><AuditLogs /></ProtectedRoute>} />
             <Route path="/sale-deals" element={<ProtectedRoute denyRoles={['tenant']}><SaleDeals /></ProtectedRoute>} />
-            <Route path="/distribution" element={<ProtectedRoute denyRoles={['tenant']}><Distribution /></ProtectedRoute>} />
+            <Route path="/distribution" element={<ProtectedRoute denyRoles={['tenant', 'owner']}><Distribution /></ProtectedRoute>} />
             <Route path="/markets" element={<ProtectedRoute denyRoles={['tenant']}><Markets /></ProtectedRoute>} />
             <Route path="/market-intelligence" element={<ProtectedRoute denyRoles={['tenant']}><MarketIntelligence /></ProtectedRoute>} />
             <Route path="/company" element={<ProtectedRoute denyRoles={['tenant']}><Company /></ProtectedRoute>} />
 
             {/* 员工端路由：仅员工/管理员 */}
-            <Route path="/employee/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeDashboard /></ProtectedRoute>} />
-            <Route path="/employee/attendance" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeAttendance /></ProtectedRoute>} />
-            <Route path="/employee/performance" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeePerformance /></ProtectedRoute>} />
-            <Route path="/employee/contacts" element={<ProtectedRoute denyRoles={['tenant','owner','agent']}><EmployeeContacts /></ProtectedRoute>} />
+            <Route path="/employee/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner']}><EmployeeDashboard /></ProtectedRoute>} />
+            <Route path="/employee/attendance" element={<ProtectedRoute denyRoles={['tenant','owner']}><EmployeeAttendance /></ProtectedRoute>} />
+            <Route path="/employee/performance" element={<ProtectedRoute denyRoles={['tenant','owner']}><EmployeePerformance /></ProtectedRoute>} />
+            <Route path="/employee/contacts" element={<ProtectedRoute denyRoles={['tenant','owner']}><EmployeeContacts /></ProtectedRoute>} />
 
             {/* 系统管理：仅管理员（工单审核/账号管理需 admin 角色） */}
             <Route path="/system/users" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','partner_admin']}><SystemUsers /></ProtectedRoute>} />
@@ -222,9 +226,10 @@ const App = () => {
             <Route path="/my-listings" element={<ProtectedRoute denyRoles={['tenant','owner']}><MyListings /></ProtectedRoute>} />
             <Route path="/broker-agreements" element={<ProtectedRoute denyRoles={['tenant','owner']}><BrokerAgreements /></ProtectedRoute>} />
 
-            {/* 运营管理：平台上架审核 / 去重审核（仅 staff：admin/employee/agent） */}
+            {/* 运营管理：平台上架审核 / 去重审核 / 房产绑定审核（仅 staff：admin/employee/agent） */}
             <Route path="/operations/listing-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><ListingReview /></ProtectedRoute>} />
             <Route path="/operations/dedupe-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><DedupeReview /></ProtectedRoute>} />
+            <Route path="/operations/property-binding-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><PropertyBindingReview /></ProtectedRoute>} />
           </Route>
 
           {/* ===== C 端（业主 + 租客）门户 PortalLayout，无侧边栏 ===== */}
@@ -237,8 +242,11 @@ const App = () => {
           >
             <Route path="/tenant/dashboard" element={<TenantDashboard />} />
             <Route path="/tenant/my" element={<TenantMy />} />
+            <Route path="/tenant/help" element={<TenantHelp />} />
             <Route path="/tenant/properties/:id" element={<TenantPropertyDetail />} />
             <Route path="/tenant/listings" element={<PublicListings compact />} />
+            {/* 我的收藏：与 App / 小程序的收藏页对齐，避免 Web 只能收藏、无处查看 */}
+            <Route path="/tenant/favorites" element={<TenantFavorites />} />
             <Route path="/tenant/payments" element={<TenantPayments />} />
             <Route path="/tenant/documents" element={<TenantDocuments />} />
             <Route path="/tenant/services" element={<TenantServices />} />
@@ -250,11 +258,14 @@ const App = () => {
             <Route path="/tenant/contracts" element={<TenantContracts />} />
             {/* 签署方（租客/业主）也可对本人参与的合同验签 */}
             <Route path="/tenant/contracts/verify" element={<Verify />} />
-            {/* 业主功能页（无租客对应）：仅业主，租客一律拦回 /portal */}
-            <Route path="/tenant/my-properties" element={<ProtectedRoute denyRoles={['tenant']}><OwnerProperties /></ProtectedRoute>} />
-            <Route path="/tenant/income" element={<ProtectedRoute denyRoles={['tenant']}><OwnerIncome /></ProtectedRoute>} />
-            <Route path="/tenant/marketing" element={<ProtectedRoute denyRoles={['tenant']}><OwnerMarketing /></ProtectedRoute>} />
-            <Route path="/tenant/my-listings" element={<ProtectedRoute denyRoles={['tenant']}><MyListings /></ProtectedRoute>} />
+            {/* 业主功能页：C 端所有入口对全部登录用户可见（产品模型：只有一种 C 端用户）；
+                没有绑定房产时页面给空态 + 引导，写操作仍由后端按资源权限判权。 */}
+            <Route path="/tenant/my-properties" element={<OwnerProperties />} />
+            <Route path="/tenant/income" element={<OwnerIncome />} />
+            <Route path="/tenant/marketing" element={<OwnerMarketing />} />
+            <Route path="/tenant/my-listings" element={<MyListings />} />
+            {/* 添加我的房产：自助提交绑定申请，后台审核通过后才建立用户与房源关联 */}
+            <Route path="/tenant/property-binding" element={<TenantPropertyBinding />} />
           </Route>
 
           {/* ===== 404 兜底（未匹配路径）===== */}

@@ -13,6 +13,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useRouter } from '@tarojs/taro'
 import { publicApi, type PublicProjectDetail } from '@/services/publicApi'
 import { convertFromThb, loadRates, tenureLabel } from '@/lib/publicSite'
+import { resolveMediaUrl } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { useI18n } from '@/i18n'
 import PublicListingItem from '@/components/PublicListingItem'
@@ -105,7 +106,7 @@ export default function PublicCommunityDetailPage() {
     <View className='pub-page pub-page--detail'>
       <ShellHeader title={t('pub.communityListings')} showHome={false} />
       {project.cover ? (
-        <Image className='pub-cover' src={project.cover} mode='aspectFill' />
+        <Image className='pub-cover' src={resolveMediaUrl(project.cover) || ''} mode='aspectFill' />
       ) : null}
 
       <View className='pub-inner'>

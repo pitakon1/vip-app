@@ -246,7 +246,10 @@
 /* 移动端：侧栏改为抽屉 */
 @media (max-width: 768px) {
   .rent-app {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr)：1fr 的列最小宽度默认为 min-content，顶栏里的标题/按钮
+       会把整页撑宽（375px 实测溢出 6px），用 minmax(0,…) 允许收窄后再靠
+       标题省略号兜底。 */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "topbar" "main";
   }
   .rent-app__sidebar { display: none; }
@@ -263,12 +266,19 @@
   .rent-grid--4 { grid-template-columns: repeat(2, 1fr); }
   .rent-grid--3 { grid-template-columns: 1fr; }
   .rent-grid--2 { grid-template-columns: 1fr; }
+  /* 页头操作按钮（如「导出 / 新增楼盘 / 项目坐标 / 新增房源」）在窄屏换行，
+     否则 flex-shrink:0 会把按钮推出视口（375px 实测第 4 个按钮 left=356
+     right=468，完全点不到）。 */
+  .rent-page-header__actions { flex-wrap: wrap; flex-shrink: 1; max-width: 100%; }
   .rent-page-header__title { font-size: var(--rent-fs-xl); }
 }
 
 @media (max-width: 480px) {
   .rent-grid--4 { grid-template-columns: 1fr; }
   .rent-topbar { padding: 0 var(--rent-s-4); }
+  /* 标题可收缩（配合省略号），避免「汉堡 + 标题 + 语言/铃铛/头像」在 375 宽度溢出 */
+  .rent-topbar__left { flex: 1 1 auto; }
+  .rent-topbar__title { min-width: 0; }
   .rent-main { padding: var(--rent-s-3); }
   .rent-stat-card__value { font-size: var(--rent-fs-2xl); }
 }

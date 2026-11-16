@@ -10,6 +10,26 @@ export const API_BASE_URL: string =
     .process?.env?.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
   'http://localhost:8000/api/v1';
 
+/**
+ * 后端静态媒体源站（去掉 API 前缀）。
+ *
+ * 后端返回的房源封面/相册/头像等字段是**站内相对路径**（形如
+ * `/uploads/properties/x.jpg`），原生端拿到相对路径无法加载，Web 端会把它
+ * 解析成 Expo 开发服务器的地址（8081）而不是后端（8000），结果整站图片全挂。
+ * 渲染前统一经 `resolveMediaUrl` 补成绝对地址。
+ */
+export const API_ORIGIN: string = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
+/** 站内相对媒体路径补成绝对地址；外链/data/blob 原样返回。 */
+export const resolveMediaUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const value = String(url).trim();
+  if (!value) return null;
+  if (/^(https?:|data:|blob:|file:)/i.test(value)) return value;
+  if (value.startsWith('/')) return `${API_ORIGIN}${value}`;
+  return value;
+};
+
 /* 公开免登录签署页（`/sign/:token`）托管在 Web 站点，不在 App 内。
    后端 `_sign_url` 在未配置 PUBLIC_WEB_BASE_URL 时只返回相对路径（形如 `/sign/xxx`），
    App 直接复制给客户是打不开的（同理 Web 端有 absSignUrl、小程序有 toPublicSignUrl）。
@@ -97,7 +117,11 @@ async function refreshAccessToken(): Promise<string> {
 /** 并发 401 时共用一个刷新 Promise，避免打出刷新风暴。 */
 let refreshing: Promise<string> | null = null;
 
-type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+type RetriableConfig = InternalAxiosRequestConfig & {
+  _retried?: boolean;
+  /** 公开页的「增强型」请求：未登录/登录过期时只降级，不触发全局登出 */
+  skipAuthLogout?: boolean;
+};
 
 /**
  * 统一返回信封解包。
@@ -169,9 +193,18 @@ apiClient.interceptors.response.use(
     // 既不该静默续期，也不该触发全局登出——否则用户输错一次密码，
     // 已登录的会话会被一并清掉，且失败原因更容易被误导。
     const isCredentialCall = /\/auth\/(login|register|refresh)/.test(original?.url ?? '');
+    // 公开页的「增强型」请求（收藏/降价提醒状态等）：只影响该控件的展示，
+    // 不能因为令牌过期就把正在浏览公开房源的用户踢回登录页（与 Web / 小程序一致）。
+    const authOptional = original?.skipAuthLogout === true;
     // 访问令牌过期先静默续期再重放原请求，否则用户每次到期都会被弹回登录页、
     // 丢掉当前操作。此前没有任何续期逻辑，登录时拿到的 refresh_token 也从未落盘。
-    if (error.response?.status === 401 && original && !original._retried && !isCredentialCall) {
+    if (
+      error.response?.status === 401 &&
+      original &&
+      !original._retried &&
+      !isCredentialCall &&
+      !authOptional
+    ) {
       original._retried = true;
       try {
         refreshing = refreshing ?? refreshAccessToken().finally(() => { refreshing = null; });
@@ -183,7 +216,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    if (error.response?.status === 401 && !isCredentialCall) {
+    if (error.response?.status === 401 && !isCredentialCall && !authOptional) {
       // 通过 zustand store 重置认证状态，RootNavigator 会自动切换到登录页。
       // 登出内部会一并清掉 token 与用户态缓存，这里不必再单独 remove。
       useAuthStore.getState().logout();

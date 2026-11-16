@@ -31,7 +31,7 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -40,6 +40,7 @@ from fastapi import (
     Depends,
     File,
     HTTPException,
+    Query,
     Request,
     UploadFile,
 )
@@ -72,6 +73,7 @@ from app.models import (
     User, Contract, ContractStatus, ContractKind, ContractSource, ContractParty,
     ContractSignOrder, ContractCallbackEvent, ContractCallbackStatus,
     ContractCallbackSubscription,
+    ContractAuditLog,
     ContractSignAuthorization,
     ContractTemplate,
     ContractTemplateVersion,
@@ -81,6 +83,7 @@ from app.models import (
     ContractApprovalRequest,
     SignerRole, SignatureRecord, ContractSignField, SignFieldType, SignMethod,
     UserRole,
+    Lease,
 )
 from app.providers.notification.base import (
     NotificationChannel as ProviderChannel,
@@ -151,6 +154,11 @@ class ContractSummary(BaseModel):
 
     id: Optional[str] = None
     title: Optional[str] = None
+    contract_no: Optional[str] = None
+    lease_id: Optional[str] = None
+    lease_no: Optional[str] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
     kind: Optional[str] = None
     status: Optional[str] = None
     language: Optional[str] = None
@@ -1957,6 +1965,7 @@ def _emit_contract_callback(
     contract: Contract,
     event: str = "contract.signed",
     extra: Optional[dict] = None,
+    dedup_suffix: Optional[str] = None,
 ) -> None:
     """合同状态变化时生成并投递回调。
 
@@ -1991,6 +2000,9 @@ def _emit_contract_callback(
             if sub is not None
             else f"{contract.id}:{event}"
         )
+        if dedup_suffix:
+            # 同一事件按对象区分幂等键（如 party_signed 每个签署方各一条）
+            key = f"{key}:{dedup_suffix}"
         existing = session.exec(
             select(ContractCallbackEvent).where(
                 ContractCallbackEvent.idempotency_key == key
@@ -2886,6 +2898,21 @@ def decline_contract(
         contract.status = ContractStatus.rejected
         session.add(contract)
     session.commit()
+    # 单方拒签回调：即使流程未终止也通知，`contract.declined` 仍只在流程终止时发
+    try:
+        _emit_contract_callback(
+            session,
+            contract,
+            "party_declined",
+            extra={
+                "party_id": str(party.id),
+                "party_name": party.name,
+                "reason": reason or None,
+            },
+            dedup_suffix=str(party.id),
+        )
+    except Exception:  # noqa: BLE001  回调是旁路
+        logger.exception("contract.callback_emit_failed", extra={"contract_id": str(contract.id)})
     # 只有流程真正终止（无可签方）时才对外发 declined，避免部分拒签误触发下游终止
     if contract.status == ContractStatus.rejected:
         try:
@@ -3497,6 +3524,15 @@ def _finalize_party_signed(
         contract.status = ContractStatus.sent
     session.add(contract)
     session.commit()
+    # 单方签署回调：仅当合同尚未签完时发 party_signed；全部签完只发 contract.signed
+    if not fully_signed:
+        _emit_contract_callback(
+            session,
+            contract,
+            "party_signed",
+            extra={"party_id": str(party.id), "party_name": party.name},
+            dedup_suffix=str(party.id),
+        )
     if fully_signed:
         _activate_broker_role_if_agreement(session, contract)
         # 签署完成回调（出站 webhook）：失败只记事件，不影响签署结果
@@ -4158,6 +4194,11 @@ def _pdf_signature_health(contract: Contract) -> Optional[str]:
 
 @router.get("", response_model=List[ContractSummary])
 def list_contracts(
+    status: Optional[str] = Query(None, description="合同状态，如 sent/signed/rejected"),
+    kind: Optional[str] = Query(None, description="合同类型，如 lease/agency"),
+    date_from: Optional[date] = Query(None, description="创建时间起（含当天）"),
+    date_to: Optional[date] = Query(None, description="创建时间止（含当天）"),
+    q: Optional[str] = Query(None, description="标题关键字（不区分大小写）"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
@@ -4172,13 +4213,47 @@ def list_contracts(
     query = select(Contract).where(Contract.deleted_at.is_(None))
     if conditions:
         query = query.where(*conditions)
+    # 列表筛选（纯加法，不传时行为与之前完全一致）
+    if status:
+        try:
+            query = query.where(Contract.status == ContractStatus(status))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的合同状态")
+    if kind:
+        try:
+            query = query.where(Contract.kind == ContractKind(kind))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的合同类型")
+    if date_from:
+        query = query.where(Contract.created_at >= datetime.combine(date_from, time.min))
+    if date_to:
+        query = query.where(Contract.created_at <= datetime.combine(date_to, time.max))
+    if q and q.strip():
+        query = query.where(Contract.title.ilike(f"%{q.strip()}%"))
     contracts = session.exec(query.order_by(Contract.created_at.desc())).all()
+    # D-07：列表卡片需要展示合同编号 / 关联租约 / 金额（月租金）/ 时间。
+    # 租约信息一次性批量取出，避免逐条查库。
+    lease_ids = {c.lease_id for c in contracts if c.lease_id}
+    leases = {
+        lease.id: lease
+        for lease in (
+            session.exec(select(Lease).where(Lease.id.in_(lease_ids))).all()
+            if lease_ids
+            else []
+        )
+    }
     is_staff = user.role in STAFF_ROLES
     items = []
     for c in contracts:
+        lease = leases.get(c.lease_id) if c.lease_id else None
         item = {
             "id": str(c.id),
             "title": c.title,
+            "contract_no": c.contract_no,
+            "lease_id": str(c.lease_id) if c.lease_id else None,
+            "lease_no": lease.lease_no if lease else None,
+            "amount": lease.monthly_rent if lease else None,
+            "currency": lease.currency if lease else None,
             "kind": c.kind.value if c.kind else "lease",
             "source": c.source.value if c.source else "generated",
             "status": c.status.value,
@@ -4403,6 +4478,44 @@ def get_contract_pdf_page(
     except IndexError:
         raise HTTPException(status_code=404, detail="Page out of range")
     return Response(content=png, media_type="image/png")
+
+
+@router.get("/{contract_id}/audit-logs")
+def list_contract_audit_logs(
+    contract_id: uuid.UUID,
+    limit: int = Query(100, ge=1, le=500),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """合同操作留痕（只读，最新在前）。
+
+    可见性沿用合同详情口径（不可见返回 404）；存量合同没有记录属正常现象，
+    该表只记录上线后的操作，不做回填。
+    """
+    contract = _get_visible_contract(session, user, contract_id)
+    logs = session.exec(
+        select(ContractAuditLog)
+        .where(ContractAuditLog.contract_id == contract.id)
+        .order_by(ContractAuditLog.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "id": str(item.id),
+            "action": item.action,
+            "result": item.result,
+            "actor_user_id": str(item.actor_user_id) if item.actor_user_id else None,
+            "actor_name": item.actor_name,
+            "actor_role": item.actor_role,
+            "target_type": item.target_type,
+            "target_id": item.target_id,
+            "ip": item.ip,
+            "detail": item.detail,
+            "error": item.error,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+        }
+        for item in logs
+    ]
 
 
 @router.get("/{contract_id}", response_model=ContractDetailResponse)

@@ -24,6 +24,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.config import settings
 from app.core.auth import require_role
 from app.core.envelope import register_envelope_middleware
+from app.core.cache import invalidate_aggregate_caches
 from app.core.error_handlers import rate_limited_response, register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.migrations import (
@@ -57,7 +58,8 @@ _DEFAULT_SECRET = "super-secret-key-change-in-production"
 # 第三方能力 -> (配置字段, 缺省时是否走 mock 降级)
 _INTEGRATION_PROBES = [
     ("AI 对话", "OPENAI_API_KEY", True),
-    ("地图/考勤定位", "GOOGLE_MAPS_API_KEY", True),
+    # 字段名可用 `|` 表示「任一已配置即视为可用」（如地图新旧两个 Key 名）
+    ("地图/考勤定位", "GOOGLE_MAPS_SERVER_API_KEY|GOOGLE_MAPS_API_KEY", True),
     ("翻译", "GOOGLE_TRANSLATE_API_KEY", True),
     ("电子签", "CONTRACT_SIGNING_SECRET", False),
 ]
@@ -196,7 +198,7 @@ def _run_startup_selfcheck() -> None:
     # 3) 第三方集成模式审计：缺失 Key 的能力走 mock/站内降级
     mock_enabled = []
     for name, field, has_mock_fallback in _INTEGRATION_PROBES:
-        if not getattr(settings, field, ""):
+        if not any(getattr(settings, f.strip(), "") for f in field.split("|")):
             mock_enabled.append(name if has_mock_fallback else f"{name}(需配置)")
     if mock_enabled:
         logger.warning(
@@ -333,6 +335,33 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+# 会让 dashboard / operations 聚合口径失真的写接口前缀。
+# 此前只有 properties / sale-listings / property-bindings 在写后清缓存，
+# 付款、租约、线索、员工、工单的写操作要等 60s TTL 自然过期，表现为
+# 「刚确认一笔收款，回看板还是旧数字」。这里在写操作成功后统一失效，
+# 覆盖后续新增的写端点，避免逐个端点补调用时漏掉。
+_AGGREGATE_CACHE_PREFIXES = (
+    "/api/v1/payments",
+    "/api/v1/leases",
+    "/api/v1/leads",
+    "/api/v1/employees",
+    "/api/v1/maintenance",
+)
+_MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+async def aggregate_cache_middleware(request: Request, call_next):
+    """写操作成功后失效聚合看板缓存（读接口与失败请求不触发）。"""
+    response = await call_next(request)
+    if (
+        request.method in _MUTATING_METHODS
+        and response.status_code < 400
+        and request.url.path.startswith(_AGGREGATE_CACHE_PREFIXES)
+    ):
+        invalidate_aggregate_caches()
+    return response
+
+
 # 1) 限流：全局默认限额（此前只定义了 limiter，从未启用）
 app.state.limiter = limiter
 app.add_middleware(BaseHTTPMiddleware, dispatch=rate_limit_middleware)
@@ -342,6 +371,9 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=metrics_middleware)
 
 # 3) 请求 ID 追踪
 app.add_middleware(BaseHTTPMiddleware, dispatch=request_id_middleware)
+
+# 3.5) 写操作后失效聚合缓存（dashboard / operations）
+app.add_middleware(BaseHTTPMiddleware, dispatch=aggregate_cache_middleware)
 
 # 4) 统一返回信封 {code, msg, data}（成功 JSON 响应）
 register_envelope_middleware(app)

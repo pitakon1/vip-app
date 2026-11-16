@@ -96,12 +96,16 @@ export default function TenantListingsPage() {
           ...(filterTypes.length ? { property_type: filterTypes } : {}),
           ...(isNew === undefined ? {} : { is_new_development: isNew })
         })
+        setServerTotal(Number(res?.total ?? res?.data?.total ?? 0) || 0)
         return pickList(res)
       },
       onError: () => Taro.showToast({ title: t('tl.loadListingsFailed'), icon: 'none' })
     })
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
+  // 服务端命中总数（按钮「查看 N 套房源」按真实总量展示；分页只加载当前页，
+  // 用已加载条数会在有第二页时把总数说小）
+  const [serverTotal, setServerTotal] = useState(0)
 
   // 顶部搜索栏 + 业务栏（由首页「出租/买房」入口带入参数初始化）
   const initialBiz: BizKey = router.params?.biz === 'buy' ? 'sale' : 'rent'
@@ -397,7 +401,7 @@ export default function TenantListingsPage() {
         favSet={favSet}
         favPending={favPending}
         onToggleFavorite={toggleFavorite}
-        resultCount={visibleList.length}
+        resultCount={serverTotal || visibleList.length}
         onGoMap={handleGoMap}
         onOpenDetail={openDetail}
       />

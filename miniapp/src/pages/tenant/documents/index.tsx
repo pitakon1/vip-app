@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { documentsApi } from '@/services/api'
-import { extractErrorMessage, unwrapUploadResult } from '@/lib/api'
+import { extractErrorMessage, unwrapUploadResult, resolveMediaUrl } from '@/lib/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import type { Document } from '@/types'
 import './index.scss'
@@ -171,27 +171,29 @@ export default function TenantDocumentsPage() {
   }
 
   const handlePreview = (doc: Document) => {
-    if (isImageName(doc.file_url) && doc.file_url) {
-      Taro.previewImage({ urls: [doc.file_url], current: doc.file_url })
+    const fileUrl = resolveMediaUrl(doc.file_url) || ''
+    if (isImageName(fileUrl) && fileUrl) {
+      Taro.previewImage({ urls: [fileUrl], current: fileUrl })
       return
     }
     Taro.showToast({ title: `${t('tenantDocs.preview')}${doc.title}`, icon: 'none' })
   }
 
   const handleDownload = async (doc: Document) => {
-    if (!doc.file_url) {
+    const fileUrl = resolveMediaUrl(doc.file_url) || ''
+    if (!fileUrl) {
       Taro.showToast({ title: t('tenantDocs.urlUnavailable'), icon: 'none' })
       return
     }
     Taro.showLoading({ title: t('tenantDocs.downloading'), mask: true })
     try {
-      const res = await Taro.downloadFile({ url: doc.file_url })
+      const res = await Taro.downloadFile({ url: fileUrl })
       Taro.hideLoading()
       if (res.statusCode !== 200) {
         Taro.showToast({ title: t('common.downloadFailed'), icon: 'none' })
         return
       }
-      if (isImageName(doc.file_url)) {
+      if (isImageName(fileUrl)) {
         await Taro.saveImageToPhotosAlbum({ filePath: res.tempFilePath })
         Taro.showToast({ title: t('tenantDocs.savedToAlbum'), icon: 'success' })
       } else {
@@ -257,7 +259,7 @@ export default function TenantDocumentsPage() {
               <View className='doc-head' onClick={() => handlePreview(doc)}>
                 <View className={`doc-icon ${typeIcon(doc.type)}`}>
                   {isImageName(doc.file_url) && doc.file_url ? (
-                    <Image className='doc-image' src={doc.file_url} mode='aspectFill' />
+                    <Image className='doc-image' src={resolveMediaUrl(doc.file_url) || ''} mode='aspectFill' />
                   ) : (
                     <View className='icon-svg' style={iconStyle('doc', 36)} />
                   )}

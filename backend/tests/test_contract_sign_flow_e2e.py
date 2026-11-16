@@ -13,7 +13,7 @@ import pathlib
 import sys
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -1077,7 +1077,8 @@ def test_share_link_token_tightening(api):
     assert r.status_code == 200, r.text
     token1 = r.json()["token"]
     assert r.json()["qr_data_url"].startswith("data:image/png;base64,")
-    ttl = datetime.fromisoformat(r.json()["expires_at"]) - datetime.utcnow()
+    # 出参瞬时时间统一带 Z（UTC），对比时也用带时区的 now，避免 naive/aware 相减报错
+    ttl = datetime.fromisoformat(r.json()["expires_at"]) - datetime.now(timezone.utc)
     assert timedelta(days=2, hours=23) < ttl <= timedelta(days=3, minutes=1), ttl
     assert TestClient(app).get(f"/api/v1/public/contract-sign/{token1}").status_code == 200
 
@@ -1097,7 +1098,8 @@ def test_share_link_token_tightening(api):
     )
     assert r.status_code == 200, r.text
     token2 = r.json()["token"]
-    ttl = datetime.fromisoformat(r.json()["expires_at"]) - datetime.utcnow()
+    # 出参瞬时时间统一带 Z（UTC），对比时也用带时区的 now，避免 naive/aware 相减报错
+    ttl = datetime.fromisoformat(r.json()["expires_at"]) - datetime.now(timezone.utc)
     assert timedelta(days=6, hours=23) < ttl <= timedelta(days=7, minutes=1), ttl
 
     # 重发即作废旧链接（旧 token 不再能打开签署页）
@@ -1225,7 +1227,7 @@ def test_callback_delivery_retry_and_idempotency(api, monkeypatch):
     client = api.login(staff)  # 恢复员工视角再查回调记录
     events = client.get(f"/api/v1/contracts/{cid}/callbacks").json()
     assert len(events) == 1
-    # 首投失败后进入计划重投（30s/2m/10m），不再是同步 3 连击
+    # 首投失败后进入计划重投（30s/5m/30m/2h/6h），不再是同步 3 连击
     assert events[0]["status"] == "pending" and events[0]["attempts"] == 1
     assert events[0]["next_attempt_at"]
     assert events[0]["idempotency_key"] == f"{cid}:contract.signed"
@@ -1346,7 +1348,10 @@ def test_callback_emits_declined_and_voided(api, monkeypatch):
     assert r.status_code == 200, r.text
     assert f"{cid}:contract.declined" in calls
     events = client.get(f"/api/v1/contracts/{cid}/callbacks").json()
-    assert [(e["event"], e["status"]) for e in events] == [("contract.declined", "delivered")]
+    assert sorted((e["event"], e["status"]) for e in events) == [
+        ("contract.declined", "delivered"),
+        ("party_declined", "delivered"),
+    ]
 
     cid2 = _generate(client)
     r = client.post(
@@ -2650,3 +2655,80 @@ def test_new_contract_generation_applies_seam_seal(api):
     pages = _seal_images_by_page(pdf_bytes)
     assert len(pages) == n
     assert all(rows for _, rows in pages), "新合同每一页都应带骑缝章"
+
+
+def test_contract_audit_logs_and_list_filters(api):
+    """B-02/B-04：合同操作留痕可读；列表支持状态筛选且非法状态返回 400。"""
+    staff = api.mk_user(UserRole.employee)
+    client = api.login(staff)
+    cid = _generate(client)
+
+    logs = client.get(f"/api/v1/contracts/{cid}/audit-logs").json()
+    assert any(item["action"] == "contract.create" for item in logs), logs
+    assert all(item["created_at"] for item in logs)
+
+    current = client.get(f"/api/v1/contracts/{cid}").json()["status"]
+    other = "signed" if current != "signed" else "draft"
+
+    ids_current = [c["id"] for c in client.get(
+        "/api/v1/contracts", params={"status": current}
+    ).json()]
+    assert cid in ids_current
+    ids_other = [c["id"] for c in client.get(
+        "/api/v1/contracts", params={"status": other}
+    ).json()]
+    assert cid not in ids_other
+
+    assert client.get(
+        "/api/v1/contracts", params={"status": "not-a-status"}
+    ).status_code == 400
+
+
+def test_partial_sign_emits_party_signed_callback(api, monkeypatch):
+    """B-12：多方合同任一方签完先发 party_signed（幂等键按签署方区分）。"""
+    import httpx as httpx_module
+
+    staff = api.mk_user(UserRole.employee)
+    tenant = api.mk_user(UserRole.tenant)
+    owner = api.mk_user(UserRole.owner)
+    client = api.login(staff)
+    cid = _generate(client)
+    tenant_party = _add_party(client, cid, name="张三", role="tenant", user_id=tenant.id)
+    owner_party = _add_party(client, cid, name="王五", role="landlord", user_id=owner.id)
+    _add_fields(
+        client,
+        cid,
+        [
+            {"party_id": tenant_party, "field_type": "signature", "page": 1,
+             "x": 20, "y": 88, "w": 22, "h": 8, "required": True},
+            {"party_id": owner_party, "field_type": "seal", "page": 1,
+             "x": 62, "y": 88, "w": 22, "h": 8, "required": True},
+        ],
+    )
+
+    assert client.post(
+        f"/api/v1/contracts/{cid}/callback", json={"url": "https://example.com/hook"}
+    ).status_code == 200
+
+    def boom(*args, **kwargs):
+        raise httpx_module.ConnectError("connection refused")
+
+    monkeypatch.setattr(httpx_module, "post", boom)
+    r = api.login(tenant).post(
+        f"/api/v1/contracts/{cid}/sign-batch",
+        json={
+            "party_id": tenant_party,
+            "items": [
+                {"page": 1, "x": 20, "y": 88, "w": 22, "h": 8,
+                 "method": "personal_handwrite",
+                 "signature_svg": SIGN_SVG, "image_data_url": _png_stamp()},
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["contract_status"] == "partially_signed"
+
+    client = api.login(staff)  # 恢复员工视角再查回调记录
+    events = client.get(f"/api/v1/contracts/{cid}/callbacks").json()
+    assert [e["event"] for e in events] == ["party_signed"], events
+    assert events[0]["idempotency_key"].startswith(f"{cid}:party_signed:")

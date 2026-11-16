@@ -41,7 +41,8 @@ export const useTenantPayments = () => {
 
   const filteredData = useMemo(() => {
     if (filter === 'all') return data
-    if (filter === 'pending') return data.filter((d) => isUnpaid(d.status) && !isOverdue(d))
+    // 待缴 = 所有未结清账单（含已逾期）；逾期是其中的子集，与 hero 合计口径一致
+    if (filter === 'pending') return data.filter((d) => isUnpaid(d.status))
     if (filter === 'overdue') return data.filter((d) => isOverdue(d))
     return data.filter((d) => normalizeStatus(d.status) === 'approved')
   }, [data, filter])
@@ -92,6 +93,7 @@ export const useTenantPayments = () => {
   const heroDue = firstPending?.due_date
     ? dayjs(firstPending.due_date).format(t('tenantPayments.dateDisplayFormat'))
     : ''
+  const heroOverdue = firstPending ? isOverdue(firstPending) : false
 
   return {
     data,
@@ -109,5 +111,6 @@ export const useTenantPayments = () => {
     heroCurrency,
     heroProperty,
     heroDue,
+    heroOverdue,
   }
 }

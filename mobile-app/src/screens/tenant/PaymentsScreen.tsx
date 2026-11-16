@@ -34,6 +34,25 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
+// 支付渠道码 → 展示文案。后端存的是枚举码（bank_transfer / promptpay …），
+// 凭证与发票文案此前直接把原始码拼进去，用户会看到 `bank_transfer`。
+const CHANNEL_KEY: Record<string, string> = {
+  bank_transfer: 'admPay.chBank',
+  wechat: 'pay.channelWechat',
+  stripe: 'pay.channelStripe',
+  alipay: 'admPay.chAlipay',
+};
+const channelText = (t: TFunc, code?: string | null): string => {
+  if (!code) return '-';
+  const key = CHANNEL_KEY[code];
+  if (key) return t(key);
+  return code
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+};
+
 interface Payment {
   id: string;
   amount?: number;
@@ -282,6 +301,13 @@ function TenantPaymentsView() {
     try {
       const res: any = await paymentsApi.pay(item.id, channelFor(item.currency));
       const data = res?.data ?? res;
+      // 渠道发起失败时后端仍返回 HTTP 200，但 ok=false 且支付单已置为 failed；
+      // 这里必须按失败处理，否则会把「发起失败」误报成「已提交支付」。
+      if (data?.ok === false) {
+        notify(t('pay.status.failed'), data?.error || t('prop.retryLater'));
+        void q.refetch({ cancelRefetch: false });
+        return;
+      }
       markProcessing(item.id);
       const resolution = resolvePayment(data);
       if (resolution.kind === 'url') {
@@ -311,7 +337,7 @@ function TenantPaymentsView() {
     try {
       const res: any = await paymentsApi.receipt(item.id);
       const r = res?.data ?? res;
-      const channel = r.channel || '-';
+      const channel = channelText(t, r.channel);
       const lines = [
         t('pay.receiptHeader'),
         t('pay.receiptNo', { no: (r.reference_no || item.id).slice(0, 16) }),
@@ -363,7 +389,7 @@ function TenantPaymentsView() {
         <Text style={styles.invMeta}>{t('pay.invoiceBillTo', { name: iv.bill_to?.name || '—' })}</Text>
         {!!iv.bill_to?.email && <Text style={styles.invMeta}>{t('pay.invoiceEmail', { email: iv.bill_to.email })}</Text>}
         {!!iv.description && <Text style={styles.invMeta}>{t('pay.invoiceItem', { item: iv.description })}</Text>}
-        <Text style={styles.invMeta}>{t('pay.invoiceMeta', { channel: iv.channel || '—', time: fmtDate(iv.paid_at, 'minute') })}</Text>
+        <Text style={styles.invMeta}>{t('pay.invoiceMeta', { channel: channelText(t, iv.channel), time: fmtDate(iv.paid_at, 'minute') })}</Text>
       </>
     );
   };
@@ -524,6 +550,14 @@ function OwnerPaymentsView() {
 
   // 业主应收 = 所有未结清（pending + overdue），与租客侧同一套 billBucket
   const dueTotal = payments.filter(isUnpaid).reduce((s, p) => s + Number(p.amount || 0), 0);
+  // D-03：待收与逾期分列。待收只含未过截止日的未结清账单，逾期单独统计，
+  // 两者相加仍等于「应收合计」，便于业主分别催缴。
+  const pendingOnlyTotal = payments
+    .filter((p) => billBucket(p) === 'pending')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const overdueTotal = payments
+    .filter((p) => billBucket(p) === 'overdue')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
 
   const monthPaid = useMemo(() => {
     const now = new Date();
@@ -611,10 +645,14 @@ function OwnerPaymentsView() {
           <View>
             <View style={styles.heroCard}>
               <Text style={styles.heroLabel}>{t('pay.ownerReceivable')}</Text>
-              <Text style={styles.heroAmount}>{formatMoney(dueTotal, ccy)}</Text>
+              <Text style={styles.heroAmount}>{formatMoney(pendingOnlyTotal, ccy)}</Text>
               <View style={styles.heroDivider} />
               <View style={styles.heroStats}>
                 <View><Text style={styles.heroStatLabel}>{t('pay.receivedThisMonth')}</Text><Text style={styles.heroStatVal}>{formatMoney(monthPaid, ccy)}</Text></View>
+                <View style={styles.heroStatRight}>
+                  <Text style={styles.heroStatLabel}>{t('pay.ownerOverdue')}</Text>
+                  <Text style={[styles.heroStatVal, overdueTotal > 0 && { color: colors.error }]}>{formatMoney(overdueTotal, ccy)}</Text>
+                </View>
                 <View style={styles.heroStatRight}><Text style={styles.heroStatLabel}>{t('pay.type.utility')}</Text><Text style={styles.heroStatVal}>{formatMoney(utilityTotal, ccy)}</Text></View>
               </View>
             </View>

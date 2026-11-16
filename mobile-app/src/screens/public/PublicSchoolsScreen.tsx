@@ -238,7 +238,7 @@ export default function PublicSchoolsScreen() {
         )}
       </View>
 
-      <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
+      <Text style={styles.count}>{t('pub.schoolCount', { n: total })}</Text>
 
       {loading || loadError || items.length === 0 ? (
         <ListState

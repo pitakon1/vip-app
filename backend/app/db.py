@@ -19,6 +19,19 @@ if _db_url.startswith("sqlite"):
         echo=settings.DEBUG,
         connect_args={"check_same_thread": False},
     )
+
+    # SQLite 默认**不校验**外键（PRAGMA foreign_keys 默认为 0），
+    # 于是模型里的 ForeignKey / ON DELETE 行为在开发库上全部失效：
+    # 可以插入指向不存在父行的记录，删除父行也不会报错或级联，
+    # 而生产 PostgreSQL 会直接拒绝。这里对每条新连接打开开关，
+    # 让本地/测试环境与生产的外键语义一致（已有孤儿数据不会被回溯校验）。
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_enable_foreign_keys(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 else:
     # PostgreSQL 模式（生产）
     from sqlalchemy.pool import QueuePool

@@ -153,7 +153,7 @@ export default function AdminPropertyDetailPage() {
             <Text className='apd-key-stat__label'>{t('prop.monthlyRent')}</Text>
           </View>
           <View className='apd-key-stat'>
-            <Text className='apd-key-stat__value'>{detail?.size_sqm || 0}㎡</Text>
+            <Text className='apd-key-stat__value'>{detail?.size_sqm ? `${Number(detail.size_sqm).toLocaleString()}${t('pub.sqm')}` : '-'}</Text>
             <Text className='apd-key-stat__label'>{t('prop.areaLabel')}</Text>
           </View>
           <View className='apd-key-stat'>

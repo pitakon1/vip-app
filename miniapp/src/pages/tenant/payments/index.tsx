@@ -21,10 +21,31 @@ interface Payment {
   description?: string
 }
 
+// 支付渠道码 → 展示文案。后端存枚举码（bank_transfer …），凭证/发票文案
+// 此前直接拼原始码，用户会看到 `bank_transfer`。
+const CHANNEL_KEY: Record<string, string> = {
+  bank_transfer: 'pay.chBankTransfer',
+  wechat: 'pay.chWechat',
+  alipay: 'pay.chAlipay',
+  stripe: 'pay.channelStripe',
+}
+const channelText = (
+  t: (k: string, p?: Record<string, string | number>) => string,
+  code?: string | null
+): string => {
+  if (!code) return '-'
+  const key = CHANNEL_KEY[code]
+  if (key) return t(key)
+  return code
+    .split('_')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 const buildTypeMap = (
   t: (k: string, p?: Record<string, string | number>) => string
-): Record<string, string> => ({
-  rent: t('pay.typeRent'),
+): Record<string, string> => ({  rent: t('pay.typeRent'),
   deposit: t('pay.typeDeposit'),
   commission: t('pay.typeCommission'),
   service_fee: t('pay.typeServiceFee'),
@@ -126,6 +147,13 @@ export default function TenantPaymentsPage() {
       const res: any = await paymentsApi.pay(pay.id, { channel: channelFor(pay.currency) })
       Taro.hideLoading()
       const data = res?.data || res
+      // 渠道发起失败时后端仍返回 HTTP 200，但 ok=false 且支付单已置为 failed；
+      // 必须按失败处理，否则会把「发起失败」误报成「已提交支付」（失败账单仍计欠费）
+      if (data?.ok === false) {
+        Taro.showToast({ title: data?.error || t('tpay.stFailed'), icon: 'none' })
+        void refresh()
+        return
+      }
       const checkoutUrl = data?.checkout_url ?? data?.qr_code ?? data?.qr ?? data?.url
       setData(payments.map((p) => (p.id === pay.id ? { ...p, status: 'processing' } : p)))
       if (checkoutUrl) {
@@ -154,8 +182,8 @@ export default function TenantPaymentsPage() {
         t('tpay.receiptAmount', { v: formatMoney(r.amount ?? pay.amount, r.currency ?? pay.currency) }),
         t('tpay.receiptType', { v: TYPE_MAP[r.payment_type || ''] || r.payment_type || '-' }),
         r.channel_transaction_id
-          ? t('tpay.receiptChannelId', { v: r.channel || '-', id: r.channel_transaction_id })
-          : t('tpay.receiptChannelPlain', { v: r.channel || '-' }),
+          ? t('tpay.receiptChannelId', { v: channelText(t, r.channel), id: r.channel_transaction_id })
+          : t('tpay.receiptChannelPlain', { v: channelText(t, r.channel) }),
         t('tpay.receiptPaidAt', { v: formatDate(r.paid_at ?? pay.paid_at) })
       ].join('\n')
       Taro.showModal({ title: t('tpay.receiptTitle'), content, showCancel: false, confirmText: t('common.gotIt') })
@@ -183,7 +211,7 @@ export default function TenantPaymentsPage() {
         t('tpay.invoiceBillTo', { v: inv?.bill_to?.name || '—' }),
         ...(inv?.bill_to?.email ? [t('tpay.invoiceEmail', { v: inv.bill_to.email })] : []),
         ...(inv?.description ? [t('tpay.invoiceItem', { v: inv.description })] : []),
-        t('tpay.invoiceChannel', { v: inv.channel || '-' }),
+        t('tpay.invoiceChannel', { v: channelText(t, inv.channel) }),
         t('tpay.invoiceIssuedAt', { v: formatDate(inv.paid_at ?? pay.paid_at) })
       ].join('\n')
       Taro.showModal({ title: t('tpay.invoiceTitle'), content, showCancel: false, confirmText: t('common.gotIt') })

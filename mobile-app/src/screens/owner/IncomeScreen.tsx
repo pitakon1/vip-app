@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
@@ -17,6 +19,7 @@ import { fmtMoney } from '@/utils/format';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useI18n } from '@/i18n';
+import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 type IncomeStatus = 'received' | 'pending' | 'overdue';
@@ -79,6 +82,7 @@ interface IncomePayload {
 
 export default function IncomeScreen() {
   const { t } = useI18n();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const uid = user?.id ?? 'anon';
   const year = new Date().getFullYear();
@@ -135,8 +139,13 @@ export default function IncomeScreen() {
   );
 
   /* ===== Hero 口径 ===== */
-  const currentBucket = months.length ? months[months.length - 1] : null;
-  const prevBucket = months.length > 1 ? months[months.length - 2] : null;
+  // by_month 只包含「有账单的月份」，直接取最后一个桶会把上个月（或更早）的
+  // 收入当成「本月收入」。这里按当前自然月精确取桶，无数据时为 0。
+  const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const nowDate = new Date();
+  const prevDate = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
+  const currentBucket = months.find((m) => m.month === monthKey(nowDate)) ?? null;
+  const prevBucket = months.find((m) => m.month === monthKey(prevDate)) ?? null;
   const monthIncome = Number(currentBucket?.received ?? 0);
   const prevIncome = Number(prevBucket?.received ?? 0);
   const momPct = prevIncome > 0 ? Math.round(((monthIncome - prevIncome) / prevIncome) * 100) : null;
@@ -146,10 +155,15 @@ export default function IncomeScreen() {
     Number(annual?.totals?.pending ?? summary.receivable_total ?? 0) +
     Number(annual?.totals?.overdue ?? summary.overdue_total ?? 0);
 
-  const filtered = useMemo(
-    () => (filter === 'all' ? records : records.filter((r) => r.status === filter)),
-    [records, filter],
-  );
+  const filtered = useMemo(() => {
+    if (filter === 'all') return records;
+    // D-02：KPI「待收」= 全部未付账单（pending + overdue），
+    // 明细筛选必须同口径，否则未付账单全是逾期时「待收」会显示 0 条。
+    if (filter === 'pending') {
+      return records.filter((r) => r.status === 'pending' || r.status === 'overdue');
+    }
+    return records.filter((r) => r.status === filter);
+  }, [records, filter]);
 
   if (loading) {
     return <ListState loading loadingLabel={t('income.loading')} />;
@@ -268,6 +282,8 @@ export default function IncomeScreen() {
             icon="wallet-outline"
             title={t('income.noRecords')}
             sub={t('income.noRecordsSub')}
+            actionLabel={t('profile.addProperty')}
+            onAction={() => navigation.navigate('PropertyBinding')}
           />
         ) : (
           filtered.map((item, idx) => {

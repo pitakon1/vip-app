@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import DataState from '@/components/DataState'
 import type { Payment } from '@/types'
-import { CHANNEL_LABEL_KEYS, PAYMENT_TYPE_LABEL_KEYS, statusMeta, typeMeta } from '../constants'
+import { PAYMENT_TYPE_LABEL_KEYS, channelLabel, statusMeta, typeMeta } from '../constants'
 import { formatAmount, formatDateTime, formatFee, lateFeeDue, toDisplayStatus, toDisplayType } from '../utils'
 import type { DetailType } from '../types'
 
@@ -67,8 +67,7 @@ export default function PaymentsTable({
               (p as any).contract_code ||
               (p.lease_id ? `LS-${String(p.lease_id).slice(0, 8).toUpperCase()}` : '-')
             const date = formatDateTime(p.paid_at || p.due_date)
-            const channelKey = CHANNEL_LABEL_KEYS[String(p.channel || '')]
-            const channel = channelKey ? t(channelKey) : (p.channel || '-')
+            const channel = channelLabel(p.channel, t)
             // 后端准入规则（实测）：refund 仅允许 succeeded；confirm 仅允许
             // pending / processing。这里直接按后端原始状态判断，不再用派生
             // 展示态（后者把 failed/expired/pending 过期统一并成 overdue，

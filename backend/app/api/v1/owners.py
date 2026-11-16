@@ -11,12 +11,12 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.core.auth import (
+    get_current_user,
     owner_visibility_conditions,
     require_employee,
-    require_owner,
 )
 from app.core.pagination import Page, PaginationParams, paginate_query
-from app.core.payments import is_past_due
+from app.core.payments import UNPAID_PAYMENT_STATUSES, is_past_due
 from app.models import (
     Document,
     Lease,
@@ -26,6 +26,7 @@ from app.models import (
     Owner,
     Project,
     Property,
+    PropertyReviewStatus,
     PropertyStatus,
     Payment,
     PaymentType,
@@ -145,7 +146,7 @@ def _get_owner_or_none(session: Session, user: User) -> Optional[Owner]:
 @router.get("/me/properties", response_model=None)
 def get_my_properties(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
     school_id: Optional[uuid.UUID] = None,
     school_radius_km: float = 3.0,
 ):
@@ -178,6 +179,10 @@ def get_my_properties(
         ).all()
     )
     conditions.append(Property.deleted_at.is_(None))
+    # 审核通过前房源对业主也不可见（提交记录在「添加我的房产」里回显）
+    conditions.append(
+        Property.review_status == PropertyReviewStatus.approved
+    )
     # 按学校找房（复用 /properties 的空间筛选逻辑，与 C 端口径对齐）
     if school_id:
         school = session.get(School, school_id)
@@ -237,7 +242,7 @@ def get_my_properties(
 @router.get("/me/documents", response_model=List[Document])
 def get_my_documents(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """业主的文档列表（合同、收据、税务发票等）；未建档返回空列表。"""
     owner = _get_owner_or_none(session, user)
@@ -254,7 +259,7 @@ def get_my_documents(
 @router.get("/me/income", response_model=OwnerIncomeOut)
 def get_my_income(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """租金收入汇总 + 待收/逾期闭环。
 
@@ -270,7 +275,10 @@ def get_my_income(
         )
     ).first()
 
-    conditions = [Property.deleted_at.is_(None)]
+    conditions = [
+        Property.deleted_at.is_(None),
+        Property.review_status == PropertyReviewStatus.approved,
+    ]
     if owner:
         conditions.append(Property.owner_id == owner.id)
     elif user.role != UserRole.admin:
@@ -324,10 +332,10 @@ def get_my_income(
             income_by_property[str(p.property_id)] = (
                 income_by_property.get(str(p.property_id), 0.0) + amount
             )
-        elif p.status in (PaymentStatus.failed, PaymentStatus.refunded):
-            # 失败/已退款不是应收：计入待收会把业主可收金额虚高，且永远收不到。
-            continue
-        else:
+        elif p.status in UNPAID_PAYMENT_STATUSES:
+            # 未结清（pending/processing/failed）都仍是应收：failed 只代表某次扣款
+            # 失败，账单并未结清。若把 failed 排除，会出现租客端显示「逾期待缴」、
+            # 业主端却显示「待收 0、收缴率 100%」的自相矛盾。
             receivable_total += amount
             is_overdue = is_past_due(p, now)
             if is_overdue:
@@ -336,6 +344,9 @@ def get_my_income(
             receivable_by_property[str(p.property_id)] = (
                 receivable_by_property.get(str(p.property_id), 0.0) + amount
             )
+        else:
+            # refunded/expired/disputed 为已关闭终态，不再形成应收。
+            continue
 
         records.append(
             {
@@ -377,7 +388,9 @@ def get_my_income(
             "property_id": str(pid),
             "income": income_by_property.get(str(pid), 0.0),
             "receivable": receivable_by_property.get(str(pid), 0.0),
-            "monthly_rent": property_by_id[pid].monthly_rent
+            # 房源未填租金时 monthly_rent 为 NULL，schema 要求 float，
+            # 不兜底会触发响应校验失败（500）。
+            "monthly_rent": (property_by_id[pid].monthly_rent or 0)
             if property_by_id.get(pid)
             else 0,
         }
@@ -404,6 +417,7 @@ def _my_properties(session: Session, owner: Owner) -> list:
         select(Property).where(
             Property.owner_id == owner.id,
             Property.deleted_at.is_(None),
+            Property.review_status == PropertyReviewStatus.approved,
         )
     ).all()
 
@@ -411,7 +425,7 @@ def _my_properties(session: Session, owner: Owner) -> list:
 @router.get("/me/marketing", response_model=MarketingOut)
 def get_marketing(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """房源营销推广：空置房源一览并生成分享链接（链接由前端拼装）。"""
     owner = _get_owner_or_none(session, user)
@@ -493,7 +507,7 @@ def get_marketing(
 @router.get("/me/pricing-suggestion", response_model=PricingSuggestionOut)
 def get_pricing_suggestion(
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """自动定价建议：取同项目/同户型的在租与在售房源月租中位数作为比对基准。"""
     owner = _get_owner_or_none(session, user)
@@ -557,7 +571,7 @@ def get_pricing_suggestion(
 def get_annual_financial_summary(
     year: int | None = None,
     session: Session = Depends(get_session),
-    user: User = Depends(require_owner),
+    user: User = Depends(get_current_user),
 ):
     """年度财务汇总：按月份统计已收租金/其他收入/逾期，形成房东年度对账导出数据。"""
     if not year:

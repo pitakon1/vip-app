@@ -35,6 +35,8 @@ export interface Country {
   iso2: string
   /** 中文名 */
   zh: string
+  /** 泰文名 */
+  th: string
   /** 英文名 */
   en: string
   /** 国际区号（纯数字，如 "66"） */
@@ -49,6 +51,7 @@ interface RawCountry {
   i: string
   z: string
   e: string
+  t?: string
   d: string
   l?: number[]
   k?: number
@@ -59,6 +62,7 @@ const RAW: RawCountry[] = ${JSON.stringify(raw)}
 export const COUNTRIES: Country[] = RAW.map((r) => ({
   iso2: r.i,
   zh: r.z,
+  th: r.t || r.e,
   en: r.e,
   dial: r.d,
   lens: r.l,
@@ -97,9 +101,12 @@ export function flagEmoji(iso2: string): string {
   return out
 }
 
-/** 展示名：中文语言用中文名，其余（英/泰）用英文名，避免多语言包体积 */
+/** 展示名：中文语言用中文名，泰语用泰文名，其余用英文名 */
 export function countryName(country: Country, lang?: string): string {
-  return (lang || '').toLowerCase().startsWith('zh') ? country.zh : country.en
+  const l = (lang || '').toLowerCase()
+  if (l.startsWith('zh')) return country.zh
+  if (l.startsWith('th')) return country.th
+  return country.en
 }
 
 export function displayCountry(country: Country, lang?: string): string {
@@ -117,18 +124,20 @@ export function findCountryByDial(dial: string): Country | undefined {
 function prefixScore(country: Country, q: string): number {
   let score = 0
   if (country.zh.startsWith(q)) score += 2
+  if (country.th.startsWith(q)) score += 2
   if (country.en.toLowerCase().startsWith(q)) score += 2
   if (country.dial === q.replace(/^\\+/, '')) score += 3
   return score
 }
 
-/** 按国家名（中文/英文）、ISO 代码、区号搜索；空关键词返回全量 */
+/** 按国家名（中文/泰文/英文）、ISO 代码、区号搜索；空关键词返回全量 */
 export function searchCountries(keyword: string): Country[] {
   const q = (keyword || '').trim().toLowerCase()
   if (!q) return COUNTRIES
   const dialQuery = q.startsWith('+') ? q.slice(1) : (/^\\d+$/.test(q) ? q : '')
   const matched = COUNTRIES.filter((c) => {
     if (c.zh.toLowerCase().includes(q)) return true
+    if (c.th.toLowerCase().includes(q)) return true
     if (c.en.toLowerCase().includes(q)) return true
     if (c.iso2.toLowerCase().includes(q)) return true
     if (dialQuery && c.dial.startsWith(dialQuery)) return true

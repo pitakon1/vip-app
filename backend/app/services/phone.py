@@ -57,6 +57,12 @@ for _item in _RAW:
 MIN_NATIONAL_LEN = 4
 MAX_NATIONAL_LEN = 15
 
+# 本地号码位数 → 可能的 ISO 列表（用于无国际前缀时的候选 E.164 枚举）
+_LEN_TO_ISOS: dict[int, list[str]] = {}
+for _item in _RAW:
+    for _n in _item.get("l") or []:
+        _LEN_TO_ISOS.setdefault(_n, []).append(_item["i"])
+
 
 def _digits(raw: object) -> str:
     text = unicodedata.normalize("NFKC", str(raw or "").strip())
@@ -188,3 +194,91 @@ def phone_keys(raw: object, default_iso: Optional[str] = None) -> set[str]:
 def is_same_phone(left: object, right: object) -> bool:
     """两个号码是否指向同一用户号码（任一形态重叠即视为相同）。"""
     return bool(phone_keys(left) & phone_keys(right))
+
+
+def _candidate_e164s(keys: set[str]) -> set[str]:
+    """从多形态键反推可能的 E.164（按各国位数表做区号枚举）。
+
+    只用于「没有国际前缀、`to_e164` 判定不了或判定出歧义」的输入：
+    例如 `0123456789` 既可能是泰国 10 位本地号，也可能是马来西亚 01x 号码，
+    枚举后交给唯一索引 + 键交集校验，命中多个由调用方报冲突，不随机取。
+    """
+    candidates: set[str] = set()
+    for key in keys:
+        if not key.isdigit():
+            continue
+        national = key[1:] if key.startswith("0") else key
+        if not MIN_NATIONAL_LEN <= len(national) <= MAX_NATIONAL_LEN:
+            continue
+        for iso in _LEN_TO_ISOS.get(len(national), []):
+            candidates.add(f"+{COUNTRIES[iso]['d']}{national}")
+    return candidates
+
+
+def find_users_by_phone(
+    session, phones, *, exclude_deleted: bool = False
+) -> list:
+    """按手机号找已注册账号（索引优先，兼容未回填存量行）。
+
+    1. 把入参收敛成 E.164，直接查 `users.phone_normalized` 唯一索引；
+    2. 无国际前缀（或解析不出）时，按多形态键枚举候选 E.164 再查索引，
+       并用 `phone_keys()` 交集二次校验，兼容 `0812345678`、`0123456789` 等本地写法；
+    3. 最后扫描 `phone_normalized IS NULL` 的存量行兜底；这批行由
+       `scripts/backfill_phone_normalized.py` 回填后清空，不会长期全表扫描。
+
+    返回去重后的 User 列表；命中多个由调用方决定报冲突还是取唯一。
+    """
+    from sqlmodel import select
+
+    from app.models.user import User
+
+    items = [phones] if isinstance(phones, str) else list(phones)
+    canonicals: set[str] = set()
+    wanted_keys: set[str] = set()
+    has_international = False
+    for phone in items:
+        canonical = to_e164(phone)
+        if canonical:
+            canonicals.add(canonical)
+        wanted_keys |= phone_keys(phone)
+        text = unicodedata.normalize("NFKC", str(phone or "")).strip()
+        if text.startswith("+") or text.startswith("00"):
+            has_international = True
+    if not wanted_keys:
+        return []
+
+    found: list = []
+    if canonicals:
+        stmt = select(User).where(User.phone_normalized.in_(canonicals))
+        if exclude_deleted:
+            stmt = stmt.where(User.deleted_at.is_(None))
+        found.extend(session.exec(stmt).all())
+
+    # 有明确国际前缀且已命中时，不再做候选枚举，避免共用号段的误报
+    if not found and not has_international:
+        candidates = _candidate_e164s(wanted_keys) - canonicals
+        if candidates:
+            stmt = select(User).where(User.phone_normalized.in_(candidates))
+            if exclude_deleted:
+                stmt = stmt.where(User.deleted_at.is_(None))
+            found.extend(session.exec(stmt).all())
+
+    legacy_stmt = select(User).where(
+        User.phone.is_not(None), User.phone_normalized.is_(None)
+    )
+    if exclude_deleted:
+        legacy_stmt = legacy_stmt.where(User.deleted_at.is_(None))
+    for user in session.exec(legacy_stmt).all():
+        if phone_keys(user.phone) & wanted_keys:
+            found.append(user)
+
+    seen: set[str] = set()
+    unique: list = []
+    for user in found:
+        key = str(user.id)
+        if key in seen:
+            continue
+        if phone_keys(user.phone) & wanted_keys:
+            seen.add(key)
+            unique.append(user)
+    return unique

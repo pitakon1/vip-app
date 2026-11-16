@@ -215,6 +215,8 @@ export default function MyListingsScreen() {
           icon="business-outline"
           title={t('myListings.emptyTitle')}
           sub={t('myListings.emptySub')}
+          actionLabel={t('profile.addProperty')}
+          onAction={() => navigation.navigate('PropertyBinding')}
         />
       ) : (
         <>

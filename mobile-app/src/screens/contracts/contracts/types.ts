@@ -4,6 +4,11 @@
 export interface ContractItem {
   id: string;
   title?: string;
+  contract_no?: string | null;
+  lease_id?: string | null;
+  lease_no?: string | null;
+  amount?: number | null;
+  currency?: string | null;
   kind?: string;
   source?: string;
   status?: string;

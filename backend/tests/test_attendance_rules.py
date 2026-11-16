@@ -485,7 +485,10 @@ def test_calibrate_updates_times_and_rejects_inverted_range(api, engine, monkeyp
         },
     )
     assert ok.status_code == 200, ok.text
-    assert ok.json()["check_out_time"].startswith("2026-03-02T18:00:00")
+    # 补录时间按业务时区（Asia/Bangkok, UTC+7）解释后统一存/出 UTC：
+    # 18:00 Bangkok → 11:00Z，出参带 Z，方便前端换算成设备本地时间。
+    assert ok.json()["check_out_time"].startswith("2026-03-02T11:00:00")
+    assert ok.json()["check_out_time"].endswith("Z")
     assert ok.json()["status"] == AttendanceStatus.present.value
 
 

@@ -1845,13 +1845,21 @@ export default function AdminContractsPage() {
             list.map((c: any) => (
               <View key={c.id} className='ac-card' onClick={() => openDetail(c.id)}>
                 <View className='ac-card__top'>
-                  <Text className='ac-card__no'>{String(c.id).slice(0, 8).toUpperCase()}</Text>
+                  <Text className='ac-card__no'>{c.contract_no || String(c.id).slice(0, 8).toUpperCase()}</Text>
                   <View className='ac-card__meta'>
                     {sourceBadge(c.source)}
                     {statusBadge(c.status)}
                   </View>
                 </View>
                 <Text className='ac-card__title'>{c.title || t('contract.unknown')}</Text>
+                {(c.lease_no || c.amount != null) && (
+                  <Text className='ac-card__row-text'>
+                    {[
+                      c.lease_no ? `${t('contract.lease')}: ${c.lease_no}` : '',
+                      c.amount != null ? `${t('contract.amount')}: ${c.currency || 'THB'} ${Number(c.amount).toLocaleString()}` : '',
+                    ].filter(Boolean).join(' · ')}
+                  </Text>
+                )}
                 <View className='ac-card__divider' />
                 <View className='ac-card__row'>
                   <Text className='ac-card__row-text'>{fmtDate(c.created_at)}</Text>
@@ -2239,7 +2247,7 @@ export default function AdminContractsPage() {
             <ScrollView scrollY>
               {field(
                 t('contract.tampered'),
-                verifyReport?.tampered ? t('contract.yes') : t('contract.no')
+                verifyReport?.tampered ? t('contract.verifyTampered') : t('contract.verifyIntact')
               )}
               {verifyReport?.document_hash
                 ? field(t('contract.documentHash'), String(verifyReport.document_hash), true)

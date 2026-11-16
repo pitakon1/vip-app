@@ -3,7 +3,7 @@ import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
 import { ownerApi, listingApi } from '@/services/api'
-import { unwrapUploadResult } from '@/lib/api'
+import { unwrapUploadResult, resolveMediaUrl } from '@/lib/api'
 import { buildListingPayload } from '@/lib/listingPayload'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { fmtMoney as money } from '@/utils/format'
@@ -396,11 +396,16 @@ export default function OwnerPropertiesPage() {
     refresh()
   })
 
+  // 统计（D-04：在租 / 空置 / 维护中 / 续约中 四类相加等于名下总数）
   const stats = {
     total: properties.length,
-    rented: properties.filter((p) => p.status === 'rented').length,
-    vacant: properties.filter((p) => ['vacant', 'available'].includes(String(p.status || ''))).length,
-    forSale: properties.filter((p) => ['for_sale', 'on_sale', 'sale'].includes(String(p.status || ''))).length
+    rented: properties.filter((p) => ['rented', 'active'].includes(String(p.status || '').toLowerCase())).length,
+    vacant: properties.filter((p) => {
+      const s = String(p.status || '').toLowerCase()
+      return !['maintenance', 'renewing', 'rented', 'active'].includes(s)
+    }).length,
+    maintenance: properties.filter((p) => String(p.status || '').toLowerCase() === 'maintenance').length,
+    renewing: properties.filter((p) => String(p.status || '').toLowerCase() === 'renewing').length
   }
 
   // 区域匹配关键词：城市 label + 选中区/国家的 kws（转小写）
@@ -612,14 +617,24 @@ export default function OwnerPropertiesPage() {
     setSubmitting(true)
     Taro.showLoading({ title: t('common.saving'), mask: true })
     try {
+      let createdPending = false
       if (editingId) {
         await ownerApi.update(editingId, { ...payload, photos: form.photos })
       } else {
-        await ownerApi.create(payload)
+        const created: any = await ownerApi.create(payload)
+        const payloadData = created?.data ?? created
+        createdPending = payloadData?.review_status === 'pending'
       }
       Taro.hideLoading()
       resetModal()
-      Taro.showToast({ title: editingId ? t('op.updated') : t('op.created'), icon: 'success' })
+      Taro.showToast({
+        title: editingId
+          ? t('op.updated')
+          : createdPending
+            ? t('op.createdPending')
+            : t('op.created'),
+        icon: 'success'
+      })
       refresh(true)
     } catch (err: any) {
       console.error('[OwnerProperties] 保存房源失败', err)
@@ -818,7 +833,7 @@ export default function OwnerPropertiesPage() {
           </View>
         )}
 
-        {/* 统计行：名下房源 / 在租 / 空置 / 在售 */}
+        {/* 统计行：名下房源 / 在租 / 空置 / 维护中 / 续约中 */}
         <View className='op-stats'>
           <View className='op-stat op-stat--primary'>
             <Text className='op-stat__value'>{stats.total}</Text>
@@ -833,8 +848,12 @@ export default function OwnerPropertiesPage() {
             <Text className='op-stat__label'>{t('prop.statusVacant')}</Text>
           </View>
           <View className='op-stat op-stat--info'>
-            <Text className='op-stat__value'>{stats.forSale}</Text>
-            <Text className='op-stat__label'>{t('op.statusForSale')}</Text>
+            <Text className='op-stat__value'>{stats.maintenance}</Text>
+            <Text className='op-stat__label'>{t('prop.statusMaintenanceLong')}</Text>
+          </View>
+          <View className='op-stat op-stat--primary'>
+            <Text className='op-stat__value'>{stats.renewing}</Text>
+            <Text className='op-stat__label'>{t('prop.statusRenewing')}</Text>
           </View>
         </View>
 
@@ -867,6 +886,12 @@ export default function OwnerPropertiesPage() {
             empty
             filtered={!!(query || status || bedrooms || priceRange || areaRange)}
             text={query || status || bedrooms || priceRange || areaRange ? t('prop.emptyFiltered') : t('prop.empty')}
+            sub={query || status || bedrooms || priceRange || areaRange ? undefined : t('pb.noPropertySub')}
+            onSubClick={
+              query || status || bedrooms || priceRange || areaRange
+                ? undefined
+                : () => Taro.navigateTo({ url: '/pages/property-binding/index' })
+            }
           />
         )}
 
@@ -1350,7 +1375,7 @@ export default function OwnerPropertiesPage() {
                   <View className='photo-grid'>
                     {form.photos.map((url, idx) => (
                       <View key={idx} className='photo-item'>
-                        <Image className='photo-item__img' src={url} mode='aspectFill' />
+                        <Image className='photo-item__img' src={resolveMediaUrl(url) || ''} mode='aspectFill' />
                         <View className='photo-item__del' onClick={() => removePhoto(url)}>
                           <Text className='photo-item__del-text'>×</Text>
                         </View>

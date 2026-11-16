@@ -530,9 +530,13 @@ export default function OwnerMarketingPage() {
             </View>
           </View>
           {vacants.length === 0 ? (
-            <View className='empty-tip'>
-              <Text>{t('mkt.noVacant')}</Text>
-            </View>
+            <StateBlock
+              empty
+              icon='home'
+              text={t('mkt.emptyVacantTitle')}
+              sub={t('profile.addProperty')}
+              onSubClick={() => Taro.navigateTo({ url: '/pages/property-binding/index' })}
+            />
           ) : (
             vacants.map((v) => {
               const st = statusMetaOf(t, v.status)

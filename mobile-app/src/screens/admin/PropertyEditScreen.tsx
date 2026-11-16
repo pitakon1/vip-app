@@ -414,7 +414,10 @@ export default function PropertyEditScreen() {
     try {
       if (isCreate) {
         const res: any = await propertiesApi.create(payload);
-        const newId: string | undefined = res?.data?.id;
+        const created = res?.data ?? res;
+        const newId: string | undefined = created?.id;
+        // C 端录入的房源进入审核队列：明确提示「审核通过后才展示/可挂牌」
+        if (created?.review_status === 'pending') notify(t('prop.createdPending'));
         // 新建时选的照片本地还没有房源可挂，等拿到 id 再补传；
         // 补传失败不影响房源本身已建成，只提示一次
         if (newId && pendingPhotos.length) {

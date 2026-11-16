@@ -1,4 +1,5 @@
 import { LIST_PAGE_SIZE, OPTION_PAGE_SIZE } from '@/lib/pagination'
+import { useSearchParams } from 'react-router-dom'
 import { useCachedQuery } from '@/lib/queryCache'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -116,6 +117,21 @@ const Properties = () => {
 
   // 新增/编辑弹窗（表单、照片与提交动作）
   const propertyForm = usePropertyForm({ onSaved: fetchData })
+
+  // 房源详情页「编辑房源」带 ?edit=id 回来时，自动打开编辑弹窗
+  const [searchParams, setSearchParams] = useSearchParams()
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId) return
+    let alive = true
+    propertiesApi.get(editId).then((res) => {
+      const record = res.data?.data ?? res.data
+      if (alive && record?.id) propertyForm.openEdit(record as Property)
+    }).catch(() => { /* 详情不存在时保持列表页 */ }).finally(() => {
+      if (alive) setSearchParams({}, { replace: true })
+    })
+    return () => { alive = false }
+  }, [searchParams, setSearchParams])
 
   // ---------- 项目坐标（地图找房点位来源） ----------
   type CoordRow = { id: string; name: string; address: string; lat: number | null; lng: number | null }

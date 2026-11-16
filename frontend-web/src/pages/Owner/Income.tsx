@@ -1,5 +1,6 @@
 import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Modal, message } from 'antd'
 import dayjs, { Dayjs } from 'dayjs'
@@ -567,7 +568,18 @@ const Income = () => {
               {tableRows.length === 0 && !loading && !error ? (
                 <tr>
                   <td colSpan={4}>
-                    <DataState empty emptyTitle={t('ownerIncome.emptyIncome')} />
+                    <DataState
+                      empty
+                      emptyTitle={t('ownerIncome.emptyIncome')}
+                      emptySub={propertyCount > 0 ? t('ownerIncome.emptyIncomeMonth') : t('propertyBinding.noPropertySub')}
+                      emptyAction={
+                        propertyCount > 0 ? undefined : (
+                          <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
+                            {t('menu.addProperty')}
+                          </Link>
+                        )
+                      }
+                    />
                   </td>
                 </tr>
               ) : tableRows.length === 0 ? null : (

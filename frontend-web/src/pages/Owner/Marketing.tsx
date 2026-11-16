@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { message } from 'antd'
 import DataState from '@/components/DataState'
 import { ownersApi } from '@/services/api'
@@ -253,7 +254,20 @@ const Marketing = () => {
           </div>
           <div className="rent-card__body">
             {vacants.length === 0 ? (
-              emptyBlock(t('ownerMarketing.noVacants'))
+              totalProperties === 0 ? (
+                <DataState
+                  empty
+                  emptyTitle={t('propertyBinding.noPropertyTitle')}
+                  emptySub={t('propertyBinding.noPropertySub')}
+                  emptyAction={
+                    <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
+                      {t('menu.addProperty')}
+                    </Link>
+                  }
+                />
+              ) : (
+                emptyBlock(t('ownerMarketing.noVacants'))
+              )
             ) : (
               <>
                 {vacants.map((v) => {

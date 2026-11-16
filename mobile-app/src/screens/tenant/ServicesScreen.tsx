@@ -393,9 +393,13 @@ export default function ServicesScreen() {
         )}
       </ScrollView>
 
-      {/* 淘宝式 SKU 购买弹层 */}
+      {/* 淘宝式 SKU 购买弹层
+          react-native-web 的 Modal 在 visible=false 后仍会保留一帧（等 slide 动画结束），
+          这期间 selected 已是 null，规格价会显示成 ฿0、购买按钮消失（看起来像卡住）。
+          这里直接按 selected 卸载 Modal，关闭即生效，也避免残留的空壳弹层。 */}
+      {selected && (
       <Modal
-        visible={!!selected}
+        visible
         transparent
         animationType="slide"
         onRequestClose={() => setSelected(null)}
@@ -527,6 +531,7 @@ export default function ServicesScreen() {
           </View>
         </View>
       </Modal>
+      )}
     </View>
   );
 }

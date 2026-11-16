@@ -256,7 +256,7 @@ const Trend = () => {
                   <thead>
                     <tr>
                       <th>月份</th>
-                      <th style={{ textAlign: 'right' }}>营收 (¥)</th>
+                      <th style={{ textAlign: 'right' }}>营收 (฿)</th>
                       <th style={{ textAlign: 'right' }}>新增合同</th>
                       <th style={{ textAlign: 'right' }}>新增线索</th>
                       <th style={{ textAlign: 'right' }}>预约看房</th>

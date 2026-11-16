@@ -14,6 +14,28 @@ export const MAX_PAGE_SIZE = 100
 /** 刷新令牌存储键。登录成功时必须写入，否则 401 只能强登出。 */
 export const REFRESH_TOKEN_KEY = 'refresh_token'
 
+/**
+ * 后端静态媒体源站（去掉 `/api/v1` 前缀）。
+ *
+ * 后端对房源封面/相册/头像等字段返回的是站内相对路径（形如 `/uploads/properties/x.jpg`），
+ * 小程序 `<Image>` 会把相对路径当包内资源解析，结果图片全挂。
+ * 渲染前统一经 `resolveMediaUrl` 补成绝对地址（与 mobile-app 的 `lib/api.ts` 同口径）。
+ */
+export const API_ORIGIN: string = (typeof API_BASE !== 'undefined' ? API_BASE : '').replace(
+  /\/api\/v1\/?$/,
+  ''
+)
+
+/** 站内相对媒体路径补成绝对地址；外链 / data / blob / file 原样返回。 */
+export const resolveMediaUrl = (url?: string | null): string | null => {
+  if (!url) return null
+  const value = String(url).trim()
+  if (!value) return null
+  if (/^(https?:|data:|blob:|file:)/i.test(value)) return value
+  if (value.startsWith('/')) return `${API_ORIGIN}${value}`
+  return value
+}
+
 /* 公开免登录签署页（`/sign/:token`）托管在 Web 站点，不在小程序内。
    后端 `_sign_url` 在未配置 PUBLIC_WEB_BASE_URL 时只返回相对路径（形如 `/sign/xxx`），
    小程序直接 setClipboardData 复制出去客户根本打不开（同理 Web 端有 absSignUrl）。
@@ -35,6 +57,11 @@ export interface RequestOptions<T = unknown> {
   data?: Record<string, unknown> | unknown
   header?: Record<string, string>
   mockData?: T
+  /**
+   * 非必需鉴权的「增强型」请求（如公开详情页上的收藏状态）。
+   * 令牌失效时只清态、不跳登录，避免用户在看公开页面时被踢回登录页。
+   */
+  authOptional?: boolean
 }
 
 /** 并发 401 时共用一个刷新 Promise，避免打出刷新风暴。 */
@@ -56,13 +83,42 @@ const normalizeQuery = (data: unknown) => {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return data
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+    // wx.request 会把 undefined / null 序列化成字符串 "undefined" / "null"，
+    // 后端会把它当成真实筛选值：「小区列表 q=undefined」按关键词查 → 0 条；
+    // 枚举/数值参数（listing_type、is_new_development、price_min…）→ 422。
+    // 「未填」的键必须在这里丢弃，否则页面会表现为空列表或加载失败。
+    if (v === undefined || v === null) continue
     out[toSnakeKey(k)] = v
   }
   return out
 }
 
-/** 用刷新令牌换新的访问令牌；后端每次刷新会轮换 refresh_token，两个都要写回。 */
-async function refreshAccessToken(): Promise<string> {
+/**
+ * 手工拼 GET 查询串：数组按重复键展开（`keywords=a&keywords=b`），
+ * undefined / null / 空串丢弃。
+ *
+ * 为什么必须整串塞进 URL、而不是「URL 拼数组 + data 传其余」：
+ * 一旦同时给了 data，Taro 会重新序列化整条查询串，重复键会被折叠成最后一个值——
+ * 表现为「默认城市范围带 20 个区域关键词 → 后端只收到 centralworld → 列表恒为 0 套」。
+ * FastAPI 的 `List[str] = Query(...)` 又只认重复键，所以只能全程走 URL。
+ */
+export function buildQuery(params?: Record<string, unknown>): string {
+  if (!params) return ''
+  const parts: string[] = []
+  for (const [key, val] of Object.entries(params)) {
+    if (val === undefined || val === null || val === '') continue
+    if (Array.isArray(val)) {
+      val
+        .filter((v) => v !== undefined && v !== null && v !== '')
+        .forEach((v) => parts.push(`${key}=${encodeURIComponent(String(v))}`))
+    } else {
+      parts.push(`${key}=${encodeURIComponent(String(val))}`)
+    }
+  }
+  return parts.join('&')
+}
+
+/** 用刷新令牌换新的访问令牌；后端每次刷新会轮换 refresh_token，两个都要写回。 */async function refreshAccessToken(): Promise<string> {
   const refreshToken = Taro.getStorageSync(REFRESH_TOKEN_KEY) as string
   if (!refreshToken) throw new Error('no refresh token')
   const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
@@ -169,7 +225,7 @@ export function extractErrorMessage(body: any, fallback: string): string {
  * 哪怕用户只是在看不需要登录的公开页面。
  */
 export async function request<T = unknown>(options: RequestOptions<T>): Promise<T> {
-  const { url, method = 'GET', data, header = {} } = options
+  const { url, method = 'GET', data, header = {}, authOptional = false } = options
   const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
   const fullUrl = url.startsWith('http') ? url : `${baseURL}${url}`
   // GET 的 data 会被拼进查询串（后端查询参数是 snake_case）→ 统一键名；写请求的 body 原样透传
@@ -214,7 +270,8 @@ export async function request<T = unknown>(options: RequestOptions<T>): Promise<
       Taro.removeStorageSync('token')
       Taro.removeStorageSync('user')
       Taro.removeStorageSync(REFRESH_TOKEN_KEY)
-      goLoginOnce()
+      // 增强型请求（公开页上的收藏状态等）不跳登录：清态后由调用方按「未登录」降级
+      if (!authOptional) goLoginOnce()
       return Promise.reject(new Error('未授权，请重新登录'))
     }
 

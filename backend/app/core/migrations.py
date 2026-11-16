@@ -99,7 +99,7 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
 
 # 表 -> 需要建立索引的列（索引名按 SQLAlchemy 约定 ix_<table>_<column>）
 _ADDITIVE_INDEXES: Dict[str, List[str]] = {
-    "properties": ["orientation", "decoration", "listing_no"],
+    "properties": ["orientation", "decoration", "listing_no", "review_status"],
     "projects": ["developer_id", "tenure"],
     "listings": ["next_revalidate_at", "verification_status"],
     "employees": ["department_id"],
@@ -191,6 +191,24 @@ def ensure_schema(engine: Engine) -> None:
                         )
                     )
                     indexed.append(index_name)
+
+        # 2c) 语义回填：新加列对历史行是 NULL，按业务默认值补齐（幂等）。
+        # review_status 若保持 NULL，会被「仅 approved 可见」的条件整体排除，
+        # 等于历史房源在列表/搜索里全部消失。
+        if "properties" in existing_tables:
+            conn.execute(
+                text(
+                    "UPDATE properties SET review_status = 'approved' "
+                    "WHERE review_status IS NULL"
+                )
+            )
+        if "property_bindings" in existing_tables:
+            conn.execute(
+                text(
+                    "UPDATE property_bindings SET kind = 'new' "
+                    "WHERE kind IS NULL"
+                )
+            )
 
         # 3) 补索引：新增的可筛选列没有索引会退化成全表扫描
         for table, columns in _ADDITIVE_INDEXES.items():

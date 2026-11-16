@@ -5,7 +5,7 @@ import BottomNav from '@/components/BottomNav'
 import StatusTop from '@/components/StatusTop'
 import useAuthStore from '@/stores/auth'
 import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
-import { unwrapUploadResult } from '@/lib/api'
+import { unwrapUploadResult, resolveMediaUrl } from '@/lib/api'
 import { useSwrCache } from '@/hooks/useSwrCache'
 import { clearCacheSync } from '@/utils/cache'
 import { iconStyle } from '@/utils/icons'
@@ -28,10 +28,12 @@ interface RowEntry {
   url?: string
 }
 
-// C 端（业主+租客）统一「常用功能」宫格：数据源共用，渲染时按能力过滤（见 cGrid）；
-// 租客/游客不再看到业主专属入口。
+// C 端统一「常用功能」宫格：产品模型上 C 端只有一种用户（有的名下有房产、有的只是租房），
+// 入口对全部登录用户完整展示，不再按 owner/tenant 或「有没有资产」过滤；
+// 点进去没有数据时由目标页给空态 + 引导（如「还没有绑定房产，去添加」）。
 const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
-  // 业主入口（业主 = 在平台上添加了房源；委托挂牌并入房源管理内）
+  // 添加我的房产：自助提交绑定申请，后台审核通过后才建立与房源的关联
+  { key: 'addProperty', label: 'profile.addProperty', url: '/pages/property-binding/index', icon: 'home' },
   { key: 'assetOverview', label: 'nav.ownerHome', url: '/pages/owner/home/index', icon: 'chart' },
   { key: 'manageProperties', label: 'nav.propertyManage', url: '/pages/owner/properties/index', icon: 'home' },
   { key: 'incomeDetail', label: 'nav.ownerIncome', url: '/pages/owner/income/index', icon: 'chart' },
@@ -51,7 +53,7 @@ const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> 
   { key: 'priceAlerts', label: 'nav.priceAlerts', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' }
 ]
 
-// 管理端 / 业主端「账户设置」：后端无修改密码、绑定手机、绑定邮箱接口
+// 管理端 / 业主端「账户设置」：改密走 POST /auth/me/password；绑定手机/邮箱暂无接口
 const ACCOUNT_ROWS: RowEntry[] = [
   { key: 'password', label: 'nav.changePassword', icon: 'gear' },
   { key: 'phone', label: 'profile.bindPhone', icon: 'user' },
@@ -77,6 +79,7 @@ const BUSINESS_ROWS: RowEntry[] = [
 // 业主端「设置」：对齐 owner-mini-settings.html；右侧值均来自真实数据/用户信息
 // 末尾四项对齐贝壳设置页，均为真实能力（非占位）：权限设置 / 清理缓存 / 检查更新 / 举报与投诉
 const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
+  { key: 'password', label: 'nav.changePassword', icon: 'gear' },
   { key: 'account', label: 'profile.account', icon: 'user' },
   { key: 'language', label: 'profile.language', value: '', icon: 'clipboard' },
   { key: 'notification', label: 'profile.notify', badge: true, icon: 'megaphone' },
@@ -577,6 +580,9 @@ export default function ProfilePage() {
       return
     }
     switch (entry.key) {
+      case 'help':
+        Taro.navigateTo({ url: '/pages/help/index' })
+        return
       case 'password':
         openPwd()
         return
@@ -587,9 +593,12 @@ export default function ProfilePage() {
         return
       case 'timezone':
       case 'notification':
-      case 'language':
       case 'notify':
         openPrefs()
+        return
+      case 'language':
+        // 语言选择：即时生效（与 App SettingsLanguageScreen 一致，仅本地切换）
+        Taro.navigateTo({ url: '/pages/language/index' })
         return
       case 'permissions':
         // 系统权限（定位 / 相机 / 通知）统一在小程序设置页管理
@@ -710,29 +719,12 @@ export default function ProfilePage() {
   /** C 端（业主/租客，含未登录兜底）：与员工/管理端分开，统一「我的」页面结构 */
   const isC = !isAdmin && !isStaff
   /**
-   * 常用功能宫格按能力过滤：
-   *  - 业主专属（房源管理 / 收益明细）→ 仅 owner 角色
-   *  - 租客专属（交易订单 / 服务工单 / 增值服务）→ 仅有生效租约或 tenant 角色
-   *  - 双方共用（我的租约 / 缴费中心 / 合同 / 文档）→ 业主或租客
-   *  - 关注 / 历史 / 降价提醒 → 登录用户均可；游客只保留这三项
-   * 游客（!user）不再看到业主专属入口。
+   * 常用功能宫格：登录用户完整展示（不按角色/资产状态裁剪）；
+   * 游客只保留关注 / 历史 / 降价提醒（点击任一入口先引导登录）。
    */
-  const canManageProperty = isOwner
-  /**
-   * 租客能力判定只看「本人身份 + 本人租约」。
-   * 业主的 `/leases` 返回的是名下房源的在租租约（不是业主自己承租的租约），
-   * 若据此判定会让业主看到「交易订单 / 服务工单 / 增值服务」等租客专属入口。
-   */
-  const isActiveTenant = !isOwner && !isAdmin && !isStaff && (isTenant || !!lease)
-  const cGrid = C_GRID.filter((e) => {
-    if (!user) return ['favorites', 'history', 'priceAlerts'].includes(e.key)
-    if (e.key === 'assetOverview' || e.key === 'manageProperties' || e.key === 'incomeDetail') return canManageProperty
-    if (e.key === 'myDeals' || e.key === 'maintenance' || e.key === 'services') return isActiveTenant
-    if (e.key === 'myLeases' || e.key === 'payments' || e.key === 'documents' || e.key === 'myContracts') {
-      return canManageProperty || isActiveTenant
-    }
-    return true
-  })
+  const cGrid = C_GRID.filter((e) =>
+    user ? true : ['favorites', 'history', 'priceAlerts'].includes(e.key)
+  )
   /** 租客 / 管理端 / 业主端 / 员工端 / 访客皆有「我的」页，底部导航对齐原型 */
   const hasBottomNav = !user || isTenant || isAdmin || isOwner || isStaff
 
@@ -772,7 +764,17 @@ export default function ProfilePage() {
 
       <View className='panel panel--list'>
         <Text className='panel__caption'>{t('profile.sectionSystem')}</Text>
-        {SYSTEM_ROWS.map(renderRow)}
+        {SYSTEM_ROWS.map((entry) =>
+          renderRow({
+            ...entry,
+            value:
+              entry.key === 'language'
+                ? LANG_LABELS[lang] || ''
+                : entry.key === 'timezone'
+                  ? prefTimezone || entry.value
+                  : entry.value
+          })
+        )}
       </View>
     </>
   )
@@ -839,7 +841,7 @@ export default function ProfilePage() {
             <View className='profile-card'>
               <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
                 {user?.avatar_url ? (
-                  <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+                  <Image className='avatar-img' src={resolveMediaUrl(user.avatar_url) || ''} mode='aspectFill' />
                 ) : (
                   <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
                 )}
@@ -949,7 +951,7 @@ export default function ProfilePage() {
           <View className='profile-card'>
             <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
               {user?.avatar_url ? (
-                <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+                <Image className='avatar-img' src={resolveMediaUrl(user.avatar_url) || ''} mode='aspectFill' />
               ) : (
                 <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
               )}
@@ -1050,7 +1052,7 @@ export default function ProfilePage() {
           <View className='profile-card'>
             <View className='avatar avatar--lg' onClick={pickAndUploadAvatar}>
               {user?.avatar_url ? (
-                <Image className='avatar-img' src={user.avatar_url} mode='aspectFill' />
+                <Image className='avatar-img' src={resolveMediaUrl(user.avatar_url) || ''} mode='aspectFill' />
               ) : (
                 <Text className='avatar-text'>{user?.full_name?.charAt(0) || 'U'}</Text>
               )}

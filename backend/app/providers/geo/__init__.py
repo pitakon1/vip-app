@@ -6,8 +6,11 @@
 - lat_lng_bounds：由圆心 + 半径算经纬度包围盒（供 SQL 粗筛，再由 haversine 精算）
 - is_within_radius：判断打卡点是否在考勤半径内
 
-未配置 GOOGLE_MAPS_API_KEY 时自动降级为站内 mock（确定性 geocode），
+未配置服务端 Key 时自动降级为站内 mock（确定性 geocode），
 保证开发环境流程可跑通；生产配置密钥后走真实 Google API。
+
+Key 取值顺序：GOOGLE_MAPS_SERVER_API_KEY（IP 限制版，推荐）
+→ GOOGLE_MAPS_API_KEY（旧名，兼容存量部署）→ 空（mock）。
 """
 import hashlib
 import math
@@ -69,7 +72,12 @@ class GeoProvider:
     """Google Maps 地理服务适配器。"""
 
     def __init__(self) -> None:
-        self.key = settings.GOOGLE_MAPS_API_KEY
+        # 服务端专用 Key 优先；旧名 GOOGLE_MAPS_API_KEY 兜底，避免存量部署失效。
+        self.key = (
+            settings.GOOGLE_MAPS_SERVER_API_KEY
+            or settings.GOOGLE_MAPS_API_KEY
+            or ""
+        ).strip()
 
     @property
     def configured(self) -> bool:

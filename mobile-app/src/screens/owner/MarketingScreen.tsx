@@ -14,6 +14,8 @@ import {
   Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import colors from '@/theme/colors';
 import { bottomSheetStyles } from '@/theme/bottomSheetStyles';
 import EmptyState from '@/components/EmptyState';
@@ -22,6 +24,7 @@ import { ownerApi, ownersApi, saleListingApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 import { notify, notifyError } from '@/utils/feedback';
 import { fmtMoney as money } from '@/utils/format';
+import type { RootStackParamList } from '@/navigation/RootNavigator';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -120,6 +123,7 @@ const formatDate = (x?: string) => fmtDate(x);
 
 export default function OwnerMarketingScreen() {
   const { t } = useI18n();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const DIRECTION_META = useMemo(() => directionMeta(t), [t]);
   const L_STATUS = useMemo(() => lStatus(t), [t]);
   const RENT_STATUS = useMemo(() => rentStatus(t), [t]);
@@ -423,6 +427,8 @@ export default function OwnerMarketingScreen() {
                   icon="home-outline"
                   title={t('mkt.emptyVacantTitle')}
                   sub={t('mkt.emptyVacantSub')}
+                  actionLabel={t('profile.addProperty')}
+                  onAction={() => navigation.navigate('PropertyBinding')}
                 />
               ) : (
                 <>

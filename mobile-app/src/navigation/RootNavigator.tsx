@@ -95,6 +95,10 @@ export type RootStackParamList = {
   MyContracts: undefined;
   /** 「关于我们 / 版权信息」详情页（数据取自公开接口 /company/info） */
   About: undefined;
+  /** 帮助中心（D-08：静态常见问题页） */
+  HelpCenter: undefined;
+  /** C 端「添加我的房产」：提交绑定申请（后台审核通过后才建立房源关联） */
+  PropertyBinding: undefined;
   /** ===== 贝壳式分类页（首页黄金导航 5 入口 → 各自独立页）===== */
   RentCategory: undefined;
   NewHouse: undefined;
@@ -219,6 +223,8 @@ const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlerts
 const ContractsScreen = lazyScreen(() => import('../screens/contracts/ContractsScreen'));
 const MyContractsScreen = lazyScreen(() => import('../screens/contracts/MyContractsScreen'));
 const AboutScreen = lazyScreen(() => import('../screens/AboutScreen'));
+const HelpCenterScreen = lazyScreen(() => import('../screens/HelpCenterScreen'));
+const PropertyBindingScreen = lazyScreen(() => import('../screens/tenant/PropertyBindingScreen'));
 // 贝壳式分类页：4 个 C 端分类页 + 新房（楼盘视角），顶栏为自绘磨砂玻璃，故 headerShown:false
 const RentCategoryScreen = lazyScreen(() => import('../screens/category/RentCategoryScreen'));
 const NewHouseScreen = lazyScreen(() => import('../screens/category/NewHouseScreen'));
@@ -328,6 +334,8 @@ export function RootNavigator() {
       <Stack.Screen name="Contracts" component={ContractsScreen} options={{ headerShown: true, title: t('contract.manage') }} />
       <Stack.Screen name="MyContracts" component={MyContractsScreen} options={{ headerShown: true, title: t('contract.my') }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: true, title: t('profile.about') }} />
+      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} options={{ headerShown: true, title: t('profile.help') }} />
+      <Stack.Screen name="PropertyBinding" component={PropertyBindingScreen} options={{ headerShown: true, title: t('pb.title') }} />
       {/* 贝壳式分类页：页面自绘磨砂玻璃顶栏，故 headerShown:false */}
       <Stack.Screen name="RentCategory" component={RentCategoryScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NewHouse" component={NewHouseScreen} options={{ headerShown: false }} />

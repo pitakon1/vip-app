@@ -125,7 +125,7 @@ export default function PublicCommunitiesScreen() {
         </View>
       </View>
 
-      <Text style={styles.count}>{t('pub.totalCount', { n: total })}</Text>
+      <Text style={styles.count}>{t('pub.communityCount', { n: total })}</Text>
 
       {loading || loadError || items.length === 0 ? (
         <ListState

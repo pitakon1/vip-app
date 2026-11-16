@@ -9,7 +9,6 @@ export default {
     'pages/public/school-detail/index',
     'pages/public/communities/index',
     'pages/public/community-detail/index',
-    'pages/public/listing-detail/index',
     // 地图找房（C 端匿名可进；找房页「去地图看」与分类页地图入口的落点）
     'pages/public/map/index',
     // 发现（C 端底部 Tab）：城市行情 + 热门小区 + 国际学校，匿名可进
@@ -36,10 +35,14 @@ export default {
     'pages/location/index',
     // C 端「我的 - 关于我们 / 版权信息」详情页（数据取自公开接口 /company/info）
     'pages/about/index',
+    'pages/help/index',
+    // 语言选择（全屏下钻子页，对齐 App SettingsLanguageScreen：选择后即时生效）
+    'pages/language/index',
+    // C 端「添加我的房产」：自助提交绑定申请（后台审核通过后才建立房源关联）
+    'pages/property-binding/index',
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',
     'pages/profile/index',
-    'pages/attendance/index',
     // 租客低频页：租约详情 / 交易订单 / 我的合同
     // 注意：主包已有大量 pages/tenant/* 页面，微信不允许「分包 root」与主包页面路径重叠
     // （报错：pages/tenant/home/index 不应该在 subPackages 中），故这几页留在主包。
@@ -48,6 +51,16 @@ export default {
     'pages/tenant/deals/detail'
   ],
   subPackages: [
+    // C 端房源详情（高频重页，独立分包以控制主包体积）
+    {
+      root: 'pages/public/listing-detail',
+      pages: ['index']
+    },
+    // 考勤打卡（低频重页，独立分包）
+    {
+      root: 'pages/attendance',
+      pages: ['index']
+    },
     // 电子合同签署台（低频重页，68KB+：放主包会超出 2MB 上限）
     {
       root: 'pages/contract',

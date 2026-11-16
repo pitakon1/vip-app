@@ -34,6 +34,7 @@ const TenantPayments = () => {
         heroCurrency={payments.heroCurrency}
         heroProperty={payments.heroProperty}
         heroDue={payments.heroDue}
+        heroOverdue={payments.heroOverdue}
       />
 
       {/* 付款状态摘要条 */}

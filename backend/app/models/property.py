@@ -22,6 +22,18 @@ class PropertyStatus(str, Enum):
     maintenance = "maintenance"
 
 
+class PropertyReviewStatus(str, Enum):
+    """房源审核状态。
+
+    C 端业主自助录入 / 认领的房源必须先经后台审核：`pending` 期间不对外
+    展示、不能被搜索、不能挂牌；审核通过后置为 `approved`。历史房源与
+    内部员工录入的房源默认 `approved`，行为不变。
+    """
+
+    pending = "pending"
+    approved = "approved"
+
+
 class DedupeType(str, Enum):
     """去重档案类型：房源唯一档案定位方式。"""
 
@@ -104,6 +116,10 @@ class Property(TimestampMixin, table=True):
     bedrooms: Optional[int] = None
     bathrooms: Optional[int] = None
     status: PropertyStatus = Field(default=PropertyStatus.vacant, index=True)
+    # 审核状态：C 端自助录入 / 认领审核通过前为 pending（不对外展示、不可挂牌）
+    review_status: PropertyReviewStatus = Field(
+        default=PropertyReviewStatus.approved, index=True
+    )
     description: Optional[str] = None
     photos: Optional[List[Any]] = Field(
         default=None, sa_column=Column(JSON, nullable=True, comment="照片 URL 列表")

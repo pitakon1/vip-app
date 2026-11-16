@@ -81,6 +81,8 @@ export default function EmployeePropertyBrowsePage() {
 
   const [favSet, setFavSet] = useState<Set<string>>(new Set())
   const [favPending, setFavPending] = useState<Set<string>>(new Set())
+  // 服务端命中总数（「查看 N 套房源」按真实总量展示，而不是已加载条数）
+  const [serverTotal, setServerTotal] = useState(0)
 
   // 后端查询参数（关键词 + 定位城市；筛选维度见 buildListingsParams）
   const buildParams = (over: { q?: string } = {}): Record<string, any> => {
@@ -104,6 +106,7 @@ export default function EmployeePropertyBrowsePage() {
           page: p,
           page_size: ps
         })
+        setServerTotal(Number(res?.total ?? res?.data?.total ?? 0) || 0)
         return pickList(res)
       },
       onError: () => Taro.showToast({ title: t('prop.loadFailed'), icon: 'none' })
@@ -393,7 +396,7 @@ export default function EmployeePropertyBrowsePage() {
         favSet={favSet}
         favPending={favPending}
         onToggleFavorite={toggleFav}
-        resultCount={visibleList.length}
+        resultCount={serverTotal || visibleList.length}
         onGoMap={handleGoMap}
         onOpenDetail={openDetail}
       />

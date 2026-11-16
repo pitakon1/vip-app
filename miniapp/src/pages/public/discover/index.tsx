@@ -18,6 +18,7 @@ import {
   type PublicSchool
 } from '@/services/publicApi'
 import { schoolStageLabel, curriculumLabel } from '@/lib/publicSite'
+import { resolveMediaUrl } from '@/lib/api'
 import { fmtMoney } from '@/utils/format'
 import { useLocationStore } from '@/stores/location'
 import useAuthStore from '@/stores/auth'
@@ -202,7 +203,7 @@ export default function DiscoverPage() {
                     >
                       <View className='discover-card__media'>
                         {p.cover ? (
-                          <Image className='discover-card__img' src={p.cover} mode='aspectFill' />
+                          <Image className='discover-card__img' src={resolveMediaUrl(p.cover) || ''} mode='aspectFill' />
                         ) : (
                           <View className='discover-card__noimg'>{t('pub.noPhoto')}</View>
                         )}
@@ -241,7 +242,7 @@ export default function DiscoverPage() {
                     >
                       <View className='discover-card__media'>
                         {s.cover_url ? (
-                          <Image className='discover-card__img' src={s.cover_url} mode='aspectFill' />
+                          <Image className='discover-card__img' src={resolveMediaUrl(s.cover_url) || ''} mode='aspectFill' />
                         ) : (
                           <View className='discover-card__noimg'>{t('pub.noPhoto')}</View>
                         )}

@@ -220,9 +220,11 @@ export default function AdminPaymentsScreen() {
     load(chip);
   }, [load, chip]);
 
-  // 收缴率 = 已收 /（已收 + 待收），全部来自对账接口
+  // 收缴率 = 已收 /（已收 + 待收），全部来自对账接口。
+  // 对账接口把未到期待收（receivable）与已逾期（overdue）分开返回；
+  // 逾期同样属于「尚未收到」，不并入待收会出现「有逾期账单但待收 0、收缴率 100%」。
   const received = Number(totals.received ?? 0);
-  const receivable = Number(totals.receivable ?? 0);
+  const receivable = Number(totals.receivable ?? 0) + Number(totals.overdue ?? 0);
   const collectRate = useMemo(() => {
     const base = received + receivable;
     return base > 0 ? Math.round((received / base) * 100) : 0;

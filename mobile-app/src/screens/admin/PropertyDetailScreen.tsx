@@ -1,5 +1,5 @@
 import { LIST_PAGE_SIZE } from '@/lib/pagination';
-import { fmtDate } from '@/utils/format';
+import { fmtDate, formatArea } from '@/utils/format';
 /**
  * 房源详情（管理端）
  * 原型：admin-mobile-property-detail.html
@@ -276,7 +276,7 @@ export default function AdminPropertyDetailScreen() {
         </View>
         <View style={styles.keyCell}>
           <Text style={styles.keyLabel}>{t('pub.size')}</Text>
-          <Text style={styles.keyValue}>{property.size_sqm ? `${property.size_sqm}㎡` : '-'}</Text>
+          <Text style={styles.keyValue}>{formatArea(property.size_sqm, t('pub.sqm'))}</Text>
         </View>
         <View style={styles.keyCell}>
           <Text style={styles.keyLabel}>{t('pub.layout')}</Text>

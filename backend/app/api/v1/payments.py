@@ -37,6 +37,7 @@ from app.core.auth import (
     require_agent,
     require_admin,
 )
+from app.core.datetime_utils import UtcInstant
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.core.payments import (
@@ -140,7 +141,7 @@ class LateFeeWaiveRequest(BaseModel):
 class ConfirmRequest(BaseModel):
     """管理端「确认到账」入参。"""
 
-    paid_at: Optional[datetime] = None  # 缺省取当前时间
+    paid_at: Optional[UtcInstant] = None  # 缺省取当前时间；带/不带时区均归一化为 UTC
     note: Optional[str] = None  # 到账备注
 
 
@@ -434,13 +435,11 @@ def list_payments(
     conditions.extend(payment_visibility_conditions(session, user))
     if status:
         if status == "overdue":
-            # 派生状态：未结清（pending + processing）且已过缴费截止日。
-            # 与 dashboard 的 `_OUTSTANDING` / `is_overdue` 完全同源：processing
-            # 的账单同样可能逾期，只看 pending 会把工作台显示的欠租在列表里漏掉。
+            # 派生状态：未结清（pending + processing + failed）且已过缴费截止日。
+            # 与 dashboard 的 `_OUTSTANDING` / core.payments 完全同源：failed 只是
+            # 扣款失败、账单仍欠费；只查 pending 会把工作台显示的欠租在列表里漏掉。
             conditions.append(
-                Payment.status.in_(
-                    (PaymentStatus.pending, PaymentStatus.processing)
-                )
+                Payment.status.in_(UNPAID_PAYMENT_STATUSES)
                 & (Payment.due_date.is_not(None))
                 & (Payment.due_date < datetime.utcnow())
             )
@@ -1138,7 +1137,7 @@ def submit_payment_proof(
 @router.post("/{payment_id}/confirm")
 def confirm_payment(
     payment_id: uuid.UUID,
-    req: ConfirmRequest,
+    req: Optional[ConfirmRequest] = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_agent),
 ):
@@ -1146,7 +1145,11 @@ def confirm_payment(
 
     适用于「租客上传银行转账凭证后，后台人工核销到账」的场景。确认后写
     核销字段，便于财务对账留痕。
+
+    `req` 允许缺省：字段全部可选，空 body 也应视为「无备注确认到账」，
+    否则第三方集成直接 POST 无 body 会拿到 422 `Field required`。
     """
+    req = req or ConfirmRequest()
     # 行锁读取：两个管理员并发点「确认到账」时，后到的事务必须等前者提交后
     # 重新看到 succeeded，否则会重复触发到账通知/业务事件（PostgreSQL 生效，
     # SQLite 单写者天然串行）。

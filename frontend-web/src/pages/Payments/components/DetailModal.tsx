@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import DataState from '@/components/DataState'
 import type { Payment } from '@/types'
-import { CHANNEL_LABEL_KEYS, statusMeta, typeMeta } from '../constants'
+import { channelLabel, statusMeta, typeMeta } from '../constants'
 import { formatAmount, formatDateTime, toDisplayStatus, toDisplayType } from '../utils'
 import type { DetailType, DocData } from '../types'
 
@@ -42,7 +42,7 @@ export default function DetailModal({
               <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowAmount')}</span><span>{formatAmount(payment)} {(payment as any).currency || 'THB'}</span></div></div>
               <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thType')}</span><span>{t(typeMeta[toDisplayType(payment)].label)}</span></div></div>
               <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('common.status')}</span><span>{t(statusMeta[toDisplayStatus(payment)].label)}</span></div></div>
-              <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thChannel')}</span><span>{CHANNEL_LABEL_KEYS[String(payment.channel || '')] ? t(CHANNEL_LABEL_KEYS[String(payment.channel)]) : (payment.channel || '-')}</span></div></div>
+              <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.thChannel')}</span><span>{channelLabel(payment.channel, t)}</span></div></div>
               <div className="rent-form-group"><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.rowDueDate')}</span><span>{formatDateTime(payment.due_date)}</span></div></div>
               <div className="rent-form-group" style={{ marginBottom: 0 }}><div className="rent-modal-row"><span className="rent-text-muted">{t('payments.labelRemark')}</span><span>{payment.description || '-'}</span></div></div>
             </>

@@ -273,7 +273,7 @@ export const useTenantPropertyDetail = () => {
     try {
       await api.post('/viewings', {
         property_id: propertyId,
-        scheduled_at: bookingAt.toISOString(),
+        scheduled_at: bookingAt.format('YYYY-MM-DDTHH:mm:ss'),
         notes: bookingNote || null,
       })
       message.success(t('tenantPropertyDetail.bookedSubmitted'))

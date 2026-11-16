@@ -25,6 +25,7 @@ from sqlalchemy import and_, case, func, literal, or_
 from sqlmodel import Session, select
 
 from app.core.auth import user_from_token
+from app.core.datetime_utils import UtcInstant
 from app.core.events import publish_event
 from app.core.logging import get_logger
 from app.core.pagination import Page, PaginationParams, paginate
@@ -42,6 +43,7 @@ from app.models import (
     Property,
     PropertyDeal,
     PropertyDealStatus,
+    PropertyReviewStatus,
     PropertyStatus,
     School,
     Tenure,
@@ -396,7 +398,7 @@ class PublicViewingCreate(BaseModel):
     name: str
     phone: str
     email: Optional[str] = None
-    scheduled_at: datetime
+    scheduled_at: UtcInstant
     notes: Optional[str] = None
 
 
@@ -635,6 +637,8 @@ def _listing_visibility_conditions() -> List[Any]:
             Listing.next_revalidate_at > cutoff,
         ),
         Property.deleted_at.is_(None),
+        # 待审核房源不对外展示（C 端自助录入 / 认领审核通过前）
+        Property.review_status == PropertyReviewStatus.approved,
     ]
 
 
@@ -1719,6 +1723,7 @@ def _project_covers(
         select(Property.project_id, Property.photos)
         .where(
             Property.deleted_at.is_(None),
+            Property.review_status == PropertyReviewStatus.approved,
             Property.project_id.in_(project_ids),
             Property.photos.is_not(None),
         )
@@ -2077,6 +2082,8 @@ class PublicDistrictItem(BaseModel):
     listing_count: int = 0  # 在租/在售上架单数
     project_count: int = 0  # 楼盘数
     avg_price: Optional[float] = None  # 楼盘均价均值（泰铢/㎡），无均价楼盘不计入
+    # avg_price 的样本量（有均价的楼盘数）：前端据此判断均价是否可展示/参与排名
+    price_sample_count: int = 0
 
 
 class PublicCityItem(BaseModel):
@@ -2160,6 +2167,7 @@ def list_public_districts(
                 if bucket["prices"]
                 else None
             ),
+            price_sample_count=len(bucket["prices"]),
         )
         for district, bucket in merged.items()
     ]

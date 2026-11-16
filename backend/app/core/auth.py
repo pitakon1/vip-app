@@ -12,7 +12,7 @@ from ..models.employee import Employee
 from ..models.lead import Lead
 from ..models.lease import Lease
 from ..models.owner import Owner
-from ..models.property import Property
+from ..models.property import Property, PropertyReviewStatus
 from ..models.contract import Contract, ContractParty
 from ..models.property_deal import PropertyDeal
 from ..models.tenant import Tenant
@@ -208,8 +208,9 @@ def property_visibility_conditions(session: Session, user: User) -> list:
     """房源可见性 → 查询条件（数据隔离必须由 token 决定，不能由调用方传参决定）。
 
     - 管理员：全量（含 `created_by` 为空的历史房源，由管理员指派归属人）；
-    - 销售 / 经纪（agent / employee）：仅自己录入的房源（`created_by` 为空的历史
-      房源自动被排除）；
+    - 销售（agent）：仅自己录入的房源（`created_by` 为空的历史房源自动被排除）；
+    - 员工（employee）：全量只读（D-01 决策）——找房与房源管理需要带看公司房源，
+      不再按录入人过滤；写权限仍由 `_ensure_owner_access` 限定为「自己录入」；
     - 业主：仅本人名下房源；
     - 租客：全量。**这是刻意的**：C 端房源详情页与「同小区推荐」走的就是
       `/properties` 系列接口（见 `mobile-app/src/screens/tenant/PropertyDetailScreen.tsx`），
@@ -220,6 +221,9 @@ def property_visibility_conditions(session: Session, user: User) -> list:
     返回 `[false()]` 表示「一条都看不到」。与 `lease_visibility_conditions` 同理，
     必须显式置空而不是返回空列表（空列表 = 不加条件 = 全量泄露）。
     """
+    # 审核通过前（review_status=pending）的房源一律不进入常规列表 / 搜索 / 地图，
+    # 只能在后台绑定审核里处理。历史房源默认为 approved，不受影响。
+    approved = Property.review_status == PropertyReviewStatus.approved
     if user.role == UserRole.partner_admin and user.partner_id:
         # 合作公司管理员仅可见本公司经纪人的房源（责任人保留为经纪人本人）
         return [
@@ -228,20 +232,25 @@ def property_visibility_conditions(session: Session, user: User) -> list:
                     User.partner_id == user.partner_id,
                     User.deleted_at.is_(None),
                 )
-            )
+            ),
+            approved,
         ]
+    if user.role == UserRole.employee:
+        # D-01：员工端「找房 / 房源管理」放开全量只读。
+        # 写权限不受影响：更新/删除仍走 `_ensure_owner_access`（仅自己录入）。
+        return [approved]
     if user.role in STAFF_ROLES:
-        # 员工（admin/agent/employee）：按 data-scope 过滤录入人
+        # 销售（agent）：按 data-scope 过滤录入人
         # （scope=all 时 `staff_user_ids_in_scope` 返回 None，不加条件）
         user_ids = staff_user_ids_in_scope(session, user)
         if user_ids is None:
-            return []
-        return [Property.created_by.in_(user_ids)]
+            return [approved]
+        return [Property.created_by.in_(user_ids), approved]
     if user.role == UserRole.owner:
         owner_id = owner_id_of(session, user)
-        return [Property.owner_id == owner_id] if owner_id else [false()]
+        return [Property.owner_id == owner_id, approved] if owner_id else [false()]
     if user.role == UserRole.tenant:
-        return []
+        return [approved]
     return [false()]
 
 
@@ -256,6 +265,18 @@ def can_view_property(session: Session, user: User, prop) -> bool:
             return prop.get(name)
         return getattr(prop, name, None)
 
+    # 待审核房源对 C 端完全不可见（业主本人在审核通过前也看不到）；
+    # 内部员工需要处理审核，保持可见。
+    review_status = _field("review_status")
+    review_value = (
+        review_status.value if hasattr(review_status, "value") else review_status
+    )
+    if (
+        review_value == PropertyReviewStatus.pending.value
+        and user.role not in STAFF_ROLES
+    ):
+        return False
+
     if user.role == UserRole.partner_admin and user.partner_id:
         member_ids = {
             u.id
@@ -269,6 +290,9 @@ def can_view_property(session: Session, user: User, prop) -> bool:
         return _same_id(_field("created_by"), user.id) or bool(
             _field("created_by") in member_ids
         )
+    if user.role == UserRole.employee:
+        # D-01：员工全量只读（与 `property_visibility_conditions` 同口径）
+        return True
     if user.role in STAFF_ROLES:
         user_ids = staff_user_ids_in_scope(session, user)
         if user_ids is None:

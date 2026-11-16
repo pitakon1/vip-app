@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { chatWsUrl, currentToken, extractErrorMessage, request } from '@/lib/api'
+import { buildQuery, chatWsUrl, currentToken, extractErrorMessage, request } from '@/lib/api'
 
 // 全局注入的 API 地址（构建期由 Taro 注入，同 lib/api.ts 的 use）
 declare const API_BASE: string
@@ -64,24 +64,14 @@ export const propertiesApi = {
   /**
    * 房源列表。
    *
-   * 数组型筛选（keywords / amenity / property_type）单独拼到 URL 上：Taro 的 GET
-   * 序列化对数组用下标格式（`keywords[0]=a`），而 FastAPI 的 `List[str] = Query(...)`
-   * 只认重复键（`keywords=a&keywords=b`），混在 data 里传会被后端静默忽略——表现为
-   * 「区域/配套设施筛选勾选了、列表却完全没变」，且无任何报错。
-   * （与 publicApi.listings 的处理方式一致。）
+   * 所有查询参数都拼进 URL（`buildQuery` 把数组展开成重复键）：Taro 的 GET 在同时传
+   * `data` 时会重新序列化整条查询串，重复键被折叠成最后一个值，FastAPI 的
+   * `List[str] = Query(...)` 于是只收到一个关键词——表现为 C 端找房默认 20 个区域
+   * 关键词只剩 `centralworld`，列表恒为「共 0 套」。
    */
   list: (params?: any) => {
-    const { keywords, amenity, property_type, ...rest } = params ?? {}
-    const arrayParams: Record<string, unknown> = { keywords, amenity, property_type }
-    const query = (['keywords', 'amenity', 'property_type'] as const)
-      .flatMap((key) => {
-        const list = arrayParams[key]
-        return Array.isArray(list)
-          ? list.filter(Boolean).map((v) => `${key}=${encodeURIComponent(String(v))}`)
-          : []
-      })
-      .join('&')
-    return request({ url: `/properties${query ? `?${query}` : ''}`, method: 'GET', data: rest })
+    const qs = buildQuery(params)
+    return request({ url: `/properties${qs ? `?${qs}` : ''}`, method: 'GET' })
   },
   get: (id: string) => request({ url: `/properties/${id}`, method: 'GET' }),
   // 关联租约：返回 tenant_name，是业主侧展示「当前租客」姓名的唯一来源
@@ -200,7 +190,8 @@ export const maintenanceApi = {
 export const favoritesApi = {
   list: (params?: any) => request({ url: '/favorites', method: 'GET', data: params }),
   status: (propertyId: string) =>
-    request({ url: `/favorites/status/${propertyId}`, method: 'GET' }),
+    // 公开详情页也会调用：令牌失效时只当未登录处理，不把用户踢回登录页
+    request({ url: `/favorites/status/${propertyId}`, method: 'GET', authOptional: true }),
   add: (propertyId: string) =>
     request({ url: '/favorites', method: 'POST', data: { property_id: propertyId } }),
   remove: (propertyId: string) =>
@@ -215,7 +206,9 @@ export const priceAlertsApi = {
   status: (propertyId: string) =>
     request<{ subscribed: boolean }>({
       url: `/price-alerts/status/${propertyId}`,
-      method: 'GET'
+      method: 'GET',
+      // 同收藏状态：公开详情页的增强型探测，401 不跳登录
+      authOptional: true
     }),
   subscribe: (propertyId: string, listingId?: string) =>
     request({
@@ -507,6 +500,31 @@ export const contractsApi = {
     const token = currentToken()
     const query = token ? `?token=${encodeURIComponent(token)}` : ''
     return `${baseURL}/contracts/${id}/pdf-pages/${page}${query}`
+  }
+}
+
+// ============ 房产自助绑定（C 端提交 + 后台审核） ============
+// 产品模型：C 端只有一种用户，任何登录用户都能提交「添加我的房产」；
+// 只有后台审核通过后才建立用户与房源的关联（我的房产/收益/委托才有数据）。
+export const propertyBindingsApi = {
+  mine: () => request({ url: '/property-bindings/me', method: 'GET' }),
+  // 提交前匹配系统内已有房源：命中走认领，未命中走新建
+  match: (params: { address: string; room_number: string }) =>
+    request({
+      url: '/property-bindings/match',
+      method: 'GET',
+      data: { address: params.address, room_number: params.room_number }
+    }),
+  create: (data: any) => request({ url: '/property-bindings', method: 'POST', data }),
+  // 证明材料上传：PDF / JPG / PNG / WEBP，≤20MB（走 Taro.uploadFile，需绝对地址）
+  uploadAttachment: (filePath: string) => {
+    const baseURL = typeof API_BASE !== 'undefined' ? API_BASE : ''
+    return Taro.uploadFile({
+      url: `${baseURL}/property-bindings/attachments`,
+      filePath,
+      name: 'file',
+      header: { Authorization: `Bearer ${Taro.getStorageSync('token')}` }
+    })
   }
 }
 

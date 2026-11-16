@@ -2,6 +2,7 @@ import { LIST_PAGE_SIZE } from '@/lib/pagination'
 import { useState } from 'react'
 import { message, Modal } from 'antd'
 import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { listingsApi } from '@/services/api'
 import { formatMoney } from '@/lib/money'
 import { useAuthStore } from '@/stores/auth'
@@ -81,6 +82,8 @@ const MyListings = () => {
   const navigate = useNavigate()
   const uid = useAuthStore((s) => s.user)?.id ?? 'anon'
   const role = useAuthStore((s) => s.user)?.role
+  // 员工/经纪/管理员不拥有 C 端房产，空态不能引导其去「添加我的房产」
+  const isStaff = role === 'employee' || role === 'agent' || role === 'admin'
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [region, setRegion] = useState<RegionSelection | null>(null)
@@ -216,6 +219,18 @@ const MyListings = () => {
           empty
           filtered={!!(status || region?.region || region?.city || region?.district)}
           emptyTitle={t('myListings.empty')}
+          emptySub={isStaff ? t('myListings.emptyStaffSub') : t('propertyBinding.noListingSub')}
+          emptyAction={
+            isStaff ? (
+              <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/properties">
+                {t('myListings.publish')}
+              </Link>
+            ) : (
+              <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
+                {t('menu.addProperty')}
+              </Link>
+            )
+          }
         />
       ) : (
         <div className="rent-table-wrap">

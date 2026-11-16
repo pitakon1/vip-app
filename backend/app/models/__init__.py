@@ -9,7 +9,19 @@ from .project import Project, Tenure
 from .school import School, SchoolStage, SchoolCurriculum
 from .developer import Developer
 from .owner import Owner
-from .property import Property, PropertyStatus, DedupeType, Orientation, Decoration
+from .property import (
+    Property,
+    PropertyStatus,
+    PropertyReviewStatus,
+    DedupeType,
+    Orientation,
+    Decoration,
+)
+from .property_binding import (
+    PropertyBinding,
+    PropertyBindingKind,
+    PropertyBindingStatus,
+)
 from .listing import (
     Listing,
     ListingType,
@@ -182,9 +194,13 @@ __all__ = [
     "Owner",
     "Property",
     "PropertyStatus",
+    "PropertyReviewStatus",
     "DedupeType",
     "Orientation",
     "Decoration",
+    "PropertyBinding",
+    "PropertyBindingKind",
+    "PropertyBindingStatus",
     "Listing",
     "ListingType",
     "PublisherType",

@@ -25,6 +25,7 @@ import { useI18n } from '@/i18n';
 import type { MaintenanceTicket } from '@/types';
 import { useAuthStore } from '@/stores/auth';
 import { useCachedQuery } from '@/lib/useCachedQuery';
+import { fmtDate } from '@/utils/format';
 
 const PRIORITY_OPTIONS: Array<{ labelKey: string; value: MaintenanceTicket['priority'] }> = [
   { labelKey: 'maint.priorityLow', value: 'low' },
@@ -68,9 +69,6 @@ const matchTab = (status: string, tab: StatusTabKey) => {
   if (tab === 'processing') return status === 'assigned' || status === 'in_progress';
   return status === 'resolved' || status === 'closed';
 };
-
-const formatDate = (x?: string) =>
-  x ? x.replace('T', ' ').slice(0, 16) : '—';
 
 // 工单编号（原型 #MT-001；此处用真实 id 前缀派生，不虚构编号）
 const ticketCode = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
@@ -269,7 +267,7 @@ export default function MaintenanceScreen() {
               <Text style={[styles.chipText, { color: meta.color }]}>{t(meta.labelKey)}</Text>
             </View>
           </View>
-          <Text style={styles.ticketDate}>{formatDate(item.created_at)}</Text>
+          <Text style={styles.ticketDate}>{fmtDate(item.created_at, 'minute')}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -493,7 +491,7 @@ export default function MaintenanceScreen() {
                   })}
                 </Text>
                 <Text style={styles.modalLabel}>{t('maint.submitTime')}</Text>
-                <Text style={styles.modalText}>{formatDate(selected.created_at)}</Text>
+                <Text style={styles.modalText}>{fmtDate(selected.created_at, 'minute')}</Text>
 
                 {canRate(selected) && (
                   <View style={styles.rateArea}>

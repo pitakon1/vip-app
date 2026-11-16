@@ -28,6 +28,9 @@ const buildPriorityLabels = (
   t: (k: string, p?: Record<string, string | number>) => string
 ): string[] => [t('maint.priorityLow'), t('maint.priorityMedium'), t('maint.priorityHigh'), t('maint.priorityUrgent')]
 
+/** 时间显示到分钟（与 App fmtDate(..., 'minute') 一致） */
+const fmtMinute = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 16) : '—')
+
 /** 优先级徽标配色（紧急=error / 高=warning / 中=info / 低=neutral） */
 const PRIORITY_BADGE: Record<MaintenancePriority, string> = {
   urgent: 'badge--error',
@@ -301,7 +304,7 @@ export default function TenantMaintenancePage() {
                       {statusInfo.text}
                     </Text>
                   </View>
-                  <Text className='ticket-date'>{ticket.created_at?.slice(0, 10)}</Text>
+                  <Text className='ticket-date'>{fmtMinute(ticket.created_at)}</Text>
                 </View>
               </View>
             )
@@ -380,7 +383,7 @@ export default function TenantMaintenancePage() {
               <Text className='rate-panel-meta'>
                 {t('maint.priorityPrefix')}
                 {PRIORITY_LABELS[PRIORITY_OPTIONS.indexOf(activeTicket.priority)] ?? t('maint.priorityMedium')} · {t('maint.submittedAt')}{' '}
-                {activeTicket.created_at?.slice(0, 10)}
+                {fmtMinute(activeTicket.created_at)}
               </Text>
 
               {activeTicket.status === 'resolved' || activeTicket.status === 'closed' ? (

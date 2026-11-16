@@ -40,13 +40,29 @@ def install_version_bumper() -> None:
     listen(Mapper, "before_update", _bump_version)
 
 
-def ensure_version(obj: Any, expected: Optional[int], name: str = "record") -> None:
+def ensure_version(
+    obj: Any,
+    expected: Optional[int],
+    name: str = "record",
+    session: Optional[Any] = None,
+) -> None:
     """客户端传入 `version` 时做并发校验，不传则跳过。
 
     不一致说明该记录在客户端读取之后已被他人修改，返回 409 而不是静默覆盖。
+
+    传了 `session` 时会先用**行锁**重新读取一次最新版本再比对：否则两个并发
+    请求都可能在各自的 SELECT 里读到同一个旧 version，双双通过校验后「后写
+    覆盖先写」，校验形同虚设。PostgreSQL 下是 `SELECT ... FOR UPDATE`；
+    SQLite 不支持该子句（直接忽略），仅本地开发使用，且写事务本身串行。
+    调用点必须位于任何 `setattr` 之前——refresh 会丢弃会话里未提交的改动。
     """
     if expected is None or _int_version_column(obj) is None:
         return
+    if session is not None:
+        try:
+            session.refresh(obj, with_for_update=True)
+        except Exception:  # noqa: BLE001 - 拿不到行锁时退回普通比对，不阻断业务
+            pass
     if int(obj.version or 0) != int(expected):
         raise HTTPException(
             status_code=409,

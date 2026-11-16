@@ -39,6 +39,12 @@
   text-align: center;
 }
 
+/* 可点击的引导文案（如「还没有绑定房产，去添加」） */
+.state-block__sub--link {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .state-block__spinner {
   width: 48rpx;
   height: 48rpx;

@@ -22,6 +22,7 @@ interface LeaseItem {
   currency?: string
   deposit_amount?: number
   status?: string
+  contract_no?: string
   [key: string]: any
 }
 
@@ -161,9 +162,9 @@ export default function AdminLeasesPage() {
       if (filter === 'expiring' && !isExpiring(l)) return false
       if (filter && filter !== 'expiring' && l.status !== filter) return false
       if (!kw) return true
-      // 搜索：合同 id 片段 / 租客名 / 房源名
+      // 搜索：合同编号（后端 HT-YYYYMMDD-NNNN）/ 租客名 / 房源名
       const hay = [
-        String(l.id),
+        String(l.contract_no || ''),
         tenantMap[String(l.id)],
         propMap[String(l.property_id || '')]
       ]
@@ -312,7 +313,7 @@ export default function AdminLeasesPage() {
             <View key={l.id} className='ale-card'>
               <View className='ale-card__top'>
                 <Text className='ale-card__no'>
-                  {t('lease.contractNo', { no: String(l.id).slice(0, 8).toUpperCase() })}
+                  {t('lease.contractNo', { no: l.contract_no || '—' })}
                 </Text>
                 <Text
                   className={`badge ${expiring ? 'badge--warning' : meta.badge}`}

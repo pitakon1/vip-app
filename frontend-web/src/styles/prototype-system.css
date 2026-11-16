@@ -104,18 +104,12 @@
       }
     
 
-/* ===== App Shell Layout ===== */
-.rent-app {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 56px 1fr;
-  grid-template-areas: "sidebar topbar" "sidebar main";
-  height: 100vh;
-  background: var(--rent-background);
-}
-.rent-app__sidebar { grid-area: sidebar; }
-.rent-app__topbar { grid-area: topbar; }
-.rent-app__main { grid-area: main; overflow-y: auto; }
+/* ===== App Shell Layout =====
+   App Shell（.rent-app / .rent-app__sidebar / .rent-app__main）只在 app.css 定义。
+   本文件原有一份重复声明（240px 固定两栏 + height:100vh），因为它排在 app.css
+   之后，同优先级下会覆盖 app.css 的 `@media (max-width: 768px)` 响应式规则，
+   导致 375/768 宽度下侧栏虽被隐藏但仍占 240px 空列、页面横向溢出（实测
+   375px 视口 scrollWidth=621px）。这里不再重复声明。 */
 
 /* Shell（sidebar / topbar / search / nav / filter-bar）
    已合并到 primitives.css，本文件不再重复定义。 */

@@ -409,7 +409,10 @@ export default function CRMScreen() {
         <View style={styles.statCell}>
           <Text style={styles.statLabel}>{t('crm.intent')}</Text>
           <Text style={[styles.statValue, { color: colors.info }]}>
-            {stageTotals.inquiring ?? 0}
+            {/* D-05：意向 = 咨询中 + 看房中 + 谈判中，三段都属于未成交意向客户 */}
+            {(stageTotals.inquiring ?? 0) +
+              (stageTotals.viewing_scheduled ?? 0) +
+              (stageTotals.negotiating ?? 0)}
           </Text>
         </View>
         <View style={styles.statCell}>

@@ -671,7 +671,7 @@ def update_lease(
         raise HTTPException(status_code=404, detail="Lease not found")
     _ensure_lease_visible(session, user, lease)
     update_data = req.model_dump(exclude_unset=True)
-    ensure_version(lease, update_data.pop("version", None), "租约")
+    ensure_version(lease, update_data.pop("version", None), "租约", session=session)
     # 状态变更走白名单：终态不可复活，生效态不可与同房源其他生效租约并存
     new_status = update_data.get("status")
     if new_status is not None and new_status != lease.status:

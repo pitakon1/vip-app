@@ -35,6 +35,33 @@ export const CHANNEL_LABEL_KEYS: Record<string, string> = {
   alipay: 'payments.chAlipay',
   wechat: 'payments.chWechat',
   wise: 'payments.chWise',
+  paypal: 'payments.chPaypal',
+  grabpay: 'payments.chGrabpay',
+  truemoney: 'payments.chTruemoney',
+  paynow: 'payments.chPaynow',
+  gcash: 'payments.chGcash',
+  dana: 'payments.chDana',
+  ovo: 'payments.chOvo',
+  shopeepay: 'payments.chShopeepay',
+  apple_pay: 'payments.chApplePay',
+  google_pay: 'payments.chGooglePay',
+  unionpay: 'payments.chUnionpay',
+  boost: 'payments.chBoost',
+}
+
+/**
+ * 支付渠道展示文案。已知渠道走 i18n；后端新增但前端尚未翻译的渠道
+ * 做 Title Case 兜底，避免把 `grabpay` / `apple_pay` 这类枚举码直接漏到界面。
+ */
+export function channelLabel(channel: string | null | undefined, t: (key: string) => string): string {
+  if (!channel) return '-'
+  const key = CHANNEL_LABEL_KEYS[channel]
+  if (key) return t(key)
+  return channel
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 export const DEFAULT_MANUAL_FORM: ManualForm = {

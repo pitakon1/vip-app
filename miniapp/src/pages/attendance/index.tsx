@@ -5,9 +5,11 @@ import useAuthStore from '@/stores/auth'
 import { attendanceApi } from '@/services/api'
 import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
+import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
+import { guardRoles } from '@/lib/roleGuard'
 
 interface Trip {
   id: string
@@ -144,6 +146,8 @@ function pickList(res: any): Trip[] {
 export default function AttendancePage() {
   const { t } = useI18n()
   const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
+  // 角色校验通过前只渲染加载态，避免越权角色看到业务页
+  const [authorized, setAuthorized] = useState(false)
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null)
   const [locState, setLocState] = useState<'getting' | 'ready' | 'denied'>('getting')
   const [checkedIn, setCheckedIn] = useState(false)
@@ -367,10 +371,9 @@ export default function AttendancePage() {
 
   useDidShow(async () => {
     loadFromStorage()
-    if (!useAuthStore.getState().token) {
-      Taro.redirectTo({ url: '/pages/login/index' })
-      return
-    }
+    // 考勤是员工/经纪/管理员功能：其他角色直连时直接回各自首页，不渲染业务页、不发必然 403 的请求
+    if (!guardRoles(['employee', 'agent', 'admin'])) return
+    setAuthorized(true)
     await loadToday()
     loadRecords()
     loadMyRule()
@@ -467,6 +470,15 @@ export default function AttendancePage() {
       absent: count('absent')
     }
   }, [monthRecords])
+
+  if (!authorized) {
+    return (
+      <View className='a-page'>
+        <ShellHeader title={t('nav.attendance')} />
+        <StateBlock loading text={t('pub.loading')} />
+      </View>
+    )
+  }
 
   return (
     <View className='a-page'>
@@ -739,7 +751,7 @@ export default function AttendancePage() {
                   </Text>
                 </View>
                 <View className='a-mrule__row'>
-                  <Text className='a-mrule__label'>{t('att.ruleTimezone')}</Text>
+                  <Text className='a-mrule__label'>{t('att.timezone')}</Text>
                   <Text className='a-mrule__value'>
                     {`UTC${Number(myRule.utc_offset_hours ?? 0) >= 0 ? '+' : ''}${myRule.utc_offset_hours ?? 0}`}
                   </Text>

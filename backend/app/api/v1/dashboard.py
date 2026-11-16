@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.core.auth import property_visibility_conditions, require_agent, require_admin
 from app.core.cache import get_cache, set_cache
+from app.core.payments import UNPAID_PAYMENT_STATUSES
 from app.schemas.dashboard import (
     DashboardSummaryOut,
     ExpiringLeasesOut,
@@ -250,15 +251,14 @@ def get_summary(
                 ),
                 0,
             ),
-            # 「待收款」笔数：全部未结清账单（pending + processing），不限日期。
-            # 此前只算「7 天内到期且 pending」，processing 与已逾期单都不计入，
-            # 于是首页出现「欠租 35,000 / 逾期占比 37% / 待收款 0 笔」的自相矛盾。
+            # 「待收款」笔数：全部未结清账单，不限日期。
+            # 与对账页同源使用 UNPAID_PAYMENT_STATUSES（pending/processing/failed）：
+            # failed 只是扣款失败、账单并未结清，漏掉它会再次出现
+            # 「逾期 35,000 / 待收款 0 笔」的矛盾。
             func.sum(
                 case(
                     (
-                        Payment.status.in_(
-                            (PaymentStatus.pending, PaymentStatus.processing)
-                        ),
+                        Payment.status.in_(UNPAID_PAYMENT_STATUSES),
                         1,
                     ),
                     else_=0,
@@ -490,9 +490,10 @@ def financial_reconciliation(
     """
     now = datetime.utcnow()
     # 分桶口径：succeeded → 已收；其余只有「仍有收款义务」的状态才参与应收/逾期。
-    # failed/refunded/disputed/expired 是终态（收不回来或已退回），到期也不该计入，
-    # 否则失败/退款单会把逾期应收虚高（此前它们被 ~is_received 全兜进了分桶）。
-    _OUTSTANDING = (PaymentStatus.pending, PaymentStatus.processing)
+    # 与 core.payments.UNPAID_PAYMENT_STATUSES 同源：failed 只是一次扣款失败，
+    # 账单并未结清，必须继续计入应收；refunded/expired/disputed 已关闭，不计。
+    # 此前 failed 被排除，导致租客端显示逾期、对账却显示逾期 0。
+    _OUTSTANDING = UNPAID_PAYMENT_STATUSES
     is_received = Payment.status == PaymentStatus.succeeded
     is_outstanding = Payment.status.in_(_OUTSTANDING)
     is_overdue = (
@@ -554,8 +555,8 @@ def financial_reconciliation(
 
     records = []
     for p in payments:
-        # 与上方聚合同一口径：终态单（failed/refunded/disputed/expired）不参与
-        # 应收/逾期对账，逐笔按实际状态标记，避免「总额不算它、明细却标逾期」。
+        # 与上方聚合同一口径：未结清单（pending/processing/failed）参与应收/逾期，
+        # refunded/expired/disputed 等已关闭终态按实际状态标记。
         if p.status == PaymentStatus.succeeded:
             bucket = "received"
         elif p.status in _OUTSTANDING:

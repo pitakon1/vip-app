@@ -116,8 +116,14 @@ export function useOwnerPropertyActions({ refresh, queryKey }: Options) {
         await propertiesApi.update(editingId, payload)
         message.success(t('ownerProperties.msgUpdated'))
       } else {
-        await propertiesApi.create(payload)
-        message.success(t('ownerProperties.msgCreated'))
+        const res = await propertiesApi.create(payload)
+        const created = res.data?.data ?? res.data
+        // C 端录入的房源进入审核队列（review_status=pending），文案要说明
+        message.success(
+          created?.review_status === 'pending'
+            ? t('ownerProperties.msgCreatedPending')
+            : t('ownerProperties.msgCreated'),
+        )
       }
       setModalOpen(false)
       refresh()

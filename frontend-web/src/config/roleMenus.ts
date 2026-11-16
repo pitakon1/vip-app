@@ -59,6 +59,12 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           iconKey: 'BUILDING',
         },
         {
+          // C 端统一入口：任何登录用户都能提交「添加我的房产」，审核通过后才有关联房源
+          key: '/tenant/property-binding',
+          labelKey: 'menu.addProperty',
+          iconKey: 'BUILDING',
+        },
+        {
           key: '/tenant/my-listings',
           labelKey: 'menu.myListings',
           iconKey: 'GRID_4',
@@ -324,6 +330,11 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           key: '/operations/listing-review',
           labelKey: 'menu.listingReview',
           iconKey: 'CHAT',
+        },
+        {
+          key: '/operations/property-binding-review',
+          labelKey: 'menu.propertyBindingReview',
+          iconKey: 'CHECK_CIRCLE',
         },
         {
           key: '/operations/dedupe-review',

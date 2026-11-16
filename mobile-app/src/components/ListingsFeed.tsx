@@ -62,6 +62,8 @@ type OpenTab = null | 'region' | 'type' | 'price' | 'more' | 'sort';
 export interface Listing {
   id: string;
   title?: string;
+  /** 后端房源没有 title 字段，对外可读名称是 project_name（与 Web 卡片口径一致） */
+  project_name?: string;
   room_number?: string;
   address?: string;
   property_type?: string;
@@ -483,7 +485,7 @@ const ListingCard = React.memo(function ListingCard({
       </View>
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={1}>
-          {item.title || item.room_number || t('list.unnamed')}
+          {item.title || item.project_name || item.room_number || t('list.unnamed')}
         </Text>
         <Text style={styles.address} numberOfLines={1}>
           {item.address || t('prop.noAddress')}

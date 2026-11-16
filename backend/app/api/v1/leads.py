@@ -1,10 +1,10 @@
 """CRM 线索路由：客户线索管理与转化漏斗跟踪。"""
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import false, func, or_
 from sqlmodel import Session, select
 
@@ -29,10 +29,14 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 # 该字段不含客户隐私，保留给内部排查比另开接口更省事。
 _LEAD_INTERNAL_FIELDS = {"metadata_"}
 
+# 线索姓名：空串/纯空白会让 CRM 列表出现无主行，500 字超长则会把表格撑坏。
+# 后端做边界校验（前端已限制，但接口可被直接调用）。
+LeadName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+
 
 
 class LeadCreate(BaseModel):
-    name: str
+    name: LeadName
     nationality: Optional[str] = None
     line_id: Optional[str] = None
     wechat_id: Optional[str] = None
@@ -53,7 +57,7 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    name: Optional[str] = None
+    name: Optional[LeadName] = None
     nationality: Optional[str] = None
     line_id: Optional[str] = None
     wechat_id: Optional[str] = None

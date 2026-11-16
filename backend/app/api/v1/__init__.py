@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .dashboard import router as dashboard_router
 from .properties import router as properties_router
+from .property_bindings import router as property_bindings_router
 from .projects import router as projects_router
 from .leases import router as leases_router
 from .leads import router as leads_router
@@ -65,6 +66,7 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(properties_router)
+api_router.include_router(property_bindings_router)
 api_router.include_router(projects_router)
 api_router.include_router(leases_router)
 api_router.include_router(leads_router)

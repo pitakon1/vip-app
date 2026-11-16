@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
   },
   rowBody: { flex: 1, minWidth: 0 },
   rowTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, marginBottom: 6 },
+  rowSub: { fontSize: 12, color: colors.ink3, marginBottom: 4 },
   rowMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   badge: {
     flexDirection: 'row',

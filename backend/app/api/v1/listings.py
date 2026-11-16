@@ -23,6 +23,7 @@ from app.models import (
     UserRole,
     Owner,
     Property,
+    PropertyReviewStatus,
     Project,
     BrokerPartner,
     Listing,
@@ -640,6 +641,12 @@ def create_listing(
         )
         session.add(prop)
         existing_dedupe_state = DedupeState.new
+
+    # 待审核房源不能挂牌：审核通过前不对外展示、不能被搜索，也不允许生成上架单
+    if prop.review_status != PropertyReviewStatus.approved:
+        raise HTTPException(
+            status_code=409, detail="该房源正在审核中，审核通过后才能挂牌"
+        )
 
     # ---------- 业主上架证件 ----------
     # 业主只能上架自己名下房源，且必须已上传「产权证 + 业主身份证明」（复用

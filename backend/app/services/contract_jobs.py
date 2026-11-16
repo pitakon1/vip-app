@@ -1,7 +1,7 @@
 """电子签后台任务（进程内轻量循环，不引入额外依赖）。
 
 职责：
-1. 签署完成回调的**计划重投**：首投失败后按 30s / 2m / 10m 重试，耗尽后置 failed，
+1. 签署完成回调的**计划重投**：首投失败后按 30s / 5m / 30m / 2h / 6h 重试，耗尽后置 failed，
    仍可由管理端「人工重投」恢复；
 2. 签署有效期扫描：把超过 `expires_at` 且仍在流转中的合同置为 `expired`，
    避免状态只靠读取时惰性更新（列表/报表看不到真实过期态）。
@@ -48,7 +48,7 @@ from app.providers.notification.router import notification_router
 logger = logging.getLogger(__name__)
 
 # 首次投递失败后的等待秒数：第 1/2/3 次失败分别等 30s / 2m / 10m
-CALLBACK_BACKOFF_SECONDS = (30, 120, 600)
+CALLBACK_BACKOFF_SECONDS = (30, 300, 1800, 7200, 21600)
 MAX_CALLBACK_ATTEMPTS = 1 + len(CALLBACK_BACKOFF_SECONDS)
 # 重投抢占租约（秒）：抢占时把 next_attempt_at 推到 now + 租约，其它 worker 在本轮
 # 看不到这条事件；租约需明显大于 HTTP 投递超时（5s），否则会出现投递中被抢走。

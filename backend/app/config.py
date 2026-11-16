@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     APP_NAME: str = "房地产租赁管理系统 API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    # 业务时区：仅用于解释「客户端提交了不带时区的本地墙上时间」的入参
+    # （如预约看房的 `2026-12-01T10:00:00`）。默认与 Celery 的 Asia/Bangkok
+    # 保持一致——结算币种为 THB、收款行是 Bangkok Bank/PromptPay。
+    # 数据库统一存 naive UTC，出参统一带 `Z`，前端按设备本地时区展示。
+    BUSINESS_TIMEZONE: str = "Asia/Bangkok"
     # Uvicorn worker 数量（生产环境可环境变量覆盖）
     WEB_CONCURRENCY: int = 4
 
@@ -118,7 +123,13 @@ class Settings(BaseSettings):
 
     # 5) 地图找房 + 7) 考勤定位：Google Maps API
     #    未配置时使用站内 mock 地理位置（geocode 兜底），不影响流程。
+    #    兼容旧名：未配置 SERVER 版时回退到它（历史部署仍在用这一项）。
     GOOGLE_MAPS_API_KEY: str = ""
+    # 服务端地理编码专用 Key（建议在 Google Cloud 对服务器出口 IP 做限制）。
+    # 暂为空：结算账号恢复「有效」并关联 Vip App 之前，真实调用会被拒
+    # （You must enable Billing）；此时配了也无法验证，等账单恢复后再填。
+    # 留空时：有旧名 Key 用旧名，否则服务端地理编码走确定性站内 mock。
+    GOOGLE_MAPS_SERVER_API_KEY: str = ""
     GOOGLE_MAPS_ORIGIN: str = ""  # 可选 CORS 来源
 
     # 6) Google 翻译（Cloud Translation v2）

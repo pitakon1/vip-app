@@ -107,12 +107,13 @@ export const favoritesApi = {
   remove: (propertyId: string) =>
     api.delete(`/favorites/${propertyId}`),
   status: (propertyId: string) =>
-    api.get(`/favorites/status/${propertyId}`),
+    api.get(`/favorites/status/${propertyId}`, { skipAuthLogout: true } as any),
   // 批量收藏状态（列表页一次请求，替代逐条 N+1）
   batchStatus: (propertyIds: string[]) =>
     api.get('/favorites/status', {
       params: { property_ids: propertyIds.join(',') },
-    }),
+      skipAuthLogout: true,
+    } as any),
 };
 
 // 降价提醒
@@ -123,7 +124,7 @@ export const priceAlertsApi = {
     api.delete(`/price-alerts/${propertyId}`),
   mine: (params?: any) => api.get('/price-alerts', { params }),
   status: (propertyId: string) =>
-    api.get(`/price-alerts/status/${propertyId}`),
+    api.get(`/price-alerts/status/${propertyId}`, { skipAuthLogout: true } as any),
 };
 
 // v1.9 预约看房
@@ -232,6 +233,20 @@ export const ownersApi = {
     api.get('/owners/me/annual-financial-summary', {
       params: year ? { year } : {},
     }),
+};
+
+// 房产自助绑定：C 端提交申请（地址/房号/材料），后台审核通过后才建立与房源的关联
+export const propertyBindingsApi = {
+  mine: () => api.get('/property-bindings/me'),
+  // 提交前匹配系统内已有房源：命中走认领，未命中走新建
+  match: (params: any) => api.get('/property-bindings/match', { params }),
+  create: (data: any) => api.post('/property-bindings', data),
+  // 证明材料上传（multipart）：PDF / JPG / PNG / WEBP，≤20MB，返回 {name,url,size,content_type}
+  uploadAttachment: (file: any) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/property-bindings/attachments', fd);
+  },
 };
 
 export const attendanceApi = {

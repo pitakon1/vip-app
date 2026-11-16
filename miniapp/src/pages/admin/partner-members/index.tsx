@@ -9,6 +9,8 @@ import StateBlock from '@/components/StateBlock'
 import { useI18n } from '@/i18n'
 import './index.scss'
 import { errorText } from '@/lib/errorText'
+import { guardRoles } from '@/lib/roleGuard'
+import useAuthStore from '@/stores/auth'
 
 interface MemberItem {
   id?: string | number
@@ -54,6 +56,9 @@ const btn = (loading: boolean, text: string, cls = '', onClick?: () => void) => 
 
 export default function PartnerMembersPage() {
   const { t } = useI18n()
+  // 角色校验通过前只渲染加载态，避免越权角色看到业务页
+  const [authorized, setAuthorized] = useState(false)
+  const loadFromStorage = useAuthStore((state) => state.loadFromStorage)
   const [members, setMembers] = useState<MemberItem[]>([])
   const [properties, setProperties] = useState<any[]>([])
   const [perf, setPerf] = useState<any>(null)
@@ -119,6 +124,10 @@ export default function PartnerMembersPage() {
   }
 
   useDidShow(() => {
+    // 本页仅合作公司管理员可用：管理员等角色直连时回各自首页，不发必然 403 的请求
+    loadFromStorage()
+    if (!guardRoles(['partner_admin'])) return
+    setAuthorized(true)
     fetchAll()
     loadCandidates()
   })
@@ -251,6 +260,15 @@ export default function PartnerMembersPage() {
     () => (Array.isArray(perf?.agents) ? perf.agents : []),
     [perf]
   )
+
+  if (!authorized) {
+    return (
+      <View className='pm-page'>
+        <ShellHeader title={t('nav.partnerMembers')} />
+        <StateBlock loading text={t('acc.loading')} />
+      </View>
+    )
+  }
 
   return (
     <View className='pm-page'>

@@ -16,7 +16,7 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import { documentsApi, paymentsApi, propertiesApi } from '@/services/api';
-import { fmtMoney as money } from '@/utils/format';
+import { fmtMoney as money, fmtDate } from '@/utils/format';
 import { documentFileUrl } from '@/lib/api';
 import { useCachedQuery } from '@/lib/useCachedQuery';
 import { useI18n } from '@/i18n';
@@ -28,8 +28,6 @@ type TFunc = (key: string, params?: Record<string, string | number>) => string;
 type OwnerDetailParamList = {
   OwnerPropertyDetail: { id: string };
 };
-
-const formatDate = (x?: string) => (x ? String(x).replace('T', ' ').slice(0, 10) : '-');
 
 interface PropertyDetail {
   id: string;
@@ -376,7 +374,7 @@ export default function OwnerPropertyDetailScreen() {
         {/* ===== 在租状态 ===== */}
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>{t('opd.leaseStatus')}</Text>
-          <Text style={styles.sectionHint}>{activeLease ? formatDate(activeLease.end_date) : t('opd.noLease')}</Text>
+          <Text style={styles.sectionHint}>{activeLease ? fmtDate(activeLease.end_date) : t('opd.noLease')}</Text>
         </View>
         <View style={styles.card}>
           {!activeLease ? (
@@ -397,7 +395,7 @@ export default function OwnerPropertyDetailScreen() {
                 <View style={styles.metricCell}>
                   <Text style={styles.metricLabel}>{t('opd.leaseEnd')}</Text>
                   <Text style={styles.metricValue} numberOfLines={1}>
-                    {formatDate(activeLease.end_date)}
+                    {fmtDate(activeLease.end_date)}
                   </Text>
                 </View>
                 <View style={styles.metricCell}>
@@ -501,7 +499,7 @@ export default function OwnerPropertyDetailScreen() {
                       {d.title || t('opd.untitledDoc')}
                     </Text>
                     <Text style={styles.flowMeta} numberOfLines={1}>
-                      {formatDate(d.created_at)}
+                      {fmtDate(d.created_at)}
                     </Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: meta.bg }]}>
@@ -549,7 +547,7 @@ export default function OwnerPropertyDetailScreen() {
                       {activeLease?.tenant_name ? ` · ${activeLease.tenant_name}` : ''}
                     </Text>
                     <Text style={styles.flowMeta} numberOfLines={1}>
-                      {formatDate(p.paid_at || p.due_date)}
+                      {fmtDate(p.paid_at || p.due_date)}
                       {p.description ? ` · ${p.description}` : ''}
                     </Text>
                   </View>

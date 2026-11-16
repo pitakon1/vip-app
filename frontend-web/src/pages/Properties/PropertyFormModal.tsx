@@ -150,18 +150,18 @@ export default function PropertyFormModal({
           <Col span={8}><Form.Item label={t('property.building')} name="building"><InputNumber style={{ width: '100%' }} placeholder={t('property.building')} /></Form.Item></Col>
           <Col span={8}><Form.Item label={t('property.floor')} name="floor"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.floor')} /></Form.Item></Col>
           <Col span={8}>
-            <Form.Item label={t('property.currency')} name="currency" rules={[{ required: true, message: t('property.currency') }]}>
+            <Form.Item label={t('property.currency')} name="currency" rules={[{ required: true, message: t('property.currencyRequired') }]}>
               <Select placeholder={t('property.currency')} options={[{ value: 'THB', label: 'THB' }, { value: 'USD', label: '$' }, { value: 'CNY', label: 'CNY' }]} />
             </Form.Item>
           </Col>
         </Row>
         <Row gutter={16}>
-          <Col span={8}><Form.Item label={t('property.monthlyRent')} name="monthly_rent" rules={[{ required: true, message: t('property.monthlyRent') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.monthlyRent')} /></Form.Item></Col>
+          <Col span={8}><Form.Item label={t('property.monthlyRent')} name="monthly_rent" rules={[{ required: true, message: t('property.monthlyRentRequired') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.monthlyRent')} /></Form.Item></Col>
           <Col span={8}><Form.Item label={t('property.deposit')} name="deposit_amount"><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.deposit')} /></Form.Item></Col>
           <Col span={8}><Form.Item label={t('property.depositMonths')} name="deposit_months"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.depositMonths')} /></Form.Item></Col>
         </Row>
         <Row gutter={16}>
-          <Col span={8}><Form.Item label={t('property.area')} name="size_sqm" rules={[{ required: true, message: t('property.area') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.areaPlaceholder')} /></Form.Item></Col>
+          <Col span={8}><Form.Item label={t('property.area')} name="size_sqm" rules={[{ required: true, message: t('property.areaRequired') }]}><InputNumber style={{ width: '100%' }} min={0} placeholder={t('property.areaPlaceholder')} /></Form.Item></Col>
           <Col span={8}><Form.Item label={t('property.bedrooms')} name="bedrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bedrooms')} /></Form.Item></Col>
           <Col span={8}><Form.Item label={t('property.bathrooms')} name="bathrooms"><InputNumber style={{ width: '100%' }} min={0} precision={0} placeholder={t('property.bathrooms')} /></Form.Item></Col>
         </Row>

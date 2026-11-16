@@ -23,6 +23,7 @@ JSON 响应统一包裹成::
 from __future__ import annotations
 
 import json
+import re
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -44,6 +45,40 @@ _SKIP_PREFIXES = (
 
 # 成功信封的响应头标记：三端据此单点解包
 ENVELOPE_HEADER = "X-Api-Envelope"
+
+# 数据库统一存 naive UTC，序列化出来却不带时区后缀，前端 `new Date('...')`
+# 会按**浏览器本地时区**解释，导致「创建时间 09:43」被显示成 01:43（UTC+8 实测
+# 差 8 小时；同理泰国 UTC+7 差 7 小时）。这里在出参层统一补 `Z`，让三端
+# `new Date(...)` / dayjs 都按 UTC 正确换算到设备本地时间。
+#
+# 只处理「瞬时时间」字段（`*_at` / `*_time`），且仅当值本身不带任何时区标记：
+# - `start_date` / `due_date` / `available_from` 这类**日期语义**字段保持原样，
+#   补 `Z` 会把 `00:00` 的日期整体前移一天；
+# - 已带 `Z` 或 `+08:00` 的值不再重复处理。
+_NAIVE_DATETIME_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(\.\d{1,6})?$"
+)
+
+
+def _is_instant_key(key: str) -> bool:
+    return key == "at" or key == "time" or key.endswith("_at") or key.endswith("_time")
+
+
+def _mark_utc_instants(node):
+    """递归把 `*_at` / `*_time` 里的 naive ISO 串标记为 UTC（追加 `Z`）。"""
+    if isinstance(node, dict):
+        result = {}
+        for key, value in node.items():
+            if isinstance(value, str) and _is_instant_key(key):
+                matched = _NAIVE_DATETIME_RE.match(value)
+                if matched:
+                    frac = matched.group(3) or ""
+                    value = f"{matched.group(1)}T{matched.group(2)}{frac}Z"
+            result[key] = _mark_utc_instants(value)
+        return result
+    if isinstance(node, list):
+        return [_mark_utc_instants(item) for item in node]
+    return node
 
 
 def _is_skip_path(path: str) -> bool:
@@ -89,7 +124,8 @@ class EnvelopeMiddleware(BaseHTTPMiddleware):
             )
 
         body = json.dumps(
-            {"code": 0, "msg": "ok", "data": parsed}, ensure_ascii=False
+            {"code": 0, "msg": "ok", "data": _mark_utc_instants(parsed)},
+            ensure_ascii=False,
         ).encode("utf-8")
         headers[ENVELOPE_HEADER] = "1"
         return Response(

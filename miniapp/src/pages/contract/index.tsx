@@ -1265,11 +1265,23 @@ export default function MyContractsPage() {
                     {t(SOURCE_META[c.source || ''] || 'contract.sourceGenerated')}
                   </Text>
                 </View>
-                <View className='mc-card__divider' />
-                <View className='mc-card__row'>
-                  <Text className='mc-card__row-label'>{t('contract.created_at')}</Text>
-                  <Text className='mc-card__row-value'>{fmtDate(c.created_at)}</Text>
-                </View>
+                {(() => {
+                  // D-07：列表直接给出合同编号、关联租约、金额与创建时间，避免多张卡片无法区分
+                  const metaLine = [
+                    c.contract_no ? `${t('contract.no')} ${c.contract_no}` : '',
+                    c.lease_no ? `${t('contract.lease')} ${c.lease_no}` : ''
+                  ].filter(Boolean).join(' · ')
+                  const amountLine = [
+                    c.amount != null ? `${t('contract.amount')} ${c.currency || 'THB'} ${Number(c.amount).toLocaleString()}` : '',
+                    c.created_at ? `${t('contract.created_at')} ${String(c.created_at).slice(0, 10)}` : ''
+                  ].filter(Boolean).join(' · ')
+                  return (
+                    <>
+                      {!!metaLine && <View className='mc-card__row'><Text className='mc-card__row-label'>{metaLine}</Text></View>}
+                      {!!amountLine && <View className='mc-card__row'><Text className='mc-card__row-label'>{amountLine}</Text></View>}
+                    </>
+                  )
+                })()}
               </View>
             ))
           )}

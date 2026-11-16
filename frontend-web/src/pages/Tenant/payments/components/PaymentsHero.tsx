@@ -7,10 +7,11 @@ interface Props {
   heroCurrency: string
   heroProperty: string
   heroDue: string
+  heroOverdue?: boolean
 }
 
 /** 待缴合计 Hero 大卡片（不再把所有 pending 都当成本月租金，也不写死泰铢符号） */
-const PaymentsHero = ({ pendingTotal, heroCurrency, heroProperty, heroDue }: Props) => {
+const PaymentsHero = ({ pendingTotal, heroCurrency, heroProperty, heroDue, heroOverdue }: Props) => {
   const { t } = useTranslation()
 
   return (
@@ -36,7 +37,9 @@ const PaymentsHero = ({ pendingTotal, heroCurrency, heroProperty, heroDue }: Pro
             {heroDue && (
               <span className="rent-pay-hero__meta-item">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                {t('tenantPayments.payBefore', { date: heroDue })}
+                {heroOverdue
+                  ? t('tenantPayments.overdueBefore', { date: heroDue })
+                  : t('tenantPayments.payBefore', { date: heroDue })}
               </span>
             )}
           </div>

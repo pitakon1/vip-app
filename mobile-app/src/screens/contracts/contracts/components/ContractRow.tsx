@@ -11,6 +11,15 @@ import { SourceBadge, StatusBadge } from './Badges';
 
 export default function ContractRow({ item, onPress }: { item: ContractItem; onPress: (id: string) => void }) {
   const { t } = useI18n();
+  // D-07：列表直接给出合同编号、关联租约、金额与创建时间，避免多张卡片无法区分
+  const metaLine = [
+    item.contract_no ? `${t('contract.no')} ${item.contract_no}` : '',
+    item.lease_no ? `${t('contract.lease')} ${item.lease_no}` : '',
+  ].filter(Boolean).join(' · ');
+  const amountLine = [
+    item.amount != null ? `${t('contract.amount')} ${item.currency || 'THB'} ${Number(item.amount).toLocaleString()}` : '',
+    item.created_at ? `${t('contract.created_at')} ${String(item.created_at).slice(0, 10)}` : '',
+  ].filter(Boolean).join(' · ');
   return (
     <TouchableOpacity
       style={styles.row}
@@ -26,6 +35,8 @@ export default function ContractRow({ item, onPress }: { item: ContractItem; onP
       </View>
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle} numberOfLines={1}>{item.title || t('contract.unknown')}</Text>
+        {!!metaLine && <Text style={styles.rowSub} numberOfLines={1}>{metaLine}</Text>}
+        {!!amountLine && <Text style={styles.rowSub} numberOfLines={1}>{amountLine}</Text>}
         <View style={styles.rowMeta}>
           <SourceBadge source={item.source} />
           <StatusBadge status={item.status} />
