@@ -76,16 +76,16 @@ export default function RentCategoryScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('map', t('category.rentGridMap'), 'map-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.rentGridMap'))),
-      mk('commute', t('category.rentGridCommute'), 'train-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.rentGridCommute'))),
-      mk('selfrun', t('category.rentGridSelf'), 'ribbon-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.rentGridSelf'))),
-      mk('newest', t('category.newListings'), 'time-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.newListings'))),
-      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('all', t('category.allListings'), 'grid-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings')),
+      mk('map', t('category.rentGridMap'), 'map-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.rentGridMap'), { hintKey: 'featureHint.map', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('commute', t('category.rentGridCommute'), 'train-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.rentGridCommute'), { hintKey: 'featureHint.commute', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('selfrun', t('category.rentGridSelf'), 'ribbon-outline', colors.warning, colors.warningRgb, () => navigation.navigate('PublicListings', { preset: 'owner_direct' })),
+      mk('newest', t('category.newListings'), 'time-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'latest' })),
+      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => navigation.navigate('FindMyHome')),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('all', t('category.allListings'), 'grid-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: undefined })),
       mk('school', t('pub.tabSchools'), 'school-outline', colors.warning, colors.warningRgb, () => navigation.navigate('PublicSchools')),
       mk('community', t('pub.tabCommunities'), 'business-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicCommunities')),
-      mk('furnished', t('category.furnishedListings'), 'sparkles-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.furnishedListings'))),
+      mk('furnished', t('category.furnishedListings'), 'sparkles-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings', { preset: 'furnished' })),
     ];
   }, [t, navigation]);
 
@@ -161,7 +161,7 @@ export default function RentCategoryScreen() {
       <ServiceBar
         text={t('category.rentServiceText')}
         actionLabel={t('category.helpFind')}
-        onAction={() => notAvailable(navigation, t('category.helpFind'))}
+        onAction={() => navigation.navigate('FindMyHome')}
       />
       {rail.length > 0 ? (
         <>

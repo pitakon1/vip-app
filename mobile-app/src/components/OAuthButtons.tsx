@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import colors from '@/theme/colors';
@@ -80,20 +80,19 @@ export default function OAuthButtons({
         <Text style={styles.text}>{goog}</Text>
       </TouchableOpacity>
 
-      {/* Apple 登录仅 iOS 原生支持（Android/Web 点击必定失败），非 iOS 不展示避免死入口 */}
-      {Platform.OS === 'ios' ? (
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={onApple}
-          disabled={loading}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={apple}
-        >
-          <Ionicons name="logo-apple" size={18} color={colors.black} style={styles.icon} />
-          <Text style={styles.text}>{apple}</Text>
-        </TouchableOpacity>
-      ) : null}
+      {/* Apple 登录：iOS 走系统原生授权；其他端仍展示入口（本地 mock 可登录，
+          真实 Apple 授权未开通时由 useOAuth 给出「仅支持 iOS」提示） */}
+      <TouchableOpacity
+        style={[styles.btn, loading && styles.btnDisabled]}
+        onPress={onApple}
+        disabled={loading}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={apple}
+      >
+        <Ionicons name="logo-apple" size={18} color={colors.black} style={styles.icon} />
+        <Text style={styles.text}>{apple}</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity
         style={[styles.btn, loading && styles.btnDisabled]}

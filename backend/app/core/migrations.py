@@ -81,6 +81,7 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         # 最近一次 PDF 签章失败原因（签章异常不得静默吞掉，需可追踪）
         "last_sign_error": "varchar(500)",
         "last_sign_error_at": "ts",
+        "partner_id": "uuid",
     },
     # terminated_at：退房日期（terminate 接口接收前端填写值，押金结算同步写入）
     # contract_no：合同编号 HT-YYYYMMDD-NNNN（历史 NULL 行由 backfill_lease_contract_numbers 回填）
@@ -88,11 +89,44 @@ _ADDITIVE_COLUMNS: Dict[str, Dict[str, str]] = {
         "lease_no": "varchar(32)",
         "contract_no": "varchar(32)",
         "terminated_at": "ts",
+        # 合作公司归属：由佣金结算回填，合作端只读本公司的租约/合同。
+        "partner_id": "uuid",
+    },
+    # 合作公司档案扩展：坐席上限 + 品牌展示
+    "partners": {
+        "seat_limit": "integer",
+        "brand_name": "varchar(120)",
+        "logo_url": "varchar(500)",
+    },
+    # 线索池归属：NULL = 平台线索
+    "leads": {
+        "partner_id": "uuid",
+    },
+    # 合作公司团队（复用部门树，组长=leader_id）
+    "departments": {
+        "partner_id": "uuid",
+    },
+    # 公司公告：NULL = 平台公告
+    "announcements": {
+        "partner_id": "uuid",
     },
     # partner_id：多合作公司共用一套库时的支付单行级隔离字段
     "payments": {"receipt_no": "varchar(32)", "partner_id": "uuid"},
     # 佣金规则：按合作公司（Partner）差异化定价
     "commission_rules": {
+        "partner_id": "uuid",
+    },
+    # 可信时间戳审计字段（RFC 3161）。历史记录保持 NULL＝未签时间戳，
+    # 展示上必须区分「未签」与「签了但不可信」。
+    "signature_records": {
+        "tsa_url": "varchar(255)",
+        "tsa_time": "ts",
+        "tsa_cert_subject": "varchar(512)",
+        "tsa_cert_thumbprint": "varchar(128)",
+        "trust_anchor_id": "varchar(255)",
+    },
+    # 考勤组：合作公司隔离维度（NULL = 平台自有组，合作管理员只见本公司的组）
+    "attendance_groups": {
         "partner_id": "uuid",
     },
 }
@@ -103,10 +137,14 @@ _ADDITIVE_INDEXES: Dict[str, List[str]] = {
     "projects": ["developer_id", "tenure"],
     "listings": ["next_revalidate_at", "verification_status"],
     "employees": ["department_id"],
-    "contracts": ["contract_no"],
-    "leases": ["lease_no", "contract_no"],
+    "contracts": ["contract_no", "partner_id"],
+    "leases": ["lease_no", "contract_no", "partner_id"],
+    "leads": ["partner_id"],
+    "departments": ["partner_id"],
+    "announcements": ["partner_id"],
     "payments": ["receipt_no", "partner_id"],
     "commission_rules": ["partner_id"],
+    "attendance_groups": ["partner_id"],
 }
 
 
@@ -509,3 +547,65 @@ def backfill_lease_contract_numbers(engine: Engine) -> None:
         logger.warning("db.contract_no.backfill_failed", exc_info=True)
     if total:
         logger.info("db.contract_no.backfilled", count=total)
+
+
+def backfill_partner_ownership(engine: Engine) -> None:
+    """按佣金结算回填租约/合同的 `partner_id`（幂等，只补 NULL）。
+
+    合作公司成交的归属唯一可信来源是 `commission_settlements.partner_id`；
+    历史租约/合同没有该列，回填后才能让合作端看到本公司成交。
+    """
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if not {"commission_settlements", "leases"} <= tables:
+        return
+    leases_updated = contracts_updated = 0
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text(
+                    "UPDATE leases SET partner_id = ("
+                    " SELECT cs.partner_id FROM commission_settlements cs"
+                    " WHERE cs.lease_id = leases.id AND cs.partner_id IS NOT NULL"
+                    " AND cs.deleted_at IS NULL LIMIT 1"
+                    ") WHERE partner_id IS NULL"
+                    " AND EXISTS (SELECT 1 FROM commission_settlements cs"
+                    "  WHERE cs.lease_id = leases.id AND cs.partner_id IS NOT NULL"
+                    "  AND cs.deleted_at IS NULL)"
+                )
+            )
+            leases_updated = result.rowcount or 0
+            if "contracts" in tables:
+                result = conn.execute(
+                    text(
+                        "UPDATE contracts SET partner_id = ("
+                        " SELECT cs.partner_id FROM commission_settlements cs"
+                        " WHERE cs.contract_id = contracts.id"
+                        " AND cs.partner_id IS NOT NULL AND cs.deleted_at IS NULL LIMIT 1"
+                        ") WHERE partner_id IS NULL"
+                        " AND EXISTS (SELECT 1 FROM commission_settlements cs"
+                        "  WHERE cs.contract_id = contracts.id AND cs.partner_id IS NOT NULL"
+                        "  AND cs.deleted_at IS NULL)"
+                    )
+                )
+                contracts_updated = result.rowcount or 0
+                # 合同挂租约时，跟随租约归属（覆盖面更广）
+                result = conn.execute(
+                    text(
+                        "UPDATE contracts SET partner_id = ("
+                        " SELECT l.partner_id FROM leases l"
+                        " WHERE l.id = contracts.lease_id LIMIT 1"
+                        ") WHERE partner_id IS NULL AND lease_id IS NOT NULL"
+                        " AND EXISTS (SELECT 1 FROM leases l"
+                        "  WHERE l.id = contracts.lease_id AND l.partner_id IS NOT NULL)"
+                    )
+                )
+                contracts_updated += result.rowcount or 0
+    except Exception:
+        logger.warning("db.partner_ownership.backfill_failed", exc_info=True)
+    if leases_updated or contracts_updated:
+        logger.info(
+            "db.partner_ownership.backfilled",
+            leases=leases_updated,
+            contracts=contracts_updated,
+        )

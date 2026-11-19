@@ -1,16 +1,51 @@
 /* C 端房源列表：全部样式取自共用样式表 */
 @import '../public-site.scss';
 
-/* ===== 顶部单行筛选行（学校 / 更多）===== */
+/* ===== 顶部单行筛选 tab（学校 / 更多）=====
+   与 App / Web 统一：纯文字 + 箭头、无胶囊边框，展开态主色下划线 */
 .pub-filter__chips {
   display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 4rpx;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 0;
+  border-bottom: 1rpx solid var(--line);
 }
 
 .pub-filter__chips .pub-chip {
+  position: relative;
+  flex: 1;
+  height: 88rpx;
   margin-right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 48rpx;
+    height: 4rpx;
+    border-radius: 2rpx;
+    background: transparent;
+  }
+}
+
+.pub-filter__chips .pub-chip--on {
+  color: var(--primary);
+  font-weight: 600;
+
+  &::after {
+    background: var(--primary);
+  }
 }
 
 /* 幽灵 chip：已选学校时出现的「不限学校」清除项 */
@@ -18,4 +53,66 @@
   background: transparent;
   border-color: var(--primary-text);
   color: var(--primary-text);
+}
+
+/* ===== 展开面板：紧贴 tab 行下沿，同底色、无圆角、无间隙 ===== */
+.pub-filter__panel {
+  margin-top: 0;
+  border-radius: 0;
+  background: var(--card);
+  border-top: 0;
+}
+
+/* 面板内选项：两列矩形卡片（与 App 一致） */
+.pub-filter__panel .pub-chips--wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.pub-filter__panel .pub-chip {
+  width: calc(50% - 8rpx);
+  min-height: 88rpx;
+  box-sizing: border-box;
+  margin-right: 0;
+  padding: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border: 1rpx solid transparent;
+  border-radius: 16rpx;
+
+  text {
+    font-size: 26rpx;
+    color: var(--ink);
+    text-align: center;
+  }
+}
+
+.pub-filter__panel .pub-chip--on {
+  background: rgba(var(--primary-rgb), 0.08);
+  border-color: var(--primary);
+
+  text {
+    color: var(--primary);
+    font-weight: 600;
+  }
+}
+
+/* 分类页入口带入的预设回显行（右侧 × 清除） */
+.pub-preset-row {
+  display: flex;
+  align-items: center;
+  margin-top: 20rpx;
+}
+
+.pub-preset-row .pub-chip {
+  margin-right: 0;
+}
+
+.pub-preset-row__close {
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  line-height: 1;
 }

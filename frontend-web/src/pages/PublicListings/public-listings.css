@@ -526,3 +526,67 @@
   z-index: 30;
   background: rgba(15, 23, 42, 0.36);
 }
+
+/* 分类页入口预设：可取消的「当前筛选」chip */
+.rent-preset-row {
+  display: flex;
+  gap: var(--rent-s-2);
+  padding: var(--rent-s-3) var(--rent-s-4) 0;
+}
+
+.rent-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rent-s-1);
+  padding: 4px var(--rent-s-3);
+  border: 1px solid var(--rent-primary-text);
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary-text);
+  font-size: var(--rent-fs-sm);
+  cursor: pointer;
+}
+
+.rent-preset-chip:hover {
+  border-color: var(--rent-primary);
+}
+
+.rent-preset-chip__close {
+  font-size: var(--rent-fs-sm);
+  line-height: 1;
+}
+
+/* =========================================================
+   展开面板内的选项排布：大号矩形卡片（两列流式）
+   与移动端/小程序统一：约 105×44、圆角 8、浅灰底；
+   选中 = 浅青底 + 主色描边 + 主色字，避免各页各写一套胶囊。
+   ========================================================= */
+.rent-filter-drawer .rent-loc-panel__chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rent-filter-drawer .rent-loc-panel__chip {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-color: transparent;
+  background: var(--rent-surface-2);
+  color: var(--rent-ink);
+  text-align: center;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.rent-filter-drawer .rent-loc-panel__chip:hover {
+  border-color: var(--rent-primary-text);
+  color: var(--rent-primary-text);
+}
+
+.rent-filter-drawer .rent-loc-panel__chip--active {
+  background: var(--rent-sidebar-active);
+  border-color: var(--rent-primary-text);
+  color: var(--rent-primary-text);
+  font-weight: 600;
+}

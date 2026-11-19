@@ -1,0 +1,483 @@
+/**
+ * C 端「我家」页样式。
+ * 全页只允许三种版式：房产卡 / 四列宫格 / 分组行卡。
+ * 间距只用 16 / 14 / 12 / 8 四个值；卡片左边缘统一对齐（.mh-page 单列）。
+ */
+
+.mh-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+}
+
+/* ===== 页头（不占卡片位，保持与房产卡同一条左边缘） ===== */
+.mh-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.mh-head__title {
+  margin: 0;
+  font-size: var(--rent-fs-2xl);
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--rent-ink);
+}
+
+.mh-head__sub {
+  margin: 0;
+  font-size: var(--rent-fs-sm);
+  line-height: 1.5;
+  color: var(--rent-ink-3);
+}
+
+.mh-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: var(--rent-ink-4);
+  font-size: var(--rent-fs-sm);
+}
+
+/* ===== 通用卡片：三种版式共用同一圆角 / 阴影 / 边框 ===== */
+.mh-card {
+  background: var(--rent-card);
+  border: 1px solid var(--rent-line);
+  border-radius: var(--rent-radius-xl);
+  box-shadow: var(--rent-shadow-1);
+}
+
+/* ===== 版式一：房产卡 ===== */
+.mh-prop {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mh-prop--clickable {
+  cursor: pointer;
+  transition: box-shadow var(--motion-base) ease, transform var(--motion-base) ease;
+}
+
+.mh-prop--clickable:hover {
+  box-shadow: var(--rent-shadow-2);
+  transform: translateY(-1px);
+}
+
+.mh-prop__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.mh-prop__cover {
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--rent-radius-lg);
+  object-fit: cover;
+  display: block;
+  background: var(--rent-surface-2);
+}
+
+.mh-prop__cover--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: var(--rent-primary);
+  background: rgba(var(--rent-primary-rgb), 0.1);
+}
+
+.mh-prop__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mh-prop__badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mh-prop__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: var(--rent-fs-2xs);
+  font-weight: 600;
+  color: var(--rent-primary-text, #0f766e);
+  background: rgba(var(--rent-primary-rgb), 0.12);
+  white-space: nowrap;
+}
+
+.mh-prop__switch {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--rent-line);
+  border-radius: 999px;
+  background: transparent;
+  font-size: var(--rent-fs-2xs);
+  color: var(--rent-ink-3);
+  cursor: pointer;
+}
+
+.mh-prop__switch:hover {
+  border-color: rgba(var(--rent-primary-rgb), 0.4);
+  color: var(--rent-primary-text, #0f766e);
+}
+
+.mh-prop__title {
+  font-size: var(--rent-fs-lg);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--rent-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-prop__meta {
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-prop__address {
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mh-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--rent-line);
+}
+
+.mh-dot--active {
+  width: 16px;
+  background: var(--rent-primary);
+}
+
+/* ===== 空态插画卡（未绑定房产） ===== */
+.mh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0 0;
+  text-align: center;
+}
+
+.mh-empty__art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  font-size: 36px;
+  color: var(--rent-primary);
+  background: radial-gradient(circle at 30% 30%, rgba(var(--rent-primary-rgb), 0.22), rgba(var(--rent-primary-rgb), 0.08));
+}
+
+.mh-empty__dot {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rent-primary);
+  box-shadow: 0 0 0 4px var(--rent-card);
+}
+
+.mh-empty__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 320px;
+}
+
+.mh-empty__title {
+  font-size: var(--rent-fs-lg);
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+
+.mh-empty__desc {
+  font-size: var(--rent-fs-sm);
+  line-height: 1.6;
+  color: var(--rent-ink-3);
+}
+
+.mh-empty__actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ===== 绑定审核态卡 ===== */
+.mh-prop--state {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mh-state__icon {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--rent-primary);
+  background: rgba(var(--rent-primary-rgb), 0.12);
+}
+
+.mh-state__icon--warn {
+  color: var(--rent-warning);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.mh-state__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mh-state__title {
+  font-size: var(--rent-fs-base);
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+
+.mh-state__desc {
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== 按钮 ===== */
+.mh-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
+}
+
+.mh-btn--primary {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+
+.mh-btn--primary:hover {
+  background: var(--rent-primary-hover, #0ea5a0);
+}
+
+.mh-btn--ghost {
+  background: transparent;
+  border-color: var(--rent-line);
+  color: var(--rent-ink-2);
+}
+
+.mh-btn--ghost:hover {
+  border-color: rgba(var(--rent-primary-rgb), 0.4);
+  color: var(--rent-primary-text, #0f766e);
+}
+
+/* ===== 版式二：四列宫格 ===== */
+.mh-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 16px 8px;
+}
+
+.mh-grid__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--rent-radius-md);
+  transition: background-color var(--motion-base) ease;
+}
+
+.mh-grid__item:hover {
+  background: var(--rent-muted);
+}
+
+.mh-grid__icon {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: rgba(var(--rent-primary-rgb), 0.1);
+  color: var(--rent-primary);
+}
+
+.mh-grid__svg {
+  font-size: 22px;
+}
+
+.mh-grid__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--rent-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.mh-grid__label {
+  font-size: var(--rent-fs-xs);
+  line-height: 1.4;
+  color: var(--rent-ink-2);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ===== 版式三：分组行卡 ===== */
+.mh-section {
+  padding: 8px 16px;
+}
+
+.mh-section__title {
+  padding: 8px 0;
+  font-size: var(--rent-fs-xs);
+  font-weight: 600;
+  color: var(--rent-ink-4);
+}
+
+.mh-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mh-row--border {
+  border-bottom: 1px solid var(--rent-line);
+}
+
+.mh-row__icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--rent-surface-2);
+  color: var(--rent-ink-2);
+  font-size: 16px;
+}
+
+.mh-row__label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--rent-fs-base);
+  color: var(--rent-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-row__meta {
+  flex: 0 1 auto;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-row__meta--warn {
+  color: var(--rent-warning);
+  font-weight: 600;
+}
+
+.mh-chevron {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--rent-ink-4);
+}
+
+/* ===== 小屏收敛 ===== */
+@media (max-width: 480px) {
+  .mh-page {
+    gap: 12px;
+  }
+
+  .mh-prop__cover {
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
+  }
+
+  .mh-head {
+    padding: 0;
+  }
+
+  .mh-row__meta {
+    max-width: 110px;
+  }
+}

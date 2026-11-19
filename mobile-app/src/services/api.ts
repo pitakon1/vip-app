@@ -36,9 +36,24 @@ export const authApi = {
   updatePreferences: (data: any) => api.patch('/auth/me/preferences', data),
 };
 
+// 设备推送令牌（App 真机）：注册/撤销 + 发送一条测试推送
+export const devicesApi = {
+  registerPushToken: (data: {
+    token: string;
+    platform: string;
+    device_id?: string;
+    app_version?: string;
+  }) => api.post('/devices/push-token', data),
+  unregisterPushToken: (token: string) =>
+    api.delete('/devices/push-token', { params: { token } }),
+  testPush: () => api.post('/devices/push-token/test'),
+};
+
 export const propertiesApi = {
   list: (params?: any) => api.get('/properties', { params }),
   get: (id: string) => api.get(`/properties/${id}`),
+  // 房屋估价（估算区间）：小区均价 × 面积，缺样本时用同小区在售中位价或租金资本化
+  valueEstimate: (id: string) => api.get(`/properties/${id}/value-estimate`),
   // 新建房源（管理端「新增房源」）。created_by 由服务端按当前登录账号写入，
   // 客户端不传——房源归属必须由 token 决定，不能由调用方指定。
   create: (data: any) => api.post('/properties', data),
@@ -59,6 +74,13 @@ export const propertiesApi = {
     api.delete(`/properties/${id}/photos`, { params: { url } }),
   // 关联租约（返回 tenant_name，业主详情页取租客姓名的唯一来源）
   leases: (id: string) => api.get(`/properties/${id}/leases`),
+};
+
+// 小区公告：租客读取自己租约所在楼盘 + 平台公告
+export const announcementsApi = {
+  mine: () => api.get('/announcements/mine'),
+  list: (params?: any) => api.get('/announcements', { params }),
+  create: (data: any) => api.post('/announcements', data),
 };
 
 export const leasesApi = {
@@ -134,6 +156,9 @@ export const viewingsApi = {
   list: (params?: any) => api.get('/viewings', { params }),
   updateStatus: (id: string, data: any) =>
     api.patch(`/viewings/${id}`, data),
+  // 租客本人撤回预约（仅 pending / confirmed）
+  cancel: (id: string, reason?: string) =>
+    api.post(`/viewings/${id}/cancel`, reason ? { reason } : {}),
 };
 
 // 员工日历·自定义事件（前端 web 无关，仅移动端使用）
@@ -197,6 +222,9 @@ export const billingApi = {
 export const serviceOrdersApi = {
   list: (params?: any) => api.get('/service-orders', { params }),
   create: (data: ServiceOrderCreatePayload) => api.post('/service-orders', data),
+  /** 为增值服务订单发起支付，返回 checkout_url / qr_code */
+  pay: (id: string, channel = 'lianlian') =>
+    api.post(`/service-orders/${id}/pay`, { channel }),
 };
 
 export const maintenanceApi = {
@@ -564,6 +592,52 @@ export const partnerAdminApi = {
   removeMember: (userId: string) => api.delete(`/partner/members/${userId}`),
   performance: () => api.get('/partner/performance'),
   properties: () => api.get('/partner/properties'),
+
+  // ---- 经营驾驶舱 ----
+  dashboard: (month?: string) => api.get('/partner/dashboard', { params: { month } }),
+
+  // ---- 佣金对账单（后端按 start/end 日期过滤，month 由调用方换算）----
+  settlements: (params?: any) => api.get('/partner/settlements', { params }),
+
+  // ---- 审批与排班 ----
+  trips: (params?: any) => api.get('/partner/trips', { params }),
+  reviewTrip: (id: string, data: { approved: boolean; note?: string }) =>
+    api.post(`/partner/trips/${id}/review`, data),
+  appeals: (params?: any) => api.get('/partner/appeals', { params }),
+  reviewAppeal: (id: string, data: { approved: boolean; note?: string }) =>
+    api.post(`/partner/appeals/${id}/review`, data),
+  shifts: (params?: any) => api.get('/partner/shifts', { params }),
+  // 后端为批量保存：{ items: [{ employee_id, date, start_time, end_time, note }] }
+  createShifts: (items: any[]) => api.post('/partner/shifts', { items }),
+
+  // ---- 线索 / 报备 / 带看 ----
+  leads: (params?: any) => api.get('/partner/leads', { params }),
+  assignLead: (id: string, employeeId: string) =>
+    api.post(`/partner/leads/${id}/assign`, { employee_id: employeeId }),
+  claimLead: (data: { name: string; phone?: string; email?: string; note?: string; days?: number }) =>
+    api.post('/partner/leads/claim', data),
+  claims: () => api.get('/partner/claims'),
+  viewings: (params?: any) => api.get('/partner/viewings', { params }),
+  assignViewing: (id: string, employeeId: string) =>
+    api.post(`/partner/viewings/${id}/assign`, { employee_id: employeeId }),
+  // 后端字段名为 status（枚举 completed / no_show / cancelled）
+  viewingResult: (id: string, data: { status: 'completed' | 'no_show' | 'cancelled'; note?: string }) =>
+    api.post(`/partner/viewings/${id}/result`, data),
+
+  // ---- 成交与收款 ----
+  leases: (params?: any) => api.get('/partner/leases', { params }),
+  contracts: (params?: any) => api.get('/partner/contracts', { params }),
+  renewals: (params?: any) => api.get('/partner/renewals', { params }),
+  payments: (params?: any) => api.get('/partner/payments', { params }),
+
+  // ---- 公司运营 ----
+  announcements: () => api.get('/partner/announcements'),
+  tasks: () => api.get('/partner/tasks'),
+  completeTask: (id: string) => api.post(`/partner/tasks/${id}/complete`),
+  approvals: () => api.get('/partner/approvals'),
+  reviewApproval: (id: string, data: { approved: boolean; note?: string }) =>
+    api.post(`/partner/approvals/${id}/review`, data),
+  materials: () => api.get('/partner/materials'),
 };
 
 // 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）

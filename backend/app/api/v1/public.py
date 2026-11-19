@@ -38,6 +38,9 @@ from app.models import (
     Listing,
     ListingStatus,
     ListingType,
+    Notification,
+    NotificationChannel,
+    NotificationStatus,
     Orientation,
     Project,
     Property,
@@ -47,11 +50,14 @@ from app.models import (
     PropertyStatus,
     School,
     Tenure,
+    User,
+    UserRole,
     ViewingAppointment,
     ViewingStatus,
 )
 from app.providers.geo import haversine_km, lat_lng_bounds
 from app.services import freshness_service
+from app.services.commute import estimate_commute
 from app.services.search import relevance_score, resolve_sort
 
 logger = get_logger(__name__)
@@ -248,6 +254,16 @@ class PublicNearbySchool(BaseModel):
     distance_km: Optional[float] = None
 
 
+class PublicCommuteRequest(BaseModel):
+    """通勤测算入参：目的地可传文字地址或直接坐标。"""
+
+    destination: Optional[str] = None
+    dest_lat: Optional[float] = None
+    dest_lng: Optional[float] = None
+    # transit（公交/地铁） | driving | walking | bicycling
+    mode: str = "transit"
+
+
 class PublicListingDetail(PublicListingCard):
     """房源详情。"""
 
@@ -359,10 +375,14 @@ def _mask_contact(value: Optional[str]) -> Optional[str]:
 
 
 class InquiryCreate(BaseModel):
-    """匿名留资请求。"""
+    """匿名留资请求。
+
+    `intent="find_my_home"` 时走「帮我找房」：额外携带预算/区域/入住时间/语言，
+    服务端把这些条件结构化写进 Lead，运营在 CRM 里能直接看到需求，而不是一段自由文本。
+    """
 
     name: str
-    phone: str  # 匿名留资必须留手机号（贝壳口径），前端已做校验
+    phone: Optional[str] = None  # 匿名留资需至少一种联系方式（见接口校验）
     wechat_id: Optional[str] = None
     line_id: Optional[str] = None
     email: Optional[str] = None
@@ -371,7 +391,16 @@ class InquiryCreate(BaseModel):
     property_id: Optional[uuid.UUID] = None
     project_id: Optional[uuid.UUID] = None
     school_id: Optional[uuid.UUID] = None
-    source: str = "listing_detail"
+    # 默认值在接口里按 intent 决定（find_my_home → find_my_home），这里留空才能区分
+    source: Optional[str] = None
+    # 「帮我找房」结构化需求
+    intent: Optional[str] = None  # listing_detail / find_my_home
+    budget_min: Optional[float] = None
+    budget_max: Optional[float] = None
+    currency: Optional[str] = None
+    areas: Optional[List[str]] = None
+    move_in_date: Optional[str] = None  # ISO 日期 YYYY-MM-DD
+    language: Optional[str] = None  # zh / en / th
 
 
 class InquiryOut(BaseModel):
@@ -778,6 +807,9 @@ def list_public_map_points(
     is_new_development: Optional[bool] = Query(None, description="新房/二手房标记"),
     district: Optional[str] = None,
     city: Optional[str] = Query(None, description="城市（按 slug 归一化比对，可传定位 cityKey）"),
+    bedrooms: Optional[int] = Query(
+        None, ge=0, le=20, description="户型：0-2 精确匹配，3=3 室及以上（对齐贝壳地图找房）"
+    ),
     min_lat: Optional[float] = Query(None, ge=-90, le=90, description="视野框南界"),
     max_lat: Optional[float] = Query(None, ge=-90, le=90, description="视野框北界"),
     min_lng: Optional[float] = Query(None, ge=-180, le=180, description="视野框西界"),
@@ -818,6 +850,10 @@ def list_public_map_points(
         conditions.append(Listing.is_new_development == is_new_development)
     if district:
         conditions.append(Project.district == district)
+    if bedrooms is not None:
+        conditions.append(
+            Property.bedrooms >= 3 if bedrooms >= 3 else Property.bedrooms == bedrooms
+        )
     if city:
         conditions.append(slug_expr(Project.city) == slug_text(city))
     # 视野框：只给全的四个边界才生效（缺边界会切掉整屏点位，不如不筛）
@@ -1301,6 +1337,156 @@ def get_public_listing(
         nearby_schools=_nearby_schools(session, lat, lng),
         broker=broker,
     )
+
+
+@router.post("/listings/{listing_id}/commute")
+@limiter.limit("20/minute")
+def estimate_public_listing_commute(
+    request: Request,
+    listing_id: uuid.UUID,
+    payload: PublicCommuteRequest,
+    session: Session = Depends(get_session),
+):
+    """房源 → 目的地通勤测算（默认公共交通）。
+
+    - 地铁线路名与上/下车站点直接取自 Google `transitDetails`，平台不自建线路库；
+    - 未配置地图 Key 时返回 `available=false, reason=no_key`（附缺失变量名），
+      不发外部请求、不返回 mock 结果；
+    - 结果按「起点/终点坐标 + 模式」缓存 `COMMUTE_CACHE_TTL_SECONDS`，重复查询不再计费。
+    """
+    row = session.exec(
+        _listings_base_stmt().where(Listing.id == listing_id)
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    _listing, _prop, project = row
+    origin_lat = project.lat if project else None
+    origin_lng = project.lng if project else None
+    if origin_lat is None or origin_lng is None:
+        return {"available": False, "reason": "no_origin", "mode": payload.mode}
+
+    return estimate_commute(
+        session,
+        origin_lat=float(origin_lat),
+        origin_lng=float(origin_lng),
+        destination=payload.destination,
+        dest_lat=payload.dest_lat,
+        dest_lng=payload.dest_lng,
+        mode=payload.mode,
+    )
+
+
+# ==================== 平台成交榜单 ====================
+
+# 榜单最小样本阈值：低于该值不发布，避免小样本剧烈波动误导用户
+RANKING_MIN_SAMPLE = 5
+
+
+@router.get("/rankings")
+def get_public_rankings(
+    scope: str = Query("project", pattern="^(project|district)$"),
+    metric: str = Query("deal_count", pattern="^(deal_count|avg_price|avg_psqm)$"),
+    days: int = Query(90, ge=7, le=365),
+    limit: int = Query(10, ge=3, le=50),
+    city: Optional[str] = None,
+    session: Session = Depends(get_session),
+):
+    """平台自有成交榜单（`property_deals.status=completed` 聚合）。
+
+    口径：仅统计平台成交，**不是全市场**。响应固定带
+    `source=platform_deals`、`sample_count`、`min_sample`、`published`
+    与 `caveat=platform_sample_only`，三端必须原样展示「平台样本 n=xx，非全市场」。
+    样本不足 `RANKING_MIN_SAMPLE` 时 `published=false` 且 items 为空，不编造排名。
+    """
+    now = datetime.utcnow()
+    cutoff = now - timedelta(days=days)
+
+    conditions = [
+        PropertyDeal.status == PropertyDealStatus.completed,
+        PropertyDeal.deleted_at.is_(None),
+        PropertyDeal.updated_at >= cutoff,
+    ]
+    if city:
+        conditions.append(Project.city == city)
+    if metric == "avg_psqm":
+        conditions.append(Property.size_sqm > 0)
+
+    if scope == "project":
+        group_cols = [Project.id, Project.name, Project.district, Project.city]
+    else:
+        group_cols = [Project.district, Project.city]
+
+    stmt = (
+        select(
+            *group_cols,
+            func.count(PropertyDeal.id).label("deal_count"),
+            func.avg(PropertyDeal.sale_price).label("avg_price"),
+            func.avg(PropertyDeal.sale_price / Property.size_sqm).label("avg_psqm"),
+        )
+        .select_from(PropertyDeal)
+        .join(Property, Property.id == PropertyDeal.property_id)
+        .join(Project, Project.id == Property.project_id)
+        .where(*conditions)
+        .group_by(*group_cols)
+    )
+    rows = session.exec(stmt).all()
+
+    # 全窗口样本量（用于「平台样本 n=xx」口径；不是榜单条目数）
+    total_sample = int(sum(int(r.deal_count or 0) for r in rows))
+    published = total_sample >= RANKING_MIN_SAMPLE
+
+    def _metric_value(deal_count, avg_price, avg_psqm) -> float:
+        if metric == "deal_count":
+            return float(deal_count or 0)
+        if metric == "avg_price":
+            return round(float(avg_price or 0), 2)
+        return round(float(avg_psqm or 0), 2)
+
+    candidates = [
+        {
+            "entity_type": scope,
+            "entity_id": str(row.id) if scope == "project" else None,
+            "name": row.name if scope == "project" else (row.district or ""),
+            "district": row.district,
+            "city": row.city,
+            "deal_count": int(row.deal_count or 0),
+            "avg_price": (
+                None if row.avg_price is None else round(float(row.avg_price), 2)
+            ),
+            "avg_psqm": (
+                None if row.avg_psqm is None else round(float(row.avg_psqm), 2)
+            ),
+            "sample_count": int(row.deal_count or 0),
+        }
+        for row in rows
+        if int(row.deal_count or 0) >= RANKING_MIN_SAMPLE
+    ]
+    candidates.sort(
+        key=lambda it: _metric_value(it["deal_count"], it["avg_price"], it["avg_psqm"]),
+        reverse=True,
+    )
+
+    items = []
+    for idx, item in enumerate(candidates[:limit], start=1):
+        item["rank"] = idx
+        item["value"] = _metric_value(
+            item["deal_count"], item["avg_price"], item["avg_psqm"]
+        )
+        items.append(item)
+
+    return {
+        "scope": scope,
+        "metric": metric,
+        "days": days,
+        "period": {"start": cutoff.date().isoformat(), "end": now.date().isoformat()},
+        "source": "platform_deals",
+        "caveat": "platform_sample_only",
+        "min_sample": RANKING_MIN_SAMPLE,
+        "sample_count": total_sample,
+        "published": published,
+        "items": items,
+    }
 
 
 # ==================== 相似房源推荐 ====================
@@ -2484,6 +2670,54 @@ def get_public_developer(
 # ==================== 留资（匿名）====================
 
 
+def _queue_lead_notifications(
+    session: Session, lead: Lead, *, intent: str, requirement: Optional[str]
+) -> int:
+    """给运营/经纪人写「新线索」站内通知，返回写入条数。
+
+    匿名留资是公开入口，通知只是旁路：任何异常都只记日志，绝不能影响 lead 落库。
+    这里只 `add` 不 `commit`，与 lead 同一事务提交。
+    """
+    try:
+        staff = session.exec(
+            select(User)
+            .where(
+                User.role.in_([UserRole.admin, UserRole.agent]),
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+            .order_by(User.created_at)
+            .limit(50)
+        ).all()
+        subject = "新的找房需求" if intent == "find_my_home" else "新的客户留资"
+        # 通知里不放客户电话：站内列表是广播，联系方式应点进线索详情再看
+        bits = [f"客户：{lead.name}"]
+        if requirement:
+            bits.append(requirement)
+        bits.append(f"来源：{lead.source or '-'}")
+        content = "；".join(bits)
+        for staff_user in staff:
+            session.add(
+                Notification(
+                    user_id=staff_user.id,
+                    channel=NotificationChannel.in_app,
+                    template_key="lead.new",
+                    recipient=str(staff_user.id),
+                    subject=subject,
+                    content=content,
+                    status=NotificationStatus.queued,
+                    related_entity_type="lead",
+                    related_entity_id=lead.id,
+                )
+            )
+        return len(staff)
+    except Exception:  # noqa: BLE001  通知是旁路，失败不影响主流程
+        logger.exception(
+            "public.inquiry.notify_failed", lead_id=str(lead.id)
+        )
+        return 0
+
+
 @router.post("/inquiries", response_model=InquiryOut)
 @limiter.limit(AUTH_LIMIT)
 def create_public_inquiry(
@@ -2517,6 +2751,55 @@ def create_public_inquiry(
             status_code=400, detail="请至少留下一种联系方式（电话 / 微信 / LINE / 邮箱）"
         )
 
+    # ---- 「帮我找房」结构化需求：校验后落 Lead，而不是只留一段自由文本 ----
+    intent = (payload.intent or "").strip()
+    if not intent:
+        # 老调用方不带 intent；带了任意搜索条件就按找房需求处理
+        intent = (
+            "find_my_home"
+            if (
+                payload.areas
+                or payload.move_in_date
+                or payload.budget_min is not None
+                or payload.budget_max is not None
+            )
+            else "listing_detail"
+        )
+    if intent not in ("listing_detail", "find_my_home"):
+        raise HTTPException(status_code=400, detail="unknown intent")
+
+    budget_min = payload.budget_min
+    budget_max = payload.budget_max
+    if (budget_min is not None and budget_min < 0) or (
+        budget_max is not None and budget_max < 0
+    ):
+        raise HTTPException(status_code=400, detail="预算不能为负数")
+    if (
+        budget_min is not None
+        and budget_max is not None
+        and budget_min > budget_max
+    ):
+        raise HTTPException(status_code=400, detail="budget_min 不能大于 budget_max")
+
+    currency = (payload.currency or "THB").strip().upper()
+    if len(currency) != 3 or not currency.isalpha():
+        raise HTTPException(
+            status_code=400, detail="currency 需为 3 位字母代码，例如 THB"
+        )
+    areas = [a.strip()[:50] for a in (payload.areas or []) if a and a.strip()][:10]
+
+    move_in_date = (payload.move_in_date or "").strip() or None
+    if move_in_date:
+        try:
+            datetime.strptime(move_in_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(
+                status_code=400, detail="move_in_date 需为 YYYY-MM-DD"
+            )
+    language = (payload.language or "").strip() or None
+    if language not in (None, "zh", "en", "th"):
+        language = None
+
     # 把来源上下文（房源/楼盘/学校）结构化存进感兴趣的标的，便于运营判断意图
     targets: List[Dict[str, Any]] = []
     if payload.listing_id:
@@ -2547,6 +2830,34 @@ def create_public_inquiry(
                 {"type": "project", "project_id": str(project.id), "project_name": project.name}
             )
 
+    requirement_parts: List[str] = []
+    if intent == "find_my_home":
+        targets.insert(
+            0,
+            {
+                "type": "find_my_home",
+                # name 让 CRM 的意向列表直接可读（formatInterested 优先取 name）
+                "name": "帮我找房",
+                "budget_min": budget_min,
+                "budget_max": budget_max,
+                "currency": currency,
+                "areas": areas,
+                "move_in_date": move_in_date,
+                "language": language,
+            },
+        )
+        if budget_min is not None or budget_max is not None:
+            lo = f"{budget_min:,.0f}" if budget_min is not None else "-"
+            hi = f"{budget_max:,.0f}" if budget_max is not None else "-"
+            requirement_parts.append(f"预算 {currency} {lo}–{hi}")
+        if areas:
+            requirement_parts.append("区域：" + " / ".join(areas))
+        if move_in_date:
+            requirement_parts.append(f"入住：{move_in_date}")
+        if language:
+            requirement_parts.append(f"语言：{language}")
+    requirement = "；".join(requirement_parts) or None
+
     lead = Lead(
         name=name,
         phone=(payload.phone or "").strip() or None,
@@ -2554,11 +2865,18 @@ def create_public_inquiry(
         line_id=(payload.line_id or "").strip() or None,
         email=(payload.email or "").strip() or None,
         notes=(payload.message or "").strip() or None,
+        requirement=requirement,
+        budget_min=budget_min,
+        budget_max=budget_max,
+        budget_currency=currency,
         interested_projects=targets or None,
         stage=LeadStage.inquiring,
-        source=payload.source or "listing_detail",
+        source=payload.source or ("find_my_home" if intent == "find_my_home" else "listing_detail"),
     )
     session.add(lead)
+    n_notified = _queue_lead_notifications(
+        session, lead, intent=intent, requirement=requirement
+    )
     publish_event(
         session,
         "lead.created",
@@ -2569,11 +2887,24 @@ def create_public_inquiry(
             "stage": lead.stage.value,
             "source": lead.source,
             "channel": "public_inquiry",
+            "intent": intent,
+            "budget_min": budget_min,
+            "budget_max": budget_max,
+            "currency": currency,
+            "areas": areas,
+            "move_in_date": move_in_date,
+            "language": language,
         },
     )
     session.commit()
     session.refresh(lead)
-    logger.info("public.inquiry.created", lead_id=str(lead.id), source=lead.source)
+    logger.info(
+        "public.inquiry.created",
+        lead_id=str(lead.id),
+        source=lead.source,
+        intent=intent,
+        notified=n_notified,
+    )
     return InquiryOut(ok=True, id=lead.id)
 
 
@@ -2694,4 +3025,267 @@ def get_public_exchange_rates():
         "base": "THB",
         "rates_to_thb": CURRENCY_TO_THB,
         "supported": list(CURRENCY_TO_THB.keys()),
+    }
+
+
+# ==================== 小区画像（对标贝壳「我家」行情段）====================
+#
+# 全部数字来自库内真实数据，不做模拟：
+# - 挂牌：`listings`（status=active）按项目聚合，均价 = 挂牌价 / 面积；
+# - 成交：`property_deals`（status=completed）按项目聚合，成交日取 signed_at / updated_at；
+# - 全城：同城项目下的在架单 + 近 30 天成交；
+# - 出租：在架租单的月租 / 面积，毛回报率 = 年租金 / 成交均价。
+# 没有数据时对应字段返回 null / 空数组，由前端整段隐藏，而不是画一条假曲线。
+
+
+@router.get("/projects/{project_id}/insights")
+def get_public_project_insights(
+    project_id: uuid.UUID, session: Session = Depends(get_session)
+):
+    """小区画像：成交趋势、相似成交、流通性、竞争力、全城行情、出租行情。"""
+    project = session.get(Project, project_id)
+    if not project or project.deleted_at:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    def _mean(values: List[Optional[float]]) -> Optional[float]:
+        nums = [float(v) for v in values if v is not None]
+        return sum(nums) / len(nums) if nums else None
+
+    def _round(value: Optional[float], digits: int = 2) -> Optional[float]:
+        return round(value, digits) if value is not None else None
+
+    def _psqm(price: Optional[float], area: Optional[float]) -> Optional[float]:
+        if price and area and area > 0:
+            return float(price) / float(area)
+        return None
+
+    now = datetime.utcnow()
+    currency = "THB"
+
+    # ---- 本项目在架单 ----
+    rows = session.exec(
+        select(Listing, Property)
+        .join(Property, Property.id == Listing.property_id)
+        .where(
+            Property.project_id == project.id,
+            Property.deleted_at.is_(None),
+            Listing.status == ListingStatus.active,
+            Listing.deleted_at.is_(None),
+        )
+    ).all()
+    sale_pairs = [(listing, prop) for listing, prop in rows if listing.listing_type == ListingType.sell]
+    rent_pairs = [(listing, prop) for listing, prop in rows if listing.listing_type == ListingType.rent]
+    if rows:
+        currency = rows[0][0].currency or currency
+
+    sale_psqm_values = [
+        _psqm(listing.asking_price, prop.size_sqm) for listing, prop in sale_pairs
+    ]
+    project_sale_psqm = _mean(sale_psqm_values)
+    rent_values = [
+        (listing.monthly_rent or prop.monthly_rent) for listing, prop in rent_pairs
+    ]
+    rent_psqm_values = [
+        _psqm(listing.monthly_rent or prop.monthly_rent, prop.size_sqm)
+        for listing, prop in rent_pairs
+    ]
+
+    # ---- 本项目成交 ----
+    deal_rows = session.exec(
+        select(PropertyDeal, Property)
+        .join(Property, Property.id == PropertyDeal.property_id)
+        .where(
+            Property.project_id == project.id,
+            Property.deleted_at.is_(None),
+            PropertyDeal.status == PropertyDealStatus.completed,
+            PropertyDeal.deleted_at.is_(None),
+        )
+        .order_by(PropertyDeal.updated_at.desc())
+    ).all()
+
+    deals: List[Dict[str, Any]] = []
+    for deal, prop in deal_rows:
+        deal_at = deal.signed_at or deal.updated_at or deal.created_at
+        deal_date = deal_at.date().isoformat() if deal_at else None
+        price_sqm = _psqm(deal.sale_price, prop.size_sqm)
+        deals.append(
+            {
+                "id": str(deal.id),
+                "sale_price": deal.sale_price,
+                "currency": deal.currency or currency,
+                "size_sqm": prop.size_sqm,
+                "bedrooms": prop.bedrooms,
+                "bathrooms": prop.bathrooms,
+                "price_sqm": _round(price_sqm),
+                "deal_date": deal_date,
+                "address": prop.address,
+                "room_number": prop.room_number,
+            }
+        )
+
+    # 近 12 个月成交均价（按成交月聚合）
+    trend_buckets: Dict[str, List[float]] = {}
+    for item in deals:
+        if not item["price_sqm"] or not item["deal_date"]:
+            continue
+        trend_buckets.setdefault(item["deal_date"][:7], []).append(item["price_sqm"])
+    price_trend = [
+        {
+            "period": period,
+            "avg_price_sqm": _round(_mean(values)),
+            "sample_count": len(values),
+        }
+        for period, values in sorted(trend_buckets.items())
+    ][-12:]
+
+    # 相似房源成交提醒：近 180 天成交，最多 5 套
+    cutoff = (now - timedelta(days=180)).date().isoformat()
+    similar_deals = [
+        item for item in deals if item["deal_date"] and item["deal_date"] >= cutoff
+    ][:5]
+
+    # ---- 流通性 ----
+    sold_90d = len(
+        [d for d in deals if d["deal_date"] and d["deal_date"] >= (now - timedelta(days=90)).date().isoformat()]
+    )
+    sold_180d = len([d for d in deals if d["deal_date"] and d["deal_date"] >= cutoff])
+    clearance_months = None
+    if sold_90d > 0:
+        clearance_months = _round(len(sale_pairs) / (sold_90d / 3.0), 1)
+
+    # ---- 区域 / 全城 ----
+    district_project_ids = []
+    if project.district:
+        district_project_ids = session.exec(
+            select(Project.id).where(
+                Project.deleted_at.is_(None), Project.district == project.district
+            )
+        ).all()
+    city_project_ids = []
+    if project.city:
+        city_project_ids = session.exec(
+            select(Project.id).where(
+                Project.deleted_at.is_(None), Project.city == project.city
+            )
+        ).all()
+
+    district_psqm_by_project: Dict[uuid.UUID, List[float]] = {}
+    district_sale_psqm: List[float] = []
+    if district_project_ids:
+        district_rows = session.exec(
+            select(Listing, Property)
+            .join(Property, Property.id == Listing.property_id)
+            .where(
+                Property.project_id.in_(district_project_ids),
+                Property.deleted_at.is_(None),
+                Listing.status == ListingStatus.active,
+                Listing.listing_type == ListingType.sell,
+                Listing.deleted_at.is_(None),
+            )
+        ).all()
+        for listing, prop in district_rows:
+            value = _psqm(listing.asking_price, prop.size_sqm)
+            if not value:
+                continue
+            district_sale_psqm.append(value)
+            district_psqm_by_project.setdefault(prop.project_id, []).append(value)
+
+    district_avg_psqm = _mean(district_sale_psqm)
+    competitiveness = None
+    if project_sale_psqm and district_avg_psqm:
+        project_averages = {
+            pid: _mean(values)
+            for pid, values in district_psqm_by_project.items()
+            if values
+        }
+        ranked = sorted(
+            [v for v in project_averages.values() if v is not None], reverse=True
+        )
+        rank = None
+        if project_sale_psqm in ranked:
+            rank = ranked.index(project_sale_psqm) + 1
+        competitiveness = {
+            "project_price_sqm": _round(project_sale_psqm),
+            "district_price_sqm": _round(district_avg_psqm),
+            "delta_pct": _round((project_sale_psqm - district_avg_psqm) / district_avg_psqm * 100, 1),
+            "district_rank": rank,
+            "district_total": len(ranked),
+            "district": project.district,
+        }
+
+    # 全城行情
+    city_market = None
+    if city_project_ids:
+        city_rows = session.exec(
+            select(Listing, Property)
+            .join(Property, Property.id == Listing.property_id)
+            .where(
+                Property.project_id.in_(city_project_ids),
+                Property.deleted_at.is_(None),
+                Listing.status == ListingStatus.active,
+                Listing.deleted_at.is_(None),
+            )
+        ).all()
+        city_sale = [(l, p) for l, p in city_rows if l.listing_type == ListingType.sell]
+        city_rent = [(l, p) for l, p in city_rows if l.listing_type == ListingType.rent]
+        city_psqm = [
+            value
+            for value in (_psqm(l.asking_price, p.size_sqm) for l, p in city_sale)
+            if value
+        ]
+        sold_30d = session.exec(
+            select(func.count())
+            .select_from(PropertyDeal)
+            .join(Property, Property.id == PropertyDeal.property_id)
+            .where(
+                Property.project_id.in_(city_project_ids),
+                Property.deleted_at.is_(None),
+                PropertyDeal.status == PropertyDealStatus.completed,
+                PropertyDeal.deleted_at.is_(None),
+                PropertyDeal.updated_at >= now - timedelta(days=30),
+            )
+        ).one()
+        city_market = {
+            "city": project.city,
+            "avg_price_sqm": _round(_mean(city_psqm)),
+            "sale_count": len(city_sale),
+            "rent_count": len(city_rent),
+            "sold_30d": int(sold_30d or 0),
+        }
+
+    # 出租行情
+    rental_market = None
+    if rent_pairs:
+        avg_rent = _mean(rent_values)
+        avg_size = _mean([prop.size_sqm for _, prop in sale_pairs if prop.size_sqm])
+        gross_yield = None
+        if avg_rent and project_sale_psqm and avg_size:
+            gross_yield = _round(avg_rent * 12 / (project_sale_psqm * avg_size) * 100, 1)
+        rental_market = {
+            "avg_rent": _round(avg_rent),
+            "avg_rent_sqm": _round(_mean(rent_psqm_values)),
+            "rent_count": len(rent_pairs),
+            "gross_yield_pct": gross_yield,
+            "currency": currency,
+        }
+
+    return {
+        "project_id": str(project.id),
+        "project_name": project.name,
+        "currency": currency,
+        "active_sale_count": len(sale_pairs),
+        "active_rent_count": len(rent_pairs),
+        "avg_sale_price_sqm": _round(project_sale_psqm),
+        "avg_rent": _round(_mean(rent_values)),
+        "price_trend": price_trend,
+        "similar_deals": similar_deals,
+        "liquidity": {
+            "sold_90d": sold_90d,
+            "sold_180d": sold_180d,
+            "active_sale_count": len(sale_pairs),
+            "clearance_months": clearance_months,
+        },
+        "competitiveness": competitiveness,
+        "city_market": city_market,
+        "rental_market": rental_market,
     }

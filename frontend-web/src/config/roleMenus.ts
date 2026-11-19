@@ -1,4 +1,4 @@
-﻿﻿import { MENU_ICONS, type MenuIconKey } from '@/constants/menuIcons'
+﻿import { MENU_ICONS, type MenuIconKey } from '@/constants/menuIcons'
 
 /**
  * 角色菜单单一配置源（Web 端）。
@@ -49,76 +49,21 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           iconKey: 'PANELS',
         },
         {
+          key: '/tenant/my-home',
+          labelKey: 'menu.myHomeTab',
+          mobileLabelKey: 'portal.myHome',
+          iconKey: 'PANELS',
+        },
+        {
           key: '/tenant/listings',
           labelKey: 'menu.browseProperties',
           iconKey: 'BUILDING',
-        },
-        {
-          key: '/tenant/my-properties',
-          labelKey: 'menu.myProperties',
-          iconKey: 'BUILDING',
-        },
-        {
-          // C 端统一入口：任何登录用户都能提交「添加我的房产」，审核通过后才有关联房源
-          key: '/tenant/property-binding',
-          labelKey: 'menu.addProperty',
-          iconKey: 'BUILDING',
-        },
-        {
-          key: '/tenant/my-listings',
-          labelKey: 'menu.myListings',
-          iconKey: 'GRID_4',
-        },
-        {
-          key: '/tenant/marketing',
-          labelKey: 'menu.marketing',
-          mobileLabelKey: 'portal.marketing',
-          iconKey: 'MEGAPHONE',
-        },
-        {
-          key: '/tenant/income',
-          labelKey: 'menu.income',
-          mobileLabelKey: 'portal.income',
-          iconKey: 'DOLLAR',
-        },
-      ],
-    },
-    {
-      labelKey: 'menu.section.myServices',
-      items: [
-        {
-          key: '/tenant/payments',
-          labelKey: 'menu.myPayments',
-          mobileLabelKey: 'portal.payments',
-          iconKey: 'CREDIT_CARD',
-        },
-        {
-          key: '/tenant/maintenance',
-          labelKey: 'menu.maintenance',
-          mobileLabelKey: 'portal.maintenance',
-          iconKey: 'WRENCH',
         },
         {
           key: '/tenant/documents',
           labelKey: 'menu.documents',
           mobileLabelKey: 'portal.documents',
           iconKey: 'FILE',
-        },
-        {
-          key: '/tenant/services',
-          labelKey: 'menu.services',
-          mobileLabelKey: 'portal.services',
-          iconKey: 'STAR',
-        },
-        {
-          key: '/tenant/contracts',
-          labelKey: 'menu.contracts',
-          iconKey: 'FILE_CHECK',
-        },
-        {
-          key: '/company',
-          labelKey: 'menu.company',
-          iconKey: 'INFO',
         },
       ],
     },
@@ -342,6 +287,11 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           iconKey: 'SWAP',
         },
         {
+          key: '/operations/identity-review',
+          labelKey: 'menu.identityReview',
+          iconKey: 'BADGE_USER',
+        },
+        {
           key: '/employees',
           labelKey: 'menu.employees',
           iconKey: 'BADGE_USER',
@@ -364,6 +314,12 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
       labelKey: 'menu.section.partner',
       items: [
         {
+          key: '/partner/dashboard',
+          labelKey: 'menu.partnerDashboard',
+          mobileLabelKey: 'menu.partnerDashboard',
+          iconKey: 'GRID_4',
+        },
+        {
           key: '/partner/members',
           labelKey: 'menu.partnerMembers',
           mobileLabelKey: 'menu.partnerMembers',
@@ -375,6 +331,48 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
           mobileLabelKey: 'menu.partnerAttendance',
           iconKey: 'CALENDAR',
         },
+        {
+          key: '/partner/settlements',
+          labelKey: 'menu.partnerSettlements',
+          mobileLabelKey: 'menu.partnerSettlements',
+          iconKey: 'DOLLAR',
+        },
+        {
+          key: '/partner/commission-rules',
+          labelKey: 'menu.partnerRules',
+          mobileLabelKey: 'menu.partnerRules',
+          iconKey: 'FILE',
+        },
+        {
+          key: '/partner/reviews',
+          labelKey: 'menu.partnerReviews',
+          mobileLabelKey: 'menu.partnerReviews',
+          iconKey: 'CHECK_CIRCLE',
+        },
+        {
+          key: '/partner/properties',
+          labelKey: 'menu.partnerProperties',
+          mobileLabelKey: 'menu.partnerProperties',
+          iconKey: 'BUILDING',
+        },
+        {
+          key: '/partner/leads',
+          labelKey: 'menu.partnerLeads',
+          mobileLabelKey: 'menu.partnerLeads',
+          iconKey: 'USER',
+        },
+        {
+          key: '/partner/business',
+          labelKey: 'menu.partnerBusiness',
+          mobileLabelKey: 'menu.partnerBusiness',
+          iconKey: 'CREDIT_CARD',
+        },
+        {
+          key: '/partner/ops',
+          labelKey: 'menu.partnerOps',
+          mobileLabelKey: 'menu.partnerOps',
+          iconKey: 'MEGAPHONE',
+        },
       ],
     },
   ],
@@ -383,23 +381,23 @@ export const ROLE_SECTIONS: Record<string, RoleMenuSection[]> = {
 /** 移动端底部 Tab 展示白名单（自上而下）。未列出的菜单项只在侧边栏展示。 */
 export const ROLE_MOBILE_KEYS: Record<string, string[]> = {
   // 业主与租客共用同一组 C 端底部 Tab（功能一致）
-  owner: ['/tenant/dashboard', '/tenant/listings', '/tenant/payments', '/tenant/documents', '/tenant/my'],
-  tenant: ['/tenant/dashboard', '/tenant/listings', '/tenant/payments', '/tenant/documents', '/tenant/my'],
+  owner: ['/tenant/dashboard', '/tenant/my-home', '/tenant/listings', '/tenant/my'],
+  tenant: ['/tenant/dashboard', '/tenant/my-home', '/tenant/listings', '/tenant/my'],
   agent: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   employee: ['/employee/dashboard', '/properties', '/employee/attendance', '/employee/performance', '/employee/contacts'],
   admin: ['/dashboard', '/properties', '/crm', '/payments', '/settings'],
-  partner_admin: ['/partner/members'],
+  partner_admin: ['/partner/dashboard', '/partner/members', '/partner/settlements', '/partner/reviews'],
 }
 
 /**
- * C 端门户顶栏（PortalLayout）展示的 6 项：首页 / 找房 / 我的房源 / 收益 / 文档 / 我的。
- * 其余入口（缴费 / 报修 / 服务 / 合同 / 委托挂牌 / 我的上架单 / 公司）收进「我的」宫格。
+ * C 端门户顶栏（PortalLayout）展示项：首页 / 我家 / 找房 / 文档 / 我的。
+ * 房产、收益、账单、报修、合同、服务等资产与事务入口统一收进「我家」；
+ * 「我的」只保留账号、设置、收藏等个人内容，二者不重复。
  */
 export const C_PORTAL_NAV_KEYS = [
   '/tenant/dashboard',
+  '/tenant/my-home',
   '/tenant/listings',
-  '/tenant/my-properties',
-  '/tenant/income',
   '/tenant/documents',
   '/tenant/my',
 ]

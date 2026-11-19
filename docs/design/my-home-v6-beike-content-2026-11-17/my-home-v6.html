@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>「我家」v6 · 对齐贝壳内容清单 · 375×812</title>
+<style>
+  /* ============================================================
+     「我家」v6 —— 版式沿用 v5 五段节奏，内容按贝壳「我家」清单补全
+     ① 封面头图 + 管理入口
+     ② 房产卡（业主多套并排 + 还有 1 套）
+     ③ 小区行情复合卡（均价 / 涨跌 / 在租在售 + 账单或收益条）
+     ④ 我的小区与进度（公告 / 物业管家 / 报修 / 租约）
+     ⑤ 3 个已确认服务小卡 + 5 行统一入口（含权益占位）
+     数据真实性：均价、在租/在售来自 publicApi 聚合字段；
+     涨跌无时间序列 → 显示 “—” 并标注“待接入”；
+     会员权益、房屋估价无对应能力 → 只留结构，不编造内容。
+     无合同、无文档档案、无资料下载
+     ============================================================ */
+  :root {
+    --primary: #14b8a6;
+    --primary-deep: #0f9a8c;
+    --soft: rgba(20, 184, 166, .10);
+    --soft-ink: #0f8f83;
+    --bg: #fafbfc;
+    --card: #ffffff;
+    --ink: #171a1d;
+    --ink2: #4c555d;
+    --ink3: #68717a;
+    --line: #e6e9ec;
+    --field: #f4f6f7;
+    --warn: #a64c07;
+    --warn-dot: #d97706;
+    --ok: #15803d;
+    --ok-dot: #16a34a;
+    --info: #0369a1;
+    --info-dot: #0ea5e9;
+    --r16: 16px;
+    --r12: 12px;
+    --full: 999px;
+    --shadow-sm: 0 2px 10px rgba(23, 26, 29, .05);
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+      "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body { background: #eaeef0; font-family: var(--font); color: var(--ink); padding: 40px; }
+  .board { display: flex; gap: 56px; align-items: flex-start; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+  .frame-label { font-size: 13px; font-weight: 600; color: #4c555d; }
+  .frame-label span { font-weight: 400; color: #68717a; margin-left: 6px; }
+
+  .frame { position: relative; width: 375px; height: 812px; overflow: hidden;
+    background: var(--bg); font-family: var(--font); color: var(--ink); }
+
+  /* 状态栏 44 + 标题 30 */
+  .sb { height: 44px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; }
+  .sb-time { font-size: 15px; font-weight: 600; letter-spacing: .2px; font-variant-numeric: tabular-nums; }
+  .sb-icons { display: flex; align-items: center; gap: 5px; }
+  .sb-icons svg { fill: var(--ink); }
+  .hd { height: 30px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+  .hd h1 { font-size: 22px; font-weight: 700; line-height: 28px; letter-spacing: -.5px; }
+  .hd .day { font-size: 12px; line-height: 16px; color: var(--ink3); }
+
+  .body { padding: 0 16px; }
+
+  /* ---------- ① 封面头图 343 宽，圆角 16 ---------- */
+  .cover { position: relative; margin-top: 8px; height: 112px;
+    border-radius: var(--r16); overflow: hidden; box-shadow: var(--shadow-sm); }
+  .cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .cover .veil { position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(17,20,22,.10) 0%, rgba(17,20,22,0) 26%,
+      rgba(17,20,22,0) 42%, rgba(17,20,22,.52) 72%, rgba(17,20,22,.84) 100%); }
+  .glass { position: absolute; height: 22px; padding: 0 9px; border-radius: var(--full);
+    background: rgba(255,255,255,.92); display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; line-height: 1; color: var(--ink); }
+  .glass .d { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+  .cover .st { top: 10px; left: 10px; }
+  .cover .cap { position: absolute; left: 14px; right: 104px; bottom: 11px; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,.26); }
+  .cover .cap .nm { font-size: 18px; font-weight: 600; line-height: 23px; letter-spacing: -.3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cover .cap .mt { margin-top: 2px; font-size: 12px; line-height: 16px; color: rgba(255,255,255,.88);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cover .manage { position: absolute; right: 10px; bottom: 10px; height: 28px; padding: 0 11px;
+    border-radius: var(--full); background: rgba(255,255,255,.94); color: var(--ink);
+    display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; }
+  .cover .manage svg { width: 12px; height: 12px; fill: none; stroke: var(--ink);
+    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- ② 房产卡 ---------- */
+  .prop { margin-top: 8px; height: 58px; padding: 0 12px; background: var(--card);
+    border-radius: var(--r16); box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; gap: 11px; }
+  .prop .th { width: 40px; height: 40px; border-radius: var(--r12); overflow: hidden;
+    flex: 0 0 auto; background: var(--field); }
+  .prop .th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .prop .tx { flex: 1; min-width: 0; }
+  .prop .tx .n { font-size: 14px; font-weight: 600; line-height: 19px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prop .tx .s { margin-top: 1px; font-size: 11px; line-height: 15px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prop .chev { width: 13px; height: 13px; flex: 0 0 auto; fill: none; stroke: #b6bec5;
+    stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+  .prop .rlink { flex: 0 0 auto; font-size: 11px; font-weight: 600; color: var(--primary); }
+
+  /* 业主：多套并排两张 + 还有 1 套 */
+  .plist-hd { margin-top: 8px; height: 16px; display: flex; align-items: center;
+    justify-content: space-between; }
+  .plist-hd b { font-size: 13px; font-weight: 600; line-height: 16px; color: var(--ink); }
+  .plist-hd .r { display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; line-height: 16px; color: var(--ink3); }
+  .plist-hd .plus { height: 16px; padding: 0 6px; border-radius: var(--full);
+    background: var(--soft); color: var(--soft-ink); font-size: 10px; font-weight: 600;
+    display: inline-flex; align-items: center; }
+  .plist-hd .more { color: var(--primary); font-weight: 600; }
+  .pcards { margin-top: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .pcard { height: 60px; padding: 8px; background: var(--card); border-radius: var(--r16);
+    box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 8px; }
+  .pcard .th { width: 32px; height: 32px; border-radius: 11px; overflow: hidden;
+    flex: 0 0 auto; background: var(--field); }
+  .pcard .th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .pcard .tx { min-width: 0; flex: 1; }
+  .pcard .tx .n { font-size: 13px; font-weight: 600; line-height: 17px; letter-spacing: -.1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pcard .tx .s { font-size: 11px; line-height: 15px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pcard .tx .s2 { font-size: 11px; line-height: 14px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pcard .tx .s2.ok { color: var(--ok); font-weight: 600; }
+  .pcard .tx .s2.warn { color: var(--warn); font-weight: 600; }
+
+  /* ---------- ③ 小区行情复合卡：小 tab + 三个数字 + 账单/收益条 ---------- */
+  .panel { margin-top: 8px; padding: 10px 12px; background: var(--card);
+    border-radius: var(--r16); box-shadow: var(--shadow-sm); }
+  .ptop { height: 22px; display: flex; align-items: center; justify-content: space-between; }
+  .tabs { display: flex; gap: 6px; }
+  .tabx { height: 22px; padding: 0 10px; border-radius: var(--full); background: var(--field);
+    color: var(--ink3); font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; }
+  .tabx.on { background: var(--soft); color: var(--soft-ink); }
+  .plink { display: inline-flex; align-items: center; gap: 1px;
+    font-size: 11px; font-weight: 600; color: var(--primary); }
+  .plink svg { width: 11px; height: 11px; fill: none; stroke: var(--primary); stroke-width: 2.3;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .stats { margin-top: 7px; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .stat { min-width: 0; }
+  .stat + .stat { padding-left: 10px; border-left: 1px solid #f0f2f4; }
+  .stat .v { font-size: 18px; font-weight: 700; line-height: 22px; letter-spacing: -.5px;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat .v i { font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: 0; }
+  .stat .v em { font-style: normal; font-size: 13px; font-weight: 600; color: var(--ink3);
+    margin: 0 1px; }
+  .stat .v.dash { color: var(--ink3); }
+  .stat .k { margin-top: 1px; font-size: 10px; line-height: 14px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .strip { margin-top: 8px; height: 23px; padding: 0 8px; border-radius: 8px;
+    background: var(--field); display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; }
+  .strip .sl { min-width: 0; font-size: 11px; line-height: 15px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .strip .sl b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .strip .sa { flex: 0 0 auto; font-size: 11px; font-weight: 600; color: var(--primary);
+    display: inline-flex; align-items: center; gap: 1px; }
+  .strip .sa svg { width: 10px; height: 10px; fill: none; stroke: var(--primary);
+    stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- ④ 我的小区与进度：状态点 + 状态色 + 时间 ---------- */
+  .prog { margin-top: 8px; padding: 8px 12px; background: var(--card);
+    border-radius: var(--r16); box-shadow: var(--shadow-sm); }
+  .ph { height: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .ph b { font-size: 12px; font-weight: 600; line-height: 16px; color: var(--ink); }
+  .ph .more { font-size: 11px; font-weight: 600; line-height: 16px; color: var(--primary); }
+  .pr { position: relative; height: 26px; display: flex; align-items: center; gap: 7px; }
+  .pr + .pr::before { content: ""; position: absolute; left: 13px; right: 0; top: 0;
+    height: 1px; background: #f2f4f6; }
+  .pr .dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto; }
+  .pr .dot.warn { background: var(--warn-dot); }
+  .pr .dot.ok { background: var(--ok-dot); }
+  .pr .dot.info { background: var(--info-dot); }
+  .pr .dot.none { background: #c3cbd2; }
+  .pr .st { flex: 0 0 auto; font-size: 12px; font-weight: 600; line-height: 16px; }
+  .pr .st.warn { color: var(--warn); }
+  .pr .st.ok { color: var(--ok); }
+  .pr .st.info { color: var(--info); }
+  .pr .st.none { color: var(--ink2); }
+  .pr .ds { flex: 1; min-width: 0; font-size: 11px; line-height: 16px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pr .tm { flex: 0 0 auto; font-size: 11px; line-height: 16px; color: var(--ink3);
+    font-variant-numeric: tabular-nums; }
+  .pr .tm.act { color: var(--primary); font-weight: 600; }
+
+  /* ---------- ⑤ 生活服务小卡 ---------- */
+  .svc { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .sc { height: 46px; background: var(--card); border-radius: var(--r16);
+    box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center;
+    gap: 7px; }
+  .sc .ic { width: 25px; height: 25px; border-radius: 50%; background: var(--soft);
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .sc svg { width: 14px; height: 14px; fill: none; stroke: var(--primary); stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .sc span { font-size: 12px; font-weight: 600; color: var(--ink2); }
+
+  /* ---------- ⑤ 统一入口行 ---------- */
+  .rows { margin-top: 8px; background: var(--card); border-radius: var(--r16);
+    box-shadow: var(--shadow-sm); overflow: hidden; }
+  .rw { position: relative; height: 27px; padding: 0 12px; display: flex; align-items: center;
+    gap: 9px; }
+  .rw + .rw::before { content: ""; position: absolute; left: 39px; right: 0; top: 0;
+    height: 1px; background: #f2f4f6; }
+  .rw .ic { width: 18px; height: 18px; flex: 0 0 auto; display: flex; align-items: center; }
+  .rw .ic svg { width: 18px; height: 18px; fill: none; stroke: var(--primary); stroke-width: 1.75;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .rw .t { flex: 1; min-width: 0; font-size: 12px; line-height: 17px; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rw .m { flex: 0 0 auto; font-size: 11px; line-height: 16px; color: var(--ink3); }
+  .rw .m.warn { color: var(--warn); font-weight: 600; }
+  .rw .m.ok { color: var(--ok); font-weight: 600; }
+  .rw .m.pend { color: var(--ink3); background: var(--field); border-radius: var(--full);
+    padding: 1px 6px; font-size: 10px; line-height: 14px; }
+  .rw .chev { width: 12px; height: 12px; flex: 0 0 auto; fill: none; stroke: #b6bec5;
+    stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- 空态：渐变兜底 + 线稿房子 ---------- */
+  .cover.grad { height: 118px; background: linear-gradient(150deg, #2fd0c0 0%, #18bdad 46%, #0fa89a 100%); }
+  .cover.grad::before { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(112deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 34%),
+      linear-gradient(112deg, rgba(255,255,255,0) 54%, rgba(255,255,255,.10) 64%, rgba(255,255,255,0) 76%); }
+  .cover.grad::after { content: ""; position: absolute; width: 300px; height: 300px;
+    border-radius: 50%; right: -110px; top: -150px;
+    background: radial-gradient(circle, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 68%); }
+  .cover.grad .inner { position: absolute; inset: 0; z-index: 2; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    color: #fff; }
+  .cover.grad .eart { width: 62px; height: 31px; }
+  .cover.grad h2 { margin-top: 2px; font-size: 17px; font-weight: 700; line-height: 22px;
+    letter-spacing: -.3px; }
+  .cover.grad p { margin-top: 1px; max-width: 290px; font-size: 11px; line-height: 16px;
+    color: rgba(255,255,255,.9); }
+  .ebtns { margin-top: 7px; display: flex; gap: 9px; }
+  .ebtns span { height: 28px; padding: 0 14px; border-radius: var(--full);
+    display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; }
+  .ebtns .p { background: #fff; color: var(--soft-ink); box-shadow: 0 4px 12px rgba(10,80,72,.18); }
+  .ebtns .g { background: rgba(255,255,255,.20); color: #fff; border: 1px solid rgba(255,255,255,.55); }
+  .prop.near { height: 56px; margin-top: 5px; }
+
+  /* ---------- 底部 Tab 72 ---------- */
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; height: 72px; padding-top: 6px;
+    background: var(--card); border-top: 1px solid var(--line); display: flex; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink3);
+    font-size: 12px; line-height: 16px; }
+  .tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.7;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .tab.on { color: var(--primary); }
+  .tab.on svg { stroke-width: 1.9; }
+  .home-ind { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 3px; background: var(--ink); z-index: 6; }
+
+  /* 业主屏略紧凑，保证五段全部落在首屏 */
+  .frame.owner .cover { height: 106px; }
+  .frame.owner .panel { padding: 9px 12px; }
+  .frame.owner .pr { height: 25px; }
+  .frame.owner .svc .sc { height: 44px; }
+  .frame.owner .rw { height: 25px; }
+
+  /* 空态略紧凑 */
+  .frame.empty .panel { padding: 9px 12px; }
+  .frame.empty .pr { height: 24px; }
+  .frame.empty .svc .sc { height: 44px; }
+  .frame.empty .rw { height: 25px; }
+
+  /* 说明（不参与截图） */
+  .legend { margin-top: 52px; max-width: 1180px; background: #fff; border-radius: 16px; padding: 24px 28px; }
+  .legend h3 { font-size: 15px; margin-bottom: 10px; }
+  .legend p, .legend li { font-size: 12px; color: var(--ink2); line-height: 20px; }
+  .legend table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .legend th, .legend td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef1f3;
+    color: var(--ink2); vertical-align: top; }
+  .legend th { color: var(--ink); font-weight: 600; background: #fafbfc; }
+  .legend code { font-size: 11px; color: var(--ink); background: #f4f6f7; border-radius: 4px; padding: 1px 4px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 8.2A2.7 2.7 0 0 1 6.7 5.5h9.6A2.7 2.7 0 0 1 19 8.2v9.1a2.7 2.7 0 0 1-2.7 2.7H6.7A2.7 2.7 0 0 1 4 17.3z"/><path d="M4 9.4h15"/><circle cx="15.6" cy="14" r="1.3"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M15.6 4.4a4.6 4.6 0 0 0-6 6L4 16v4h4l5.6-5.6a4.6 4.6 0 0 0 6-6l-2.9 2.9-2.4-2.4z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8.2" cy="15.8" r="3.6"/><path d="M10.8 13.2L19 5M15.4 8.6l2.4 2.4M17.8 6.2l2.4 2.4"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><path d="M4.4 9.6h15.2v10.2H4.4z"/><path d="M3.4 6.4h17.2v3.2H3.4zM12 6.4v13.4"/><path d="M12 6.4c-3.6 0-4.6-1.2-4.6-2.4S8.6 2 9.8 2c1.6 0 2.2 2.2 2.2 4.4zm0 0c3.6 0 4.6-1.2 4.6-2.4S15.4 2 14.2 2c-1.6 0-2.2 2.2-2.2 4.4z"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.4 13.8v-1.6a7.6 7.6 0 0 1 15.2 0v1.6"/><rect x="2.9" y="13.4" width="4.2" height="6.2" rx="2.1"/><rect x="16.9" y="13.4" width="4.2" height="6.2" rx="2.1"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="M3.4 10.4v3.2a1 1 0 0 0 1 1h2.9l8.5 4.4V5L7.3 9.4H4.4a1 1 0 0 0-1 1z"/><path d="M8.2 14.8v4.4h2.6v-3.3"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4.5 20.5V9.4L12 3.6l7.5 5.8v11.1z"/><path d="M9.6 20.5v-5.2h4.8v5.2"/><path d="M8.3 11.6h1.7M14 11.6h1.7"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.6"/><path d="M15.6 15.6l4.6 4.6"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4.6" y="3.4" width="14.8" height="17.2" rx="2.4"/><path d="M8 8h8M8 12h1.6M11.2 12h1.6M14.4 12H16M8 15.4h1.6M11.2 15.4h1.6M14.4 15.4H16"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19.2 10.4c0 5-7.2 10.6-7.2 10.6S4.8 15.4 4.8 10.4a7.2 7.2 0 1 1 14.4 0z"/><circle cx="12" cy="10.2" r="2.6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.8L12 3.9l8.2 6.9v9.4h-5.6v-5.9H9.4v5.9H3.8z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.2h16v10.4h-9.4L5.8 20.2v-3.6H4z"/><path d="M8 10h8M8 12.8h5"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M4.9 20.3a7.1 7.1 0 0 1 14.2 0"/></symbol>
+  <symbol id="i-broom" viewBox="0 0 24 24"><path d="M14.2 3.4l6.4 6.4"/><path d="M16.6 5.2l-7.4 7.4"/><path d="M9.2 12.4l2.4 2.4-3.4 6.2H2.6l3.4-6.2z"/><path d="M6.2 15.2l2.6 2.6"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3.2v17.6M4.4 7.6l15.2 8.8M19.6 7.6L4.4 16.4"/><path d="M9.7 4.6L12 3.1l2.3 1.5M9.7 19.4L12 20.9l2.3-1.5"/></symbol>
+
+  <!-- 空态线稿 96×48 -->
+  <symbol id="art-empty" viewBox="0 0 96 48">
+    <path d="M18 26l30-19 30 19v17a3 3 0 0 1-3 3H21a3 3 0 0 1-3-3z" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" opacity=".95"/>
+    <path d="M41 46V32h13v14" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round" opacity=".95"/>
+    <path d="M2 46h92" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>
+    <circle cx="88" cy="16" r="2.2" fill="#fff" opacity=".7"/>
+    <circle cx="8" cy="20" r="1.6" fill="#fff" opacity=".5"/>
+  </symbol>
+</defs></svg>
+
+<div class="board">
+
+  <!-- ===================== ① 租客 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 租客<span>375 × 812 · 有租约</span></div>
+    <div class="frame" id="v6-tenant">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <span class="day">11月17日 · 晴 12°</span>
+      </div>
+
+      <div class="body">
+        <!-- ① 封面头图 + 管理入口 -->
+        <div class="cover">
+          <img src="assets/room-crop.jpg" alt="" />
+          <div class="veil"></div>
+          <span class="glass st"><i class="d"></i>租住中</span>
+          <div class="cap">
+            <div class="nm">滨江壹号</div>
+            <div class="mt">3-1802 · 一室一厅 · 89㎡</div>
+          </div>
+          <span class="manage">管理我家<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+        </div>
+
+        <!-- ② 房产卡 -->
+        <div class="prop">
+          <span class="th"><img src="assets/room-crop.jpg" alt="" /></span>
+          <div class="tx">
+            <div class="n">滨江壹号 3-1802</div>
+            <div class="s">一室一厅 · 89㎡ · 租约至 2027.03</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+        </div>
+
+        <!-- ③ 小区行情 + 本月账单 -->
+        <div class="panel">
+          <div class="ptop">
+            <div class="tabs">
+              <span class="tabx on">小区行情</span>
+              <span class="tabx">本月账单</span>
+            </div>
+            <span class="plink">小区详情<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="v">48,600</div><div class="k">参考均价 · 元/㎡</div></div>
+            <div class="stat"><div class="v dash">—</div><div class="k">近30天涨跌 · 待接入</div></div>
+            <div class="stat"><div class="v">12<em>/</em>8</div><div class="k">在租 / 在售</div></div>
+          </div>
+          <div class="strip">
+            <span class="sl">本月账单 <b>¥8,600</b> · 11.25 到期</span>
+            <span class="sa">去缴费<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+        </div>
+
+        <!-- ④ 我的小区与进度 -->
+        <div class="prog">
+          <div class="ph"><b>我的小区与进度</b><span class="more">全部 ›</span></div>
+          <div class="pr">
+            <i class="dot warn"></i><span class="st warn">电梯维保</span>
+            <span class="ds">周六 9:00-12:00</span><span class="tm">昨天</span>
+          </div>
+          <div class="pr">
+            <i class="dot ok"></i><span class="st ok">物业管家</span>
+            <span class="ds">王师傅 · 在线</span><span class="tm act">发消息</span>
+          </div>
+          <div class="pr">
+            <i class="dot warn"></i><span class="st warn">报修处理中</span>
+            <span class="ds">空调不制冷</span><span class="tm">今天 10:24</span>
+          </div>
+          <div class="pr">
+            <i class="dot info"></i><span class="st info">租约即将到期</span>
+            <span class="ds">还有 108 天</span><span class="tm">2027.03.31</span>
+          </div>
+        </div>
+
+        <!-- ⑤ 三个已确认服务小卡 -->
+        <div class="svc">
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-broom"/></svg></span><span>保洁</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span>维修</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-snow"/></svg></span><span>空调清洗</span></div>
+        </div>
+
+        <!-- ⑤ 五个统一入口行 -->
+        <div class="rows">
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wallet"/></svg></span><span class="t">账单</span><span class="m warn">待缴 ¥8,600</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span class="t">报修</span><span class="m warn">处理中</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-key"/></svg></span><span class="t">我的租约</span><span class="m">至 2027.03</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-gift"/></svg></span><span class="t">会员权益</span><span class="m pend">待接入</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-headset"/></svg></span><span class="t">客服</span><span class="m ok">在线</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ② 业主 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 业主<span>375 × 812 · 3 套房产</span></div>
+    <div class="frame owner" id="v6-owner">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <span class="day">11月17日 · 晴 12°</span>
+      </div>
+
+      <div class="body">
+        <!-- ① 封面头图 + 管理入口 -->
+        <div class="cover">
+          <img src="assets/tower.jpg" alt="" style="object-position: 50% 42%" />
+          <div class="veil"></div>
+          <span class="glass st"><i class="d"></i>持有中</span>
+          <div class="cap">
+            <div class="nm">滨江壹号</div>
+            <div class="mt">5-0901 · 3 套在管</div>
+          </div>
+          <span class="manage">管理我家<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+        </div>
+
+        <!-- ② 多套房产：并排两张 + 还有 1 套 -->
+        <div class="plist-hd">
+          <b>我的房产</b>
+          <span class="r"><i class="plus">+1</i><span class="more">全部 ›</span></span>
+        </div>
+        <div class="pcards">
+          <div class="pcard">
+            <span class="th"><img src="assets/tower.jpg" alt="" /></span>
+            <div class="tx">
+              <div class="n">滨江壹号</div>
+              <div class="s">5-0901 · 两室 · 89㎡</div>
+              <div class="s2 ok">租至 2027.03</div>
+            </div>
+          </div>
+          <div class="pcard">
+            <span class="th"><img src="assets/room-crop.jpg" alt="" /></span>
+            <div class="tx">
+              <div class="n">阳光里</div>
+              <div class="s">2-1103 · 一室 · 62㎡</div>
+              <div class="s2 warn">空置中 · 待出租</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ③ 小区行情 + 本月收益 -->
+        <div class="panel">
+          <div class="ptop">
+            <div class="tabs">
+              <span class="tabx on">小区行情</span>
+              <span class="tabx">本月收益</span>
+            </div>
+            <span class="plink">小区详情<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="v">48,600</div><div class="k">参考均价 · 元/㎡</div></div>
+            <div class="stat"><div class="v dash">—</div><div class="k">近30天涨跌 · 待接入</div></div>
+            <div class="stat"><div class="v">12<em>/</em>8</div><div class="k">在租 / 在售</div></div>
+          </div>
+          <div class="strip">
+            <span class="sl">本月收益 <b>¥12,480</b> · 12.05 打款</span>
+            <span class="sa">明细<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+        </div>
+
+        <!-- ④ 我的小区与进度 -->
+        <div class="prog">
+          <div class="ph"><b>我的小区与进度</b><span class="more">全部 ›</span></div>
+          <div class="pr">
+            <i class="dot warn"></i><span class="st warn">电梯维保</span>
+            <span class="ds">周六 9:00-12:00</span><span class="tm">昨天</span>
+          </div>
+          <div class="pr">
+            <i class="dot ok"></i><span class="st ok">物业管家</span>
+            <span class="ds">李经理 · 在线</span><span class="tm act">发消息</span>
+          </div>
+          <div class="pr">
+            <i class="dot warn"></i><span class="st warn">维修待审批</span>
+            <span class="ds">5-0901 空调报修</span><span class="tm">2 小时前</span>
+          </div>
+          <div class="pr">
+            <i class="dot ok"></i><span class="st ok">租金已到账</span>
+            <span class="ds">¥12,480</span><span class="tm">11月15日</span>
+          </div>
+        </div>
+
+        <!-- ⑤ 三个已确认服务小卡 -->
+        <div class="svc">
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-broom"/></svg></span><span>保洁</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span>维修</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-snow"/></svg></span><span>空调清洗</span></div>
+        </div>
+
+        <!-- ⑤ 五个统一入口行 -->
+        <div class="rows">
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wallet"/></svg></span><span class="t">收益账单</span><span class="m ok">11月已到账</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span class="t">报修</span><span class="m warn">1 单待审</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg></span><span class="t">我的房产</span><span class="m">3 套</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-gift"/></svg></span><span class="t">会员权益</span><span class="m pend">待接入</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-headset"/></svg></span><span class="t">客服</span><span class="m ok">在线</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ③ 空态 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 未绑定<span>375 × 812 · 空态</span></div>
+    <div class="frame empty" id="v6-empty">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <span class="day">11月17日 · 晴 12°</span>
+      </div>
+
+      <div class="body">
+        <!-- ① 渐变兜底 + 认领/添加 -->
+        <div class="cover grad">
+          <div class="inner">
+            <svg class="eart" viewBox="0 0 96 48"><use href="#art-empty"/></svg>
+            <h2>还没有绑定你的家</h2>
+            <p>认领或添加后，账单、报修与小区公告会归到这里</p>
+            <div class="ebtns"><span class="p">认领房产</span><span class="g">添加房产</span></div>
+          </div>
+        </div>
+
+        <!-- ② 附近小区（无需绑定也能看） -->
+        <div class="plist-hd">
+          <b>附近小区</b>
+          <span class="r"><span class="more">切换小区 ›</span></span>
+        </div>
+        <div class="prop near">
+          <span class="th"><img src="assets/tower.jpg" alt="" /></span>
+          <div class="tx">
+            <div class="n">滨江壹号</div>
+            <div class="s">距你 800m · 1,286 户 · 物业费 ¥3.2/㎡</div>
+          </div>
+          <span class="rlink">查看 ›</span>
+        </div>
+
+        <!-- ③ 小区行情 + 小区公告 -->
+        <div class="panel">
+          <div class="ptop">
+            <div class="tabs">
+              <span class="tabx on">小区行情</span>
+              <span class="tabx">小区公告</span>
+            </div>
+            <span class="plink">小区详情<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="v">48,600</div><div class="k">参考均价 · 元/㎡</div></div>
+            <div class="stat"><div class="v dash">—</div><div class="k">近30天涨跌 · 待接入</div></div>
+            <div class="stat"><div class="v">12<em>/</em>8</div><div class="k">在租 / 在售</div></div>
+          </div>
+          <div class="strip">
+            <span class="sl">小区公告 <b>3 条</b> · 电梯维保 · 周六</span>
+            <span class="sa">查看<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+          </div>
+        </div>
+
+        <!-- ④ 小区公告与物业 -->
+        <div class="prog">
+          <div class="ph"><b>小区公告与物业</b><span class="more">全部 ›</span></div>
+          <div class="pr">
+            <i class="dot warn"></i><span class="st warn">电梯维保</span>
+            <span class="ds">周六 9:00-12:00</span><span class="tm">昨天</span>
+          </div>
+          <div class="pr">
+            <i class="dot info"></i><span class="st info">停水通知</span>
+            <span class="ds">11月18日 8:00-16:00</span><span class="tm">11月16日</span>
+          </div>
+          <div class="pr">
+            <i class="dot ok"></i><span class="st ok">物业服务中心</span>
+            <span class="ds">8:30-18:00 前台</span><span class="tm act">电话</span>
+          </div>
+          <div class="pr">
+            <i class="dot none"></i><span class="st none">社区食堂</span>
+            <span class="ds">11月20日开业</span><span class="tm">11月15日</span>
+          </div>
+        </div>
+
+        <!-- ⑤ 三个已确认服务小卡 -->
+        <div class="svc">
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-broom"/></svg></span><span>保洁</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span>维修</span></div>
+          <div class="sc"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-snow"/></svg></span><span>空调清洗</span></div>
+        </div>
+
+        <!-- ⑤ 五个统一入口行 -->
+        <div class="rows">
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span><span class="t">找房</span><span class="m">附近 12 套</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-calc"/></svg></span><span class="t">房屋估价</span><span class="m pend">待接入</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg></span><span class="t">附近小区</span><span class="m">3 个</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-gift"/></svg></span><span class="t">会员权益</span><span class="m pend">待接入</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+          <div class="rw"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-headset"/></svg></span><span class="t">客服</span><span class="m ok">在线</span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 说明（不参与截图） -->
+<div class="legend">
+  <h3>v6 内容对齐：贝壳「我家」清单 → 我们的落点</h3>
+  <table>
+    <thead><tr><th>贝壳内容模块（官方文章 2023-01-11 三张截图，约 2022 年末版本）</th><th>我们的落点</th><th>能力状态</th></tr></thead>
+    <tbody>
+      <tr><td>封面「我的家 / 管理我家」</td><td>封面头图 + 管理我家；空态渐变 + 认领 / 添加</td><td>已有（房产数据 + 绑定入口）</td></tr>
+      <tr><td>我的房子：房产卡（小区 + 户型 + 面积，多套）</td><td>租客单卡；业主并排两张 +「+1 / 全部」</td><td>已有（<code>ownerApi.properties</code>）</td></tr>
+      <tr><td>交易行情 / 出租动态：小区 chips、参考均价、成交套数、在售房源、价格/热度/供需/成交子 tab 与图表</td><td>小区行情三数字：参考均价、近30天涨跌、在租/在售</td><td>可复用但入口在别处（<code>avg_price</code>、<code>listing_count</code>、<code>rent_count/sell_count</code>）；无时间序列 → 涨跌显示「—」</td></tr>
+      <tr><td>交易进度（成交 / 签约 / 过户等节点）</td><td>报修处理中、认领审核、租约到期、账单；业主为维修待审批 / 租金到账</td><td>已有（账单、报修、绑定审核、租约）</td></tr>
+      <tr><td>出租动态：招租进度（曝光/浏览/咨询/带看）、看房动态、续租提醒</td><td>业主本周收益条 + 租约到期行</td><td>部分已有（业主收益、租约）；曝光/浏览/带看无数据 → 暂缓</td></tr>
+      <tr><td>我的小区：公告、物业</td><td>「我的小区与进度」：小区公告、物业管家</td><td>需要新做（入口现指向小区列表 / 客服，无公告模型与管家关系）</td></tr>
+      <tr><td>邻里 / 社区内容</td><td>未进入本版</td><td>无数据支撑 → 暂缓</td></tr>
+      <tr><td>装修 / 保洁 / 搬家 / 维修等服务</td><td>保洁、维修、空调清洗 3 小卡；入口行承接账单 / 报修</td><td>部分已有（cleaning、ac_cleaning、insurance、wifi_install、utility_payment；维修走报修）；搬家无服务编码 → 暂缓</td></tr>
+      <tr><td>权益会员（省心租特权：免费维修 / 保洁 / 智能门锁）</td><td>「会员权益」入口，标注待接入</td><td>无数据支撑，只留结构，未编造权益内容</td></tr>
+      <tr><td>房屋估价等工具</td><td>空态「房屋估价」入口，标注待接入</td><td>无数据支撑，只留结构</td></tr>
+      <tr><td>「让家变美」：户型分析 / 布局 / 装修效果 / 装修建议（二级页）</td><td>未进入本版</td><td>无供给 → 暂缓</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px">v6 相比 v5 新增：① 小区行情三数字（参考均价 / 涨跌 / 在租在售）与「小区详情」链接；② 「我的小区与进度」中的小区公告与物业管家行；③ 服务小卡由「保洁 / 搬家 / 维修」改为已确认的「保洁 / 维修 / 空调清洗」；④ 新增会员权益、房屋估价占位入口，统一标注「待接入」。暂缓：招租曝光/浏览/带看、看房动态、邻里社区、装修「让家变美」、搬家。</p>
+  <p style="margin-top:6px">数据口径：均价取项目 / 区域 <code>avg_price</code>，在租/在售取上架单聚合；两者均无时间序列，涨跌不写假百分比。全屏仍只有 3 种造型：封面图、白卡（16 圆角 + 浅阴影）、三等分小卡；无合同、无文档档案、无资料下载。</p>
+</div>
+
+</body>
+</html>

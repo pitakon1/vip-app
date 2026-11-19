@@ -818,7 +818,7 @@ export default function PropertyDetailScreen() {
       >
         <Animated.View style={{ transform: [{ scale: favScale }] }}>
           <TouchableOpacity
-            style={styles.favBtn}
+            style={styles.barItem}
             activeOpacity={0.8}
             onPress={handleToggleFav}
             disabled={favBusy}
@@ -834,14 +834,14 @@ export default function PropertyDetailScreen() {
               size={20}
               color={favorited ? colors.error : colors.ink2}
             />
-            <Text style={styles.favText}>
+            <Text style={styles.barItemText} numberOfLines={1}>
               {favorited ? t('prop.favorited') : t('prop.favorite')}
             </Text>
           </TouchableOpacity>
         </Animated.View>
         <Animated.View style={{ transform: [{ scale: bellScale }] }}>
           <TouchableOpacity
-            style={styles.favBtn}
+            style={styles.barItem}
             activeOpacity={0.8}
             onPress={handleTogglePriceAlert}
             disabled={priceBusy}
@@ -857,43 +857,56 @@ export default function PropertyDetailScreen() {
               size={20}
               color={subscribed ? colors.primary : colors.ink2}
             />
-            <Text style={[styles.favText, subscribed && styles.bellTextActive]}>
-              {subscribed ? t('pub.priceAlertOn') : t('pub.priceAlertOff')}
+            {/* 贝壳式：标签文案固定，用图标/颜色表达开关态，避免「已开启降价提醒」挤爆底栏 */}
+            <Text style={[styles.barItemText, subscribed && styles.bellTextActive]} numberOfLines={1}>
+              {t('pub.priceAlertOff')}
             </Text>
           </TouchableOpacity>
         </Animated.View>
         <Animated.View style={{ transform: [{ scale: contactScale }] }}>
           <TouchableOpacity
-            style={styles.contactBtn}
+            style={styles.barItem}
             activeOpacity={0.8}
             onPress={contactBroker}
             onPressIn={() => pressIn(contactScale)}
             onPressOut={() => pressOut(contactScale)}
+            accessibilityRole="button"
+            accessibilityLabel={t('prop.contactBroker')}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.ink2} />
-            <Text style={styles.contactText}>{t('prop.contactBroker')}</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.ink2} />
+            <Text style={styles.barItemText} numberOfLines={1}>
+              {t('prop.contactBroker')}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
         {/* 算贷款：仅买房业务下展示（对齐原型） */}
         {biz === 'buy' && saleListing ? (
           <TouchableOpacity
-            style={styles.contactBtn}
+            style={styles.barItem}
             activeOpacity={0.8}
             onPress={openCalculator}
+            accessibilityRole="button"
+            accessibilityLabel={t('prop.calcLoan')}
           >
-            <Ionicons name="calculator-outline" size={18} color={colors.ink2} />
-            <Text style={styles.contactText}>{t('prop.calcLoan')}</Text>
+            <Ionicons name="calculator-outline" size={20} color={colors.ink2} />
+            <Text style={styles.barItemText} numberOfLines={1}>
+              {t('prop.calcLoan')}
+            </Text>
           </TouchableOpacity>
         ) : null}
-        <Animated.View style={{ transform: [{ scale: bookScale }] }}>
+        <Animated.View style={{ flex: 1, transform: [{ scale: bookScale }] }}>
           <TouchableOpacity
             style={styles.bookBtn}
             activeOpacity={0.85}
             onPress={() => setBookingOpen(true)}
             onPressIn={() => pressIn(bookScale)}
             onPressOut={() => pressOut(bookScale)}
+            accessibilityRole="button"
+            accessibilityLabel={t('prop.bookNow')}
           >
-            <Text style={styles.bookText}>{t('prop.bookNow')}</Text>
+            <Text style={styles.bookText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {t('prop.bookNow')}
+            </Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -1255,39 +1268,35 @@ const styles = StyleSheet.create({
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: colors.spacing.sm,
+    gap: colors.spacing.xs,
     paddingHorizontal: colors.spacing.md,
     paddingVertical: colors.spacing.sm,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  favBtn: {
+  /* 贝壳式：次要动作统一为固定宽度「图标在上 + 短标签」列，不再各自撑宽 */
+  barItem: {
+    width: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  barItemText: {
+    width: '100%',
+    textAlign: 'center',
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.ink2,
+  },
+  bellTextActive: { color: colors.primary },
+  bookBtn: {
+    flex: 1,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: colors.spacing.md,
-  },
-  favText: { fontSize: 12, color: colors.ink2, marginTop: 2 },
-  bellTextActive: { color: colors.primary },
-  contactBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: colors.spacing.xs,
-    paddingVertical: colors.spacing.md,
-    borderRadius: colors.radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  contactText: { fontSize: 14, color: colors.ink2, fontWeight: '600' },
-  bookBtn: {
-    flex: 1.4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: colors.spacing.md,
     borderRadius: colors.radius.full,
     backgroundColor: colors.primary,
     ...colors.shadow.primary,

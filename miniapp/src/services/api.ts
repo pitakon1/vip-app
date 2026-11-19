@@ -74,6 +74,9 @@ export const propertiesApi = {
     return request({ url: `/properties${qs ? `?${qs}` : ''}`, method: 'GET' })
   },
   get: (id: string) => request({ url: `/properties/${id}`, method: 'GET' }),
+  // 房屋估价（估算区间，口径见后端 properties.py）
+  valueEstimate: (id: string) =>
+    request({ url: `/properties/${id}/value-estimate`, method: 'GET' }),
   // 关联租约：返回 tenant_name，是业主侧展示「当前租客」姓名的唯一来源
   leases: (id: string) => request({ url: `/properties/${id}/leases`, method: 'GET' }),
   update: (id: string, data: any) =>
@@ -92,6 +95,13 @@ export const propertiesApi = {
   },
   deletePhoto: (id: string, url: string) =>
     request({ url: `/properties/${id}/photos?url=${encodeURIComponent(url)}`, method: 'DELETE' })
+}
+
+// 小区公告：租客读取自己租约所在楼盘 + 平台公告
+export const announcementsApi = {
+  mine: () => request({ url: '/announcements/mine', method: 'GET' }),
+  list: (params?: any) => request({ url: '/announcements', method: 'GET', data: params }),
+  create: (data: any) => request({ url: '/announcements', method: 'POST', data })
 }
 
 // 公司信息（公开接口）：仅取真实版本号供「我的 - 关于」展示，避免写死版本
@@ -134,7 +144,11 @@ export const paymentsApi = {
 
 export const viewingsApi = {
   create: (data: any) => request({ url: '/viewings', method: 'POST', data }),
-  list: (params?: any) => request({ url: '/viewings', method: 'GET', data: params })
+  mine: () => request({ url: '/viewings/mine', method: 'GET' }),
+  list: (params?: any) => request({ url: '/viewings', method: 'GET', data: params }),
+  // 租客本人撤回预约（仅 pending / confirmed）
+  cancel: (id: string, reason?: string) =>
+    request({ url: `/viewings/${id}/cancel`, method: 'POST', data: reason ? { reason } : {} })
 }
 
 // ============ 员工自定义日历事件 ============
@@ -171,6 +185,9 @@ export const billingApi = {
 export const serviceOrdersApi = {
   list: (params?: any) => request({ url: '/service-orders', method: 'GET', data: params }),
   create: (data: any) => request({ url: '/service-orders', method: 'POST', data }),
+  // 增值服务支付：与租金/账单一致，统一走连连支付收银台
+  pay: (id: string, channel = 'lianlian') =>
+    request({ url: `/service-orders/${id}/pay`, method: 'POST', data: { channel } }),
   // 管理端「工单审核中心」受理服务订单
   updateStatus: (id: string, data: { status: string }) =>
     request({ url: `/service-orders/${id}/status`, method: 'PATCH', data })
@@ -299,7 +316,230 @@ export const adminPartnersApi = {
   activate: (id: string) => request({ url: `/admin/partners/${id}/activate`, method: 'POST' })
 }
 
-// 合作公司管理员侧：本公司成员 / 绩效 / 房源
+// ===== 合作公司经营驾驶舱（返回体对齐 backend/app/api/v1/partner_console.py） =====
+export interface PartnerDashboard {
+  partner_id: string
+  period: { year: number; month: number }
+  stats: {
+    deals: number
+    revenue: number
+    receivable: number
+    paid: number
+    pending: number
+    active_agents: number
+    properties: number
+  }
+  monthly: Array<{ year: number; month: number; revenue: number; commission: number; deals: number }>
+  agent_ranking: Array<{
+    employee_id: string
+    employee_name?: string | null
+    commission: number
+    revenue: number
+    deals: number
+  }>
+  property_ranking: Array<{ user_id: string; name?: string | null; count: number }>
+}
+
+export interface PartnerSettlementRow {
+  id: string
+  lease_id: string
+  contract_id?: string | null
+  deal_type: string
+  role: string
+  employee_id?: string | null
+  employee_name?: string | null
+  commission_base?: number | null
+  commission_rate?: number | null
+  commission_amount?: number | null
+  split_percent?: number | null
+  currency?: string | null
+  status: string
+  settled_at?: string | null
+  paid_at?: string | null
+  created_at?: string | null
+}
+
+export interface PartnerSettlements {
+  items: PartnerSettlementRow[]
+  total: number
+  sum: { base: number; amount: number }
+}
+
+export interface PartnerTrip {
+  id: string
+  employee_id: string
+  employee_name?: string | null
+  trip_date: string
+  from_location?: string | null
+  to_location?: string | null
+  reason?: string | null
+  status: string
+  reply_note?: string | null
+  created_at: string
+}
+
+export interface PartnerAppeal {
+  id: string
+  employee_id: string
+  employee_name?: string | null
+  date: string
+  reason?: string | null
+  status: string
+  reply_note?: string | null
+}
+
+export interface PartnerShift {
+  id: string
+  employee_id: string
+  employee_name?: string | null
+  date: string
+  start_time: string
+  end_time: string
+  note?: string | null
+}
+
+export interface PartnerLead {
+  id: string
+  name: string
+  phone?: string | null
+  email?: string | null
+  stage: string
+  assigned_to?: string | null
+  assignee_name?: string | null
+  budget_min?: number | null
+  budget_max?: number | null
+  source?: string | null
+  created_at: string
+}
+
+export interface PartnerLeads {
+  total: number
+  items: PartnerLead[]
+}
+
+export interface PartnerClaim {
+  id: string
+  fingerprint: string
+  fingerprint_type: string
+  lead_id?: string | null
+  expires_at: string
+  status: string
+}
+
+export interface PartnerViewing {
+  id: string
+  property_id: string
+  property_address?: string | null
+  visitor_name?: string | null
+  visitor_phone?: string | null
+  scheduled_at: string
+  status: string
+  assigned_to?: string | null
+  assignee_name?: string | null
+}
+
+export interface PartnerLease {
+  id: string
+  lease_no?: string | null
+  contract_no?: string | null
+  property_id: string
+  property_address?: string | null
+  start_date: string
+  end_date: string
+  monthly_rent?: number | null
+  currency?: string | null
+  status: string
+}
+
+export interface PartnerContract {
+  id: string
+  contract_no?: string | null
+  title?: string | null
+  kind: string
+  status: string
+  lease_id?: string | null
+  signed_at?: string | null
+  created_at: string
+}
+
+export interface PartnerRenewals {
+  buckets: Array<{
+    key: '7' | '30' | '60'
+    items: Array<{
+      lease_id: string
+      lease_no?: string | null
+      end_date: string
+      days_left: number
+      monthly_rent?: number | null
+    }>
+  }>
+  total: number
+}
+
+export interface PartnerPayment {
+  id: string
+  receipt_no?: string | null
+  payment_type: string
+  amount?: number | null
+  late_fee_due?: number | null
+  total_due?: number | null
+  currency?: string | null
+  status: string
+  due_date?: string | null
+  paid_at?: string | null
+  description?: string | null
+}
+
+export interface PartnerPayments {
+  total: number
+  outstanding: number
+  items: PartnerPayment[]
+}
+
+export interface PartnerAnnouncement {
+  id: string
+  title: string
+  content?: string | null
+  category: string
+  is_pinned?: boolean
+  scope: string
+  publisher_name?: string | null
+  published_at: string
+}
+
+export interface PartnerTask {
+  id: string
+  title: string
+  content?: string | null
+  assignee_user_id?: string | null
+  assignee_name?: string | null
+  due_at?: string | null
+  status: string
+  completed_at?: string | null
+}
+
+export interface PartnerApproval {
+  id: string
+  kind: string
+  title: string
+  amount?: number | null
+  content?: string | null
+  status: string
+  applicant_name?: string | null
+  reply_note?: string | null
+  created_at: string
+}
+
+export interface PartnerMaterial {
+  id: string
+  title: string
+  category: string
+  url: string
+  description?: string | null
+  scope: string
+}
+
+// 合作公司管理员侧：本公司成员 / 绩效 / 房源 / 经营驾驶舱
 export const partnerApi = {
   members: () => request({ url: '/partner/members', method: 'GET' }),
   createMember: (data: any) => request({ url: '/partner/members', method: 'POST', data }),
@@ -308,7 +548,110 @@ export const partnerApi = {
   removeMember: (userId: string) =>
     request({ url: `/partner/members/${userId}`, method: 'DELETE' }),
   performance: () => request({ url: '/partner/performance', method: 'GET' }),
-  properties: () => request({ url: '/partner/properties', method: 'GET' })
+  properties: () => request({ url: '/partner/properties', method: 'GET' }),
+
+  // A1 经营驾驶舱
+  dashboard: (params?: { month?: string }) =>
+    request<PartnerDashboard>({ url: '/partner/dashboard', method: 'GET', data: params }),
+  // A2 佣金对账单
+  settlements: (params?: {
+    start?: string
+    end?: string
+    status?: string
+    employee_id?: string
+    page?: number
+    page_size?: number
+  }) => request<PartnerSettlements>({ url: '/partner/settlements', method: 'GET', data: params }),
+  // B1 外勤审批
+  trips: (params?: { status?: string }) =>
+    request<PartnerTrip[]>({ url: '/partner/trips', method: 'GET', data: params }),
+  reviewTrip: (id: string, approved: boolean, note?: string) =>
+    request<{ id: string; status: string }>({
+      url: `/partner/trips/${id}/review`,
+      method: 'POST',
+      data: { approved, note }
+    }),
+  // B1 打卡申诉
+  appeals: (params?: { status?: string }) =>
+    request<PartnerAppeal[]>({ url: '/partner/appeals', method: 'GET', data: params }),
+  reviewAppeal: (id: string, approved: boolean, note?: string) =>
+    request<{ id: string; status: string }>({
+      url: `/partner/appeals/${id}/review`,
+      method: 'POST',
+      data: { approved, note }
+    }),
+  // B2 排班
+  shifts: (params?: { start?: string; end?: string; employee_id?: string }) =>
+    request<PartnerShift[]>({ url: '/partner/shifts', method: 'GET', data: params }),
+  // D2 线索池
+  leads: (params?: { stage?: string; assigned_to?: string; page?: number; page_size?: number }) =>
+    request<PartnerLeads>({ url: '/partner/leads', method: 'GET', data: params }),
+  assignLead: (id: string, employeeId: string) =>
+    request<{ id: string; assigned_to: string }>({
+      url: `/partner/leads/${id}/assign`,
+      method: 'POST',
+      data: { employee_id: employeeId }
+    }),
+  // D2 客户报备
+  claims: () => request<PartnerClaim[]>({ url: '/partner/claims', method: 'GET' }),
+  claimLead: (data: { name: string; phone?: string; email?: string; note?: string; days?: number }) =>
+    request<{ id: string; lead_id?: string; expires_at: string; duplicated: boolean }>({
+      url: '/partner/leads/claim',
+      method: 'POST',
+      data
+    }),
+  // D3 带看派发
+  viewings: (params?: { status?: string }) =>
+    request<PartnerViewing[]>({ url: '/partner/viewings', method: 'GET', data: params }),
+  assignViewing: (id: string, employeeId: string) =>
+    request<{ id: string; assigned_to: string }>({
+      url: `/partner/viewings/${id}/assign`,
+      method: 'POST',
+      data: { employee_id: employeeId }
+    }),
+  viewingResult: (id: string, status: 'completed' | 'no_show' | 'cancelled', note?: string) =>
+    request<{ id: string; status: string }>({
+      url: `/partner/viewings/${id}/result`,
+      method: 'POST',
+      data: { status, note }
+    }),
+  // E1 租约 / 合同 / 续约提醒
+  leases: (params?: { status?: string; q?: string; page?: number; page_size?: number }) =>
+    request<{ total: number; items: PartnerLease[] }>({
+      url: '/partner/leases',
+      method: 'GET',
+      data: params
+    }),
+  contracts: (params?: { status?: string; page?: number; page_size?: number }) =>
+    request<{ total: number; items: PartnerContract[] }>({
+      url: '/partner/contracts',
+      method: 'GET',
+      data: params
+    }),
+  renewals: (days?: number) =>
+    request<PartnerRenewals>({ url: '/partner/renewals', method: 'GET', data: { days } }),
+  // E2 收款与逾期
+  payments: (params?: { status?: string; overdue?: boolean; page?: number; page_size?: number }) =>
+    request<PartnerPayments>({ url: '/partner/payments', method: 'GET', data: params }),
+  // F1 公告 / 任务 / 固定审批
+  announcements: () =>
+    request<PartnerAnnouncement[]>({ url: '/partner/announcements', method: 'GET' }),
+  tasks: () => request<PartnerTask[]>({ url: '/partner/tasks', method: 'GET' }),
+  completeTask: (id: string) =>
+    request<{ id: string; status: string }>({
+      url: `/partner/tasks/${id}/complete`,
+      method: 'POST',
+      data: {}
+    }),
+  approvals: () => request<PartnerApproval[]>({ url: '/partner/approvals', method: 'GET' }),
+  reviewApproval: (id: string, approved: boolean, note?: string) =>
+    request<{ id: string; status: string }>({
+      url: `/partner/approvals/${id}/review`,
+      method: 'POST',
+      data: { approved, note }
+    }),
+  // F2 素材库
+  materials: () => request<PartnerMaterial[]>({ url: '/partner/materials', method: 'GET' })
 }
 
 // 管理端：角色权限配置（权限点分组 + 各角色已分配；可编辑保存，保存后即时生效）

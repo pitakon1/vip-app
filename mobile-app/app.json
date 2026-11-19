@@ -17,10 +17,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.vip.rental",
       "buildNumber": "1",
+      "config": {
+        "googleMapsApiKey": "AIzaSyACcINxwCZwtAO3ZsH37X9q47wWiJ2Gbos"
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "需要相机权限用于拍摄房源照片和验房",
         "NSPhotoLibraryUsageDescription": "需要相册权限用于上传合同和照片",
-        "NSLocationWhenInUseUsageDescription": "需要位置权限用于考勤打卡定位"
+        "NSLocationWhenInUseUsageDescription": "需要位置权限用于考勤打卡定位",
+        "NSMicrophoneUsageDescription": "需要麦克风权限用于语音消息与录音"
       },
       "associatedDomains": [
         "applinks:viprental.com"
@@ -30,12 +34,18 @@
     "android": {
       "package": "com.vip.rental",
       "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCx7Sg9kQhjSysruiuV8rJFXtIecdNmB6Q"
+        }
+      },
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "RECORD_AUDIO",
         "VIBRATE",
         "RECEIVE_BOOT_COMPLETED"
       ],
@@ -64,7 +74,8 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "expo-audio"
     ],
     "extra": {},
     "updates": {

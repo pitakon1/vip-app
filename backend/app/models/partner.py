@@ -39,4 +39,9 @@ class Partner(TimestampMixin, table=True):
     )
     status: PartnerStatus = Field(default=PartnerStatus.pending, index=True)
     is_active: bool = Field(default=True)
+    # 坐席数上限：为空表示不限；创建成员/批量导入时校验。
+    seat_limit: Optional[int] = Field(default=None)
+    # 品牌展示（P2 白标）。先落字段，独立域名/主题暂不做。
+    brand_name: Optional[str] = Field(default=None, max_length=120)
+    logo_url: Optional[str] = Field(default=None, max_length=500)
     created_by: Optional[uuid.UUID] = Field(foreign_key="users.id", default=None)

@@ -38,7 +38,6 @@ const BrokerAgreements = lazy(() => import('@/pages/BrokerAgreements'))
 const ListingReview = lazy(() => import('@/pages/ListingReview'))
 const DedupeReview = lazy(() => import('@/pages/DedupeReview'))
 const PropertyBindingReview = lazy(() => import('@/pages/PropertyBindingReview'))
-
 // 业主端专属页面（无租客对应）：仅换注册路径，统一挂在 /tenant/* 门户下
 const OwnerProperties = lazy(() => import('@/pages/Owner/Properties'))
 const OwnerIncome = lazy(() => import('@/pages/Owner/Income'))
@@ -47,6 +46,7 @@ const OwnerMarketing = lazy(() => import('@/pages/Owner/Marketing'))
 // C 端页面（业主 + 租客共用同一实现，数据差异按角色自然呈现）
 const TenantDashboard = lazy(() => import('@/pages/Tenant/Dashboard'))
 const TenantMy = lazy(() => import('@/pages/Tenant/My'))
+const TenantMyHome = lazy(() => import('@/pages/Tenant/MyHome'))
 const TenantHelp = lazy(() => import('@/pages/Tenant/Help'))
 const TenantPropertyDetail = lazy(() => import('@/pages/Tenant/PropertyDetail'))
 const TenantPayments = lazy(() => import('@/pages/Tenant/Payments'))
@@ -57,9 +57,15 @@ const TenantLeases = lazy(() => import('@/pages/Tenant/Leases'))
 const TenantLeaseDetail = lazy(() => import('@/pages/Tenant/LeaseDetail'))
 const TenantDeals = lazy(() => import('@/pages/Tenant/Deals'))
 const TenantFavorites = lazy(() => import('@/pages/Tenant/Favorites'))
+const TenantPriceAlerts = lazy(() => import('@/pages/Tenant/PriceAlerts'))
+const TenantViewings = lazy(() => import('@/pages/Tenant/Viewings'))
+const TenantValueEstimate = lazy(() => import('@/pages/Tenant/ValueEstimate'))
+const TenantAnnouncements = lazy(() => import('@/pages/Tenant/Announcements'))
+const TenantPermissions = lazy(() => import('@/pages/Tenant/Permissions'))
+const TenantIdentity = lazy(() => import('@/pages/Tenant/Identity'))
+const IdentityReview = lazy(() => import('@/pages/Operations/IdentityReview'))
 const TenantDealDetail = lazy(() => import('@/pages/Tenant/DealDetail'))
 const TenantContracts = lazy(() => import('@/pages/Tenant/Contracts'))
-const TenantPropertyBinding = lazy(() => import('@/pages/Tenant/PropertyBinding'))
 
 // 员工端页面
 const EmployeeDashboard = lazy(() => import('@/pages/Employee/Dashboard'))
@@ -81,8 +87,9 @@ const SystemOptions = lazy(() => import('@/pages/System/Options'))
 const SystemReview = lazy(() => import('@/pages/System/ReviewCenter'))
 const Operations = lazy(() => import('@/pages/Operations'))
 
-// 合作公司（partner_admin）页面：本公司成员视图
+// 合作公司（partner_admin）页面：本公司成员视图 + 经营控制台
 const PartnerMembers = lazy(() => import('@/pages/Partner/Members'))
+const PartnerConsole = lazy(() => import('@/pages/Partner/Console'))
 
 const Company = lazy(() => import('@/pages/Company'))
 
@@ -104,7 +111,7 @@ const RoleRedirect = () => {
     case 'agent':
       return <Navigate to="/employee/dashboard" replace />
     case 'partner_admin':
-      return <Navigate to="/partner/members" replace />
+      return <Navigate to="/partner/dashboard" replace />
     default:
       return <Navigate to="/dashboard" replace />
   }
@@ -175,7 +182,7 @@ const App = () => {
 
             {/* 管理端路由：MainLayout 属 B 端后台，租客(C端)一律拦回 /portal */}
             {/* 数据总览隶属管理层：业主/员工不该进入（员工走 /employee/dashboard 工作台） */}
-            <Route path="/dashboard" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee']}><Dashboard /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute denyRoles={['tenant', 'owner', 'employee', 'partner_admin']}><Dashboard /></ProtectedRoute>} />
             {/* 房源库/详情属 B 端，租客走门户壳（/tenant/listings、/tenant/properties/:id） */}
             <Route path="/properties" element={<ProtectedRoute denyRoles={['tenant']}><Properties /></ProtectedRoute>} />
             <Route path="/properties/detail/:id" element={<ProtectedRoute denyRoles={['tenant']}><PropertyDetail /></ProtectedRoute>} />
@@ -219,6 +226,15 @@ const App = () => {
 
             {/* 合作公司成员管理：仅 partner_admin（本公司成员/绩效/房源，不走平台全量接口） */}
             <Route path="/partner/members" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerMembers /></ProtectedRoute>} />
+            {/* 合作公司经营控制台（路线图 A-F）：仅 partner_admin，后端按 partner_id 强制隔离 */}
+            <Route path="/partner/dashboard" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="dashboard" /></ProtectedRoute>} />
+            <Route path="/partner/settlements" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="settlements" /></ProtectedRoute>} />
+            <Route path="/partner/commission-rules" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="rules" /></ProtectedRoute>} />
+            <Route path="/partner/reviews" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="reviews" /></ProtectedRoute>} />
+            <Route path="/partner/properties" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="properties" /></ProtectedRoute>} />
+            <Route path="/partner/leads" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="leads" /></ProtectedRoute>} />
+            <Route path="/partner/business" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="business" /></ProtectedRoute>} />
+            <Route path="/partner/ops" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><PartnerConsole tab="ops" /></ProtectedRoute>} />
             {/* 合作公司考勤：仅 partner_admin（本公司考勤汇总，复用考勤管理页的公司作用域模式） */}
             <Route path="/partner/attendance" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent','admin']}><AttendanceManage /></ProtectedRoute>} />
 
@@ -229,6 +245,8 @@ const App = () => {
             {/* 运营管理：平台上架审核 / 去重审核 / 房产绑定审核（仅 staff：admin/employee/agent） */}
             <Route path="/operations/listing-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><ListingReview /></ProtectedRoute>} />
             <Route path="/operations/dedupe-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><DedupeReview /></ProtectedRoute>} />
+            {/* 实名认证人工审核（后端仅 admin）：与其它运营审核页同组，非 admin 会收到 403 提示 */}
+            <Route path="/operations/identity-review" element={<ProtectedRoute denyRoles={['tenant','owner','employee','agent']}><IdentityReview /></ProtectedRoute>} />
             <Route path="/operations/property-binding-review" element={<ProtectedRoute denyRoles={['tenant','owner']}><PropertyBindingReview /></ProtectedRoute>} />
           </Route>
 
@@ -242,11 +260,20 @@ const App = () => {
           >
             <Route path="/tenant/dashboard" element={<TenantDashboard />} />
             <Route path="/tenant/my" element={<TenantMy />} />
+            {/* 我家：房产卡 + 四列宫格 + 分组行卡，资产与事务入口唯一落点 */}
+            <Route path="/tenant/my-home" element={<TenantMyHome />} />
             <Route path="/tenant/help" element={<TenantHelp />} />
             <Route path="/tenant/properties/:id" element={<TenantPropertyDetail />} />
             <Route path="/tenant/listings" element={<PublicListings compact />} />
             {/* 我的收藏：与 App / 小程序的收藏页对齐，避免 Web 只能收藏、无处查看 */}
             <Route path="/tenant/favorites" element={<TenantFavorites />} />
+            <Route path="/tenant/price-alerts" element={<TenantPriceAlerts />} />
+            <Route path="/tenant/viewings" element={<TenantViewings />} />
+            <Route path="/tenant/value-estimate" element={<TenantValueEstimate />} />
+            <Route path="/tenant/announcements" element={<TenantAnnouncements />} />
+            <Route path="/tenant/permissions" element={<TenantPermissions />} />
+            {/* 实名认证：证件上传 + 人工审核（过渡方案，不接人脸识别） */}
+            <Route path="/tenant/identity" element={<TenantIdentity />} />
             <Route path="/tenant/payments" element={<TenantPayments />} />
             <Route path="/tenant/documents" element={<TenantDocuments />} />
             <Route path="/tenant/services" element={<TenantServices />} />
@@ -264,8 +291,6 @@ const App = () => {
             <Route path="/tenant/income" element={<OwnerIncome />} />
             <Route path="/tenant/marketing" element={<OwnerMarketing />} />
             <Route path="/tenant/my-listings" element={<MyListings />} />
-            {/* 添加我的房产：自助提交绑定申请，后台审核通过后才建立用户与房源关联 */}
-            <Route path="/tenant/property-binding" element={<TenantPropertyBinding />} />
           </Route>
 
           {/* ===== 404 兜底（未匹配路径）===== */}

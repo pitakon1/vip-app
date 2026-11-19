@@ -30,8 +30,8 @@ const AttendanceManage = () => {
   const [tab, setTab] = useState<AttendanceTab>('records')
 
   // 合作公司管理员的作用域由后端强制为「本公司」（partner_id 参数被服务端覆盖）。
-  // 后端仅对 partner_admin 放开 records / report / companies 三个端点，考勤组 / 假勤
-  // / 申诉仍是 require_admin，因此这里同步隐藏其无权访问的 tab 与校准操作。
+  // 后端已放开 records / report / companies / groups / leave 五个端点，
+  // 但申诉审批仍是 require_admin，因此这里只对其隐藏申诉 tab 与校准操作。
   const isPartnerAdmin = useAuthStore((s) => s.user?.role) === 'partner_admin'
 
   const tabs = useMemo(
@@ -43,13 +43,7 @@ const AttendanceManage = () => {
         { key: 'leave' as const, label: t('attAdm.tabLeave') },
         { key: 'report' as const, label: t('attAdm.tabReport') },
         { key: 'appeal' as const, label: t('attAdm.appealReview') },
-      ].filter(
-        (item) =>
-          !isPartnerAdmin ||
-          item.key === 'records' ||
-          item.key === 'companies' ||
-          item.key === 'report',
-      ),
+      ].filter((item) => !(isPartnerAdmin && item.key === 'appeal')),
     [t, isPartnerAdmin],
   )
 
@@ -132,7 +126,7 @@ const AttendanceManage = () => {
       {tab === 'companies' && <CompaniesTab tab={tab} companyLabel={companyLabel} />}
 
       {/* ------------------------------------------------ 考勤组 */}
-      {tab === 'groups' && <GroupsTab tab={tab} />}
+      {tab === 'groups' && <GroupsTab tab={tab} isPartnerAdmin={isPartnerAdmin} />}
 
       {/* ------------------------------------------------ 请假 */}
       {tab === 'leave' && <LeaveTab tab={tab} />}

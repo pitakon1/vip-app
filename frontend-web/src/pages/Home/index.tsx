@@ -15,6 +15,7 @@ import LazyImage from '@/components/LazyImage'
 import LocationPicker from '@/components/LocationPicker'
 import { useLocationStore } from '@/stores/location'
 import brandLogo from '@/assets/haofang-logo.jpg'
+import DealRankings from './components/DealRankings'
 import './home.css'
 
 /**
@@ -136,7 +137,8 @@ const Home = () => {
   const props = q.data ?? []
 
   const handleSearch = useCallback(() => {
-    navigate('/listings')
+    // 精选房源「查看更多」带语义预设，落地页标题与 chip 都能对应上
+    navigate('/listings?preset=featured')
   }, [navigate])
 
   // 「视频看房」入口：列表页据 ?video=1 只筛有视频的房源
@@ -419,6 +421,9 @@ const Home = () => {
             )}
           </div>
         </section>
+
+        {/* ===== 平台成交榜单（仅平台样本，非全市场） ===== */}
+        <DealRankings />
 
         {/* ===== 底部 登录/注册 ===== */}
         <section className="rent-cta">

@@ -57,16 +57,49 @@ export default function CategoryFactoryPage() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.factGridSelect'), icon: 'star', onPress: () => notAvailable(t('category.factGridSelect')) },
+      {
+        key: 'select',
+        label: t('category.factGridSelect'),
+        icon: 'star',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=featured' })
+      },
       { key: 'rent', label: t('category.factTabRent'), icon: 'cube', onPress: () => setTab('rent-factory') },
       { key: 'sell', label: t('category.factTabSell'), icon: 'tag', onPress: () => setTab('sell-factory') },
       { key: 'project', label: t('category.factGridProject'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'land', label: t('category.factGridLand'), icon: 'map', onPress: () => notAvailable(t('category.factGridLand')) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
-      { key: 'subway', label: t('category.factGridSubway'), icon: 'train', onPress: () => notAvailable(t('category.factGridSubway')) },
-      { key: 'env', label: t('category.factGridEnv'), icon: 'leaf', onPress: () => notAvailable(t('category.factGridEnv')) },
-      { key: 'vr', label: t('category.factGridVr'), icon: 'maximize', onPress: () => notAvailable(t('category.factGridVr')) },
-      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => notAvailable(t('category.helpFind')) }
+      { key: 'land', label: t('category.factGridLand'), icon: 'map', onPress: () => Taro.navigateTo({ url: '/pages/tenant/category-land/index' }) },
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
+      {
+        key: 'subway',
+        label: t('category.factGridSubway'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.factGridSubway'), {
+            reasonKey: 'featureHint.logistics',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'env',
+        label: t('category.factGridEnv'),
+        icon: 'leaf',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=env' })
+      },
+      {
+        key: 'vr',
+        label: t('category.factGridVr'),
+        icon: 'maximize',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=vr' })
+      },
+      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' }) }
     ],
     [t]
   )
@@ -143,7 +176,7 @@ export default function CategoryFactoryPage() {
         title={t('category.factBannerTitle')}
         sub={t('category.factBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t('category.factBannerTitle'))}
+        onPress={() => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' })}
       />
     </View>
   )

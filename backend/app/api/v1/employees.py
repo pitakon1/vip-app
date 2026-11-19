@@ -13,7 +13,7 @@ from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.core.auth import require_admin, require_employee
+from app.core.auth import require_admin, require_employee, require_role
 from app.core.payments import is_past_due
 from app.core.pagination import Page, PaginationParams, paginate_query
 from app.models import (
@@ -196,14 +196,29 @@ def list_employees(
         None, max_length=100, description="姓名 / 邮箱 / 手机 / 工号"
     ),
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
-    """员工列表（admin 权限，附带用户姓名/邮箱）。
+    """员工列表（admin / 合作管理员，附带用户姓名/邮箱）。
+
+    合作管理员只能看到本公司员工（通过 `User.partner_id` 归属），
+    用于考勤组成员选择等本司管理场景，不暴露平台其他员工。
 
     `status` / `keyword` 此前没有实现，前端筛选框和搜索框传了参数也被静默忽略，
     表现为「输入关键词后列表没变化」；这里补上下推到 SQL 的过滤。
     """
     conditions = [Employee.deleted_at.is_(None)]
+    if user.role == UserRole.partner_admin:
+        if not user.partner_id:
+            raise HTTPException(
+                status_code=403, detail="Account is not bound to any partner company"
+            )
+        conditions.append(
+            Employee.user_id.in_(
+                select(User.id).where(
+                    User.partner_id == user.partner_id, User.deleted_at.is_(None)
+                )
+            )
+        )
     if department:
         conditions.append(Employee.department == department)
     if status == "active":

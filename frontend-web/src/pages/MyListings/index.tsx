@@ -226,8 +226,8 @@ const MyListings = () => {
                 {t('myListings.publish')}
               </Link>
             ) : (
-              <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
-                {t('menu.addProperty')}
+              <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/my-properties?add=1">
+                {t('propertyBinding.title')}
               </Link>
             )
           }

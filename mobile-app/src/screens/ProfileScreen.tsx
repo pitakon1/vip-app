@@ -115,29 +115,15 @@ const cmpVersion = (a: string, b: string) => {
 // 取不到就留空、由调用处不渲染，不再回落到写死的 'v2.4.1'——那个值与后端版本
 // 及 app.json 的 0.1.0 都不符，等于对外报一个不存在的版本号。
 
-// C 端统一「常用功能」宫格：产品模型上 C 端只有一种用户（有的名下有房产、有的只是租房），
-// 入口对全部登录用户完整展示，不再按 owner/tenant 或「有没有资产」隐藏；
-// 点进去没有数据时由目标页给空态 + 引导（如「还没有绑定房产，去添加」）。
+// C 端「我的」宫格（对齐贝壳「我的」首屏宫格，只放个人内容）：
+// 我的关注（收藏）、浏览足迹、降价提醒、我的订单。
+// 房产 / 账单 / 报修 / 租约 / 合同 / 收益 / 委托 / 小区事务一律留在「我家」。
 const C_FUNC_GRID: FuncEntry[] = [
-  // 添加我的房产：自助提交绑定申请，后台审核通过后才建立与房源的关联
-  { key: 'addProperty', labelKey: 'profile.addProperty', icon: 'add-circle', navigate: 'PropertyBinding' },
-  // 业主能力项（委托挂牌并入房源管理内）
-  { key: 'manageProperties', labelKey: 'profile.manageProperties', icon: 'business', navigate: 'OwnerProperties' },
-  { key: 'incomeDetail', labelKey: 'profile.incomeDetail', icon: 'trending-up', navigate: 'OwnerIncome' },
-  // 租客能力项（租客 = 在平台上租了房子）
-  { key: 'myLeases', labelKey: 'home.myLease', icon: 'document-text', navigate: 'MyLease' },
-  { key: 'myDeals', labelKey: 'profile.myDeals', icon: 'receipt', navigate: 'MyOrders' },
-  { key: 'payments', labelKey: 'profile.payments', icon: 'card', navigate: 'Payments' },
-  { key: 'maintenance', labelKey: 'profile.maintenance', icon: 'build', navigate: 'TenantMaintenance' },
-  { key: 'services', labelKey: 'profile.services', icon: 'sparkles', navigate: 'TenantServices' },
-  // 通用能力项（电子合同签署：租客与业主共用「我的合同」）
-  { key: 'myContracts', labelKey: 'profile.contracts', icon: 'document-text', navigate: 'MyContracts' },
-  // 通用能力项（文档中心：租客与业主的租房文档/我的文档合并）
-  { key: 'documents', labelKey: 'profile.docs', icon: 'folder-open', navigate: 'Documents' },
-  // C 端关注/浏览历史：登录即可用（未登录 → 先进 Login）
   { key: 'favorites', labelKey: 'pub.myFollow', icon: 'heart', navigate: 'Favorites' },
+  { key: 'viewings', labelKey: 'nav.myViewings', icon: 'calendar', navigate: 'MyViewings' },
   { key: 'history', labelKey: 'pub.myHistory', icon: 'time', navigate: 'History' },
   { key: 'priceAlerts', labelKey: 'pub.priceAlerts', icon: 'notifications', navigate: 'PriceAlerts' },
+  { key: 'myOrders', labelKey: 'myHome.svcOrders', icon: 'receipt', navigate: 'MyOrders' },
 ];
 
 export default function ProfileScreen() {
@@ -349,15 +335,13 @@ export default function ProfileScreen() {
       return;
     }
     // 对齐贝壳设置页的真实能力项
+    if (item.key === 'identity') {
+      navigation.navigate('IdentityVerification');
+      return;
+    }
     if (item.key === 'permissions') {
-      // 系统权限（定位 / 相机 / 通知）只能在系统设置里改；Web 无此能力，给明确提示
-      if (Platform.OS === 'web') {
-        showInfo(t('profile.permissionsHint'));
-        return;
-      }
-      Linking.openSettings().catch(() => {
-        showInfo(t('profile.permissionsHint'));
-      });
+      // 逐项权限页：实时读系统真实授权状态，点击行再跳系统设置
+      navigation.navigate('Permissions');
       return;
     }
     if (item.key === 'clearCache') {
@@ -368,6 +352,11 @@ export default function ProfileScreen() {
     if (item.key === 'checkUpdate') {
       // 真实比对：本地安装版本 vs 后端公开接口版本（有新版给「立即更新」入口）
       handleCheckUpdate();
+      return;
+    }
+    if (item.key === 'onlineSupport') {
+      // 在线客服：进入与平台客服的 IM 会话
+      void openSupport();
       return;
     }
     if (item.key === 'contactSupport') {
@@ -446,12 +435,6 @@ export default function ProfileScreen() {
     { key: 'lease-reminder', icon: 'document-text', label: t('profile.leaseReminder'), value: t('profile.daysAgo', { n: business?.lease_reminder_days ?? 30 }), color: colors.info, bg: colors.alpha(colors.infoRgb, 0.1), route: 'AdminBusinessSettings' },
     { key: 'auto-dunning', icon: 'refresh', label: t('profile.autoDunning'), value: business?.auto_dunning === false ? t('profile.statusOff') : t('profile.statusOn'), valueTone: business?.auto_dunning === false ? undefined : 'success', color: colors.success, bg: colors.alpha(colors.successRgb, 0.1), route: 'AdminBusinessSettings' },
   ];
-  const adminAboutItems: SettingItem[] = [
-    { key: 'version', icon: 'information-circle', label: t('profile.versionInfo'), value: versionLabel, color: colors.ink2, bg: colors.surface2 },
-    { key: 'terms', icon: 'document-text', label: t('profile.terms'), color: colors.ink2, bg: colors.surface2 },
-    { key: 'privacy', icon: 'shield-checkmark', label: t('profile.privacy'), color: colors.ink2, bg: colors.surface2 },
-  ];
-
   const handleLogout = () => {
     const doLogout = () => logout();
     // react-native-web 下 Alert.alert 是空实现，需用浏览器原生 confirm
@@ -467,7 +450,9 @@ export default function ProfileScreen() {
     ]);
   };
 
-  // 业主「设置」五项（对齐 owner-mobile-settings.html；无接口的项点击提示暂未开放）
+  // C 端「设置」：对齐贝壳设置页的分组（设置 / 帮助与客服 / 关于）。
+  // 每一项都有真实落点：账户走接口、语言本地切换、通知读 /auth/me/preferences、
+  // 权限进系统设置、缓存只清页面缓存、检查更新比对真实版本。
   const ownerSettingItems: SettingItem[] = [
     // D-06：C 端（业主 / 租客）同样开放修改密码
     { key: 'password', icon: 'lock-closed', label: t('profile.changePassword'), color: colors.ink2, bg: colors.surface2 },
@@ -498,22 +483,12 @@ export default function ProfileScreen() {
       bg: colors.surface2,
     },
     {
-      key: 'help',
-      icon: 'help-circle',
-      label: t('profile.help'),
-      color: colors.ink2,
-      bg: colors.surface2,
-      route: 'HelpCenter',
-    },
-    // 联系客服：点击即调起系统拨号（电话取自公开接口 /company/info）
-    {
-      key: 'contactSupport',
-      icon: 'headset-outline',
-      label: t('profile.contactSupport'),
+      key: 'identity',
+      icon: 'person-circle-outline',
+      label: t('profile.identity'),
       color: colors.ink2,
       bg: colors.surface2,
     },
-    // 对齐贝壳设置页：权限设置 / 清理缓存 / 检查更新 / 举报与投诉（均真实可用，非占位）
     {
       key: 'permissions',
       icon: 'shield-checkmark-outline',
@@ -535,6 +510,25 @@ export default function ProfileScreen() {
       color: colors.ink2,
       bg: colors.surface2,
     },
+  ];
+
+  // 帮助与客服（贝壳设置页的客服组：在线客服 / 电话客服 / 举报 / 去评分）
+  const ownerSupportItems: SettingItem[] = [
+    {
+      key: 'onlineSupport',
+      icon: 'chatbubble-ellipses-outline',
+      label: t('profile.onlineSupport'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
+    // 联系客服：点击即调起系统拨号（电话取自公开接口 /company/info）
+    {
+      key: 'contactSupport',
+      icon: 'headset-outline',
+      label: t('profile.contactSupport'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
     {
       key: 'report',
       icon: 'flag-outline',
@@ -550,14 +544,18 @@ export default function ProfileScreen() {
       color: colors.ink2,
       bg: colors.surface2,
     },
-    // 用户隐私规则：打开后端配置的官网隐私外链（不伪造条款正文）
     {
-      key: 'privacyRules',
-      icon: 'document-text-outline',
-      label: t('profile.privacyRules'),
+      key: 'help',
+      icon: 'help-circle',
+      label: t('profile.help'),
       color: colors.ink2,
       bg: colors.surface2,
+      route: 'HelpCenter',
     },
+  ];
+
+  // 关于（贝壳设置页「关于我们 / 版权信息 / 用户隐私规则」组）
+  const ownerAboutItems: SettingItem[] = [
     {
       key: 'about',
       icon: 'information-circle',
@@ -576,7 +574,20 @@ export default function ProfileScreen() {
       bg: colors.surface2,
       route: 'About',
     },
+    // 用户隐私规则：打开后端配置的官网隐私外链（不伪造条款正文）
+    {
+      key: 'privacyRules',
+      icon: 'document-text-outline',
+      label: t('profile.privacyRules'),
+      color: colors.ink2,
+      bg: colors.surface2,
+    },
   ];
+
+  // 员工 / 管理端沿用 C 端「设置」里已接入真实能力的四项（实名认证 / 权限设置 / 清理缓存 / 检查更新）
+  const securityItems: SettingItem[] = ownerSettingItems.filter((item) =>
+    ['identity', 'permissions', 'clearCache', 'checkUpdate'].includes(item.key),
+  );
 
   // 当前角色的常用功能（员工端用）；C 端 (业主/租客) 走统一的 C_FUNC_VISIBLE 宫格
   const entries =
@@ -768,7 +779,7 @@ export default function ProfileScreen() {
             {cFuncs.map((entry) => (
               <TouchableOpacity
                 key={entry.key}
-                style={styles.serviceCell}
+                style={[styles.serviceCell, { width: `${100 / Math.max(cFuncs.length, 4)}%` }]}
                 activeOpacity={0.8}
                 onPress={() => {
                   // 未登录：宫格项是需登录的动作 → 先登录，登录成功后回到本页继续（对齐贝壳）
@@ -808,6 +819,13 @@ export default function ProfileScreen() {
           <Card title={t('profile.sectionSystem')}>
             {adminSystemItems.map((item, idx) =>
               renderSettingItem(item, idx, adminSystemItems.length),
+            )}
+          </Card>
+
+          {/* 隐私与安全（移植自 C 端：实名认证 / 权限设置 / 清理缓存 / 检查更新） */}
+          <Card title={t('profile.sectionSecurity')}>
+            {securityItems.map((item, idx) =>
+              renderSettingItem(item, idx, securityItems.length),
             )}
           </Card>
 
@@ -918,10 +936,17 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </Card>
 
+          {/* 帮助与客服（移植自 C 端） */}
+          <Card title={t('profile.sectionHelp')}>
+            {ownerSupportItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerSupportItems.length),
+            )}
+          </Card>
+
           {/* 关于 */}
           <Card title={t('profile.sectionAbout')}>
-            {adminAboutItems.map((item, idx) =>
-              renderSettingItem(item, idx, adminAboutItems.length),
+            {ownerAboutItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerAboutItems.length),
             )}
           </Card>
         </>
@@ -963,19 +988,45 @@ export default function ProfileScreen() {
             )}
           </Card>
 
-          {/* 关于（版本/用户协议/隐私政策） */}
+          {/* 隐私与安全（移植自 C 端：实名认证 / 权限设置 / 清理缓存 / 检查更新） */}
+          <Card title={t('profile.sectionSecurity')}>
+            {securityItems.map((item, idx) =>
+              renderSettingItem(item, idx, securityItems.length),
+            )}
+          </Card>
+
+          {/* 帮助与客服（移植自 C 端） */}
+          <Card title={t('profile.sectionHelp')}>
+            {ownerSupportItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerSupportItems.length),
+            )}
+          </Card>
+
+          {/* 关于（与 C 端一致：关于我们 / 版权信息 / 用户隐私规则） */}
           <Card title={t('profile.sectionAbout')}>
-            {adminAboutItems.map((item, idx) =>
-              renderSettingItem(item, idx, adminAboutItems.length),
+            {ownerAboutItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerAboutItems.length),
             )}
           </Card>
         </>
       ) : isGuest ? null : (
         <>
-          {/* 设置（租客对齐业主端：账号与安全/语言/通知/帮助/关于；增值服务在「我的服务」宫格，消息在底部 Tab，均不重复） */}
+          {/* 设置（对齐贝壳设置页三组：设置 / 帮助与客服 / 关于） */}
           <Card title={t('profile.settings')}>
             {ownerSettingItems.map((item, idx) =>
               renderSettingItem(item, idx, ownerSettingItems.length),
+            )}
+          </Card>
+
+          <Card title={t('profile.sectionHelp')}>
+            {ownerSupportItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerSupportItems.length),
+            )}
+          </Card>
+
+          <Card title={t('profile.sectionAbout')}>
+            {ownerAboutItems.map((item, idx) =>
+              renderSettingItem(item, idx, ownerAboutItems.length),
             )}
           </Card>
         </>

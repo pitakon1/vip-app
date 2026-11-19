@@ -230,6 +230,8 @@
   width: 160rpx;
   padding: 12rpx 0;
   background: var(--surface-2);
+  /* 类目增多后可竖向滚动，避免底部类目被裁掉 */
+  max-height: 56vh;
 }
 
 .pub-filter__rail-item {

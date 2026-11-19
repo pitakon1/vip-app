@@ -52,6 +52,8 @@ export const dashboardApi = {
 export const propertiesApi = {
   list: (params?: QueryParams) => api.get('/properties', { params }),
   get: (id: string) => api.get(`/properties/${id}`),
+  // 房屋估价（估算区间，口径见后端 properties.py）
+  valueEstimate: (id: string) => api.get(`/properties/${id}/value-estimate`),
   create: (data: RequestBody) => api.post('/properties', data),
   update: (id: string, data: RequestBody) => api.patch(`/properties/${id}`, data),
   delete: (id: string) => api.delete(`/properties/${id}`),
@@ -134,6 +136,9 @@ export const documentsApi = {
 export const serviceOrdersApi = {
   list: (params?: QueryParams) => api.get('/service-orders', { params }),
   create: (data: RequestBody) => api.post('/service-orders', data),
+  // 增值服务支付：与租金/账单一致，统一走连连支付收银台
+  pay: (id: string, channel = 'lianlian') =>
+    api.post(`/service-orders/${id}/pay`, { channel }),
   updateStatus: (id: string, status: string) =>
     api.patch(`/service-orders/${id}/status`, { status }),
 }
@@ -490,8 +495,20 @@ export const auditLogsApi = {
 }
 
 // 预约看房管理
-export const viewingsApi = {
-  list: (params?: QueryParams) => api.get('/viewings', { params }),
+// 小区公告：租客读取自己租约所在楼盘 + 平台公告
+export const announcementsApi = {
+  mine: () => api.get('/announcements/mine'),
+  list: (params?: QueryParams) => api.get('/announcements', { params }),
+  create: (data: RequestBody) => api.post('/announcements', data),
+  remove: (id: string) => api.delete(`/announcements/${id}`),
+}
+
+export const viewingsApi = {  list: (params?: QueryParams) => api.get('/viewings', { params }),
+  // 本人发起的预约（C 端「我的看房」）
+  mine: () => api.get('/viewings/mine'),
+  // 租客本人撤回预约（仅 pending / confirmed）
+  cancel: (id: string, reason?: string) =>
+    api.post(`/viewings/${id}/cancel`, reason ? { reason } : {}),
   updateStatus: (id: string, status: string) =>
     api.patch(`/viewings/${id}`, { status }),
   create: (data: RequestBody) => api.post('/viewings', data),
@@ -528,6 +545,10 @@ export const performanceApi = {
   agents: (params?: QueryParams) => api.get('/performance/agents', { params }),
   // 合作公司业绩 / 分佣汇总
   partners: () => api.get('/performance/partners'),
+  // 手工补录成交（线下成交）：非 admin 只能补录/查看本人，按年月过滤
+  deals: (params?: QueryParams) => api.get('/performance/deals', { params }),
+  createDeal: (data: RequestBody) => api.post('/performance/deals', data),
+  removeDeal: (id: string) => api.delete(`/performance/deals/${id}`),
 }
 
 // 佣金结算（分佣记录）

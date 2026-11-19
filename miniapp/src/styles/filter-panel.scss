@@ -108,11 +108,13 @@
 }
 
 /* ===== 下拉面板 ===== */
+/* 与 tab 行连成一体：无外边距、无圆角、无间隙，仅用一条分隔线收口 */
 .pb-panel {
-  margin-top: 16rpx;
-  padding: 20rpx;
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
+  margin-top: 0;
+  padding: 24rpx;
+  background: var(--card);
+  border-top: 1rpx solid var(--line);
+  border-radius: 0;
 
   &__chips {
     display: flex;
@@ -126,27 +128,35 @@
   }
 }
 
+/* 选项卡片：两列矩形、浅灰底；选中 = 浅色底 + 主色描边 + 主色字 */
 .pb-opt {
-  padding: 14rpx 28rpx;
-  border-radius: var(--radius-full);
-  background: var(--card);
-  border: 1rpx solid var(--line);
+  width: calc(50% - 8rpx);
+  box-sizing: border-box;
+  min-height: 88rpx;
+  padding: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  background: var(--surface-2);
+  border: 1rpx solid transparent;
 
   &--active {
-    background: var(--primary);
+    background: rgba(var(--primary-rgb), 0.08);
     border-color: var(--primary);
 
     text {
-      color: var(--primary-foreground);
+      color: var(--primary);
       font-weight: 600;
     }
   }
 
   &--row {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-radius: var(--radius-md);
+    border-radius: 16rpx;
     padding: 14rpx 20rpx;
     margin-bottom: 12rpx;
   }
@@ -158,8 +168,9 @@
   }
 
   text {
-    font-size: 24rpx;
-    color: var(--ink-2);
+    font-size: 26rpx;
+    color: var(--ink);
+    text-align: center;
   }
 }
 

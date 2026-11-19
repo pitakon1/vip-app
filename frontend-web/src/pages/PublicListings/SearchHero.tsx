@@ -7,10 +7,12 @@ export default function SearchHero({
   keyword,
   onKeywordChange,
   onSearch,
+  title,
 }: {
   keyword: string
   onKeywordChange: (v: string) => void
   onSearch: () => void
+  title?: string
 }) {
   const { t } = useTranslation()
   const searchTags = [t('browse.nearMetro'), t('browse.furnished'), t('browse.moveIn'), t('browse.seaView'), t('browse.nearMall')]
@@ -18,7 +20,7 @@ export default function SearchHero({
   return (
     <section className="rent-search-hero">
       <div className="rent-search-hero__inner">
-        <h1 className="rent-search-hero__title">{t('browse.findTitle')}</h1>
+        <h1 className="rent-search-hero__title">{title ?? t('browse.findTitle')}</h1>
         <p className="rent-search-hero__subtitle">{t('browse.findSubtitle')}</p>
         <div className="rent-search-hero__bar">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rent-ink-3)" strokeWidth="2" strokeLinecap="round">

@@ -56,14 +56,42 @@ export default function CategoryHotelPage() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.hotelGridSelect'), icon: 'star', onPress: () => notAvailable(t('category.hotelGridSelect')) },
+      {
+        key: 'select',
+        label: t('category.hotelGridSelect'),
+        icon: 'star',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=featured' })
+      },
       { key: 'rent', label: t('category.hotelTabRent'), icon: 'home', onPress: () => setTab('rent-hotel') },
       { key: 'sell', label: t('category.hotelTabSell'), icon: 'tag', onPress: () => setTab('sell-hotel') },
       { key: 'project', label: t('category.hotelGridProject'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'subway', label: t('category.hotelGridSubway'), icon: 'train', onPress: () => notAvailable(t('category.hotelGridSubway')) },
-      { key: 'vr', label: t('category.hotelGridVr'), icon: 'maximize', onPress: () => notAvailable(t('category.hotelGridVr')) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
-      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => notAvailable(t('category.helpFind')) }
+      {
+        key: 'subway',
+        label: t('category.hotelGridSubway'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.hotelGridSubway'), {
+            reasonKey: 'featureHint.subway',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'vr',
+        label: t('category.hotelGridVr'),
+        icon: 'maximize',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=vr' })
+      },
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
+      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' }) }
     ],
     [t]
   )
@@ -136,7 +164,7 @@ export default function CategoryHotelPage() {
         title={t('category.hotelBannerTitle')}
         sub={t('category.hotelBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t('category.hotelBannerTitle'))}
+        onPress={() => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' })}
       />
     </View>
   )

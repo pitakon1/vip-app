@@ -67,16 +67,16 @@ export default function ResaleScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('map', t('category.resaleGridMap'), 'map-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridMap'))),
+      mk('map', t('category.resaleGridMap'), 'map-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridMap'), { hintKey: 'featureHint.map', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
       mk('community', t('pub.tabCommunities'), 'business-outline', colors.info, colors.infoRgb, () => navigation.navigate('PublicCommunities')),
-      mk('deal', t('category.resaleGridDeal'), 'stats-chart-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.resaleGridDeal'))),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('all', t('category.allListings'), 'grid-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings')),
+      mk('deal', t('category.resaleGridDeal'), 'stats-chart-outline', colors.warning, colors.warningRgb, () => navigation.navigate('PublicRankings', { scope: 'district', metric: 'avg_psqm' })),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('all', t('category.allListings'), 'grid-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings', { preset: undefined })),
       mk('school', t('pub.tabSchools'), 'school-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicSchools')),
-      mk('rank', t('category.resaleGridRank'), 'podium-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.resaleGridRank'))),
-      mk('live', t('category.resaleGridLive'), 'videocam-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.resaleGridLive'))),
-      mk('subway', t('category.resaleGridSubway'), 'subway-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridSubway'))),
-      mk('owner', t('category.resaleGridOwner'), 'home-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.resaleGridOwner'))),
+      mk('rank', t('category.resaleGridRank'), 'podium-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.resaleGridRank'), { hintKey: 'featureHint.priceDrop', action: { labelKey: 'featureAction.viewRankings', screen: 'PublicRankings', params: { scope: 'project', metric: 'deal_count' } } })),
+      mk('live', t('category.resaleGridLive'), 'videocam-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.resaleGridLive'), { hintKey: 'featureHint.live', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('subway', t('category.resaleGridSubway'), 'subway-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.resaleGridSubway'), { hintKey: 'featureHint.subway', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('owner', t('category.resaleGridOwner'), 'home-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings', { preset: 'owner_direct' })),
     ];
   }, [t, navigation]);
 
@@ -153,7 +153,7 @@ export default function ResaleScreen() {
           left={{ name: pairs[0].district, price: `${fmtMoney(pairs[0].avg_price, 'THB')}/${t('pub.sqm')}` }}
           right={{ name: pairs[1].district, price: `${fmtMoney(pairs[1].avg_price, 'THB')}/${t('pub.sqm')}` }}
           actionLabel={t('category.viewCompare')}
-          onPress={() => notAvailable(navigation, t('category.viewCompare'))}
+          onPress={() => notAvailable(navigation, t('category.viewCompare'), { hintKey: 'featureHint.compare', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })}
         />
       ) : null}
     </View>

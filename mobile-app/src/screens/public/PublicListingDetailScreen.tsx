@@ -50,6 +50,7 @@ import { notify, notifyError, getErrorMessage } from '@/utils/feedback';
 import { recordHistory } from '@/lib/browseHistory';
 import PublicInquiryForm from './PublicInquiryForm';
 import PublicListingRow from './PublicListingRow';
+import CommuteEstimate from '@/components/CommuteEstimate';
 
 /** 生成「N 天后 10:00」的本地 naive ISO 字符串（不含时区，后端按 naive 未来时间比较）。 */
 function quickIsoAt10(daysFromNow: number): string {
@@ -671,6 +672,9 @@ export default function PublicListingDetailScreen() {
             ) : null}
           </View>
         ) : null}
+
+        {/* ---- 通勤测算（地铁线路/站点来自 Google transit 结果） ---- */}
+        <CommuteEstimate listingId={id} />
 
         {/* ---- 周边学校 ---- */}
         {(data.nearby_schools ?? []).length > 0 ? (

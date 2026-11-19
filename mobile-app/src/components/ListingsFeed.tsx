@@ -40,6 +40,12 @@ import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import RemoteImage from '@/components/RemoteImage';
 import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
+import FilterBar, {
+  FilterGroupTitle,
+  FilterOptionGrid,
+  FilterPanel,
+  FilterRail,
+} from '@/components/FilterBar';
 import { useI18n } from '@/i18n';
 import { getItem, setItem } from '@/lib/kv';
 import type { PublicSchool } from '@/services/publicApi';
@@ -53,10 +59,7 @@ export type TFunc = (key: string, params?: Record<string, string | number>) => s
 /** 业务归属 Tab：租房 / 二手房 / 新房（C 端沿用整租·买房两个入口） */
 export type BizKey = 'all' | 'rent' | 'sale' | 'resale' | 'new';
 
-/** 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+ */
-export type HeroBedKey = '' | '1' | '2' | '3p';
-
-type OpenTab = null | 'region' | 'type' | 'price' | 'more' | 'sort';
+type OpenTab = null | 'region' | 'type' | 'price' | 'room' | 'more' | 'sort';
 
 /** 列表卡片数据模型（C 端公开层与员工端归一化后共用） */
 export interface Listing {
@@ -258,14 +261,6 @@ const TYPE_CLASS_GROUPS: { key: string; labelKey: string; types: string[] }[] = 
   { key: 'factory', labelKey: 'prop.type.factory', types: ['factory'] },
   { key: 'hotel', labelKey: 'prop.type.hotel', types: ['hotel'] },
   { key: 'land', labelKey: 'prop.type.land', types: ['land'] },
-];
-
-// 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
-const heroBedOptions = (t: TFunc): { key: HeroBedKey; label: string }[] => [
-  { key: '', label: t('common.any') },
-  { key: '1', label: t('prop.bedroomN', { n: 1 }) },
-  { key: '2', label: t('prop.bedroomN', { n: 2 }) },
-  { key: '3p', label: t('list.bed3plus') },
 ];
 
 const bizTabs = (t: TFunc): { key: BizKey; label: string }[] => [
@@ -604,13 +599,16 @@ export default function ListingsFeed({
   const AMENITY_OPTIONS = useMemo(() => amenityOptions(t), [t]);
   const AREA_PRESETS = useMemo(() => areaPresets(t), [t]);
   const SORT_OPTIONS = useMemo(() => sortOptions(t), [t]);
-  const HERO_BED_OPTIONS = useMemo(() => heroBedOptions(t), [t]);
 
   // ---------- 组件自持的瞬时 UI 状态 ----------
   const [openTab, setOpenTab] = useState<OpenTab>(null);
   // 面板外点击收起：遮罩铺在「筛选条 + 面板」下沿以下，点列表区即关闭
   const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area');
+  // 销售端「类型」面板左侧竖栏：业务线 / 房产类型
+  const [typeRail, setTypeRail] = useState<'biz' | 'type'>('type');
+  // 销售端「更多」面板左侧竖栏
+  const [moreRail, setMoreRail] = useState<'area' | 'condition' | 'tags' | 'lease' | 'amenity' | 'school' | 'status'>('area');
   const [metroLine, setMetroLine] = useState<string>(
     defaultMetroLineKey ?? metroLines[0]?.key ?? '',
   );
@@ -707,7 +705,7 @@ export default function ListingsFeed({
   // 「更多」收纳了学校 / 户型 / 房源类型 / 朝向 / 楼层 / 面积 / 装修 / 配套 / 状态，角标按已生效组数计
   const moreBadge =
     (filters.schoolId ? 1 : 0) +
-    (filters.bedFilter ? 1 : 0) +
+    (isEmployee ? 0 : filters.bedFilter ? 1 : 0) +
     (isEmployee ? 0 : filters.filterTypes.length ? 1 : 0) +
     (hasAreaFilter ? 1 : 0) +
     (filters.statusFilter ? 1 : 0) +
@@ -756,8 +754,8 @@ export default function ListingsFeed({
         return;
       }
       setOpenTab(key);
-      // 「类型」是销售端新增的轻量面板，无懒加载副作用，不需要回调父级
-      if (key !== 'type') onPanelOpen?.(key);
+      // 「类型 / 房型」是销售端新增的轻量面板，无懒加载副作用，不需要回调父级
+      if (key !== 'type' && key !== 'room') onPanelOpen?.(key);
       if (key === 'region') {
         setMetroDraft(filters.metroSel);
         if (!filters.districtSel && filters.metroSel.length) setLocTab('metro');
@@ -773,6 +771,8 @@ export default function ListingsFeed({
         else resetLocation();
       } else if (key === 'price') {
         onFiltersChange({ priceRange: '', customMin: '', customMax: '' });
+      } else if (key === 'room') {
+        onFiltersChange({ bedFilter: '' });
       } else if (key === 'type') {
         onFiltersChange({ filterTypes: [] });
         // 业务线也属于「类型」，重置时一并回到「全部」
@@ -829,6 +829,9 @@ export default function ListingsFeed({
     [bizTabLabel, activeTypeGroup ? t(activeTypeGroup.labelKey) : ''].filter(Boolean).join('·') ||
     t('pub.filterType');
   const typeTabActive = biz !== 'all' || !!activeTypeGroup;
+  const bedTabLabel = filters.bedFilter
+    ? BEDROOM_OPTIONS.find((b) => b.key === filters.bedFilter)?.label ?? t('pub.filterBeds')
+    : t('pub.filterBeds');
   const filterTabs = [
     {
       key: 'type' as OpenTab,
@@ -854,6 +857,16 @@ export default function ListingsFeed({
       active: hasPriceFilter,
       badge: 0,
     },
+    ...(isEmployee
+      ? [
+          {
+            key: 'room' as OpenTab,
+            label: bedTabLabel,
+            active: !!filters.bedFilter,
+            badge: 0,
+          },
+        ]
+      : []),
     {
       key: 'more' as OpenTab,
       label: t('list.filterMore'),
@@ -969,7 +982,7 @@ export default function ListingsFeed({
     if (filters.unitPriceMin || filters.unitPriceMax) {
       arr.push({
         key: 'unitPrice',
-        label: t('pub.unitPrice'),
+        label: t('prop.unitPrice'),
         patch: { unitPriceMin: '', unitPriceMax: '' },
       });
     }
@@ -1202,7 +1215,7 @@ export default function ListingsFeed({
           </TouchableOpacity>
         </View>
       </View>
-      {/* 顶部找房卡：业务 Tab 嵌入卡顶 / 搜索行 / 分隔线 / 居室快选 / 查看N套 + 去地图看 */}
+      {/* 顶部找房卡：业务 Tab 嵌入卡顶 / 搜索行 / 查看N套 + 去地图看 */}
       <View style={styles.heroCard}>
         <View style={styles.heroBody}>
           <View style={styles.heroSearchRow}>
@@ -1281,32 +1294,6 @@ export default function ListingsFeed({
               </View>
             </View>
           )}
-          <View style={styles.heroDivider} />
-          {/* 居室快选：不限 / 1居 / 2居 / 3居+（与「更多」面板共用同一个 bedFilter） */}
-          <View style={styles.heroBeds}>
-            {HERO_BED_OPTIONS.map((b) => {
-              const on = filters.bedFilter === b.key;
-              return (
-                <TouchableOpacity
-                  key={b.key || 'any'}
-                  style={styles.heroBedItem}
-                  onPress={() => onFiltersChange({ bedFilter: b.key })}
-                  activeOpacity={0.8}
-                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={b.label}
-                >
-                  {on ? (
-                    <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
-                  ) : (
-                    <View style={styles.heroBedCircle} />
-                  )}
-                  <Text style={[styles.heroBedText, on && styles.heroBedTextActive]}>{b.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
           <View style={styles.heroActions}>
             <TouchableOpacity
               style={styles.heroPrimary}
@@ -1333,6 +1320,530 @@ export default function ListingsFeed({
           销售端三条业务线都要能筛（售侧是总价/房龄等另一套面板） */}
       {(isEmployee || !isSaleBiz) && (
         <View style={styles.filterZone} ref={anchorRef} onLayout={measureAnchor}>
+          {isEmployee ? (
+            <FilterBar
+              tabs={filterTabs as { key: string; label: string; active?: boolean; badge?: number }[]}
+              openKey={openTab}
+              onToggle={(key) => toggleTab(key as Exclude<OpenTab, null>)}
+            >
+              {openTab === 'type' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('type')}
+                  onConfirm={() => confirmCurrent('type')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <View style={styles.empPanelRow}>
+                    <FilterRail
+                      items={[
+                        { key: 'type', label: t('pub.propertyTypeGroup') },
+                        { key: 'biz', label: t('pub.bizLine') },
+                      ]}
+                      value={typeRail}
+                      onChange={(k) => setTypeRail(k as 'biz' | 'type')}
+                    />
+                    <ScrollView style={styles.empPanelBody} showsVerticalScrollIndicator={false}>
+                      {typeRail === 'biz' ? (
+                        <FilterOptionGrid
+                          options={[
+                            { key: 'all', label: t('common.any') },
+                            ...BIZ_TABS.map((b) => ({ key: b.key, label: b.label })),
+                          ]}
+                          value={biz}
+                          onChange={(k) => onBizChange(k as BizKey)}
+                        />
+                      ) : (
+                        /* 房产类型保持列表形态，逐行单选，方便销售一眼扫完 */
+                        <View style={styles.empList}>
+                          {TYPE_CLASS_GROUPS.map((g) => {
+                            const on = g.key
+                              ? filters.filterTypes.length === g.types.length &&
+                                g.types.every((x) => filters.filterTypes.includes(x))
+                              : !filters.filterTypes.length;
+                            return (
+                              <TouchableOpacity
+                                key={g.key || 'any-type'}
+                                style={[styles.empListRow, on && styles.empListRowActive]}
+                                onPress={() => onFiltersChange({ filterTypes: [...g.types] })}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[styles.empListText, on && styles.empListTextActive]}>
+                                  {t(g.labelKey)}
+                                </Text>
+                                {on ? (
+                                  <Ionicons name="checkmark" size={16} color={colors.primary} />
+                                ) : null}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                </FilterPanel>
+              )}
+
+              {openTab === 'region' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('region')}
+                  onConfirm={() => confirmCurrent('region')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <View style={styles.empPanelRow}>
+                    <FilterRail
+                      items={[
+                        { key: 'area', label: t('regionFilter.title') },
+                        { key: 'metro', label: t('list.metro') },
+                      ]}
+                      value={locTab}
+                      onChange={(k) => setLocTab(k as 'area' | 'metro')}
+                    />
+                    <ScrollView style={styles.empPanelBody} showsVerticalScrollIndicator={false}>
+                      {locTab === 'area' ? (
+                        <FilterOptionGrid
+                          options={[
+                            { key: '', label: t('common.any') },
+                            ...districts.map((d) => ({ key: d.key, label: d.label })),
+                          ]}
+                          value={filters.districtSel ?? ''}
+                          onChange={(k) => applyDistrict(k || null)}
+                        />
+                      ) : (
+                        <>
+                          <FilterOptionGrid
+                            title={t('list.metro')}
+                            options={metroLines.map((l) => ({
+                              key: l.key,
+                              label: metroLineDisplayName(l.key, l.name, lang),
+                            }))}
+                            value={metroLine}
+                            onChange={setMetroLine}
+                          />
+                          <FilterOptionGrid
+                            title={activeLine ? metroLineFullName(activeLine, lang) : ''}
+                            options={(activeLine?.stations ?? []).map((s) => ({
+                              key: s.name,
+                              label: s.name,
+                            }))}
+                            value={metroDraft}
+                            onChange={toggleStation}
+                          />
+                        </>
+                      )}
+                    </ScrollView>
+                  </View>
+                </FilterPanel>
+              )}
+
+              {openTab === 'price' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('price')}
+                  onConfirm={() => confirmCurrent('price')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <FilterGroupTitle>{t('list.quickSelect')}</FilterGroupTitle>
+                  <FilterOptionGrid
+                    options={(isSaleBiz ? SALE_PRICE_RANGES : PRICE_RANGES).map((r) => ({
+                      key: r.key,
+                      label: r.label,
+                    }))}
+                    value={filters.priceRange}
+                    onChange={(k) => {
+                      if (k) onFiltersChange({ priceRange: k, customMin: '', customMax: '' });
+                      else onFiltersChange({ priceRange: '' });
+                    }}
+                  />
+                  <FilterGroupTitle>{t('list.customPrice')}</FilterGroupTitle>
+                  <View style={styles.priceCustomRow}>
+                    <View style={styles.priceCustomInput}>
+                      <TextInput
+                        style={styles.priceCustomField}
+                        value={filters.customMin}
+                        onChangeText={(v) =>
+                          onFiltersChange({
+                            customMin: v.replace(/[^\d]/g, ''),
+                            ...(v ? { priceRange: '' } : {}),
+                          })
+                        }
+                        placeholder={t('list.minPrice')}
+                        placeholderTextColor={colors.ink3}
+                        keyboardType="number-pad"
+                      />
+                      <Text style={styles.priceCustomUnit}>{currencySymbol()}</Text>
+                    </View>
+                    <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
+                    <View style={styles.priceCustomInput}>
+                      <TextInput
+                        style={styles.priceCustomField}
+                        value={filters.customMax}
+                        onChangeText={(v) =>
+                          onFiltersChange({
+                            customMax: v.replace(/[^\d]/g, ''),
+                            ...(v ? { priceRange: '' } : {}),
+                          })
+                        }
+                        placeholder={t('list.maxPrice')}
+                        placeholderTextColor={colors.ink3}
+                        keyboardType="number-pad"
+                      />
+                      <Text style={styles.priceCustomUnit}>{currencySymbol()}</Text>
+                    </View>
+                  </View>
+                  {customPriceInvalid ? (
+                    <Text style={styles.dropEmpty}>{t('list.priceRangeInvalid')}</Text>
+                  ) : null}
+                  {biz === 'resale' && (
+                    <>
+                      <FilterGroupTitle>{t('prop.unitPrice')}</FilterGroupTitle>
+                      <View style={styles.priceCustomRow}>
+                        <View style={styles.priceCustomInput}>
+                          <TextInput
+                            style={styles.priceCustomField}
+                            value={filters.unitPriceMin}
+                            onChangeText={(v) =>
+                              onFiltersChange({ unitPriceMin: v.replace(/[^\d]/g, '') })
+                            }
+                            placeholder={t('list.minPrice')}
+                            placeholderTextColor={colors.ink3}
+                            keyboardType="number-pad"
+                          />
+                          <Text style={styles.priceCustomUnit}>{currencySymbol()}/㎡</Text>
+                        </View>
+                        <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
+                        <View style={styles.priceCustomInput}>
+                          <TextInput
+                            style={styles.priceCustomField}
+                            value={filters.unitPriceMax}
+                            onChangeText={(v) =>
+                              onFiltersChange({ unitPriceMax: v.replace(/[^\d]/g, '') })
+                            }
+                            placeholder={t('list.maxPrice')}
+                            placeholderTextColor={colors.ink3}
+                            keyboardType="number-pad"
+                          />
+                          <Text style={styles.priceCustomUnit}>{currencySymbol()}/㎡</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </FilterPanel>
+              )}
+
+              {openTab === 'room' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('room')}
+                  onConfirm={() => confirmCurrent('room')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <FilterOptionGrid
+                    options={BEDROOM_OPTIONS.map((b) => ({ key: b.key, label: b.label }))}
+                    value={filters.bedFilter}
+                    onChange={(k) => onFiltersChange({ bedFilter: k })}
+                  />
+                </FilterPanel>
+              )}
+
+              {openTab === 'more' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('more')}
+                  onConfirm={() => confirmCurrent('more')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <View style={styles.empPanelRow}>
+                    <FilterRail
+                      items={[
+                        { key: 'area', label: t('pub.filterArea') },
+                        { key: 'condition', label: t('pub.filterRoom') },
+                        { key: 'tags', label: t('pub.filterTags') },
+                        { key: 'lease', label: t('pub.filterLeaseTerms') },
+                        { key: 'amenity', label: t('list.amenities') },
+                        { key: 'school', label: t('list.schoolDistance') },
+                        ...(!isSaleBiz
+                          ? [{ key: 'status', label: t('list.propertyStatus') }]
+                          : []),
+                      ]}
+                      value={moreRail}
+                      onChange={(k) => setMoreRail(k as typeof moreRail)}
+                    />
+                    <ScrollView style={styles.empPanelBody} showsVerticalScrollIndicator={false}>
+                      {moreRail === 'area' && (
+                        <>
+                          <FilterOptionGrid
+                            options={AREA_PRESETS.map((a) => ({ key: a.key, label: a.label }))}
+                            value={filters.areaRange}
+                            onChange={(k) =>
+                              k
+                                ? onFiltersChange({
+                                    areaRange: k,
+                                    areaCustomMin: '',
+                                    areaCustomMax: '',
+                                  })
+                                : onFiltersChange({ areaRange: '' })
+                            }
+                          />
+                          <View style={styles.priceCustomRow}>
+                            <View style={styles.priceCustomInput}>
+                              <TextInput
+                                style={styles.priceCustomField}
+                                value={filters.areaCustomMin}
+                                onChangeText={(v) =>
+                                  onFiltersChange({
+                                    areaCustomMin: v.replace(/[^\d]/g, ''),
+                                    ...(v ? { areaRange: '' } : {}),
+                                  })
+                                }
+                                placeholder={t('list.minArea')}
+                                placeholderTextColor={colors.ink3}
+                                keyboardType="number-pad"
+                              />
+                              <Text style={styles.priceCustomUnit}>㎡</Text>
+                            </View>
+                            <Text style={styles.priceCustomDivider}>{t('list.to')}</Text>
+                            <View style={styles.priceCustomInput}>
+                              <TextInput
+                                style={styles.priceCustomField}
+                                value={filters.areaCustomMax}
+                                onChangeText={(v) =>
+                                  onFiltersChange({
+                                    areaCustomMax: v.replace(/[^\d]/g, ''),
+                                    ...(v ? { areaRange: '' } : {}),
+                                  })
+                                }
+                                placeholder={t('list.maxArea')}
+                                placeholderTextColor={colors.ink3}
+                                keyboardType="number-pad"
+                              />
+                              <Text style={styles.priceCustomUnit}>㎡</Text>
+                            </View>
+                          </View>
+                        </>
+                      )}
+
+                      {moreRail === 'condition' && (
+                        <>
+                          <FilterOptionGrid
+                            title={t('prop.orientation')}
+                            options={ORIENTATION_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
+                            value={filters.orientationSel ?? ''}
+                            onChange={(k) => onFiltersChange({ orientationSel: k })}
+                          />
+                          <FilterOptionGrid
+                            title={t('list.floor')}
+                            options={FLOOR_LEVEL_OPTIONS.map((fl) => ({ key: fl.key, label: fl.label }))}
+                            value={filters.floorSel ?? ''}
+                            onChange={(k) => onFiltersChange({ floorSel: k })}
+                          />
+                          <FilterOptionGrid
+                            title={t('prop.decoration')}
+                            options={DECORATION_OPTIONS.map((d) => ({ key: d.key, label: d.label }))}
+                            value={filters.decorSel}
+                            onChange={(k) => onFiltersChange({ decorSel: k })}
+                          />
+                        </>
+                      )}
+
+                      {moreRail === 'tags' && (
+                        <FilterOptionGrid
+                          title={t('pub.filterTags')}
+                          options={[
+                            { key: '', label: t('common.any') },
+                            { key: 'furnished', label: t('pub.filterFurnished') },
+                          ]}
+                          value={filters.decorSel === 'fully_furnished' ? 'furnished' : ''}
+                          onChange={(k) =>
+                            onFiltersChange({ decorSel: k === 'furnished' ? 'fully_furnished' : '' })
+                          }
+                        />
+                      )}
+
+                      {moreRail === 'lease' && (
+                        <>
+                          {biz !== 'resale' && (
+                            <>
+                              <FilterOptionGrid
+                                title={t('prop.fieldDepositMonths')}
+                                options={[
+                                  { key: '', label: t('common.any') },
+                                  { key: '1', label: '1' },
+                                  { key: '2', label: '2' },
+                                  { key: '3', label: '3+' },
+                                ]}
+                                value={filters.depositMonths ?? ''}
+                                onChange={(k) => onFiltersChange({ depositMonths: k })}
+                              />
+                              <FilterOptionGrid
+                                title={t('listing.fAvailableFrom')}
+                                options={[
+                                  { key: '', label: t('common.any') },
+                                  { key: '1', label: t('prop.monthsN', { n: 1 }) },
+                                  { key: '3', label: t('prop.monthsN', { n: 3 }) },
+                                ]}
+                                value={filters.availableWithin ?? ''}
+                                onChange={(k) => onFiltersChange({ availableWithin: k })}
+                              />
+                            </>
+                          )}
+                          {biz === 'resale' && (
+                            <FilterOptionGrid
+                              title={t('pub.completionYear')}
+                              options={[
+                                { key: '', label: t('common.any') },
+                                { key: '5', label: `≥ ${NOW_YEAR - 5}` },
+                                { key: '10', label: `≥ ${NOW_YEAR - 10}` },
+                                { key: '20', label: `≥ ${NOW_YEAR - 20}` },
+                              ]}
+                              value={
+                                filters.completionYearMin
+                                  ? String(NOW_YEAR - Number(filters.completionYearMin))
+                                  : ''
+                              }
+                              onChange={(k) =>
+                                onFiltersChange({
+                                  completionYearMin: k
+                                    ? String(NOW_YEAR - Number(k))
+                                    : '',
+                                  completionYearMax: '',
+                                })
+                              }
+                            />
+                          )}
+                          {biz === 'new' && (
+                            <FilterOptionGrid
+                              title={t('pub.completionYear')}
+                              options={[
+                                { key: '', label: t('common.any') },
+                                { key: '1', label: `≤ ${NOW_YEAR + 1}` },
+                                { key: '2', label: `≤ ${NOW_YEAR + 2}` },
+                                { key: '3', label: `≤ ${NOW_YEAR + 3}` },
+                              ]}
+                              value={
+                                filters.completionYearMax
+                                  ? String(
+                                      Number(filters.completionYearMax) - NOW_YEAR,
+                                    )
+                                  : ''
+                              }
+                              onChange={(k) =>
+                                onFiltersChange({
+                                  completionYearMax: k
+                                    ? String(NOW_YEAR + Number(k))
+                                    : '',
+                                  completionYearMin: '',
+                                })
+                              }
+                            />
+                          )}
+                          {biz === 'all' && (
+                            <Text style={styles.dropEmpty}>{t('pub.pickBizFirst')}</Text>
+                          )}
+                        </>
+                      )}
+
+                      {moreRail === 'amenity' && (
+                        <FilterOptionGrid
+                          options={AMENITY_OPTIONS.map((a) => ({ key: a.key, label: a.label }))}
+                          value={filters.amenitySel}
+                          onChange={(k) =>
+                            onFiltersChange({
+                              amenitySel: filters.amenitySel.includes(k)
+                                ? filters.amenitySel.filter((x) => x !== k)
+                                : [...filters.amenitySel, k],
+                            })
+                          }
+                        />
+                      )}
+
+                      {moreRail === 'school' && (
+                        <>
+                          <FilterOptionGrid
+                            options={SCHOOL_RADIUS_OPTIONS.map((km) => ({
+                              key: String(km),
+                              label: `${km}km`,
+                            }))}
+                            value={String(filters.schoolKm)}
+                            onChange={(k) => onFiltersChange({ schoolKm: Number(k) })}
+                          />
+                          <TextInput
+                            style={styles.dropSearch}
+                            value={filters.schoolKw}
+                            onChangeText={(v) => onFiltersChange({ schoolKw: v })}
+                            placeholder={t('prop.searchSchool')}
+                            placeholderTextColor={colors.ink3}
+                            returnKeyType="search"
+                          />
+                          <View style={styles.empList}>
+                            <TouchableOpacity
+                              style={[styles.empListRow, !filters.schoolId && styles.empListRowActive]}
+                              onPress={() => onFiltersChange({ schoolId: '' })}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[styles.empListText, !filters.schoolId && styles.empListTextActive]}
+                              >
+                                {t('common.any')}
+                              </Text>
+                            </TouchableOpacity>
+                            {filteredSchools.map((s) => {
+                              const on = filters.schoolId === s.id;
+                              return (
+                                <TouchableOpacity
+                                  key={s.id}
+                                  style={[styles.empListRow, on && styles.empListRowActive]}
+                                  onPress={() => onFiltersChange({ schoolId: s.id })}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text style={[styles.empListText, on && styles.empListTextActive]}>
+                                    {s.name}
+                                  </Text>
+                                  {on ? (
+                                    <Ionicons name="checkmark" size={16} color={colors.primary} />
+                                  ) : null}
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                          {schoolsLoaded && !filteredSchools.length && (
+                            <Text style={styles.dropEmpty}>{t('list.noSchoolMatch')}</Text>
+                          )}
+                        </>
+                      )}
+
+                      {moreRail === 'status' && !isSaleBiz && (
+                        <FilterOptionGrid
+                          options={STATUS_FILTERS.map((s) => ({ key: s.key, label: s.label }))}
+                          value={filters.statusFilter}
+                          onChange={(k) => onFiltersChange({ statusFilter: k })}
+                        />
+                      )}
+                    </ScrollView>
+                  </View>
+                </FilterPanel>
+              )}
+
+              {openTab === 'sort' && (
+                <FilterPanel
+                  onReset={() => resetCurrent('sort')}
+                  onConfirm={() => confirmCurrent('sort')}
+                  resetLabel={t('pub.reset')}
+                  confirmLabel={t('common.confirm')}
+                >
+                  <FilterOptionGrid
+                    options={SORT_OPTIONS.map((s) => ({ key: s.key, label: s.label }))}
+                    value={filters.sortKey}
+                    onChange={(k) => {
+                      onFiltersChange({ sortKey: k });
+                      setOpenTab(null);
+                    }}
+                  />
+                </FilterPanel>
+              )}
+            </FilterBar>
+          ) : (
+          <>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -2097,6 +2608,8 @@ export default function ListingsFeed({
               )}
             </View>
           )}
+          </>
+          )}
         </View>
       )}
       {/* 当前生效条件回显：单条可清除 + 一键重置（销售端） */}
@@ -2306,23 +2819,6 @@ const styles = StyleSheet.create({
   heroNearby: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 10 },
   heroNearbyText: { fontSize: 14, color: colors.ink2 },
   heroNearbyTextActive: { color: colors.primary, fontWeight: '600' },
-  heroDivider: { height: 1, backgroundColor: colors.border, marginVertical: 12 },
-  heroBeds: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 2,
-  },
-  heroBedItem: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
-  heroBedCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  heroBedText: { fontSize: 14, color: colors.ink2 },
-  heroBedTextActive: { color: colors.primary, fontWeight: '600' },
   heroActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
   heroPrimary: {
     flex: 1.6,
@@ -2709,4 +3205,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   loadMoreText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  // 销售端筛选面板：左侧竖栏 + 右侧可滚动内容
+  empPanelRow: { flexDirection: 'row', maxHeight: 340 },
+  empPanelBody: { flex: 1, paddingLeft: 12 },
+  empList: { gap: 8, marginBottom: 10 },
+  empListRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  empListRowActive: { backgroundColor: colors.tint, borderColor: colors.primary },
+  empListText: { fontSize: colors.fontSize.sm, color: colors.ink },
+  empListTextActive: { color: colors.primary, fontWeight: '600' },
 });

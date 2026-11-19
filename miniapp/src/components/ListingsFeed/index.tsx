@@ -14,6 +14,7 @@ import { iconStyle } from '@/utils/icons'
 import { fmtMoney as formatRent } from '@/utils/format'
 import StateBlock from '@/components/StateBlock'
 import StatusTop from '@/components/StatusTop'
+import { FilterList, FilterOptionGrid, FilterPanelActions, FilterRail } from '@/components/FilterBar'
 import type { MetroLine } from '@/data/locationMetro'
 import type { DistrictOptionNode } from '@/lib/categoryShared'
 import { AREA_TIERS_5, PRICE_TIERS } from '@/constants/filters'
@@ -116,14 +117,6 @@ export interface ListingsFeedProps {
 export const BIZ_OPTIONS: { key: BizKey; label: string }[] = [
   { key: 'rent', label: 'tl.bizWhole' },
   { key: 'sale', label: 'pub.typeSell' }
-]
-
-// 顶部找房卡「居室」快选：不限 / 1居 / 2居 / 3居+（3居+ = 3 室及以上）
-export const HERO_BED_OPTIONS: { key: string; label: string }[] = [
-  { key: '', label: 'pub.filterAny' },
-  { key: '1', label: 'pub.bed.1' },
-  { key: '2', label: 'pub.bed.2' },
-  { key: '3p', label: 'tl.bed3plus' }
 ]
 
 // ==================== 排序（贝壳式下拉 Tab） ====================
@@ -457,6 +450,10 @@ export default function ListingsFeed(props: ListingsFeedProps) {
 
   // ---------- 区域 / 地铁 ----------
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
+  // 员工端「类型」面板：左侧竖栏（房产类型 / 业务线）
+  const [typeRail, setTypeRail] = useState<'type' | 'biz'>('type')
+  // 员工端「更多」面板：左侧竖栏
+  const [moreRail, setMoreRail] = useState<'orientation' | 'floor' | 'area' | 'decor' | 'amenity' | 'status'>('orientation')
   const [metroDraft, setMetroDraft] = useState<string[]>([])
   const [metroLine, setMetroLine] = useState<string>(() => metroLines[0]?.key ?? '')
 
@@ -872,165 +869,170 @@ export default function ListingsFeed(props: ListingsFeedProps) {
   // 房产类型 + 业务类型（员工找房页专用；C 端不传 onTypeBizChange 时不渲染该面板）
   const renderTypePanel = () => (
     <>
-      <Text className='filter-group__title'>{t('prop.typeLabel')}</Text>
-      <View className='filter-chips'>
-        {PROPERTY_TYPE_OPTIONS.map((o) => (
-          <View
-            key={o.key || 'type-any'}
-            className={`filter-chip ${typeSel === o.key ? 'filter-chip--active' : ''}`}
-            onClick={() => onTypeBizChange?.({ typeSel: o.key })}
-          >
-            <Text>{t(o.label)}</Text>
-          </View>
-        ))}
+      <View className='fb-body'>
+        <FilterRail
+          items={[
+            { key: 'type', label: t('prop.typeLabel') },
+            { key: 'biz', label: t('pl.bizType') },
+          ]}
+          value={typeRail}
+          onChange={(k) => setTypeRail(k as 'type' | 'biz')}
+        />
+        <ScrollView scrollY className='fb-main'>
+          {typeRail === 'type' ? (
+            /* 房产类型保持竖排列表形态，不合并进其他分组 */
+            <FilterList
+              options={PROPERTY_TYPE_OPTIONS.map((o) => ({ key: o.key, label: t(o.label) }))}
+              value={typeSel}
+              onChange={(k) => onTypeBizChange?.({ typeSel: k })}
+            />
+          ) : (
+            <FilterOptionGrid
+              options={BIZ_TYPE_OPTIONS.map((o) => ({ key: o.key, label: t(o.label) }))}
+              value={bizSel}
+              onChange={(k) => onTypeBizChange?.({ bizSel: k })}
+            />
+          )}
+        </ScrollView>
       </View>
-
-      <Text className='filter-group__title'>{t('pl.bizType')}</Text>
-      <View className='filter-chips'>
-        {BIZ_TYPE_OPTIONS.map((o) => (
-          <View
-            key={o.key || 'biz-any'}
-            className={`filter-chip ${bizSel === o.key ? 'filter-chip--active' : ''}`}
-            onClick={() => onTypeBizChange?.({ bizSel: o.key })}
-          >
-            <Text>{t(o.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View className='filter-drop__footer'>
-        <View
-          className='loc-btn loc-btn--ghost'
-          onClick={() => onTypeBizChange?.({ typeSel: '', bizSel: '' })}
-        >
-          <Text>{t('pub.reset')}</Text>
-        </View>
-        <View className='loc-btn loc-btn--primary' onClick={() => setOpenTab(null)}>
-          <Text>{t('pub.apply')}</Text>
-        </View>
-      </View>
+      <FilterPanelActions
+        onReset={() => onTypeBizChange?.({ typeSel: '', bizSel: '' })}
+        onConfirm={() => setOpenTab(null)}
+        resetLabel={t('pub.reset')}
+        confirmLabel={t('pub.apply')}
+      />
     </>
   )
 
+  // 「更多」分组：员工端用左竖栏 + 卡片；C 端首页沿用同组内容纵向平铺
+  const moreGroups = [
+    {
+      key: 'orientation',
+      label: t('pub.orientationLabel'),
+      node: (
+        <FilterOptionGrid
+          options={ORIENTATION_OPTIONS.map((o) => ({ key: o.key, label: t(o.label) }))}
+          value={orientationDraft}
+          onChange={setOrientationDraft}
+        />
+      ),
+    },
+    {
+      key: 'floor',
+      label: t('pub.floor'),
+      node: (
+        <FilterOptionGrid
+          options={FLOOR_LEVEL_OPTIONS.map((o) => ({ key: o.key, label: t(o.label) }))}
+          value={floorDraft}
+          onChange={setFloorDraft}
+        />
+      ),
+    },
+    {
+      key: 'area',
+      label: t('pub.filterArea'),
+      node: (
+        <>
+          <FilterOptionGrid
+            options={AREA_PRESETS.map((p) => ({ key: p.key, label: t(p.label) }))}
+            value={filters.areaPreset}
+            onChange={applyAreaPreset}
+          />
+          <Text className='filter-group__title'>{t('pub.customArea')}</Text>
+          <View className='price-custom'>
+            <View className='price-input'>
+              <Input
+                className='price-input__field'
+                type='number'
+                value={areaDraftMin}
+                placeholder={t('tl.areaMinPlaceholder')}
+                placeholderStyle='color:#858d94'
+                onInput={(e: any) => setAreaDraftMin(e.detail.value)}
+              />
+              <Text className='price-input__unit'>{t('pub.sqm')}</Text>
+            </View>
+            <Text className='price-custom__divider'>{t('pub.to')}</Text>
+            <View className='price-input'>
+              <Input
+                className='price-input__field'
+                type='number'
+                value={areaDraftMax}
+                placeholder={t('tl.areaMaxPlaceholder')}
+                placeholderStyle='color:#858d94'
+                onInput={(e: any) => setAreaDraftMax(e.detail.value)}
+              />
+              <Text className='price-input__unit'>{t('pub.sqm')}</Text>
+            </View>
+          </View>
+        </>
+      ),
+    },
+    {
+      key: 'decor',
+      label: t('pub.decorationLabel'),
+      node: (
+        <FilterOptionGrid
+          options={DECORATION_OPTIONS.map((d) => ({ key: d.key, label: t(d.label) }))}
+          value={decorDraft}
+          onChange={setDecorDraft}
+        />
+      ),
+    },
+    {
+      key: 'amenity',
+      label: t('tl.amenities'),
+      node: (
+        <FilterOptionGrid
+          options={AMENITY_OPTIONS.map((a) => ({ key: a.key, label: t(a.label) }))}
+          value={amenityDraft}
+          onChange={(k) =>
+            setAmenityDraft((cur) =>
+              cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]
+            )
+          }
+        />
+      ),
+    },
+    {
+      key: 'status',
+      label: t('pub.listingStatus'),
+      node: (
+        <FilterOptionGrid
+          options={STATUS_OPTIONS.map((s) => ({ key: s.key, label: t(s.label) }))}
+          value={statusDraft}
+          onChange={setStatusDraft}
+        />
+      ),
+    },
+  ] as const
+
   const renderMorePanel = () => (
     <>
-      <Text className='filter-group__title'>{t('pub.orientationLabel')}</Text>
-      <View className='filter-chips'>
-        {ORIENTATION_OPTIONS.map((o) => (
-          <View
-            key={o.key}
-            className={`filter-chip ${orientationDraft === o.key ? 'filter-chip--active' : ''}`}
-            onClick={() => setOrientationDraft(o.key)}
-          >
-            <Text>{t(o.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text className='filter-group__title'>{t('pub.floor')}</Text>
-      <View className='filter-chips'>
-        {FLOOR_LEVEL_OPTIONS.map((fl) => (
-          <View
-            key={fl.key}
-            className={`filter-chip ${floorDraft === fl.key ? 'filter-chip--active' : ''}`}
-            onClick={() => setFloorDraft(fl.key)}
-          >
-            <Text>{t(fl.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text className='filter-group__title'>{t('pub.filterArea')}</Text>
-      <View className='filter-chips'>
-        {AREA_PRESETS.map((p) => (
-          <View
-            key={p.key}
-            className={`filter-chip ${filters.areaPreset === p.key ? 'filter-chip--active' : ''}`}
-            onClick={() => applyAreaPreset(p.key)}
-          >
-            <Text>{t(p.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text className='filter-group__title'>{t('pub.customArea')}</Text>
-      <View className='price-custom'>
-        <View className='price-input'>
-          <Input
-            className='price-input__field'
-            type='number'
-            value={areaDraftMin}
-            placeholder={t('tl.areaMinPlaceholder')}
-            placeholderStyle='color:#858d94'
-            onInput={(e: any) => setAreaDraftMin(e.detail.value)}
+      {onTypeBizChange ? (
+        <View className='fb-body'>
+          <FilterRail
+            items={moreGroups.map((g) => ({ key: g.key, label: g.label }))}
+            value={moreRail}
+            onChange={(k) => setMoreRail(k as typeof moreRail)}
           />
-          <Text className='price-input__unit'>{t('pub.sqm')}</Text>
+          <ScrollView scrollY className='fb-main'>
+            {moreGroups.find((g) => g.key === moreRail)?.node}
+          </ScrollView>
         </View>
-        <Text className='price-custom__divider'>{t('pub.to')}</Text>
-        <View className='price-input'>
-          <Input
-            className='price-input__field'
-            type='number'
-            value={areaDraftMax}
-            placeholder={t('tl.areaMaxPlaceholder')}
-            placeholderStyle='color:#858d94'
-            onInput={(e: any) => setAreaDraftMax(e.detail.value)}
-          />
-          <Text className='price-input__unit'>{t('pub.sqm')}</Text>
-        </View>
-      </View>
-
-      <Text className='filter-group__title'>{t('pub.decorationLabel')}</Text>
-      <View className='filter-chips'>
-        {DECORATION_OPTIONS.map((d) => (
-          <View
-            key={d.key}
-            className={`filter-chip ${decorDraft === d.key ? 'filter-chip--active' : ''}`}
-            onClick={() => setDecorDraft(d.key)}
-          >
-            <Text>{t(d.label)}</Text>
+      ) : (
+        moreGroups.map((g) => (
+          <View key={g.key}>
+            <Text className='filter-group__title'>{g.label}</Text>
+            {g.node}
           </View>
-        ))}
-      </View>
-
-      <Text className='filter-group__title'>{t('tl.amenities')}</Text>
-      <View className='filter-chips'>
-        {AMENITY_OPTIONS.map((a) => (
-          <View
-            key={a.key}
-            className={`filter-chip ${amenityDraft.includes(a.key) ? 'filter-chip--active' : ''}`}
-            onClick={() =>
-              setAmenityDraft((cur) =>
-                cur.includes(a.key) ? cur.filter((k) => k !== a.key) : [...cur, a.key]
-              )
-            }
-          >
-            <Text>{t(a.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text className='filter-group__title'>{t('pub.listingStatus')}</Text>
-      <View className='filter-chips'>
-        {STATUS_OPTIONS.map((s) => (
-          <View
-            key={s.key}
-            className={`filter-chip ${statusDraft === s.key ? 'filter-chip--active' : ''}`}
-            onClick={() => setStatusDraft(s.key)}
-          >
-            <Text>{t(s.label)}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View className='filter-drop__footer'>
-        <View className='loc-btn loc-btn--ghost' onClick={() => resetCurrent('more')}>
-          <Text>{t('pub.reset')}</Text>
-        </View>
-        <View className='loc-btn loc-btn--primary' onClick={() => confirmCurrent('more')}>
-          <Text>{t('pub.apply')}</Text>
-        </View>
-      </View>
+        ))
+      )}
+      <FilterPanelActions
+        onReset={() => resetCurrent('more')}
+        onConfirm={() => confirmCurrent('more')}
+        resetLabel={t('pub.reset')}
+        confirmLabel={t('pub.apply')}
+      />
     </>
   )
 
@@ -1130,30 +1132,6 @@ export default function ListingsFeed(props: ListingsFeedProps) {
               </View>
             </View>
           )}
-
-          <View className='hero-divider' />
-
-          {/* 居室快选：不限 / 1居 / 2居 / 3居+（与「房型」面板共用同一个 bedroomSel） */}
-          <View className='hero-beds'>
-            {HERO_BED_OPTIONS.map((b) => (
-              <View
-                key={b.key || 'any'}
-                className='hero-bed'
-                onClick={() => patch({ bedroomSel: b.key })}
-              >
-                {filters.bedroomSel === b.key ? (
-                  <View className='hero-bed__dot hero-bed__dot--on'>
-                    <Text className='hero-bed__check'>✓</Text>
-                  </View>
-                ) : (
-                  <View className='hero-bed__dot' />
-                )}
-                <Text className={`hero-bed__text ${filters.bedroomSel === b.key ? 'hero-bed__text--on' : ''}`}>
-                  {t(b.label)}
-                </Text>
-              </View>
-            ))}
-          </View>
 
           {/* 主按钮：查看 N 套房源 / 去地图看 */}
           <View className='hero-actions'>

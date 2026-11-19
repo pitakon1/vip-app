@@ -1,7 +1,7 @@
 # 未完成事项汇总（全部端合并）
 
 > 生成时间：2026-11-13
-> 最近核对：2026-11-14（续修：后端 4 项已落地并回归全量 pytest；电子签 3 项经代码核对确认已完成，不再重复实现；同日完成 App 五角色真实点击复测，见 §9）
+> 最近核对：2026-11-17（「未开通功能」全量盘点：A/B 类已完成，C 类及依赖方见 §13）
 > 说明：§1–§5 只收录「未修改 / 未做完 / 待确认」的条目；已完成并验证过的统一记入 §7。
 > 状态口径：**待决策** = 需要产品或用户拍板；**待后端** = 缺接口或字段；**待数据** = 数据为空/样本不足；**需真机** = Expo Web 无法覆盖，需真机；**待法务** = 合规或资质问题；**进行中** = 本轮已开工未收尾。
 
@@ -442,4 +442,74 @@
 - 种子数据无 `payment_type=deposit` 成功收款 → 押金应收/已收无法对账。
 - 生产 PostgreSQL 行锁与 0054/0055 迁移未执行（本地 SQLite 无行锁）。
 - 真实支付回调验签、Google/Apple OAuth（未配凭据，503）、真机 GPS/推送/微信商户号、partner_admin 页面（无账号）。
+
+## 13. 2026-11-17 「未开通功能」全量盘点与落地
+
+> 口径：A 类 = 用现有接口/数据即可实现，三端补齐；B 类 = 缺数据但有可自建口径，实现并标注估算/来源；C 类 = 受业务规则或第三方资质限制，保留「未开通/即将上线」并写明依赖方。
+> 本轮只保留 C 类标签；A/B 类入口均已可点击到真实功能。
+
+### 13.1 A 类：已完成（三端 + 后端）
+
+| 功能 | 后端 | App | Web | 小程序 | 验证 |
+| --- | --- | --- | --- | --- | --- |
+| 我的看房（含取消预约） | 新增 `POST /viewings/{id}/cancel`（仅申请人、仅 pending/confirmed，重复取消 409、非本人 403） | `MyViewingsScreen`：列表 + 状态徽章 + 取消 | `/tenant/viewings` | `pages/tenant/viewings` | 接口实测 200/409/403；三端 tsc 通过 |
+| 搬家服务 | `ServiceCode.moving` 与 `ServiceType.moving`，目录价 ฿2,500/车 | 服务宫格 + 下单 | 服务卡片 + 下单 | 服务宫格 + 下单 | `GET /billing/pricing` 返回 moving；租客下单成功 |
+| 专属管家 | 复用幂等 `GET /chat/support`（取管理员为客服） | 我家 →「小区与物业 → 专属管家」→ 聊天详情 | 「帮助与支持 → 专属管家」→ `/chat?id=` | 我家 → 专属管家 → `pages/chat/detail?id=` | Web 实测跳到会话 `acaa160e…`，标题「平台客服」，可输入发送 |
+
+### 13.2 B 类：已完成（自建数据 + 明示口径）
+
+| 功能 | 实现 | 口径与边界 | 验证 |
+| --- | --- | --- | --- |
+| 房屋估价 | 新增 `GET /properties/{id}/value-estimate`，三端口径页 + 免责声明 | ① 小区均价 `Project.avg_price`；② 同小区在售 `SaleListing` 单价中位数；③ 无前两者时用「月租 × 12 ÷ 5% 资本化率 ÷ 面积」反推；区间为点估 ±8%，按千位取整。页面标注「估算，不是评估报告」，不替代第三方评估 | Web 实测 A-1001（45㎡、月租 25k）→ ฿5,520,000–฿6,480,000，口径与估算日期正常 |
+| 小区公告 | 新表 `announcements` + `POST/GET/DELETE /announcements`；员工发布，租客按「活跃租约 → 房源 → 楼盘」读取（含平台公告） | 无第三方物业数据源，公告由平台员工/物业发布后展示；支持置顶、分类（通知/维修/活动/规则）、过期时间 | 创建 2 条后租客 `GET /announcements/mine` 返回 2 条；Web 实机显示中文正常 |
+
+### 13.3 C 类：保留未开通（依赖方清单）
+
+| 入口 / 能力 | 缺什么 | 依赖方 | 现状 |
+| --- | --- | --- | --- |
+| 地图 / 通勤 / 地铁找房 | 地图 Key、地理编码、通勤路径、地铁线路数据 | 用户提供 Google Maps Key；地图/交通数据供应商 | 「即将上线」 |
+| 直播看房 / VR / 排行榜 / 成交价对比 | 直播与全景素材、历史成交数据、榜单模型 | 内容运营 + 数据供给 | 「即将上线」 |
+| 找经纪人 / 帮我找房 / 精选自营 / 业主直卖 | 经纪人供给、运营选品标签、撮合分配后台 | 运营团队 | 「即将上线」 |
+| 实名认证 / 人脸核验 | 第三方核验通道与合规资质 | e签宝等供应商 | 置灰并提示未接入 |
+| 微信支付 / 连连支付 | 商户号、API 密钥、结算账户 | 商户主体、连连支付 | 未开通 |
+| 上传 DOC/DOCX 转 PDF | 已内置：compose 增加 `gotenberg` 服务（`docker/gotenberg/Dockerfile` 装 Noto CJK + emoji，避免中文变方块） | 部署方（需 Docker） | 服务已配置并打通；本机无 Docker，未实测中文 DOCX 渲染，部署机 `docker compose up -d --build gotenberg` 后可验证 |
+| 权限页：剪贴板 / 蓝牙 / 应用列表 / NFC | iOS/Android 均无公开的「申请即弹窗」接口（NFC 需 entitlement 与硬件） | 操作系统限制 | 保持「当前平台不支持」；可做的跳系统设置已做 |
+
+### 13.4 本轮验证
+
+- `npx tsc --noEmit`：mobile-app ✅、frontend-web ✅、miniapp ✅（exit 0）。
+- 接口实测：看房取消（200/409/403）、服务目录含 moving、估价返回区间与口径、公告创建/读取、`/chat/support` 幂等返回同一会话。
+- Web 真实点击：搬家服务卡片、估价页、公告页、专属管家 → 聊天页均通过。
+- 电子签链路 2026-11-17 复测：`pyHanko`、`reportlab`、`PyMuPDF`、`pypdf` 均已安装；TSA 未配置且非必需。HTTP 全流程「生成 → 加签署方 → 签署 → 下载」通过，已签 PDF 80,119 字节、1 页，`verify_pdf` 返回 `valid=1, trusted=1`；签署接口 `signature_health=ok`。App 原生下载改为 `GET /contracts/{id}/signed-file-link` 换取 24h HMAC 链接后用系统浏览器打开，Web 仍走 Blob 下载。
+- 需原生构建才能验证：App 权限页的相机/相册/定位/麦克风系统弹窗与跳系统设置、小程序 `Taro.authorize`/`openSetting` 真机行为；Expo Web 只覆盖浏览器 `getUserMedia`、`geolocation`、`clipboard` 路径。
+
+## 14. 2026-11-17 自建批次（按用户指定顺序）
+
+> 原则：每批三端可用、中英泰文案同步；缺外部凭据一律 fail closed（返回真实错误码与缺失项），不做假成功。
+
+### 14.1 已完成
+
+| 批次 | 内容 | 落点 | 验证 |
+| --- | --- | --- | --- |
+| 1 | Word → PDF | `docker/gotenberg/Dockerfile`（`gotenberg/gotenberg:8` + `fonts-noto-cjk` + emoji）、compose `gotenberg` 服务与健康依赖、`GOTENBERG_URL` | 未配 Key 时 `convert_to_pdf` 抛 `PdfConversionError(PDF_CONVERT_DISABLED)`（fail closed）；本机无 Docker，中文 DOCX 实测待部署机执行 |
+| 2 | 短信与 OTP | `Settings` 新增 `TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER` 与 `OTP_RESEND_SECONDS/OTP_DAILY_LIMIT`；`SMSProvider` 优先读 Settings；`/auth/otp/request` 未配凭据直接 503 并列出缺失变量、按接收方 60s 冷却与 24h 条数上限返回 429 + `Retry-After`；全局异常处理器透传 `HTTPException.headers` | `tests/test_otp_flow.py` 9 passed；本机实测 429 且 `Retry-After: 44`、缺凭据清单纯函数返回三项 |
+| 3 | 真机推送 | 新表 `device_push_tokens`（token 唯一、软撤销、换账号改归属）；`POST/DELETE /devices/push-token` 与 `POST /devices/push-token/test`；`services/push.py` 复用 Expo `PushProvider`，尊重 `notify_push` 偏好；App 登录后自动注册（`src/lib/push.ts`），通知设置页展示真实通道状态并可发测试推送 | `tests/test_device_push.py` 8 passed；本机实测：无 token 测试推送 409、注册成功、向 Expo 真发后返回 `sent:0, failed:1`（假 token 被 Expo 拒绝，未假成功）、撤销成功 |
+| 4 | 通勤与地铁 | 新接口 `POST /public/listings/{id}/commute`；`services/commute.py` 调 Google Routes API v2（transit/driving），地铁线路与上/下车站点全部取自 `transitDetails`，不自建线路库；结果写入新表 `commute_cache`（按坐标+模式 sha256，默认 24h）；无 Key 返回 `available:false, reason:no_key` + 缺失变量名，不调用上游、不返回 mock。三端详情页均加「通勤测算」卡片（Web `CommuteCard.tsx`、App `CommuteEstimate.tsx`、小程序详情页区块），中英泰文案同步 | `tests/test_commute.py` 5 passed（无 Key fail-closed 不发请求、transit 解析、缓存命中只调一次、no_route 不缓存、接口 404）；三端 `tsc --noEmit` 通过 |
+| 5 | 榜单与成交价 | 新接口 `GET /public/rankings`（scope=project/district、metric=deal_count/avg_price/avg_psqm、days/limit/city），实时聚合 `property_deals` 中 `status=completed` 的平台成交；最小样本 `RANKING_MIN_SAMPLE=5`，不足则不发布（`published=false`、items 为空）；响应固定带 `source=platform_deals`、`sample_count`、`min_sample`、`caveat=platform_sample_only`。三端均展示「平台样本 n=xx，非全市场」（Web 首页 `DealRankings.tsx`、App 首页 `DealRankingsCard.tsx`、小程序租客首页榜单区块） | `tests/test_rankings.py` 3 passed（样本量口径、最小样本过滤、商圈维度、样本不足不发布） |
+| 6 | 经纪人供给（找房线索） | 扩展现有 `POST /public/inquiries`：`intent=find_my_home` 时结构化接收 `budget_min/budget_max/currency/areas/move_in_date/language`，校验后写入 `Lead.budget_*`、`requirement`（人读摘要）与 `interested_projects[0]`（机器可读条件）；`source` 缺省按 intent 记为 `find_my_home`。同一事务内为在职 admin/agent 写 `Notification(template_key=lead.new, related_entity_type=lead)`，并按原链路 `publish_event("lead.created")`。三端新增「帮我找房」表单并替换 5 个分类页共 15 处 `notAvailable` 占位：Web `/find-my-home`、App `FindMyHome`、小程序 `pages/tenant/find-my-home`；必填姓名 + 至少一种联系方式，预算倒挂/日期格式错误前后端都拦，失败不显示成功回执 | `tests/test_find_my_home.py` 5 passed（结构化落 lead/预算映射/通知只发在职 admin+agent/缺联系方式 400/预算倒挂 400/日期格式 400/老表单兼容）；三端 `tsc --noEmit` 通过 |
+| 7 | 实名认证（证件上传 + 人工审核，不接人脸识别） | 新表 `identity_verifications`（doc_type / real_name / id_number / front_file_url / back_file_url / status / rejection_reason / reviewed_by / reviewed_at / consent_granted_at / consent_policy_version）。接口：`GET /identity/me`（状态回显，证件号仅回 `****尾4`）、`POST /identity/submit`（PDPA 同意必填、pending/approved 重复提交 409）、`POST /identity/staging`（单文件预传，供小程序一次只传一张）、`GET /identity/me/file/{side}`、`GET /identity/pending`、`GET /identity/{id}/file/{side}`（本人或 admin）、`POST /identity/{id}/approve`（置 `User.is_verified=True` 并发站内通知）、`POST /identity/{id}/reject`（原因必填 400，可重新提交）。证件图不静态托管，只能鉴权读取。三端：Web `/tenant/identity` + 后台 `/operations/identity-review`、App `IdentityVerification`（Profile 入口）、小程序 `pages/tenant/identity`（我的-设置入口） | `backend/tests/test_identity_verification.py` 8 passed（未同意 PDPA 不落库、提交生成 pending+Consent+私有文件、重复提交 409、admin 通过置 verified 并通知、驳回必填原因且可重提、文件仅本人/admin 可读、staging 反面挂本人记录、他人 staging 403、缺正面 400）；三端 `tsc --noEmit` 通过 |
+
+**真机收到推送的外部配置（代码之外，必须做）**
+- App 侧：`app.json` 填 `expo.extra.eas.projectId`（`eas init` 生成）；真机授予通知权限。缺 projectId 时 App 显示「缺少 EAS projectId，未配置推送通道」，不会假装注册成功。
+- Android：Firebase 项目 → 上传 `google-services.json` 并 `eas credentials` 上传 FCM V1 服务账号密钥。
+- iOS：Apple Developer → APNs Key（.p8）或推送证书，`eas credentials` 配置；真机需 Development/Production profile 对应。
+- 未配 FCM/APNs 时：Expo Push 仍能受理请求，但设备收不到；后端返回的是 Expo 的逐条结果，不会把「已提交」当「已送达」。
+- Web/小程序无原生推送通道，走站内通知列表，接口不伪造注册成功。
+
+### 14.2 待办（顺序执行）
+
+批次 1–7 已全部完成（Word→PDF、短信 OTP、真机推送、通勤地铁、榜单成交价、找房线索、实名认证人工审核）。外部凭据到位后需复验的项见上文「待外部配置」与各批次备注；电子签/TSA 改造已按用户决定暂停，等待外部电子签产品采购结论。
+
+> 通勤需在 Google Cloud 启用 Routes API 并配置 `GOOGLE_MAPS_SERVER_API_KEY`（或旧名 `GOOGLE_MAPS_API_KEY`）；未配置时三端明确提示「未配置地图服务」，不做本地估算。
+
 

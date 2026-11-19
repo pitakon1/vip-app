@@ -17,6 +17,7 @@ class ServiceType(str, Enum):
 
     cleaning = "cleaning"
     ac_cleaning = "ac_cleaning"
+    moving = "moving"
     wifi_install = "wifi_install"
     utility_payment = "utility_payment"
     insurance = "insurance"

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>「我家」v3 · 贝壳式结构 · 375×812</title>
+<style>
+  /* ============================================================
+     「我家」v3 —— 对齐贝壳「我家」频道的组织方式
+     全页只用 3 种版式：
+       L1 房产卡（正常 / 空态为同一组件的插画变体）
+       L2 等大图标宫格（4 列，图标 24 + 文案 12）
+       L3 分组行卡（一张白卡内若干 48 高同构行 + 极浅 hairline）
+     令牌：primary #14b8a6 / bg #fafbfc / card #fff / ink #171a1d
+           ink2 #4c555d / ink3 #68717a / line #e6e9ec / field #f4f6f7
+     字号 22 / 16 / 15 / 14 / 12，容器圆角 16，内嵌圆角 12
+     ============================================================ */
+  :root {
+    --primary: #14b8a6;
+    --active: #edf1f2;
+    --bg: #fafbfc;
+    --card: #ffffff;
+    --ink: #171a1d;
+    --ink2: #4c555d;
+    --ink3: #68717a;
+    --line: #e6e9ec;
+    --hairline: #eff1f3;
+    --field: #f4f6f7;
+    --success-ink: #15803d;
+    --success-soft: rgba(22, 163, 74, .08);
+    --warning-ink: #a64c07;
+    --warning-soft: #fdf5e9;
+    --warning-border: #f4d9ad;
+    --error: #dc2626;
+    --error-ink: #b91c1c;
+    --error-soft: rgba(220, 38, 38, .08);
+    --info-ink: #0369a1;
+    --info-soft: rgba(14, 165, 233, .08);
+    --r8: 8px; --r12: 12px; --r16: 16px; --full: 999px;
+    --shadow-sm: 0 2px 10px rgba(23, 26, 29, .05);
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+      "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+  body { background: #eaeef0; font-family: var(--font); color: var(--ink); padding: 40px; }
+  .board { display: flex; gap: 56px; align-items: flex-start; flex-wrap: wrap; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+  .frame-label { font-size: 13px; font-weight: 600; color: #4c555d; }
+  .frame-label span { font-weight: 400; color: #68717a; margin-left: 6px; }
+
+  .frame { position: relative; width: 375px; height: 812px; overflow: hidden; background: var(--bg);
+    font-family: var(--font); color: var(--ink); }
+
+  /* 状态栏 44 */
+  .sb { height: 44px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 3; }
+  .sb-time { font-size: 15px; font-weight: 600; letter-spacing: .2px; font-variant-numeric: tabular-nums; }
+  .sb-icons { display: flex; align-items: center; gap: 5px; }
+  .sb-icons svg { fill: var(--ink); }
+
+  /* 标题行 34：22/700，右侧一个 32 圆形入口 */
+  .hd { height: 34px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+  .hd h1 { font-size: 22px; font-weight: 700; line-height: 30px; letter-spacing: -.5px; }
+  .hd-act { position: relative; width: 32px; height: 32px; border-radius: var(--full); background: var(--card);
+    box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; }
+  .hd-act svg { width: 18px; height: 18px; fill: none; stroke: var(--ink2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .hd-act .dot { position: absolute; top: 6px; right: 7px; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--error); border: 1.5px solid #fff; }
+
+  .body { padding: 0 16px; }
+
+  /* ---------- L1 房产卡：343×78，缩略图 54，圆角 16 ---------- */
+  .prop { margin-top: 12px; padding: 12px; height: 78px; background: var(--card); border-radius: var(--r16);
+    box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 12px; }
+  .prop .th { width: 54px; height: 54px; border-radius: var(--r12); overflow: hidden; flex: 0 0 auto; background: var(--field); }
+  .prop .th svg { display: block; width: 100%; height: 100%; }
+  .prop .info { flex: 1; min-width: 0; }
+  .prop .nm { font-size: 15px; font-weight: 600; line-height: 20px; letter-spacing: -.1px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prop .sub { margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prop .rt { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; font-size: 12px; color: var(--ink3); }
+  .prop .rt svg { width: 14px; height: 14px; fill: none; stroke: var(--ink3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .prop .rt.sw { gap: 3px; font-size: 13px; color: var(--primary); font-weight: 600; }
+  .prop .rt.sw svg { stroke: var(--primary); }
+
+  /* ---------- L2 等大图标宫格：343×80，4 列，图标 24 ---------- */
+  .grid { margin-top: 12px; height: 80px; background: var(--card); border-radius: var(--r16);
+    box-shadow: var(--shadow-sm); display: grid; grid-template-columns: repeat(4, 1fr); }
+  .gi { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+  .gi .ic { position: relative; width: 24px; height: 24px; }
+  .gi svg { width: 24px; height: 24px; fill: none; stroke: var(--primary); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .gi .bdg { position: absolute; top: -4px; right: -7px; min-width: 15px; height: 15px; padding: 0 4px;
+    background: var(--error); color: #fff; border-radius: var(--full); font-size: 10px; font-weight: 600;
+    line-height: 15px; text-align: center; border: 1.5px solid #fff; }
+  .gi span { font-size: 12px; line-height: 16px; color: var(--ink2); }
+
+  /* ---------- 分组标题：15/600，上下 14 / 8 ---------- */
+  .sec { margin: 14px 0 8px; display: flex; align-items: baseline; justify-content: space-between; }
+  .sec h2 { font-size: 15px; font-weight: 600; line-height: 20px; letter-spacing: -.1px; }
+  .sec .meta { font-size: 12px; color: var(--ink3); }
+  .sec .link { font-size: 12px; font-weight: 600; color: var(--primary); }
+
+  /* ---------- L3 分组行卡：行高 48，行内 hairline 左内缩 46 ---------- */
+  .list { background: var(--card); border-radius: var(--r16); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .row { position: relative; height: 48px; padding: 0 14px; display: flex; align-items: center; gap: 12px; }
+  .row + .row::before { content: ""; position: absolute; left: 46px; right: 0; top: 0; height: 1px; background: var(--hairline); }
+  .row .i { width: 22px; height: 22px; flex: 0 0 auto; fill: none; stroke: var(--primary);
+    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .row .i.warn { stroke: var(--warning-ink); }
+  .row .i.info { stroke: var(--info-ink); }
+  .row .i.err { stroke: var(--error-ink); }
+  .row .t { flex: 1; min-width: 0; font-size: 15px; line-height: 20px; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .m { flex: 0 0 auto; font-size: 12px; color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .row .m.warn { color: var(--warning-ink); font-weight: 600; }
+  .row .m.err { color: var(--error-ink); font-weight: 600; }
+  .row .m.info { color: var(--info-ink); font-weight: 600; }
+  .row .m.ok { color: var(--success-ink); font-weight: 600; }
+  .row .chev { width: 14px; height: 14px; flex: 0 0 auto; fill: none; stroke: #b6bec5;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* 行内胶囊：只出现在“待办”右侧，20 高 */
+  .pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--full);
+    font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .pill.warn { background: var(--warning-soft); border: 1px solid var(--warning-border); color: var(--warning-ink); }
+  .pill.err { background: var(--error-soft); color: var(--error-ink); }
+  .pill.info { background: var(--info-soft); color: var(--info-ink); }
+  .pill.ok { background: var(--success-soft); color: var(--success-ink); }
+
+  /* ---------- L1 空态变体：343×212 ---------- */
+  .prop.empty { height: 212px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 16px 16px 14px; gap: 0; }
+  .prop.empty .art { width: 168px; height: 84px; }
+  .prop.empty h2 { margin-top: 6px; font-size: 15px; font-weight: 600; line-height: 20px; }
+  .prop.empty p { margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--ink3); text-align: center; }
+  .acts { margin-top: 12px; display: flex; gap: 10px; }
+  .btn-p { height: 34px; padding: 0 18px; border-radius: var(--full); background: var(--primary);
+    color: #fff; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; }
+  .btn-g { height: 34px; padding: 0 18px; border-radius: var(--full); background: var(--card);
+    border: 1px solid var(--line); color: var(--ink2); font-size: 14px; display: inline-flex; align-items: center; }
+
+  /* 底部 Tab 72 */
+  .tabbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; height: 72px; padding-top: 6px;
+    background: var(--card); border-top: 1px solid var(--line); display: flex; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink3);
+    font-size: 12px; line-height: 16px; }
+  .tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tab.on { color: var(--primary); }
+  .tab.on svg { stroke-width: 1.9; }
+  .home-ind { position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 3px; background: var(--ink); z-index: 6; }
+
+  /* 说明（不截图） */
+  .legend { margin-top: 52px; max-width: 1180px; background: #fff; border-radius: 16px; padding: 24px 28px; }
+  .legend h3 { font-size: 15px; margin-bottom: 10px; }
+  .legend p, .legend li { font-size: 12px; color: var(--ink2); line-height: 20px; }
+  .legend ul { padding-left: 18px; }
+  .legend table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  .legend th, .legend td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef1f3; color: var(--ink2); vertical-align: top; }
+  .legend th { color: var(--ink); font-weight: 600; background: #fafbfc; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.6 10.2a5.4 5.4 0 0 1 10.8 0v4.2l1.7 2.6H4.9l1.7-2.6z"/><path d="M10.2 19.4a2 2 0 0 0 3.6 0"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 8.2A2.7 2.7 0 0 1 6.7 5.5h9.6A2.7 2.7 0 0 1 19 8.2v9.1a2.7 2.7 0 0 1-2.7 2.7H6.7A2.7 2.7 0 0 1 4 17.3z"/><path d="M4 9.4h15"/><circle cx="15.6" cy="14" r="1.3"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M15.6 4.4a4.6 4.6 0 0 0-6 6L4 16v4h4l5.6-5.6a4.6 4.6 0 0 0 6-6l-2.9 2.9-2.4-2.4z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.2h6.6L18.5 8v12.8H7z"/><path d="M13.4 3.4V8.2h4.7M9.8 12.4h5.4M9.8 15.6h5.4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2.6"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.4l7.4 2.8v5.6c0 4.6-3.2 7.4-7.4 8.4-4.2-1-7.4-3.8-7.4-8.4V6.2z"/><path d="M9 12l2.2 2.2 4-4.2"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16.4l5-5.1 3.6 3.1 6.9-7.4"/><path d="M14.6 6.6h5.2v5.2"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4.5 20.5V9.4L12 3.6l7.5 5.8v11.1z"/><path d="M9.6 20.5v-5.2h4.8v5.2"/><path d="M8.3 11.6h1.7M14 11.6h1.7"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="M3.4 10.4v3.2a1 1 0 0 0 1 1h2.9l8.5 4.4V5L7.3 9.4H4.4a1 1 0 0 0-1 1z"/><path d="M8.2 14.8v4.4h2.6v-3.3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M7.6 3.9l2.4 4.2-1.7 1.7a11.4 11.4 0 0 0 5.9 5.9l1.7-1.7 4.2 2.4-1 3.2a1.6 1.6 0 0 1-1.9 1.1C10.4 19.4 4.6 13.6 3.3 6.8a1.6 1.6 0 0 1 1.1-1.9z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19.2 10.4c0 5-7.2 10.6-7.2 10.6S4.8 15.4 4.8 10.4a7.2 7.2 0 1 1 14.4 0z"/><circle cx="12" cy="10.2" r="2.6"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.4 13.8v-1.6a7.6 7.6 0 0 1 15.2 0v1.6"/><rect x="2.9" y="13.4" width="4.2" height="6.2" rx="2.1"/><rect x="16.9" y="13.4" width="4.2" height="6.2" rx="2.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.6"/><path d="M15.6 15.6l4.6 4.6"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4.6" y="3.4" width="14.8" height="17.2" rx="2.4"/><path d="M8 8h8M8 12h1.6M11.2 12h1.6M14.4 12H16M8 15.4h1.6M11.2 15.4h1.6M14.4 15.4H16"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.4v13.2M5.4 12h13.2"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><path d="M4.4 9.6h15.2v10.2H4.4z"/><path d="M3.4 6.4h17.2v3.2H3.4zM12 6.4v13.4"/><path d="M12 6.4c-3.6 0-4.6-1.2-4.6-2.4S8.6 2 9.8 2c1.6 0 2.2 2.2 2.2 4.4zm0 0c3.6 0 4.6-1.2 4.6-2.4S15.4 2 14.2 2c-1.6 0-2.2 2.2-2.2 4.4z"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.8L12 3.9l8.2 6.9v9.4h-5.6v-5.9H9.4v5.9H3.8z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.2h16v10.4h-9.4L5.8 20.2v-3.6H4z"/><path d="M8 10h8M8 12.8h5"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M4.9 20.3a7.1 7.1 0 0 1 14.2 0"/></symbol>
+
+  <!-- 房产缩略图：客厅 / 立面（54 与 84 都可用） -->
+  <symbol id="th-room" viewBox="0 0 54 54">
+    <rect width="54" height="54" fill="#efe7da"/>
+    <rect x="4" y="4" width="46" height="30" fill="#f7f2e9"/>
+    <rect x="28" y="6" width="19" height="18" fill="#d7e6e1"/>
+    <path d="M28 15h19M37.5 6v18" stroke="#c3d6d1" stroke-width="2"/>
+    <rect x="28" y="6" width="19" height="18" fill="none" stroke="#b9a68b" stroke-width="2"/>
+    <rect y="34" width="54" height="20" fill="#d2bfa5"/>
+    <rect x="5" y="29" width="24" height="9" rx="3" fill="#b9a88e"/>
+    <rect x="5" y="36" width="24" height="9" rx="2" fill="#a79378"/>
+    <rect x="34" y="38" width="8" height="7" rx="1.5" fill="#b29c81"/>
+    <path d="M38 38c-4 0-6-3-6-7 4 0 6 3 6 7zM38 38c4 0 6-3 6-7-4 0-6 3-6 7z" fill="#6f887a"/>
+  </symbol>
+  <symbol id="th-tower" viewBox="0 0 54 54">
+    <rect width="54" height="54" fill="#e6eae9"/>
+    <rect x="0" y="34" width="10" height="20" fill="#c9d3d3"/>
+    <rect x="9" y="12" width="33" height="42" fill="#aebabc"/>
+    <g fill="#8fa0a3">
+      <rect x="13" y="16" width="5" height="6"/><rect x="22" y="16" width="5" height="6"/><rect x="31" y="16" width="5" height="6"/>
+      <rect x="13" y="27" width="5" height="6"/><rect x="31" y="27" width="5" height="6"/>
+      <rect x="13" y="38" width="5" height="6"/><rect x="22" y="38" width="5" height="6"/>
+    </g>
+    <g fill="#f2c68c"><rect x="22" y="27" width="5" height="6"/><rect x="31" y="38" width="5" height="6"/></g>
+    <rect x="44" y="26" width="10" height="28" fill="#c2cdcd"/>
+  </symbol>
+
+  <!-- 空态插画 168×84：虚线环 + 小屋 -->
+  <symbol id="art-empty" viewBox="0 0 168 84">
+    <circle cx="84" cy="42" r="34" fill="#14b8a6" opacity=".10"/>
+    <circle cx="84" cy="42" r="42" fill="none" stroke="#14b8a6" stroke-opacity=".26" stroke-width="1.2" stroke-dasharray="3 6"/>
+    <path d="M62 45l22-15 22 15v21a3.4 3.4 0 0 1-3.4 3.4H65.4A3.4 3.4 0 0 1 62 66z" fill="#fff" stroke="#14b8a6" stroke-width="2"/>
+    <path d="M76 69.4V57h11v12.4" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="104" cy="36" r="3.4" fill="#14b8a6" opacity=".5"/>
+    <circle cx="38" cy="30" r="2.4" fill="#14b8a6" opacity=".3"/>
+    <circle cx="46" cy="56" r="1.8" fill="#14b8a6" opacity=".22"/>
+    <circle cx="122" cy="52" r="2" fill="#14b8a6" opacity=".24"/>
+  </symbol>
+</defs></svg>
+
+<div class="board">
+
+  <!-- ===================== ① 租客 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 租客<span>375 × 812</span></div>
+    <div class="frame" id="v3-tenant">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <div class="hd-act"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg><i class="dot"></i></div>
+      </div>
+
+      <div class="body">
+        <!-- L1 房产卡 343×78 -->
+        <div class="prop">
+          <span class="th"><svg viewBox="0 0 54 54"><use href="#th-room"/></svg></span>
+          <div class="info">
+            <div class="nm">滨江壹号 3-1802</div>
+            <div class="sub">租住中 · 89㎡ · 租约至 2027.03</div>
+          </div>
+          <span class="rt"><svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span>
+        </div>
+
+        <!-- L2 等大图标宫格 343×80 -->
+        <div class="grid">
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wallet"/></svg><i class="bdg">1</i></span><span>账单缴费</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wrench"/></svg></span><span>在线报修</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-doc"/></svg></span><span>合同签署</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-cal"/></svg></span><span>我的租约</span></div>
+        </div>
+
+        <!-- L3 分组行卡：待办 2 行 -->
+        <div class="sec"><h2>本期待办</h2><span class="meta">2 项</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i warn" viewBox="0 0 24 24"><use href="#i-wallet"/></svg>
+            <span class="t">本月租金待缴</span>
+            <span class="m warn">¥8,600 · 剩 4 天</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i info" viewBox="0 0 24 24"><use href="#i-wrench"/></svg>
+            <span class="t">空调报修处理中</span>
+            <span class="m info">今日 14:00 上门</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+
+        <!-- L3 分组行卡：我的服务 3 行 -->
+        <div class="sec"><h2>我的服务</h2><span class="link">全部 ›</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-wallet"/></svg>
+            <span class="t">账单与缴费记录</span><span class="m">12 个月</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="t">合同与房屋档案</span><span class="m">4 份</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-gift"/></svg>
+            <span class="t">增值服务</span><span class="m">保洁 · 搬家</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+
+        <!-- L3 分组行卡：小区与物业 2 行 -->
+        <div class="sec"><h2>小区与物业</h2><span class="link">滨江壹号 ›</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-mega"/></svg>
+            <span class="t">小区公告</span><span class="m">周六电梯维保</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-headset"/></svg>
+            <span class="t">物业管家</span><span class="m">王师傅 · 在线</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ② 业主 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 业主<span>375 × 812 · 3 套在管</span></div>
+    <div class="frame" id="v3-owner">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <div class="hd-act"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg><i class="dot"></i></div>
+      </div>
+
+      <div class="body">
+        <!-- L1 房产卡（含切换入口，不另起横滑卡）343×78 -->
+        <div class="prop">
+          <span class="th"><svg viewBox="0 0 54 54"><use href="#th-tower"/></svg></span>
+          <div class="info">
+            <div class="nm">滨江壹号 5-0901</div>
+            <div class="sub">持有中 · 3 套在管</div>
+          </div>
+          <span class="rt sw">切换<svg viewBox="0 0 24 24"><use href="#i-down"/></svg></span>
+        </div>
+
+        <!-- L2 等大图标宫格 -->
+        <div class="grid">
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-trend"/></svg></span><span>收益明细</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg></span><span>我的房产</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg><i class="bdg">2</i></span><span>维修审批</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-mega"/></svg></span><span>委托营销</span></div>
+        </div>
+
+        <!-- L3 分组行卡：待办 3 行 -->
+        <div class="sec"><h2>本期待办</h2><span class="meta">3 项</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i err" viewBox="0 0 24 24"><use href="#i-wrench"/></svg>
+            <span class="t">维修申请待审批</span>
+            <span class="pill err">2 单</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i warn" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="t">出租委托合同待签</span>
+            <span class="m warn">剩 5 天</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i info" viewBox="0 0 24 24"><use href="#i-cal"/></svg>
+            <span class="t">5-0901 租约将到期</span>
+            <span class="m info">30 天后</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+
+        <!-- L3 分组行卡：我的服务 2 行 -->
+        <div class="sec"><h2>我的服务</h2><span class="link">全部 ›</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-trend"/></svg>
+            <span class="t">收益与账单</span><span class="m">本月 12,480</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            <span class="t">合同与发票</span><span class="m">6 份</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+
+        <!-- L3 分组行卡：小区与物业 2 行 -->
+        <div class="sec"><h2>小区与物业</h2><span class="link">我的 3 套 ›</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-mega"/></svg>
+            <span class="t">小区公告</span><span class="m">周六电梯维保</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-headset"/></svg>
+            <span class="t">专属管家</span><span class="m">王师傅 · 在线</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ③ 空态 ===================== -->
+  <div class="col">
+    <div class="frame-label">我家 · 空态<span>375 × 812 · 未绑定</span></div>
+    <div class="frame" id="v3-empty">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.6L1.4 4.2a9.4 9.4 0 0 1 13.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2" y="2" width="17" height="8" rx="2"/><path d="M23 4v4a2 2 0 0 0 0-4z"/></svg>
+        </span>
+      </div>
+
+      <div class="hd">
+        <h1>我家</h1>
+        <div class="hd-act"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg></div>
+      </div>
+
+      <div class="body">
+        <!-- L1 空态变体：同组件，343×212 -->
+        <div class="prop empty">
+          <svg class="art" viewBox="0 0 168 84"><use href="#art-empty"/></svg>
+          <h2>还没有绑定房产</h2>
+          <p>认领或添加你的房子，账单、报修、合同会自动归到这里</p>
+          <div class="acts">
+            <span class="btn-p">认领房产</span>
+            <span class="btn-g">添加房产</span>
+          </div>
+        </div>
+
+        <!-- L2 等大图标宫格：未绑定也能用 -->
+        <div class="grid">
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span><span>找房</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-calc"/></svg></span><span>房屋估价</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-wallet"/></svg></span><span>账单查询</span></div>
+          <div class="gi"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-headset"/></svg></span><span>物业客服</span></div>
+        </div>
+
+        <!-- L3 分组行卡：怎么绑定 3 行 -->
+        <div class="sec"><h2>怎么绑定</h2><span class="meta">约 1 分钟</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-home"/></svg>
+            <span class="t">认领已有房产</span><span class="m">推荐</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+            <span class="t">添加新房产</span><span class="m">按小区搜索</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-headset"/></svg>
+            <span class="t">联系管家协助</span><span class="m">在线</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+
+        <!-- L3 分组行卡：小区 2 行 -->
+        <div class="sec"><h2>小区与周边</h2><span class="link">切换小区 ›</span></div>
+        <div class="list">
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-mega"/></svg>
+            <span class="t">小区公告</span><span class="m">需绑定后查看</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+          <div class="row">
+            <svg class="i" viewBox="0 0 24 24"><use href="#i-pin"/></svg>
+            <span class="t">周边配套</span><span class="m">学校 · 地铁</span>
+            <svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-home"/></svg><span>首页</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg><span>我家</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-chat"/></svg><span>消息</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24"><use href="#i-person"/></svg><span>我的</span></div>
+      </div>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 说明（不参与截图） -->
+<div class="legend">
+  <h3>这一版只用了 3 种版式</h3>
+  <table>
+    <thead><tr><th>版式</th><th>尺寸</th><th>用在哪些模块</th></tr></thead>
+    <tbody>
+      <tr><td>L1 房产卡（空态为插画变体）</td><td>343 × 78 / 空态 343 × 212；缩略图 54，圆角 16</td><td>顶部房产信息；空态引导</td></tr>
+      <tr><td>L2 等大图标宫格</td><td>343 × 80；4 列，图标 24，文案 12</td><td>常用功能（租客 4 个 / 业主 4 个 / 空态 4 个）</td></tr>
+      <tr><td>L3 分组行卡</td><td>行高 48；图标 22；标题 15；右侧 12；hairline 左内缩 46</td><td>本期待办 / 我的服务 / 小区与物业 / 怎么绑定</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px">页边距 16，模块间距 12，分组标题上下 14 / 8。底部 4 tab 72 + home indicator。</p>
+  <p style="margin-top:6px">贝壳侧依据：贝壳找房官方《一站直达！贝壳App升级开通“我家”频道》(2023-01-11)，及文中“我家”频道与省心租业主/租客端截图（我的家 + 管理我家、房产卡、交易行情卡、服务进度、特权卡、更多生活服务）。</p>
+</div>
+
+</body>
+</html>

@@ -1,7 +1,8 @@
 /**
  * 合作公司管理员（role=partner_admin）聚合页
+ * 经营看板/佣金对账/审批排班/线索带看/成交收款/公司运营 +
  * 成员（/partner/members）· 绩效（/partner/performance）· 本公司考勤（/attendance/admin/summary）·
- * 本公司房源（/partner/properties）四块，Tab 切换。考勤作用域由后端强制为本公司。
+ * 本公司房源（/partner/properties），Tab 切换。考勤作用域由后端强制为本公司。
  */
 import React, { useCallback, useState } from 'react';
 import {
@@ -20,12 +21,39 @@ import colors from '@/theme/colors';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
 import PartnerMemberManager from '@/components/PartnerMemberManager';
+import PartnerDashboardTab from '@/components/partner/PartnerDashboardTab';
+import PartnerSettlementsTab from '@/components/partner/PartnerSettlementsTab';
+import PartnerReviewsTab from '@/components/partner/PartnerReviewsTab';
+import PartnerLeadsTab from '@/components/partner/PartnerLeadsTab';
+import PartnerBusinessTab from '@/components/partner/PartnerBusinessTab';
+import PartnerOpsTab from '@/components/partner/PartnerOpsTab';
 import { notifyError } from '@/utils/feedback';
 import { attendanceApi, partnerAdminApi } from '@/services/api';
 import { useI18n } from '@/i18n';
 
-type TabKey = 'members' | 'performance' | 'attendance' | 'properties';
-const TABS: TabKey[] = ['members', 'performance', 'attendance', 'properties'];
+type TabKey =
+  | 'dashboard'
+  | 'settlements'
+  | 'reviews'
+  | 'leads'
+  | 'business'
+  | 'ops'
+  | 'members'
+  | 'performance'
+  | 'attendance'
+  | 'properties';
+const TABS: TabKey[] = [
+  'dashboard',
+  'settlements',
+  'reviews',
+  'leads',
+  'business',
+  'ops',
+  'members',
+  'performance',
+  'attendance',
+  'properties',
+];
 
 const symOf = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
@@ -81,7 +109,7 @@ interface AttData {
 export default function PartnerHubScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
-  const [tab, setTab] = useState<TabKey>('members');
+  const [tab, setTab] = useState<TabKey>('dashboard');
 
   const [perf, setPerf] = useState<PerfData | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
@@ -417,12 +445,7 @@ export default function PartnerHubScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabScroll}
-        contentContainerStyle={styles.tabRow}
-      >
+      <View style={styles.tabRow}>
         {TABS.map((k) => (
           <TouchableOpacity
             key={k}
@@ -433,10 +456,22 @@ export default function PartnerHubScreen() {
             <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>{t(`partner.tab.${k}`)}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
       <View style={{ flex: 1 }}>
-        {tab === 'members' ? (
+        {tab === 'dashboard' ? (
+          <PartnerDashboardTab />
+        ) : tab === 'settlements' ? (
+          <PartnerSettlementsTab />
+        ) : tab === 'reviews' ? (
+          <PartnerReviewsTab />
+        ) : tab === 'leads' ? (
+          <PartnerLeadsTab />
+        ) : tab === 'business' ? (
+          <PartnerBusinessTab />
+        ) : tab === 'ops' ? (
+          <PartnerOpsTab />
+        ) : tab === 'members' ? (
           <PartnerMemberManager />
         ) : tab === 'performance' ? (
           renderPerformance()
@@ -453,8 +488,7 @@ export default function PartnerHubScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  tabScroll: { flexGrow: 0 },
-  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 4 },
+  tabRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 20, paddingBottom: 4 },
   tab: {
     paddingHorizontal: 16,
     paddingVertical: 8,

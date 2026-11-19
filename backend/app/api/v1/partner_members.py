@@ -27,6 +27,7 @@ from app.models import (
     UserRole,
     UserType,
     Partner,
+    PartnerAuditLog,
 )
 
 from .performance import _build_summary, _month_series
@@ -69,10 +70,11 @@ def _partner_guard(current: User) -> None:
         )
 
 
-def _ensure_partner_active(session: Session, partner_id: uuid.UUID) -> None:
+def _ensure_partner_active(session: Session, partner_id: uuid.UUID) -> Partner:
     p = session.get(Partner, partner_id)
     if not p or p.deleted_at or not p.is_active:
         raise HTTPException(status_code=400, detail="Partner company is not active")
+    return p
 
 
 def _company_user_ids(session: Session, partner_id: uuid.UUID) -> list[uuid.UUID]:
@@ -85,6 +87,9 @@ def _serialize_member(u: User, emp: Optional[Employee]) -> dict:
     data = serialize_user(u)
     data.update(
         id=str(u.id),
+        # 排班/线索/带看分配接口按 Employee.id 校验，单独返回员工档案 id，
+        # 避免前端把 User.id 当 employee_id 传导致 400/404。
+        employee_id=str(emp.id) if emp else None,
         role=u.role.value,
         user_type=u.user_type.value if u.user_type else None,
         partner_id=str(u.partner_id) if u.partner_id else None,
@@ -134,7 +139,7 @@ def create_member(
 ):
     """创建本公司账号（role=agent, user_type=partner, 归属本公司）。"""
     _partner_guard(current)
-    _ensure_partner_active(session, current.partner_id)
+    partner = _ensure_partner_active(session, current.partner_id)
     existing = session.exec(select(User).where(User.email == req.email)).first()
     if existing:
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -152,21 +157,30 @@ def create_member(
         is_active=True,
         is_verified=True,
     )
+    if partner.seat_limit:
+        current_count = len(_company_user_ids(session, current.partner_id))
+        if current_count >= partner.seat_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Seat limit reached ({partner.seat_limit}), contact platform",
+            )
+
     session.add(new_user)
     session.flush()
-    session.add(
-        Employee(
-            user_id=new_user.id,
-            employee_code=f"E{uuid.uuid4().hex[:8].upper()}",
-            department=current.full_name,
-            position=req.position,
-            hire_date=date_type.today(),
-            is_active=True,
-        )
+    emp = Employee(
+        user_id=new_user.id,
+        employee_code=f"E{uuid.uuid4().hex[:8].upper()}",
+        # 部门写公司名，而不是管理员姓名（修复历史缺陷）
+        department=partner.name,
+        position=req.position,
+        hire_date=date_type.today(),
+        is_active=True,
     )
+    session.add(emp)
     session.commit()
     session.refresh(new_user)
-    return _serialize_member(new_user, None)
+    session.refresh(emp)
+    return _serialize_member(new_user, emp)
 
 
 @router.post("/members/{user_id}/pull-in", response_model=MemberOut)
@@ -194,12 +208,26 @@ def pull_in_member(
             status_code=409, detail="User already belongs to a partner company"
         )
 
+    partner = _ensure_partner_active(session, current.partner_id)
+    if partner.seat_limit:
+        current_count = len(_company_user_ids(session, current.partner_id))
+        if current_count >= partner.seat_limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Seat limit reached ({partner.seat_limit}), contact platform",
+            )
+
     target.user_type = UserType.partner
     target.partner_id = current.partner_id
     session.add(target)
     session.commit()
     session.refresh(target)
-    return _serialize_member(target, None)
+    emp = session.exec(
+        select(Employee).where(
+            Employee.user_id == target.id, Employee.deleted_at.is_(None)
+        )
+    ).first()
+    return _serialize_member(target, emp)
 
 
 @router.delete("/members/{user_id}")
@@ -233,6 +261,139 @@ def remove_member(
     return {"id": str(target.id), "ok": True}
 
 
+class MemberUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    position: Optional[str] = None
+
+
+class PasswordReset(BaseModel):
+    password: Optional[str] = None
+
+
+def _target_member(session: Session, current: User, user_id: uuid.UUID) -> User:
+    target = session.get(User, user_id)
+    if not target or target.deleted_at or target.partner_id != current.partner_id:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return target
+
+
+def _audit_member(
+    session: Session, current: User, action: str, target: User, **detail
+) -> None:
+    session.add(
+        PartnerAuditLog(
+            partner_id=current.partner_id,
+            actor_user_id=current.id,
+            action=action,
+            resource_type="user",
+            resource_id=str(target.id),
+            detail=detail,
+        )
+    )
+
+
+@router.patch("/members/{user_id}", response_model=MemberOut)
+def update_member(
+    user_id: uuid.UUID,
+    req: MemberUpdate,
+    session: Session = Depends(get_session),
+    current: User = Depends(require_permission("partner:member:update")),
+):
+    """编辑本公司成员资料（姓名 / 手机 / 职位），跨公司 404。"""
+    _partner_guard(current)
+    _ensure_partner_active(session, current.partner_id)
+    target = _target_member(session, current, user_id)
+    if req.full_name is not None:
+        if not req.full_name.strip():
+            raise HTTPException(status_code=400, detail="full_name cannot be empty")
+        target.full_name = req.full_name.strip()
+    if req.phone is not None:
+        target.phone = req.phone or None
+    emp = session.exec(
+        select(Employee).where(
+            Employee.user_id == target.id, Employee.deleted_at.is_(None)
+        )
+    ).first()
+    if req.position is not None:
+        if not emp:
+            emp = Employee(
+                user_id=target.id,
+                employee_code=f"E{uuid.uuid4().hex[:8].upper()}",
+                department=None,
+                hire_date=date_type.today(),
+                is_active=True,
+            )
+        emp.position = req.position or None
+        session.add(emp)
+    session.add(target)
+    _audit_member(session, current, "member.update", target)
+    session.commit()
+    session.refresh(target)
+    return _serialize_member(target, emp)
+
+
+@router.post("/members/{user_id}/deactivate")
+def deactivate_member(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current: User = Depends(require_permission("partner:member:update")),
+):
+    """停用成员：立即禁止登录（token 校验会拒绝），且不能再接新线索。"""
+    _partner_guard(current)
+    target = _target_member(session, current, user_id)
+    if target.id == current.id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+    target.is_active = False
+    session.add(target)
+    _audit_member(session, current, "member.deactivate", target)
+    session.commit()
+    return {"id": str(target.id), "is_active": False}
+
+
+@router.post("/members/{user_id}/activate")
+def activate_member(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    current: User = Depends(require_permission("partner:member:update")),
+):
+    _partner_guard(current)
+    _ensure_partner_active(session, current.partner_id)
+    target = _target_member(session, current, user_id)
+    target.is_active = True
+    session.add(target)
+    _audit_member(session, current, "member.activate", target)
+    session.commit()
+    return {"id": str(target.id), "is_active": True}
+
+
+@router.post("/members/{user_id}/reset-password")
+def reset_member_password(
+    user_id: uuid.UUID,
+    req: PasswordReset,
+    session: Session = Depends(get_session),
+    current: User = Depends(require_permission("partner:member:reset_password")),
+):
+    """重置成员密码；未指定时生成临时密码并返回一次。"""
+    import secrets
+    import string
+
+    _partner_guard(current)
+    target = _target_member(session, current, user_id)
+    if req.password:
+        if len(req.password) < 6:
+            raise HTTPException(status_code=400, detail="Password too short (min 6)")
+        pwd = req.password
+    else:
+        alphabet = string.ascii_letters + string.digits
+        pwd = "".join(secrets.choice(alphabet) for _ in range(10))
+    target.hashed_password = get_password_hash(pwd)
+    session.add(target)
+    _audit_member(session, current, "member.reset_password", target)
+    session.commit()
+    return {"id": str(target.id), "password": pwd}
+
+
 @router.get("/performance")
 def company_performance(
     session: Session = Depends(get_session),
@@ -254,17 +415,13 @@ def company_performance(
         if user_ids
         else []
     )
-    employee_ids = [e.id for e in emp_rows]
-    settlements = (
-        session.exec(
-            select(CommissionSettlement).where(
-                CommissionSettlement.partner_id == current.partner_id,
-                CommissionSettlement.deleted_at.is_(None),
-            )
-        ).all()
-        if user_ids or employee_ids
-        else []
-    )
+    # 直接以 partner_id 判定（修复：公司有结算单但暂无成员时返回空列表的缺陷）
+    settlements = session.exec(
+        select(CommissionSettlement).where(
+            CommissionSettlement.partner_id == current.partner_id,
+            CommissionSettlement.deleted_at.is_(None),
+        )
+    ).all()
     now = datetime.utcnow()
 
     # 各经纪人明细（按结算的员工归属拆，便于查看各经纪人贡献）

@@ -52,6 +52,10 @@ class Lead(TimestampMixin, table=True):
     user_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="users.id", index=True
     )
+    # 归属合作公司：NULL = 平台线索；非空 = 该公司线索池线索。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )
     notes: Optional[str] = None
     source: Optional[str] = None  # 来源渠道
     # 客户需求描述：Web CRM 表单有该字段并在编辑时回填，此前后端无此列，

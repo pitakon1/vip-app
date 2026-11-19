@@ -135,6 +135,10 @@ class Contract(TimestampMixin, table=True):
     )
     lease_id: Optional[uuid.UUID] = Field(default=None, foreign_key="leases.id")
     property_id: Optional[uuid.UUID] = Field(default=None, foreign_key="properties.id")
+    # 合作公司归属：由关联租约/佣金结算回填，合作端只读本公司合同。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )
     title: str
     kind: ContractKind = Field(
         default=ContractKind.lease, index=True, description="合同/协议类型"
@@ -225,6 +229,14 @@ class SignatureRecord(TimestampMixin, table=True):
     proxy_authorization_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="contract_sign_authorizations.id", index=True
     )
+    # ---- 可信时间戳（RFC 3161）审计字段 ----
+    # 历史记录为 NULL：表示签署时未接 TSA（或 TSA 失败降级），展示上标注「未签时间戳」。
+    tsa_url: Optional[str] = Field(default=None, max_length=255)
+    tsa_time: Optional[datetime] = None
+    tsa_cert_subject: Optional[str] = Field(default=None, max_length=512)
+    tsa_cert_thumbprint: Optional[str] = Field(default=None, max_length=128)
+    # 本次验签实际链到的信任锚：platform-self-signed / public:<CN>。
+    trust_anchor_id: Optional[str] = Field(default=None, max_length=255)
 
 
 class SignAssetScope(str, Enum):

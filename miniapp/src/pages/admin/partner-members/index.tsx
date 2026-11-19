@@ -294,6 +294,12 @@ export default function PartnerMembersPage() {
           {/* 公司概览 */}
           <View className='pm-toolbar'>
             <View
+              className='pm-tool pm-tool--primary'
+              onClick={() => Taro.navigateTo({ url: '/pages/admin/partner-console/index' })}
+            >
+              {t('nav.partnerConsole')}
+            </View>
+            <View
               className='pm-tool pm-tool--info'
               onClick={() => Taro.navigateTo({ url: '/pages/admin/partner-attendance/index' })}
             >

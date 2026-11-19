@@ -283,7 +283,7 @@ export default function IncomeScreen() {
             title={t('income.noRecords')}
             sub={t('income.noRecordsSub')}
             actionLabel={t('profile.addProperty')}
-            onAction={() => navigation.navigate('PropertyBinding')}
+            onAction={() => navigation.navigate('OwnerProperties', { openBinding: true })}
           />
         ) : (
           filtered.map((item, idx) => {

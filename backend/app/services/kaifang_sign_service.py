@@ -20,6 +20,7 @@
                              w=30, h=12, reason="双方电子签署")    # 定位签署
     rep = engine.verify_pdf(signed)                               # 验签
 """
+import hashlib
 import io
 import logging
 import math
@@ -53,6 +54,7 @@ class KaifangSignEngine:
         self._signer = None
         self._trust_root = None
         self._identity = None
+        self._self_ca_der: Optional[bytes] = None
 
     # ---------------- 证书 / 签署器 ----------------
     # 懒装配：首次使用才生成/加载 CA，避免导入期副作用。
@@ -76,10 +78,15 @@ class KaifangSignEngine:
         }
 
     def _ensure_identity(self) -> None:
-        """加载或生成自签 CA，并构建 pyhanko SimpleSigner + 信任根。
+        """加载或生成签名证书，并构建 pyhanko SimpleSigner + 信任根。
 
-        - 已存在 ca_key.pem / ca_cert.pem 则直接复用（保证跨重启验签一致）；
-        - 否则生成 RSA-2048 自签 CA（CA:TRUE, 365 天）并落盘 + 导出 PKCS12。
+        优先级：
+        1. `SIGN_CERT_PATH` 已配置 → 用采购的公共 CA 证书（pfx/p12 或 pem+key）；
+        2. 否则复用 `SIGN_ENGINE_CERT_DIR` 下已有的自签 CA；
+        3. 再否则生成 RSA-2048 自签 CA（CA:TRUE, 365 天）并落盘 + 导出 PKCS12。
+
+        自签证书只用于平台内部验签：Adobe 等外部阅读器会提示「签名者不受信」，
+        这是采购公共证书前的预期状态，接口会带 `trust_level=platform` 标注。
         """
         from cryptography import x509
         from cryptography.hazmat.primitives import hashes, serialization
@@ -92,54 +99,65 @@ class KaifangSignEngine:
         from pyhanko_certvalidator.registry import SimpleCertificateStore
 
         files = self._ca_files()
-        if files["key"].exists() and files["cert"].exists():
-            key_pem = files["key"].read_bytes()
-            cert_pem = files["cert"].read_bytes()
-        else:
-            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-            cn = f"VIP租房开放签引擎 v{uuid.uuid4().hex[:6]}"
-            name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
-            now = datetime.now(timezone.utc)
-            cert = (
-                x509.CertificateBuilder()
-                .subject_name(name)
-                .issuer_name(name)
-                .public_key(key.public_key())
-                .serial_number(x509.random_serial_number())
-                .not_valid_before(now - timedelta(days=1))
-                .not_valid_after(now + timedelta(days=365))
-                .add_extension(
-                    x509.BasicConstraints(ca=True, path_length=None), critical=True
-                )
-                .add_extension(
-                    x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
-                    critical=False,
-                )
-                .sign(key, hashes.SHA256())
-            )
-            key_pem = key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.NoEncryption(),
-            )
-            cert_pem = cert.public_bytes(serialization.Encoding.PEM)
-            files["key"].write_bytes(key_pem)
-            files["cert"].write_bytes(cert_pem)
-            pfx = serialization.pkcs12.serialize_key_and_certificates(
-                name=b"kfq-engine",
-                key=key,
-                cert=cert,
-                cas=None,
-                encryption_algorithm=serialization.BestAvailableEncryption(
-                    self._pfx_pass.encode("utf-8")
-                ),
-            )
-            files["pfx"].write_bytes(pfx)
+        configured_path = (settings.SIGN_CERT_PATH or "").strip()
+        self_signed = True
+        chain = []
 
-        cert_asn = next(load_certs_from_pemder_data(cert_pem))
-        key_asn = load_private_key_from_pemder_data(key_pem, passphrase=None)
+        if configured_path:
+            key_asn, cert_asn, chain = self._load_configured_cert(Path(configured_path))
+            self_signed = False
+        else:
+            if files["key"].exists() and files["cert"].exists():
+                key_pem = files["key"].read_bytes()
+                cert_pem = files["cert"].read_bytes()
+            else:
+                key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+                cn = f"VIP租房开放签引擎 v{uuid.uuid4().hex[:6]}"
+                name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+                now = datetime.now(timezone.utc)
+                cert = (
+                    x509.CertificateBuilder()
+                    .subject_name(name)
+                    .issuer_name(name)
+                    .public_key(key.public_key())
+                    .serial_number(x509.random_serial_number())
+                    .not_valid_before(now - timedelta(days=1))
+                    .not_valid_after(now + timedelta(days=365))
+                    .add_extension(
+                        x509.BasicConstraints(ca=True, path_length=None), critical=True
+                    )
+                    .add_extension(
+                        x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
+                        critical=False,
+                    )
+                    .sign(key, hashes.SHA256())
+                )
+                key_pem = key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption(),
+                )
+                cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+                files["key"].write_bytes(key_pem)
+                files["cert"].write_bytes(cert_pem)
+                pfx = serialization.pkcs12.serialize_key_and_certificates(
+                    name=b"kfq-engine",
+                    key=key,
+                    cert=cert,
+                    cas=None,
+                    encryption_algorithm=serialization.BestAvailableEncryption(
+                        self._pfx_pass.encode("utf-8")
+                    ),
+                )
+                files["pfx"].write_bytes(pfx)
+
+            cert_asn = next(load_certs_from_pemder_data(cert_pem))
+            key_asn = load_private_key_from_pemder_data(key_pem, passphrase=None)
+
         store = SimpleCertificateStore()
         store.register(cert_asn)
+        for extra in chain:
+            store.register(extra)
 
         from pyhanko.sign import signers
 
@@ -148,7 +166,9 @@ class KaifangSignEngine:
             signing_key=key_asn,
             cert_registry=store,
         )
-        self._trust_root = cert_asn
+        # 自签 CA 作为额外信任锚；采购证书则只依赖公共根（certifi）
+        self._trust_root = cert_asn if self_signed else None
+        self._self_ca_der = cert_asn.dump()
         try:
             cn = (
                 cert_asn.subject.native.get("common_name", "")
@@ -161,7 +181,55 @@ class KaifangSignEngine:
             "configured": True,
             "cn": cn or "电子签引擎CA",
             "pfx": files["pfx"].name if files["pfx"].exists() else None,
+            "self_signed": self_signed,
+            "cert_path": configured_path or None,
+            "trust_level": "platform" if self_signed else "public",
         }
+
+    def _load_configured_cert(self, path: Path):
+        """加载采购的签名证书（pfx/p12 或 pem + 同名 .key），返回 (key, cert, chain)。"""
+        from asn1crypto import x509 as asn1_x509
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            NoEncryption,
+            PrivateFormat,
+            pkcs12,
+        )
+        from pyhanko.keys import (
+            load_certs_from_pemder_data,
+            load_private_key_from_pemder_data,
+        )
+
+        if not path.exists():
+            raise RuntimeError(f"signing certificate not found: {path}")
+        password = (settings.SIGN_CERT_PASSWORD or "").encode("utf-8") or None
+        raw = path.read_bytes()
+        chain = []
+
+        if path.suffix.lower() in (".pfx", ".p12"):
+            key, cert, additional = pkcs12.load_key_and_certificates(raw, password)
+            if key is None or cert is None:
+                raise RuntimeError("pkcs12 does not contain a key/certificate pair")
+            key_pem = key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+            certs = [cert, *(additional or [])]
+            chain = [
+                asn1_x509.Certificate.load(c.public_bytes(Encoding.DER))
+                for c in certs[1:]
+            ]
+            cert_asn = asn1_x509.Certificate.load(certs[0].public_bytes(Encoding.DER))
+        else:
+            cert_pem = raw
+            key_path = path.with_suffix(".key")
+            if not key_path.exists():
+                raise RuntimeError(f"signing key not found: {key_path}")
+            key_pem = key_path.read_bytes()
+            loaded = list(load_certs_from_pemder_data(cert_pem))
+            if not loaded:
+                raise RuntimeError(f"no certificate in {path}")
+            cert_asn, chain = loaded[0], loaded[1:]
+
+        key_asn = load_private_key_from_pemder_data(key_pem, passphrase=password)
+        return key_asn, cert_asn, chain
 
     def identity(self) -> Dict[str, Any]:
         """引擎身份信息（供探针/健康检查展示）。"""
@@ -392,6 +460,7 @@ class KaifangSignEngine:
         w: float = 30.0,
         h: float = 12.0,
         reason: Optional[str] = None,
+        meta_out: Optional[dict] = None,
     ) -> bytes:
         """在 PDF 指定页面、相对左上角坐标处盖 img 并做数字签名。
 
@@ -452,23 +521,53 @@ class KaifangSignEngine:
         )
 
         field_name = f"VipSign{uuid.uuid4().hex[:8]}"
-        meta = signers.PdfSignatureMetadata(
+        sig_meta = signers.PdfSignatureMetadata(
             field_name=field_name,
             reason=reason or None,
             location="vip app",
         )
-        ps = signers.PdfSigner(
-            meta,
-            signer=self.signer,
-            timestamper=_make_timestamper(),
-            stamp_style=style,
-            new_field_spec=SigFieldSpec(field_name, on_page=page - 1, box=box),
-        )
-        writer = IncrementalPdfFileWriter(io.BytesIO(pdf_bytes))
-        out = io.BytesIO()
-        ps.sign_pdf(writer, output=out)
-        out.seek(0)
-        return out.getvalue()
+        tsa_record: dict = {}
+        tsa_configured = bool((settings.TSA_URL or "").strip())
+
+        def _do_sign(with_timestamp: bool) -> bytes:
+            ps = signers.PdfSigner(
+                sig_meta,
+                signer=self.signer,
+                timestamper=_make_timestamper(tsa_record if with_timestamp else None),
+                stamp_style=style,
+                new_field_spec=SigFieldSpec(field_name, on_page=page - 1, box=box),
+            )
+            writer = IncrementalPdfFileWriter(io.BytesIO(pdf_bytes))
+            out_buf = io.BytesIO()
+            ps.sign_pdf(writer, output=out_buf)
+            out_buf.seek(0)
+            return out_buf.getvalue()
+
+        try:
+            signed_bytes = _do_sign(with_timestamp=True)
+        except Exception as exc:  # noqa: BLE001
+            if not tsa_configured:
+                raise
+            # TSA 不可达/超时不应让合同签不出去：退化为「无时间戳签名」，
+            # 并在 meta_out 里如实标记失败原因，验签页据此标注时间戳缺失。
+            logger.warning("tsa.sign_failed_fallback_no_timestamp: %s", exc)
+            tsa_record = {"tsa_status": "failed", "tsa_error": str(exc)[:300]}
+            signed_bytes = _do_sign(with_timestamp=False)
+
+        if meta_out is not None:
+            meta_out.update(
+                {
+                    "tsa_url": (settings.TSA_URL or "").strip() or None,
+                    "tsa_status": tsa_record.get(
+                        "tsa_status", "signed" if tsa_configured else "not_configured"
+                    ),
+                    "tsa_time": tsa_record.get("tsa_time"),
+                    "tsa_cert_subject": tsa_record.get("tsa_cert_subject"),
+                    "tsa_cert_thumbprint": tsa_record.get("tsa_cert_thumbprint"),
+                    "tsa_error": tsa_record.get("tsa_error"),
+                }
+            )
+        return signed_bytes
 
     # ---------------- 验签 ----------------
     def page_count(self, pdf_bytes: bytes) -> int:
@@ -515,23 +614,152 @@ class KaifangSignEngine:
         return hits
 
     def verify_pdf(self, pdf_bytes: bytes) -> list:
-        """校验 PDF 内嵌签名，返回每一条签名的完好性/可信性/签署主体。"""
+        """校验 PDF 内嵌签名，返回每一条签名的完好性/可信性/时间戳状态。
+
+        验签口径（三端统一按这三个字段展示）：
+        - `signature_status`: `valid_trusted`（有效且可信）/ `valid_untrusted`
+          （密码学有效但签发者不在信任锚内）/ `invalid`（被改动或校验失败）；
+        - `signature_valid` + `signer_trusted`: 供旧调用方判断；
+        - `timestamp.trusted`: 时间戳是否存在且可信（不存在时为 null）。
+
+        信任锚同时挂：平台自签 CA（`trust_level=platform`）与 certifi 公共根
+        （`trust_level=public`）。公共 TSA 的时间戳必须用**独立的**
+        `ts_validation_context` 验，否则接 DigiCert 后会被误判不可信。
+        """
         from pyhanko.pdf_utils.reader import PdfFileReader
         from pyhanko.sign.validation import validate_pdf_signature
         from pyhanko.sign.validation.pdf_embedded import collect_embedded_signatures
         from pyhanko_certvalidator import ValidationContext
 
-        vc = ValidationContext(trust_roots=[self.trust_root])
+        signer_vc = ValidationContext(trust_roots=self._signer_trust_roots())
+        ts_vc = ValidationContext(trust_roots=_public_root_certs())
+
         rdr = PdfFileReader(io.BytesIO(pdf_bytes))
         results = []
         for sig in collect_embedded_signatures(rdr):
-            r = validate_pdf_signature(sig, signer_validation_context=vc)
-            results.append({
-                "valid": int(r.intact),
-                "trusted": int(r.trusted),
-                "signed_by": str(getattr(r.signing_cert, "subject", "")),
-            })
+            try:
+                r = validate_pdf_signature(
+                    sig,
+                    signer_validation_context=signer_vc,
+                    ts_validation_context=ts_vc,
+                )
+            except Exception as exc:  # noqa: BLE001  单条签名异常不影响其他签名
+                logger.warning("verify.signature_failed field=%s", sig.field_name, exc_info=True)
+                results.append(
+                    {
+                        "field_name": sig.field_name,
+                        "valid": 0,
+                        "trusted": 0,
+                        "signature_valid": False,
+                        "signer_trusted": False,
+                        "signature_status": "invalid",
+                        "trust_anchor_id": None,
+                        "trust_level": "untrusted",
+                        "signed_by": None,
+                        "timestamp": {
+                            "present": False,
+                            "valid": False,
+                            "trusted": None,
+                            "time": None,
+                            "tsa_subject": None,
+                            "error": str(exc)[:300],
+                        },
+                    }
+                )
+                continue
+
+            anchor_id, trust_level = self._classify_trust_anchor(
+                getattr(getattr(r, "validation_path", None), "trust_anchor", None)
+            )
+            signature_valid = bool(r.intact and r.valid)
+            signer_trusted = bool(r.trusted) and signature_valid
+            if signature_valid and signer_trusted:
+                status = "valid_trusted"
+            elif signature_valid:
+                status = "valid_untrusted"
+            else:
+                status = "invalid"
+
+            results.append(
+                {
+                    "field_name": sig.field_name,
+                    "valid": int(r.intact),
+                    "trusted": int(signer_trusted),
+                    "signature_valid": signature_valid,
+                    "signer_trusted": signer_trusted,
+                    "signature_status": status,
+                    "trust_anchor_id": anchor_id,
+                    "trust_level": trust_level,
+                    "signed_by": _human_name(getattr(r, "signing_cert", None)),
+                    "timestamp": self._timestamp_summary(
+                        getattr(r, "timestamp_validity", None)
+                    ),
+                    "identity_trust_level": (self.identity() or {}).get("trust_level"),
+                }
+            )
         return results
+
+    def _signer_trust_roots(self) -> list:
+        """签名者信任锚：公共根 + 平台自签 CA（采购证书后自签根仍保留，兼容存量）。"""
+        roots = list(_public_root_certs())
+        if self._trust_root is not None:
+            roots.append(self._trust_root)
+        return roots
+
+    def _classify_trust_anchor(self, anchor) -> tuple[Optional[str], str]:
+        """按实际链到的根证书路由：自签 CA → platform；公共根 → public。
+
+        pyhanko 的 `ValidationPath.trust_anchor` 是 `CertTrustAnchor` 包装，
+        真正的证书在 `.certificate`；老版本可能直接给证书对象，两种都兼容。
+        """
+        if anchor is None:
+            return None, "untrusted"
+        cert = getattr(anchor, "certificate", anchor)
+        try:
+            if self._self_ca_der and cert.dump() == self._self_ca_der:
+                return "platform-self-signed", "platform"
+        except Exception:  # noqa: BLE001
+            pass
+        cn = ""
+        try:
+            cn = cert.subject.native.get("common_name", "") or ""
+        except Exception:  # noqa: BLE001
+            pass
+        if not cn:
+            try:
+                cn = cert.sha256.hex()[:16]
+            except Exception:  # noqa: BLE001
+                cn = "unknown-root"
+        return f"public:{cn}", "public"
+
+    @staticmethod
+    def _timestamp_summary(ts_status) -> dict:
+        """把 pyhanko 的 TimestampSignatureStatus 归一成三端可直接展示的结构。"""
+        if ts_status is None:
+            return {
+                "present": False,
+                "valid": False,
+                "trusted": None,
+                "time": None,
+                "tsa_subject": None,
+                "error": None,
+            }
+        ok = bool(getattr(ts_status, "intact", False) and getattr(ts_status, "valid", False))
+        trusted = ok and bool(getattr(ts_status, "trusted", False))
+        gen_time = getattr(ts_status, "timestamp", None)
+        subject = None
+        try:
+            subject = _human_name(getattr(ts_status, "signing_cert", None))
+        except Exception:  # noqa: BLE001
+            subject = None
+        return {
+            "present": True,
+            "valid": ok,
+            "trusted": trusted,
+            "time": gen_time.isoformat() if hasattr(gen_time, "isoformat") else None,
+            "tsa_subject": subject,
+            "error": None if trusted else "timestamp not anchored to a trusted root",
+        }
 
     # ---------------- 骑缝章（仅新建合同启用） ----------------
     def apply_seam_seal(
@@ -630,22 +858,163 @@ def _esc(v: Any) -> str:
 _ENGINE: Optional[KaifangSignEngine] = None
 
 
-def _make_timestamper():
-    """按配置构造 RFC 3161 时间戳客户端（未配置 `TSA_URL` 时返回 None）。
+def _make_timestamper(record: Optional[dict] = None):
+    """按配置构造 RFC 3161 时间戳客户端（`TSA_URL` 为空时返回 None＝不签时间戳）。
 
-    默认关闭：不内置任何商业 CA，也不做「假时间戳」占位；需要可信时间戳时
-    把 `TSA_URL` 指向自建 OpenTSA 或公共 RFC3161 服务即可（见 docs 部署说明）。
+    默认指向 DigiCert 公共 TSA（`http://timestamp.digicert.com`），其根证书在
+    certifi 公共根中，对外验签可信。商业 TSA 若需 HTTP Basic，用
+    `TSA_USERNAME` / `TSA_PASSWORD` 配置。
+
+    传入 `record` 时，把本次时间戳的签发时间、TSA 证书主体与 SHA-256 指纹
+    写回字典，供 SignatureRecord 审计字段使用（不改变签名结果）。
     """
     url = (settings.TSA_URL or "").strip()
     if not url:
         return None
     try:
         from pyhanko.sign.timestamps import HTTPTimeStamper
+        from pyhanko.sign.timestamps.common_utils import extract_ts_certs
 
-        return HTTPTimeStamper(url, https=url.lower().startswith("https://"))
+        username = (settings.TSA_USERNAME or "").strip()
+        password = (settings.TSA_PASSWORD or "").strip()
+        auth = (username, password) if username and password else None
+
+        class _RecordingTimeStamper(HTTPTimeStamper):
+            """记录 TSA 响应的元数据；任何解析失败都不影响签名本身。"""
+
+            async def async_timestamp(self, message_digest, md_algorithm):
+                token = await super().async_timestamp(message_digest, md_algorithm)
+                if record is not None:
+                    try:
+                        certs = list(extract_ts_certs(token, self.cert_registry))
+                        gen_time = (
+                            token["content"]["encap_content_info"]["content"]
+                            .parsed["gen_time"]
+                            .native
+                        )
+                        tsa_cert = next(
+                            (
+                                c
+                                for c in certs
+                                if c.key_usage_value
+                                and "time_stamping" in c.key_usage_value.native
+                            ),
+                            certs[0] if certs else None,
+                        )
+                        record.update(
+                            {
+                                "tsa_time": gen_time.isoformat()
+                                if hasattr(gen_time, "isoformat")
+                                else str(gen_time),
+                                "tsa_cert_subject": (
+                                    tsa_cert.subject.human_friendly
+                                    if tsa_cert is not None
+                                    else None
+                                ),
+                                "tsa_cert_thumbprint": (
+                                    hashlib.sha256(tsa_cert.dump()).hexdigest()
+                                    if tsa_cert is not None
+                                    else None
+                                ),
+                                "tsa_status": "signed",
+                            }
+                        )
+                    except Exception:  # noqa: BLE001
+                        logger.warning("tsa.metadata_extract_failed", exc_info=True)
+                return token
+
+        return _RecordingTimeStamper(
+            url,
+            https=url.lower().startswith("https://"),
+            auth=auth,
+        )
     except Exception:  # noqa: BLE001  依赖缺失/配置错误不应阻断签署
         logger.exception("tsa.timestamper_init_failed")
         return None
+
+
+# certifi 公共根证书只解析一次：~140 张，重复解析会拖慢每次验签
+_PUBLIC_ROOTS: Optional[list] = None
+
+
+def _human_name(cert) -> Optional[str]:
+    """证书主体转可读文本（asn1crypto 的 str() 会给出内存地址，不能直接展示）。"""
+    if cert is None:
+        return None
+    try:
+        return cert.subject.human_friendly
+    except Exception:  # noqa: BLE001
+        return str(getattr(cert, "subject", "")) or None
+
+
+def _public_root_certs() -> list:
+    """加载公共信任锚：certifi 公共根 + `EXTRA_TRUST_ROOTS_DIR` 下补充的根证书。
+
+    certifi 不含部分服务商的旧根（例如 DigiCert Assured ID Root CA），
+    而 DigiCert TSA 的响应链正落在这条根上；把这些根以 PEM/DER 放进
+    `sign-engine/tsa-roots/` 即可，无需改代码（信任锚可配置）。
+    """
+    global _PUBLIC_ROOTS
+    if _PUBLIC_ROOTS is not None:
+        return _PUBLIC_ROOTS
+    certs: list = []
+    try:
+        import certifi
+        from asn1crypto import x509 as asn1_x509
+        from cryptography import x509 as crypto_x509
+        from cryptography.hazmat.primitives.serialization import Encoding
+
+        pem = Path(certifi.where()).read_bytes()
+        for chunk in pem.split(b"-----END CERTIFICATE-----"):
+            if b"-----BEGIN CERTIFICATE-----" not in chunk:
+                continue
+            body = chunk.split(b"-----BEGIN CERTIFICATE-----", 1)[1]
+            try:
+                cert = crypto_x509.load_pem_x509_certificate(
+                    body + b"-----END CERTIFICATE-----\n"
+                )
+                certs.append(
+                    asn1_x509.Certificate.load(cert.public_bytes(Encoding.DER))
+                )
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        logger.warning("public_roots.load_failed", exc_info=True)
+
+    certs.extend(_extra_root_certs())
+    _PUBLIC_ROOTS = certs
+    logger.info("public_roots.loaded count=%s", len(certs))
+    return certs
+
+
+def _extra_root_certs() -> list:
+    """加载 `EXTRA_TRUST_ROOTS_DIR`（默认 backend/sign-engine/tsa-roots）下的根证书。"""
+    from asn1crypto import x509 as asn1_x509
+    from pyhanko.keys import load_certs_from_pemder_data
+
+    configured = (getattr(settings, "EXTRA_TRUST_ROOTS_DIR", "") or "").strip()
+    base = (
+        Path(configured)
+        if configured
+        else Path(__file__).resolve().parents[2] / "sign-engine" / "tsa-roots"
+    )
+    if not base.exists():
+        return []
+    certs: list = []
+    for path in sorted(base.iterdir()):
+        if path.suffix.lower() not in (".pem", ".crt", ".cer", ".der"):
+            continue
+        try:
+            raw = path.read_bytes()
+            if raw.lstrip().startswith(b"-----BEGIN"):
+                certs.extend(load_certs_from_pemder_data(raw))
+            else:
+                certs.append(asn1_x509.Certificate.load(raw))
+        except Exception:  # noqa: BLE001
+            logger.warning("trust_roots.load_failed path=%s", path, exc_info=True)
+    if certs:
+        logger.info("trust_roots.extra_loaded dir=%s count=%s", base, len(certs))
+    return certs
 
 
 def get_engine() -> KaifangSignEngine:

@@ -265,16 +265,25 @@ export async function contractPdfPageUrl(
 /**
  * 受保护二进制文件下载（已签合同 / 存证报告）。
  *
- * 后端这两个接口只认 `Authorization` 头，不能像 PDF 页图那样拼 `?token=`，
- * 因此先带登录态取 Blob，再在 Web 端触发浏览器下载。原生端没有等价的
- * 「保存到文件」能力（未引入 expo-file-system），返回 false 交由调用方提示。
+ * - Web：带登录态取 Blob 后触发浏览器下载。
+ * - 原生：已签合同先换取 24h HMAC 下载链接，再交给系统浏览器打开
+ *   （浏览器自带 PDF 预览/保存）；存证报告没有公开链接，返回 false。
  */
 export async function downloadProtectedFile(path: string, filename: string): Promise<boolean> {
+  if (Platform.OS !== 'web') {
+    const linkPath = path.replace(/\/signed-file$/, '/signed-file-link');
+    if (linkPath === path) return false;
+    const res = await apiClient.get(linkPath);
+    const url = (res.data as any)?.url;
+    if (!url) return false;
+    const WebBrowser = await import('expo-web-browser');
+    await WebBrowser.openBrowserAsync(`${API_ORIGIN}${url}`);
+    return true;
+  }
   const res = await apiClient.get(path, {
     responseType: 'blob',
     transformResponse: (raw) => raw,
   });
-  if (Platform.OS !== 'web') return false;
   const raw = res.data as unknown;
   const blob = raw instanceof Blob ? raw : new Blob([raw as BlobPart]);
   const url = URL.createObjectURL(blob);

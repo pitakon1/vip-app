@@ -17,12 +17,12 @@ interface NavItem {
 
 /**
  * C 端（业主 + 租客 + 未登录访客）统一底部导航：与 App `MainTabNavigator` 的 C 端 Tab
- * 一致 —— 首页 / 发现 / 消息 / 我的。找房列表不再占用底部 Tab（由首页搜索与分类磁贴进入），
- * 与 App 的「浏览无需注册」结构对齐。
+ * 一致 —— 首页 / 我家 / 消息 / 我的。找房列表不再占用底部 Tab（由首页搜索与分类磁贴进入），
+ * 与 App 的「浏览无需注册」结构对齐。「我家」承载资产与事务，「我的」只留个人内容。
  */
 const C_NAV: NavItem[] = [
   { key: 'dashboard', label: 'tab.home', icon: 'home', path: '/pages/tenant/home/index' },
-  { key: 'discover', label: 'tab.discover', icon: 'compass', path: '/pages/public/discover/index' },
+  { key: 'myhome', label: 'tab.myHome', icon: 'building', path: '/pages/my-home/index' },
   { key: 'messages', label: 'tab.messages', icon: 'message', path: '/pages/chat/list/index' },
   { key: 'profile', label: 'tab.profile', icon: 'user', path: '/pages/profile/index' },
 ]

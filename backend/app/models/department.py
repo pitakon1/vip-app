@@ -31,3 +31,7 @@ class Department(TimestampMixin, table=True):
     )
     sort: int = Field(default=0, description="同级排序，越小越靠前")
     is_active: bool = Field(default=True)
+    # 归属合作公司：NULL = 平台组织架构；合作公司团队复用部门树（组长=leader_id）。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )

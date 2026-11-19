@@ -60,7 +60,7 @@ export interface TicketItem {
   created_at?: string
 }
 
-export type IconType = 'cleaning' | 'ac' | 'wifi' | 'utility' | 'other'
+export type IconType = 'cleaning' | 'ac' | 'wifi' | 'utility' | 'moving' | 'other'
 
 /** 订阅套餐（业主专享） */
 export interface PlanItem {

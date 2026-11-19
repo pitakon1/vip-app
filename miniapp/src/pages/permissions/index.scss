@@ -1,0 +1,45 @@
+.permissions-page {
+  min-height: 100vh;
+  background: var(--bg, #f5f7f9);
+}
+
+.permissions-row {
+  align-items: center;
+}
+
+.permissions-row--disabled {
+  opacity: 0.55;
+}
+
+.permissions-row__status {
+  font-size: 24px;
+  color: var(--ink-3, #68717a);
+  margin-right: 12px;
+  max-width: 320px;
+  text-align: right;
+}
+
+.permissions-row__status--granted {
+  color: var(--primary, #14b8a6);
+}
+
+.permissions-row__status--denied {
+  color: var(--error, #dc2626);
+}
+
+.permissions-row__status--unsupported {
+  color: var(--ink-3, #68717a);
+}
+
+.permissions-row__switch {
+  transform: scale(0.7);
+  transform-origin: right center;
+}
+
+.permissions-hint {
+  display: block;
+  margin: 20px 24px 40px;
+  font-size: 22px;
+  line-height: 1.6;
+  color: var(--ink-3, #68717a);
+}

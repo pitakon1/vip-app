@@ -4,9 +4,8 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import BottomNav from '@/components/BottomNav'
 import StatusTop from '@/components/StatusTop'
 import useAuthStore from '@/stores/auth'
-import { authApi, chatApi, companyApi, leasesApi } from '@/services/api'
+import { authApi, chatApi, companyApi } from '@/services/api'
 import { unwrapUploadResult, resolveMediaUrl } from '@/lib/api'
-import { useSwrCache } from '@/hooks/useSwrCache'
 import { clearCacheSync } from '@/utils/cache'
 import { iconStyle } from '@/utils/icons'
 import type { IconKey } from '@/utils/icons'
@@ -28,29 +27,14 @@ interface RowEntry {
   url?: string
 }
 
-// C 端统一「常用功能」宫格：产品模型上 C 端只有一种用户（有的名下有房产、有的只是租房），
-// 入口对全部登录用户完整展示，不再按 owner/tenant 或「有没有资产」过滤；
-// 点进去没有数据时由目标页给空态 + 引导（如「还没有绑定房产，去添加」）。
+// C 端「我的」只保留个人内容：收藏、浏览足迹、降价提醒、我的订单（对齐贝壳首屏宫格）。
+// 账单/报修/合同/租约/房产/收益/委托/小区事务全部收敛到「我家」Tab，禁止同一功能两处出现。
 const C_GRID: Array<{ key: string; label: string; url: string; icon: IconKey }> = [
-  // 添加我的房产：自助提交绑定申请，后台审核通过后才建立与房源的关联
-  { key: 'addProperty', label: 'profile.addProperty', url: '/pages/property-binding/index', icon: 'home' },
-  { key: 'assetOverview', label: 'nav.ownerHome', url: '/pages/owner/home/index', icon: 'chart' },
-  { key: 'manageProperties', label: 'nav.propertyManage', url: '/pages/owner/properties/index', icon: 'home' },
-  { key: 'incomeDetail', label: 'nav.ownerIncome', url: '/pages/owner/income/index', icon: 'chart' },
-  // 租客入口（租客 = 在平台上租了房子）
-  { key: 'myLeases', label: 'nav.myLease', url: '/pages/tenant/leases/index', icon: 'doc' },
-  { key: 'myDeals', label: 'nav.myOrders', url: '/pages/tenant/deals/index', icon: 'money' },
-  { key: 'payments', label: 'nav.payments', url: '/pages/tenant/payments/index', icon: 'card' },
-  { key: 'maintenance', label: 'nav.maintenance', url: '/pages/tenant/maintenance/index', icon: 'edit' },
-  { key: 'services', label: 'nav.services', url: '/pages/svc/services/index', icon: 'clipboard' },
-  // 通用入口（文档中心：租房文档 + 我的文档 合并）
-  { key: 'documents', label: 'nav.documents', url: '/pages/tenant/documents/index', icon: 'doc' },
-  // 电子合同（业主/租客签署）
-  { key: 'myContracts', label: 'contract.my', url: '/pages/contract/index', icon: 'doc' },
-  // C 端关注/浏览历史/降价提醒：登录即可用（未登录先进登录；对齐 App）
   { key: 'favorites', label: 'nav.favorites', url: '/pages/tenant/favorites/index', icon: 'heart' },
+  { key: 'viewings', label: 'nav.myViewings', url: '/pages/tenant/viewings/index', icon: 'calendar' },
   { key: 'history', label: 'nav.history', url: '/pages/tenant/history/index', icon: 'calendar' },
-  { key: 'priceAlerts', label: 'nav.priceAlerts', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' }
+  { key: 'priceAlerts', label: 'nav.priceAlerts', url: '/pages/tenant/price-alerts/index', icon: 'megaphone' },
+  { key: 'orders', label: 'myHome.svcOrders', url: '/pages/tenant/deals/index', icon: 'doc' }
 ]
 
 // 管理端 / 业主端「账户设置」：改密走 POST /auth/me/password；绑定手机/邮箱暂无接口
@@ -81,19 +65,34 @@ const BUSINESS_ROWS: RowEntry[] = [
 const OWNER_SETTING_ROWS: Array<RowEntry & { badge?: boolean }> = [
   { key: 'password', label: 'nav.changePassword', icon: 'gear' },
   { key: 'account', label: 'profile.account', icon: 'user' },
+  { key: 'identity', label: 'profile.identity', icon: 'user' },
   { key: 'language', label: 'profile.language', value: '', icon: 'clipboard' },
   { key: 'notification', label: 'profile.notify', badge: true, icon: 'megaphone' },
-  { key: 'help', label: 'profile.help', icon: 'calendar' },
-  { key: 'contactSupport', label: 'profile.contactSupport', icon: 'headsetDark' },
   { key: 'permissions', label: 'profile.permissions', icon: 'gear' },
   { key: 'clearCache', label: 'profile.clearCache', icon: 'trash' },
-  { key: 'checkUpdate', label: 'profile.checkUpdate', icon: 'download' },
+  { key: 'checkUpdate', label: 'profile.checkUpdate', icon: 'download' }
+]
+
+// 员工 / 管理端复用 C 端「设置」中已接入真实能力的四项（实名认证 / 权限设置 / 清理缓存 / 检查更新）
+const SECURITY_ROWS: RowEntry[] = OWNER_SETTING_ROWS.filter((row) =>
+  ['identity', 'permissions', 'clearCache', 'checkUpdate'].includes(row.key)
+)
+
+// 帮助与客服（对齐贝壳设置页客服组：在线客服 / 电话客服 / 举报 / 评分 / 帮助中心）
+const OWNER_SUPPORT_ROWS: RowEntry[] = [
+  { key: 'onlineSupport', label: 'profile.onlineSupport', icon: 'headsetDark' },
+  { key: 'contactSupport', label: 'profile.contactSupport', icon: 'headsetDark' },
   { key: 'report', label: 'profile.report', icon: 'flag' },
   { key: 'rate', label: 'profile.rate', icon: 'star' },
-  { key: 'privacyRules', label: 'profile.privacyRules', icon: 'doc' },
-  // 「关于我们 / 版权信息」均进同一个详情页（页脚即版权与注册号）
+  { key: 'help', label: 'profile.help', icon: 'calendar' }
+]
+
+// 关于（对齐贝壳设置页「关于我们 / 版权信息 / 用户隐私规则」组）
+const OWNER_ABOUT_ROWS: RowEntry[] = [
   { key: 'about', label: 'profile.about', icon: 'star', url: '/pages/about/index' },
-  { key: 'copyright', label: 'profile.copyrightInfo', icon: 'clipboard', url: '/pages/about/index' }
+  // 「关于我们 / 版权信息」均进同一个详情页（页脚即版权与注册号）
+  { key: 'copyright', label: 'profile.copyrightInfo', icon: 'clipboard', url: '/pages/about/index' },
+  { key: 'privacyRules', label: 'profile.privacyRules', icon: 'doc' }
 ]
 
 // 员工 / 代理端：常用入口（客户 / 业绩已在底部导航，不再重复；通讯录移至「我的」）
@@ -112,63 +111,6 @@ const ROLE_TEXT: Record<string, string> = {
   agent: 'perm.role.agent',
   employee: 'perm.role.employee'
 }
-
-// 租约状态文案与徽章样式
-const LEASE_STATUS: Record<string, { text: string; badge: string }> = {
-  active: { text: 'lease.stActive', badge: 'badge--success' },
-  pending: { text: 'lease.stPending', badge: 'badge--warning' },
-  expired: { text: 'lease.stExpired', badge: 'badge--neutral' },
-  terminated: { text: 'lease.stTerminated', badge: 'badge--error' }
-}
-
-function pickList<T>(res: any): T[] {
-  if (Array.isArray(res)) return res
-  if (Array.isArray(res?.data)) return res.data
-  if (Array.isArray(res?.items)) return res.items
-  if (Array.isArray(res?.list)) return res.list
-  if (Array.isArray(res?.data?.items)) return res.data.items
-  if (Array.isArray(res?.data?.list)) return res.data.list
-  return []
-}
-
-const formatDay = (x?: string) => (x ? String(x).slice(0, 10) : '—')
-
-const formatMonthDay = (x?: string) => (x ? String(x).slice(5, 10) : '—')
-
-const leaseProgress = (lease: any) => {
-  const start = new Date(lease?.start_date || lease?.startDate || '').getTime()
-  const end = new Date(lease?.end_date || lease?.endDate || '').getTime()
-  if (!start || !end || end <= start) return 0
-  const ratio = (Date.now() - start) / (end - start)
-  return Math.min(100, Math.max(0, Math.round(ratio * 100)))
-}
-
-const leaseDaysLeft = (lease: any) => {
-  const end = new Date(lease?.end_date || lease?.endDate || '').getTime()
-  if (!end) return null
-  return Math.max(0, Math.ceil((end - Date.now()) / 86400000))
-}
-
-const leaseDaysPassed = (lease: any) => {
-  const start = new Date(lease?.start_date || lease?.startDate || '').getTime()
-  if (!start) return null
-  return Math.max(0, Math.floor((Date.now() - start) / 86400000))
-}
-
-const leaseTotalDays = (lease: any) => {
-  const start = new Date(lease?.start_date || lease?.startDate || '').getTime()
-  const end = new Date(lease?.end_date || lease?.endDate || '').getTime()
-  if (!start || !end || end <= start) return null
-  return Math.round((end - start) / 86400000)
-}
-
-const leaseTitle = (lease: any) =>
-  lease?.property?.room_number ||
-  lease?.property_name ||
-  lease?.propertyName ||
-  lease?.room_number ||
-  lease?.address ||
-  ''
 
 /** 手机号脱敏：保留前 3 位与后 4 位 */
 const maskPhone = (phone?: string) =>
@@ -198,21 +140,6 @@ export default function ProfilePage() {
     auto_dunning?: boolean
   }>({})
 
-  const uid = useAuthStore((state) => state.user?.id) ?? 'anon'
-  const authRole = useAuthStore((state) => state.user?.role)
-  const isOwnerRole = authRole === 'owner'
-  const { data: leaseList, refresh } = useSwrCache<any[]>({
-    key: `profile:leases:${isOwnerRole ? 'owner' : 'mine'}:${uid}`,
-    fetcher: async () => {
-      // 业主不能走租客 /leases/me，改走 /leases（后端按 owner 收窄）
-      const res = isOwnerRole
-        ? await leasesApi.list({ page: 1, page_size: 20 })
-        : await leasesApi.mine()
-      return pickList<any>(res)
-    },
-  })
-  const lease = leaseList?.find((l) => l?.status === 'active') || leaseList?.[0] || null
-
   useDidShow(() => {
     loadFromStorage()
     // 已登录时拉取最新用户信息
@@ -220,7 +147,6 @@ export default function ProfilePage() {
       refreshUser()
       const currentRole = useAuthStore.getState().user?.role
       if (currentRole === 'tenant') {
-        refresh()
         // 租客同样需要公司公开资料（联系客服电话 / 隐私规则外链 / 关于我们版本号）
         loadAppInfo()
       }
@@ -230,8 +156,6 @@ export default function ProfilePage() {
       }
       if (currentRole === 'owner') {
         loadAppInfo()
-        // 业主租约走 /leases；刷新后「我的租约」摘要才有数据
-        refresh()
       }
     }
   })
@@ -591,6 +515,10 @@ export default function ProfilePage() {
       case 'account':
         openEdit()
         return
+      case 'identity':
+        // 实名认证：证件上传 + 人工审核（状态回显 / 驳回原因 / 重新提交）
+        Taro.navigateTo({ url: '/pages/tenant/identity/index' })
+        return
       case 'timezone':
       case 'notification':
       case 'notify':
@@ -601,8 +529,8 @@ export default function ProfilePage() {
         Taro.navigateTo({ url: '/pages/language/index' })
         return
       case 'permissions':
-        // 系统权限（定位 / 相机 / 通知）统一在小程序设置页管理
-        Taro.openSetting({})
+        // 逐项权限页：实时读 getSetting 真实授权状态，点击行再打开小程序设置
+        Taro.navigateTo({ url: '/pages/permissions/index' })
         return
       case 'clearCache':
         // 只清页面数据缓存，不触碰登录态与用户偏好
@@ -611,6 +539,10 @@ export default function ProfilePage() {
         return
       case 'checkUpdate':
         handleCheckUpdate()
+        return
+      case 'onlineSupport':
+        // 在线客服：进入与平台客服的 IM 会话
+        void openSupport()
         return
       case 'contactSupport':
         handleContactSupport()
@@ -779,40 +711,37 @@ export default function ProfilePage() {
     </>
   )
 
-  /** 管理端 / 业主端：关于 + 「关于小程序」卡片 */
-  const renderAboutSection = () => (
+  /** 管理端 / 员工端：隐私与安全 + 帮助与客服（与 C 端同一组入口） */
+  const renderSecuritySections = () => (
     <>
       <View className='panel panel--list'>
-        <Text className='panel__caption'>{t('profile.about')}</Text>
-        {renderRow({
-          key: 'version',
-          label: 'profile.versionInfo',
-          icon: 'gear',
-          value: appVersion ? `v${appVersion}` : ''
-        })}
-        {renderRow({ key: 'terms', label: 'profile.terms', icon: 'doc' })}
-        {renderRow({ key: 'privacy', label: 'profile.privacy', icon: 'check' })}
+        <Text className='panel__caption'>{t('profile.sectionSecurity')}</Text>
+        {SECURITY_ROWS.map(renderSettingRow)}
       </View>
 
-      {/* 原型底部另有一块「关于小程序」卡片，此处按原型保留 */}
       <View className='panel panel--list'>
-        <Text className='panel__caption'>{t('profile.aboutMiniApp')}</Text>
-        {appVersion && (
-          <View className='about-row'>
-            <Text className='about-row__label'>{t('profile.versionNo')}</Text>
-            <Text className='about-row__value'>v{appVersion}</Text>
-          </View>
-        )}
-        <View className='about-row' onClick={() => handleTodo(t('profile.serviceAgreement'))}>
-          <Text className='about-row__label'>{t('profile.serviceAgreement')}</Text>
-          <View className='chevron' />
-        </View>
-        <View className='about-row' onClick={() => handleTodo(t('profile.privacy'))}>
-          <Text className='about-row__label'>{t('profile.privacy')}</Text>
-          <View className='chevron' />
-        </View>
+        <Text className='panel__caption'>{t('profile.sectionHelp')}</Text>
+        {OWNER_SUPPORT_ROWS.map(renderRow)}
       </View>
     </>
+  )
+
+  /** 管理端 / 员工端：关于（与 C 端一致：关于我们 / 版权信息 / 用户隐私规则） */
+  const renderAboutSection = () => (
+    <View className='panel panel--list'>
+      <Text className='panel__caption'>{t('profile.sectionAbout')}</Text>
+      {OWNER_ABOUT_ROWS.map((entry) =>
+        renderSettingRow({
+          ...entry,
+          value:
+            entry.key === 'about'
+              ? appVersion
+                ? `HaoFang.World v${appVersion}`
+                : ''
+              : undefined
+        })
+      )}
+    </View>
   )
 
   return (
@@ -862,32 +791,6 @@ export default function ProfilePage() {
               </View>
             </View>
           )}
-
-          {/* 租客能力：当前租约（点击进入「我的租约」列表），与 App 一致以独立卡片行呈现 */}
-          {isTenant && lease && (
-            <View className='panel panel--list'>
-              <View
-                className='lease-strip'
-                onClick={() => handleNavigate('/pages/tenant/leases/index')}
-              >
-                <Text className='lease-strip__label'>{t('profile.currentLease')}</Text>
-                <Text className='lease-strip__name'>
-                  {leaseTitle(lease) ||
-                    t('profile.leaseNo', { id: String(lease?.id ?? '').slice(0, 8) })}
-                </Text>
-                <View className={`badge ${LEASE_STATUS[lease?.status]?.badge || 'badge--neutral'}`}>
-                  <View className='bg-dot' />
-                  <Text>
-                    {LEASE_STATUS[lease?.status]?.text
-                      ? t(LEASE_STATUS[lease?.status].text)
-                      : lease?.status || '—'}
-                  </Text>
-                </View>
-                <View className='chevron' />
-              </View>
-            </View>
-          )}
-
           {/* 常用功能：统一宫格保留胶囊卡片外壳（业主入口 + 租客入口按能力过滤，可并存） */}
           {cGrid.length > 0 && (
             <>
@@ -923,24 +826,42 @@ export default function ProfilePage() {
 
           {/* 设置（业主/租客统一：卡片内标题 + 标准设置行，与 App 一致）；访客态不显示设置/语言/退出登录 */}
           {user && (
-            <View className='panel panel--list'>
-              <Text className='panel__caption'>{t('profile.settings')}</Text>
-              {OWNER_SETTING_ROWS.map((entry) => {
-                const value =
-                  entry.key === 'account'
-                    ? user?.phone
-                      ? maskPhone(user.phone)
-                      : ''
-                    : entry.key === 'language'
-                      ? LANG_LABELS[lang] || ''
-                      : entry.key === 'about'
+            <>
+              <View className='panel panel--list'>
+                <Text className='panel__caption'>{t('profile.settings')}</Text>
+                {OWNER_SETTING_ROWS.map((entry) => {
+                  const value =
+                    entry.key === 'account'
+                      ? user?.phone
+                        ? maskPhone(user.phone)
+                        : ''
+                      : entry.key === 'language'
+                        ? LANG_LABELS[lang] || ''
+                        : entry.value
+                  return renderSettingRow({ ...entry, value })
+                })}
+              </View>
+
+              <View className='panel panel--list'>
+                <Text className='panel__caption'>{t('profile.sectionHelp')}</Text>
+                {OWNER_SUPPORT_ROWS.map(renderRow)}
+              </View>
+
+              <View className='panel panel--list'>
+                <Text className='panel__caption'>{t('profile.sectionAbout')}</Text>
+                {OWNER_ABOUT_ROWS.map((entry) =>
+                  renderSettingRow({
+                    ...entry,
+                    value:
+                      entry.key === 'about'
                         ? appVersion
                           ? `HaoFang.World v${appVersion}`
                           : ''
-                        : entry.value
-                return renderSettingRow({ ...entry, value })
-              })}
-            </View>
+                        : undefined
+                  })
+                )}
+              </View>
+            </>
           )}
         </>
       )}
@@ -1042,6 +963,7 @@ export default function ProfilePage() {
             ].map(renderRow)}
           </View>
 
+          {renderSecuritySections()}
           {renderAboutSection()}
         </>
       )}
@@ -1101,6 +1023,7 @@ export default function ProfilePage() {
           </View>
 
           {renderAccountSections()}
+          {renderSecuritySections()}
           {renderAboutSection()}
         </>
       )}

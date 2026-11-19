@@ -46,6 +46,7 @@ from app.models import (
     Tenant,
     User,
     UserRole,
+    SaleListing,
 )
 from app.core.logging import get_logger
 from app.providers.geo import haversine_km, lat_lng_bounds
@@ -1189,6 +1190,109 @@ def get_property(
     data["creator_name"] = creator_user.full_name if creator_user else None
     set_cache(cache_key, data, ttl=60)
     return _trim_for_tenant(user, data)
+
+
+@router.get("/{property_id}/value-estimate", response_model=dict)
+def property_value_estimate(
+    property_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """C 端「房屋估价」：按小区均价 × 建筑面积给出**估算区间**。
+
+    口径（不接第三方评估机构，只做数据估算）：
+    1) 优先取楼盘(Project).avg_price（泰铢/㎡，运营录入的挂牌均价）；
+    2) 楼盘均价缺失时，取同一楼盘在售房源的中位单价（asking_price / size_sqm）；
+    3) 两者都没有样本时返回 available=false，不编造价格。
+
+    区间 = 估算值 ±8%，并按千位取整；返回值带 basis/sample_count 供前端
+    标明「估算参考，非评估报告」。权限复用 can_view_property（房源可见才可估）。
+    """
+    prop = session.get(Property, property_id)
+    if not prop or prop.deleted_at or not can_view_property(session, user, prop):
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    result = {
+        "available": False,
+        "property_id": str(prop.id),
+        "currency": prop.currency or "THB",
+        "size_sqm": prop.size_sqm,
+        "unit_price": None,
+        "estimate": None,
+        "low": None,
+        "high": None,
+        "basis": None,
+        "sample_count": 0,
+        "as_of": datetime.utcnow().date().isoformat(),
+        "reason": None,
+    }
+    if not prop.size_sqm or prop.size_sqm <= 0:
+        result["reason"] = "missing_area"
+        return result
+
+    unit_price: Optional[float] = None
+    basis = None
+    sample_count = 0
+
+    project = session.get(Project, prop.project_id) if prop.project_id else None
+    if project and project.avg_price and project.avg_price > 0:
+        unit_price = float(project.avg_price)
+        basis = "project_avg_price"
+        sample_count = 1
+    elif prop.project_id:
+        prop_ids = session.exec(
+            select(Property.id).where(
+                Property.project_id == prop.project_id,
+                Property.deleted_at.is_(None),
+            )
+        ).all()
+        listings = session.exec(
+            select(SaleListing).where(
+                SaleListing.property_id.in_(prop_ids),
+                SaleListing.status == ListingStatus.active,
+                SaleListing.deleted_at.is_(None),
+                SaleListing.size_sqm > 0,
+                SaleListing.asking_price > 0,
+            )
+        ).all()
+        prices = sorted(
+            float(l.asking_price) / float(l.size_sqm)
+            for l in listings
+            if l.size_sqm and l.size_sqm > 0
+        )
+        if prices:
+            mid = len(prices) // 2
+            unit_price = (
+                prices[mid]
+                if len(prices) % 2
+                else (prices[mid - 1] + prices[mid]) / 2
+            )
+            basis = "sale_listing_median"
+            sample_count = len(prices)
+
+    if not unit_price:
+        # 3) 无小区均价/在售样本时，用本房源真实月租做收益法估算：
+        #    估值 = 月租 × 12 ÷ 5% 资本化率（仅为区间参考，不是评估报告）
+        if prop.monthly_rent and prop.monthly_rent > 0:
+            unit_price = float(prop.monthly_rent) * 12 / 0.05 / float(prop.size_sqm)
+            basis = "rent_capitalization"
+        else:
+            result["reason"] = "no_sample"
+            return result
+
+    estimate = float(prop.size_sqm) * unit_price
+    result.update(
+        {
+            "available": True,
+            "unit_price": round(unit_price, 2),
+            "estimate": round(estimate, -3),
+            "low": round(estimate * 0.92, -3),
+            "high": round(estimate * 1.08, -3),
+            "basis": basis,
+            "sample_count": sample_count,
+        }
+    )
+    return result
 
 
 @router.patch("/{property_id}")

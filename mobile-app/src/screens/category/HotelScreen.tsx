@@ -66,13 +66,13 @@ export default function HotelScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('select', t('category.hotelGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.hotelGridSelect'))),
+      mk('select', t('category.hotelGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'featured' })),
       mk('rent', t('category.hotelTabRent'), 'bed-outline', colors.info, colors.infoRgb, () => setTab('rent-hotel')),
       mk('sell', t('category.hotelTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-hotel')),
-      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings')),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('vr', t('category.filterHasVr'), 'cube-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.filterHasVr'))),
-      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
+      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: undefined })),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('vr', t('category.filterHasVr'), 'cube-outline', colors.warning, colors.warningRgb, () => navigation.navigate('PublicListings', { preset: 'vr' })),
+      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => navigation.navigate('FindMyHome')),
     ];
   }, [t, navigation]);
 
@@ -146,7 +146,7 @@ export default function HotelScreen() {
         title={t('category.hotelBannerTitle')}
         sub={t('category.hotelBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(navigation, t('category.hotelBannerTitle'))}
+        onPress={() => navigation.navigate('FindMyHome')}
       />
     </View>
   );

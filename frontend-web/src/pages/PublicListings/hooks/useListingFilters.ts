@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import api from '@/lib/api'
@@ -16,6 +16,15 @@ import { AREA_LABEL_KEYS, PRICE_LABEL_KEYS, PROPERTY_TYPE_GROUPS, PROPERTY_TYPE_
  * 纯结构拆分：状态与派生值集中在此，页面主文件只做编排。
  * 所有筛选维度最终都由 useListingQuery 统一下推后端，不做本地过滤。
  */
+
+/** 分类页入口带来的预设（与 App 端 `preset` 口径一致）。 */
+export type PresetKey = 'latest' | 'furnished' | 'owner_direct' | 'featured' | 'vr' | 'env' | 'new'
+
+const PRESET_KEYS: PresetKey[] = ['latest', 'furnished', 'owner_direct', 'featured', 'vr', 'env', 'new']
+
+const asPreset = (value: string | null): PresetKey | null =>
+  value && (PRESET_KEYS as string[]).includes(value) ? (value as PresetKey) : null
+
 export function useListingFilters() {
   const { t } = useTranslation()
 
@@ -28,6 +37,13 @@ export function useListingFilters() {
     else next.set('video', '1')
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
+
+  // 分类页入口预设：首屏按 URL 初始化，之后不再覆盖用户手动改动
+  const presetParam = asPreset(searchParams.get('preset'))
+  // 顶栏「租房 / 买房」入口带 ?type=rent|sell，落地即按业务线收敛
+  const typeParam = searchParams.get('type')
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(presetParam)
+  const appliedPresetRef = useRef<PresetKey | null>(presetParam)
 
   // 筛选
   const [keyword, setKeyword] = useState('')
@@ -45,19 +61,69 @@ export function useListingFilters() {
   // 「更多」面板新增维度：朝向 / 楼层 / 装修 / 配套（服务端筛选）
   const [orientationSel, setOrientationSel] = useState('')
   const [floorLevelSel, setFloorLevelSel] = useState('')
-  const [decorSel, setDecorSel] = useState('')
+  const [decorSel, setDecorSel] = useState(presetParam === 'furnished' ? 'fully_furnished' : '')
   const [amenitySel, setAmenitySel] = useState<string[]>([])
-  const [sort, setSort] = useState('default')
+  const [sort, setSort] = useState(presetParam === 'latest' ? 'latest' : 'default')
   // 业务线：all（不限）/ rent（租房）/ resale（二手房）/ new（新房）
   // 二手房与新房都走 listing_type=sell，再用 is_new_development 区分
-  const [biz, setBiz] = useState<'all' | 'rent' | 'resale' | 'new'>('all')
+  const [biz, setBiz] = useState<'all' | 'rent' | 'resale' | 'new'>(
+    presetParam === 'new' ? 'new' : typeParam === 'rent' ? 'rent' : typeParam === 'sell' ? 'resale' : 'all',
+  )
   // 「类型」筛选：公寓=apartment+condo 等组合口径，值见 constants/PROPERTY_TYPE_GROUPS
   const [propertyTypeSel, setPropertyTypeSel] = useState('')
   const [propertyTypeOpen, setPropertyTypeOpen] = useState(false)
-  // VR / 优选 / 房东直租（服务端布尔筛选，'1' 为仅收敛）
-  const [vrSel, setVrSel] = useState('')
-  const [featuredSel, setFeaturedSel] = useState('')
-  const [ownerDirectSel, setOwnerDirectSel] = useState('')
+  // VR / 优选 / 房东直租 / 可环评（服务端布尔筛选，'1' 为仅收敛）
+  const [vrSel, setVrSel] = useState(presetParam === 'vr' ? '1' : '')
+  const [featuredSel, setFeaturedSel] = useState(presetParam === 'featured' ? '1' : '')
+  const [ownerDirectSel, setOwnerDirectSel] = useState(presetParam === 'owner_direct' ? '1' : '')
+  const [envSel, setEnvSel] = useState(presetParam === 'env' ? '1' : '')
+  // 后端已支持、但此前只有分类页预设入口的维度：租期 / 产权 / 楼龄 / 商办专项。
+  // 放进「更多」面板后，用户不必回分类页也能筛，且能以 chip 单项移除。
+  const [minLeaseSel, setMinLeaseSel] = useState('')
+  const [tenureSel, setTenureSel] = useState('')
+  const [ageMaxSel, setAgeMaxSel] = useState('')
+  const [wholeFloorSel, setWholeFloorSel] = useState('')
+  const [wholeBuildingSel, setWholeBuildingSel] = useState('')
+  const [companyRegSel, setCompanyRegSel] = useState('')
+
+  // URL 的 preset 变化时（例如从不同分类页入口再次点进来）重新应用一次；
+  // 首屏已按 presetParam 完成初始化，这里用 ref 去重，避免覆盖用户后续手动改动。
+  useEffect(() => {
+    if (presetParam === appliedPresetRef.current) return
+    appliedPresetRef.current = presetParam
+    setActivePreset(presetParam)
+    if (presetParam === 'latest') setSort('latest')
+    if (presetParam === 'furnished') setDecorSel('fully_furnished')
+    if (presetParam === 'owner_direct') setOwnerDirectSel('1')
+    if (presetParam === 'featured') setFeaturedSel('1')
+    if (presetParam === 'vr') setVrSel('1')
+    if (presetParam === 'env') setEnvSel('1')
+    if (presetParam === 'new') setBiz('new')
+  }, [presetParam])
+
+  // 顶栏「租房 / 买房」切换：URL 变了就同步业务线
+  useEffect(() => {
+    if (typeParam === 'rent') setBiz('rent')
+    else if (typeParam === 'sell') setBiz('resale')
+  }, [typeParam])
+
+  // 关闭「当前预设」chip：清 URL 参数，同时把该预设绑定的筛选复位
+  const clearPreset = useCallback(() => {
+    const p = activePreset
+    if (!p) return
+    if (p === 'latest') setSort('default')
+    if (p === 'furnished') setDecorSel('')
+    if (p === 'owner_direct') setOwnerDirectSel('')
+    if (p === 'featured') setFeaturedSel('')
+    if (p === 'vr') setVrSel('')
+    if (p === 'env') setEnvSel('')
+    if (p === 'new') setBiz('all')
+    appliedPresetRef.current = null
+    setActivePreset(null)
+    const next = new URLSearchParams(searchParams)
+    next.delete('preset')
+    setSearchParams(next, { replace: true })
+  }, [activePreset, searchParams, setSearchParams])
 
   // 按区域 / 按地铁找房面板状态（对齐贝壳「区域 | 地铁」）
   const [locTab, setLocTab] = useState<'area' | 'metro'>('area')
@@ -308,6 +374,26 @@ export function useListingFilters() {
     ...Object.entries(decorationMap).map(([value, label]) => ({ value, label })),
   ]
   const amenityOptions = Object.entries(amenityMap).map(([value, label]) => ({ value, label }))
+  // 租期 / 产权 / 楼龄 / 商办专项：选项与后端参数一一对应，不造无用档位
+  const leaseMonthOptions = [
+    { value: '', label: ANY },
+    ...[3, 6, 12].map((n) => ({ value: String(n), label: t('publicSite.leaseMonths', { n }) })),
+  ]
+  const tenureOptions = [
+    { value: '', label: ANY },
+    { value: 'freehold', label: t('publicSite.tenure.freehold') },
+    { value: 'leasehold', label: t('publicSite.tenure.leasehold') },
+    { value: 'mixed', label: t('publicSite.tenure.mixed') },
+  ]
+  const buildingAgeOptions = [
+    { value: '', label: ANY },
+    ...[5, 10, 20].map((n) => ({ value: String(n), label: t('publicSite.ageWithin', { n }) })),
+  ]
+  const commercialOptions = [
+    { value: 'wholeFloor', label: t('publicSite.wholeFloor') },
+    { value: 'wholeBuilding', label: t('publicSite.wholeBuilding') },
+    { value: 'companyReg', label: t('publicSite.companyReg') },
+  ]
 
   // 「价格」弹层（对齐贝壳：快捷区间 chips + 自定义最低/最高 + 重置/确定）
   const priceActive = !!(priceRange || customMin || customMax)
@@ -332,7 +418,7 @@ export function useListingFilters() {
   }
 
   // 「更多」合并面板（对齐贝壳：面积 快捷区间+自定义 + 朝向/楼层/装修/配套 + 房源状态 + 重置/确定）
-  const moreActive = !!(areaRange || areaCustomMin || areaCustomMax || statusSel || orientationSel || floorLevelSel || decorSel || amenitySel.length || vrSel || featuredSel || ownerDirectSel)
+  const moreActive = !!(areaRange || areaCustomMin || areaCustomMax || statusSel || orientationSel || floorLevelSel || decorSel || amenitySel.length || vrSel || featuredSel || ownerDirectSel || envSel || minLeaseSel || tenureSel || ageMaxSel || wholeFloorSel || wholeBuildingSel || companyRegSel)
   const moreLabel = (() => {
     const parts: string[] = []
     if (areaRange || areaCustomMin || areaCustomMax) {
@@ -346,9 +432,16 @@ export function useListingFilters() {
     if (vrSel) parts.push(t('browse.vr'))
     if (featuredSel) parts.push(t('browse.featured'))
     if (ownerDirectSel) parts.push(t('browse.ownerDirect'))
+    if (envSel) parts.push(t('category.presets.env'))
+    if (minLeaseSel) parts.push(t('publicSite.leaseMonths', { n: minLeaseSel }))
+    if (tenureSel) parts.push(tenureOptions.find((o) => o.value === tenureSel)?.label || tenureSel)
+    if (ageMaxSel) parts.push(t('publicSite.ageWithin', { n: ageMaxSel }))
+    if (wholeFloorSel) parts.push(t('publicSite.wholeFloor'))
+    if (wholeBuildingSel) parts.push(t('publicSite.wholeBuilding'))
+    if (companyRegSel) parts.push(t('publicSite.companyReg'))
     return parts.length ? parts.join(' · ') : t('browse.filterMore')
   })()
-  const resetMore = () => { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setStatusSel(''); setOrientationSel(''); setFloorLevelSel(''); setDecorSel(''); setAmenitySel([]); setVrSel(''); setFeaturedSel(''); setOwnerDirectSel('') }
+  const resetMore = () => { setAreaRange(''); setAreaCustomMin(''); setAreaCustomMax(''); setStatusSel(''); setOrientationSel(''); setFloorLevelSel(''); setDecorSel(''); setAmenitySel([]); setVrSel(''); setFeaturedSel(''); setOwnerDirectSel(''); setEnvSel(''); setMinLeaseSel(''); setTenureSel(''); setAgeMaxSel(''); setWholeFloorSel(''); setWholeBuildingSel(''); setCompanyRegSel('') }
 
   const schoolActive = !!schoolId
 
@@ -361,6 +454,7 @@ export function useListingFilters() {
     resetMore()
     setSort('default')
     clearType()
+    if (activePreset) clearPreset()
   }
 
   return {
@@ -405,6 +499,15 @@ export function useListingFilters() {
     vrSel, setVrSel,
     featuredSel, setFeaturedSel,
     ownerDirectSel, setOwnerDirectSel,
+    envSel, setEnvSel,
+    minLeaseSel, setMinLeaseSel,
+    tenureSel, setTenureSel,
+    ageMaxSel, setAgeMaxSel,
+    wholeFloorSel, setWholeFloorSel,
+    wholeBuildingSel, setWholeBuildingSel,
+    companyRegSel, setCompanyRegSel,
+    // 分类页预设
+    activePreset, clearPreset,
     sort, setSort,
     // 弹层开合
     priceOpen, setPriceOpen,
@@ -420,6 +523,7 @@ export function useListingFilters() {
     statusLabelMap,
     roomTypeOptions, priceOptions, areaOptions, sortItems, bizTabs,
     statusOptions, orientationOptions, floorLevelOptions, decorationOptions, amenityOptions,
+    leaseMonthOptions, tenureOptions, buildingAgeOptions, commercialOptions,
     priceActive, priceLabel, moreActive, moreLabel, schoolActive,
     // 行为
     applyPricePreset, resetPrice, applyAreaPreset, resetMore, resetAll,

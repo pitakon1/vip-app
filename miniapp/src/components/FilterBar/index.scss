@@ -1,0 +1,225 @@
+/* =========================================================
+   统一筛选栏（小程序）· 与 App / Web 同一视觉语言
+   - tab 行：纯文字 + 箭头，选中/展开主色下划线
+   - 面板：紧贴 tab 行下沿，同底色，无圆角无间隙
+   - 选项：两列矩形卡片，选中浅色底 + 主色描边 + 主色字
+   ========================================================= */
+
+.fb {
+  background: var(--card);
+  border-bottom: 1rpx solid var(--line);
+
+  &--open {
+    border-bottom-color: transparent;
+  }
+}
+
+.fb-tabs {
+  display: flex;
+  align-items: stretch;
+}
+
+.fb-tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  height: 88rpx;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 48rpx;
+    height: 4rpx;
+    border-radius: 2rpx;
+    background: transparent;
+  }
+
+  &--active,
+  &--open {
+    color: var(--primary);
+    font-weight: 600;
+
+    &::after {
+      background: var(--primary);
+    }
+
+    .fb-tab__arrow {
+      color: var(--primary);
+    }
+  }
+
+  &__text {
+    font-size: var(--fs-caption);
+  }
+
+  &__arrow {
+    font-size: 20rpx;
+    color: var(--ink-3);
+  }
+}
+
+.fb-panel {
+  padding: 24rpx;
+  background: var(--card);
+  border-top: 1rpx solid var(--line);
+}
+
+.fb-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.fb-opt {
+  width: calc(50% - 8rpx);
+  box-sizing: border-box;
+  min-height: 88rpx;
+  padding: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  background: var(--surface-2);
+  border: 1rpx solid transparent;
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.08);
+    border-color: var(--primary);
+
+    .fb-opt__text {
+      color: var(--primary);
+      font-weight: 600;
+    }
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink);
+    text-align: center;
+  }
+}
+
+.fb-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+/* 左竖栏 + 右侧内容 */
+.fb-body {
+  display: flex;
+  align-items: stretch;
+  min-height: 320rpx;
+  max-height: 56vh;
+}
+
+.fb-rail {
+  width: 176rpx;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border-radius: 12rpx;
+  overflow: hidden;
+
+  &__item {
+    height: 88rpx;
+    display: flex;
+    align-items: center;
+    padding-left: 24rpx;
+
+    &--active {
+      background: var(--card);
+
+      .fb-rail__text {
+        color: var(--primary);
+        font-weight: 600;
+      }
+    }
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink-2);
+  }
+}
+
+.fb-main {
+  flex: 1;
+  padding-left: 20rpx;
+  overflow-y: auto;
+}
+
+/* 竖排列表 */
+.fb-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.fb-row {
+  min-height: 88rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 16rpx;
+  background: var(--surface-2);
+  border: 1rpx solid transparent;
+
+  &--active {
+    background: rgba(var(--primary-rgb), 0.08);
+    border-color: var(--primary);
+
+    .fb-row__text {
+      color: var(--primary);
+      font-weight: 600;
+    }
+  }
+
+  &__text {
+    font-size: 26rpx;
+    color: var(--ink);
+  }
+
+  &__check {
+    font-size: 26rpx;
+    color: var(--primary);
+  }
+}
+
+.fb-act {
+  flex: 1;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+
+  text {
+    font-size: 28rpx;
+    font-weight: 600;
+  }
+
+  &--ghost {
+    background: var(--surface-2);
+
+    text {
+      color: var(--ink);
+    }
+  }
+
+  &--primary {
+    background: var(--primary);
+
+    text {
+      color: var(--primary-foreground);
+    }
+  }
+}

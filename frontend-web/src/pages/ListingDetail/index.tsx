@@ -23,6 +23,7 @@ import PublicTopBar from '@/components/PublicTopBar'
 import PublicListingCard, {
   type PublicListingCardData,
 } from '@/components/PublicListingCard'
+import CommuteCard from './components/CommuteCard'
 import useAuthStore, { isTokenFresh } from '@/stores/auth'
 import { viewingsApi } from '@/services/api'
 import {
@@ -572,6 +573,9 @@ const ListingDetailPage = () => {
                 ) : null}
               </div>
             </div>
+
+            {/* 通勤测算：公共交通结果里的地铁线路/站点来自 Google Routes */}
+            {detail.id ? <CommuteCard listingId={detail.id} /> : null}
 
             {/* 小区信息块：楼盘字典的展示面 */}
             {detail.project ? (

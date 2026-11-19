@@ -34,6 +34,18 @@ import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import './index.scss'
 
+/** 通勤失败原因 → 文案 key（与 App / Web 三端口径一致） */
+const COMMUTE_REASON_KEY: Record<string, string> = {
+  no_key: 'pub.commuteNoKey',
+  no_origin: 'pub.commuteNoOrigin',
+  no_destination: 'pub.commuteNeedDest',
+  no_route: 'pub.commuteNoRoute',
+  bad_mode: 'pub.commuteBadMode',
+  geocode_failed: 'pub.commuteGeoFailed',
+  upstream_error: 'pub.commuteUpstream',
+  request_failed: 'pub.commuteUpstream'
+}
+
 export default function PublicListingDetailPage() {
   const { t } = useI18n()
   const router = useRouter()
@@ -61,6 +73,30 @@ export default function PublicListingDetailPage() {
   const [alertBusy, setAlertBusy] = useState(false)
   const [contactBusy, setContactBusy] = useState(false)
   const [similar, setSimilar] = useState<PublicListing[]>([])
+
+  // 通勤测算（Google Routes）：地铁线路/站点全部来自后端 transit 结果
+  const [commuteDest, setCommuteDest] = useState('')
+  const [commuteMode, setCommuteMode] = useState<'transit' | 'driving'>('transit')
+  const [commuteBusy, setCommuteBusy] = useState(false)
+  const [commute, setCommute] = useState<any>(null)
+
+  const runCommute = async () => {
+    const value = commuteDest.trim()
+    if (!value) {
+      Taro.showToast({ title: t('pub.commuteNeedDest'), icon: 'none' })
+      return
+    }
+    if (commuteBusy) return
+    setCommuteBusy(true)
+    try {
+      const res = await publicApi.commute(id, { destination: value, mode: commuteMode })
+      setCommute(res)
+    } catch {
+      setCommute({ available: false, reason: 'request_failed' })
+    } finally {
+      setCommuteBusy(false)
+    }
+  }
 
   useEffect(() => {
     loadRates()
@@ -459,6 +495,70 @@ export default function PublicListingDetailPage() {
             ) : null}
           </View>
         ) : null}
+
+        {/* 通勤测算：地铁线路/站点来自 Google transit 结果，不自建线路库 */}
+        <View className='pub-card'>
+          <Text className='pub-section__title'>{t('pub.commuteTitle')}</Text>
+          <Text className='pub-section__hint'>{t('pub.commuteHint')}</Text>
+          <View className='pub-commute__row'>
+            <Input
+              className='pub-commute__input'
+              value={commuteDest}
+              onInput={(e) => setCommuteDest(e.detail.value)}
+              placeholder={t('pub.commuteDestPlaceholder')}
+              confirmType='search'
+              onConfirm={() => void runCommute()}
+            />
+            <View className='pub-commute__btn' onClick={() => void runCommute()}>
+              <Text className='pub-commute__btn-text'>
+                {commuteBusy ? t('pub.commuteCalculating') : t('pub.commuteCalc')}
+              </Text>
+            </View>
+          </View>
+          <View className='pub-commute__modes'>
+            {(['transit', 'driving'] as const).map((m) => (
+              <Text
+                key={m}
+                className={`pub-commute__chip ${commuteMode === m ? 'pub-commute__chip--active' : ''}`}
+                onClick={() => setCommuteMode(m)}
+              >
+                {t(m === 'transit' ? 'pub.commuteTransit' : 'pub.commuteDriving')}
+              </Text>
+            ))}
+          </View>
+          {commute ? (
+            !commute.available ? (
+              <Text className='pub-commute__error'>
+                {t(COMMUTE_REASON_KEY[commute.reason || ''] || 'pub.commuteUpstream', {
+                  vars: (commute.missing || []).join(' / ')
+                })}
+              </Text>
+            ) : (
+              <View className='pub-commute__result'>
+                <Text className='pub-commute__main'>
+                  {t('pub.commuteDuration', { n: commute.duration_minutes ?? '-' })}
+                  {commute.distance_km != null
+                    ? ` · ${commute.distance_km} ${t('pub.km')}`
+                    : ''}
+                </Text>
+                {commute.cached ? (
+                  <Text className='pub-commute__sub'>{t('pub.commuteCached')}</Text>
+                ) : null}
+                {commute.transit?.lines?.length ? (
+                  <Text className='pub-commute__sub'>
+                    {t('pub.commuteLines')}：{commute.transit.lines.join(' → ')}
+                  </Text>
+                ) : null}
+                {commute.transit?.stations?.length ? (
+                  <Text className='pub-commute__sub'>
+                    {t('pub.commuteStations')}：{commute.transit.stations.join(' · ')}
+                  </Text>
+                ) : null}
+                <Text className='pub-commute__note'>{t('pub.commuteDisclaimer')}</Text>
+              </View>
+            )
+          ) : null}
+        </View>
 
         {/* 周边学校 */}
         {(data.nearby_schools ?? []).length > 0 ? (

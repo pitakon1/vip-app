@@ -267,10 +267,8 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* 品牌区：图形 logo + 产品名 + 一句定位（不做营销长文） */}
+          {/* 品牌区：只保留图形 logo（不再显示产品名与定位文案） */}
           <Image source={BRAND_LOGO} style={styles.brandLogo} accessibilityLabel="HaoFang.World" />
-          <Text style={styles.brandName}>HaoFang.World</Text>
-          <Text style={styles.brandTagline}>{t('login.brandTagline')}</Text>
 
           {/* 一列整宽白色胶囊：Google / Apple / 手机号 / 邮箱 */}
           <OAuthButtons
@@ -677,22 +675,7 @@ const styles = StyleSheet.create({
     height: 168,
     alignSelf: 'center',
     resizeMode: 'contain',
-    marginBottom: 12,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.ink,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    marginBottom: 6,
-  },
-  brandTagline: {
-    fontSize: colors.fontSize.caption,
-    color: colors.ink3,
-    textAlign: 'center',
     marginBottom: 28,
-    paddingHorizontal: 12,
   },
   /* 密码可见性开关 */
   pwdWrap: {

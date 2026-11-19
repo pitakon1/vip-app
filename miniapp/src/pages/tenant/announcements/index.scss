@@ -1,0 +1,84 @@
+/* 小区公告 */
+
+.tenant-announcements-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 48rpx;
+
+  .page-container {
+    padding: 24rpx;
+  }
+
+  .ann-card {
+    background-color: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    margin-bottom: 20rpx;
+    box-shadow: var(--shadow-card);
+
+    &__head {
+      display: flex;
+      align-items: center;
+      gap: 12rpx;
+      margin-bottom: 12rpx;
+    }
+
+    &__scope {
+      flex: 1;
+      text-align: right;
+      font-size: 22rpx;
+      color: var(--ink-3);
+    }
+
+    &__title {
+      display: block;
+      font-size: 30rpx;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 8rpx;
+    }
+
+    &__content {
+      display: block;
+      font-size: 26rpx;
+      line-height: 1.65;
+      color: var(--ink-2);
+    }
+
+    &__meta {
+      display: block;
+      font-size: 22rpx;
+      color: var(--ink-3);
+      margin-top: 12rpx;
+    }
+  }
+
+  .ann-chip {
+    padding: 2rpx 14rpx;
+    border-radius: var(--radius-full);
+    font-size: 20rpx;
+    font-weight: 600;
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary-text);
+
+    &--maintenance {
+      background: rgba(var(--warning-rgb), 0.12);
+      color: var(--warning-ink);
+    }
+
+    &--event {
+      background: rgba(var(--success-rgb), 0.12);
+      color: var(--success-ink);
+    }
+
+    &--rule {
+      background: var(--surface-2);
+      color: var(--ink-2);
+    }
+
+    &--pinned {
+      background: rgba(var(--error-rgb), 0.1);
+      color: var(--error-ink);
+    }
+  }
+}

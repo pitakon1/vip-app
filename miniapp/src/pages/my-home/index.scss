@@ -1,0 +1,395 @@
+/* =========================================================
+   C 端「我家」Tab（对齐 App MyHomeScreen / 贝壳「我家」）
+   全页只有三种版式：房产卡 / 四列宫格 / 分组行卡
+   间距只用 16 / 14 / 12 / 8（这里按 750 设计稿换算为 rpx：32 / 28 / 24 / 16）
+   ========================================================= */
+
+.mh-page {
+  min-height: 100vh;
+  padding: 8rpx 32rpx calc(160rpx + env(safe-area-inset-bottom));
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.mh-head {
+  padding: 16rpx 0 24rpx;
+}
+
+.mh-head__title {
+  display: block;
+  font-size: 48rpx;
+  line-height: 68rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.mh-head__sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  line-height: 36rpx;
+  color: var(--ink-3);
+}
+
+.mh-loading {
+  padding: 96rpx 0;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--ink-3);
+}
+
+/* 统一定义：卡片左边缘对齐、圆角 / 描边 / 阴影一致 */
+.mh-card {
+  margin-bottom: 24rpx;
+  padding: 28rpx;
+  background: var(--card);
+  border: 1rpx solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+}
+
+.mh-chevron {
+  flex: none;
+  font-size: 36rpx;
+  line-height: 1;
+  color: var(--ink-4);
+}
+
+/* ===== 版式一：房产卡 ===== */
+.mh-prop__row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.mh-prop__cover {
+  flex: none;
+  width: 176rpx;
+  height: 176rpx;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.mh-prop__cover--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mh-prop__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mh-prop__badge-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+
+.mh-prop__badge {
+  padding: 0 16rpx;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+.mh-prop__switch {
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--ink-3);
+}
+
+.mh-prop__title {
+  display: block;
+  font-size: 32rpx;
+  line-height: 44rpx;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mh-prop__meta {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  line-height: 36rpx;
+  color: var(--ink-2);
+}
+
+.mh-prop__address {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 32rpx;
+  color: var(--ink-3);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mh-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.mh-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 6rpx;
+  background: var(--line);
+}
+
+.mh-dot--active {
+  width: 32rpx;
+  background: var(--primary);
+}
+
+/* 空态插画卡 */
+.mh-empty {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.mh-empty__art {
+  position: relative;
+  flex: none;
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--radius-lg);
+  background: var(--primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mh-empty__dot {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.mh-empty__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mh-empty__title {
+  display: block;
+  font-size: 32rpx;
+  line-height: 44rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mh-empty__desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  line-height: 36rpx;
+  color: var(--ink-3);
+}
+
+.mh-empty__actions {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 28rpx;
+}
+
+.mh-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.mh-btn--primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.mh-btn--ghost {
+  border: 1rpx solid var(--line);
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* 审核中 / 被驳回 */
+.mh-state {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.mh-state__icon {
+  flex: none;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mh-state__icon--warn {
+  background: rgba(217, 119, 6, 0.1);
+}
+
+.mh-state__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mh-state__title {
+  display: block;
+  font-size: 30rpx;
+  line-height: 42rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mh-state__desc {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 版式二：四列宫格 ===== */
+.mh-grid {
+  display: flex;
+  padding: 28rpx 16rpx;
+}
+
+.mh-grid__item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.mh-grid__icon {
+  position: relative;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-md);
+  background: var(--primary-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mh-grid__badge {
+  position: absolute;
+  top: -8rpx;
+  right: -12rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  border-radius: 16rpx;
+  background: var(--error);
+  color: #fff;
+  font-size: 20rpx;
+  line-height: 32rpx;
+  text-align: center;
+}
+
+.mh-grid__label {
+  max-width: 100%;
+  font-size: 24rpx;
+  line-height: 32rpx;
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== 版式三：分组行卡 ===== */
+.mh-section {
+  padding: 8rpx 0 0;
+}
+
+.mh-section__title {
+  display: block;
+  padding: 24rpx 28rpx 12rpx;
+  font-size: 30rpx;
+  line-height: 40rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.mh-row {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx 28rpx;
+  min-height: 96rpx;
+  box-sizing: border-box;
+}
+
+.mh-row--border {
+  border-bottom: 1rpx solid var(--line);
+}
+
+.mh-row__icon {
+  flex: none;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mh-row__label {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
+  line-height: 40rpx;
+  color: var(--ink);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mh-row__meta {
+  flex: none;
+  max-width: 240rpx;
+  font-size: 24rpx;
+  line-height: 34rpx;
+  color: var(--ink-3);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mh-row__meta--warn {
+  color: var(--warning);
+}

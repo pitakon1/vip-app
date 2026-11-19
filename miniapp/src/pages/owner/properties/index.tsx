@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { View, Text, Input, Textarea, ScrollView, Picker, Switch, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import useAuthStore from '@/stores/auth'
@@ -14,6 +14,8 @@ import BottomNav from '@/components/BottomNav'
 import ShellHeader from '@/components/ShellHeader'
 import StateBlock from '@/components/StateBlock'
 import RegionPicker, { type RegionSelection } from '@/components/RegionPicker'
+import FilterBar, { FilterOptionGrid, FilterPanelActions } from '@/components/FilterBar'
+import PropertyBindingPanel from './binding'
 import './index.scss'
 import { useI18n } from '@/i18n'
 import { errorText } from '@/lib/errorText'
@@ -363,6 +365,8 @@ export default function OwnerPropertiesPage() {
   const [status, setStatus] = useState('')
   const [bedrooms, setBedrooms] = useState('')
   const [priceRange, setPriceRange] = useState('')
+  // 筛选面板单开（tab key，空 = 收起）
+  const [openKey, setOpenKey] = useState('')
   const [priceCustomMin, setPriceCustomMin] = useState('')
   const [priceCustomMax, setPriceCustomMax] = useState('')
   const [areaRange, setAreaRange] = useState('')
@@ -374,6 +378,10 @@ export default function OwnerPropertiesPage() {
 
   // 新增/编辑弹窗
   const [modalOpen, setModalOpen] = useState(false)
+  // 添加 / 认领房产面板（原独立页已删除，统一收敛到房源管理）
+  const [bindingOpen, setBindingOpen] = useState(false)
+  // ?add=1 只消费一次，避免关闭后再次 onShow 又自动弹出
+  const addParamHandled = useRef(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<EditForm>(emptyForm())
   const [submitting, setSubmitting] = useState(false)
@@ -392,6 +400,11 @@ export default function OwnerPropertiesPage() {
     if (!useAuthStore.getState().token) {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
+    }
+    // 从其它页面带 ?add=1 进入时，直接打开添加 / 认领面板（仅首次）
+    if (!addParamHandled.current && Taro.getCurrentInstance().router?.params?.add === '1') {
+      addParamHandled.current = true
+      setBindingOpen(true)
     }
     refresh()
   })
@@ -721,6 +734,13 @@ export default function OwnerPropertiesPage() {
             <View
               className='page-header__btn page-header__btn--ghost'
               hoverClass='page-header__btn--hover'
+              onClick={() => setBindingOpen(true)}
+            >
+              <Text>{t('profile.addProperty')}</Text>
+            </View>
+            <View
+              className='page-header__btn page-header__btn--ghost'
+              hoverClass='page-header__btn--hover'
               onClick={goMarketing}
             >
               <Text>{t('op.listForSale')}</Text>
@@ -743,95 +763,130 @@ export default function OwnerPropertiesPage() {
           </View>
         </View>
 
-        {/* 状态筛选 chips */}
-        <ScrollView scrollX className='op-chips'>
-          {STATUS_FILTERS.map((f) => (
-            <View
-              key={f.key || 'all'}
-              className={`op-chip ${status === f.key ? 'op-chip--active' : ''}`}
-              onClick={() => setStatus(f.key)}
-            >
-              <Text className='op-chip__text'>{f.label}</Text>
-            </View>
-          ))}
-        </ScrollView>
-
         {/* 区域筛选（国家→城市→区） */}
         <View className='op-region'>
           <RegionPicker value={region} onChange={setRegion} />
         </View>
 
-        {/* 筛选行：房型 / 价格 / 面积 / 排序 */}
-        <ScrollView scrollX className='op-chips op-filter'>
-          {[
-            { opts: BEDROOM_OPTIONS, value: bedrooms, onChange: setBedrooms },
-            { opts: PRICE_OPTIONS, value: priceRange, onChange: setPriceRange },
-            { opts: AREA_OPTIONS, value: areaRange, onChange: setAreaRange },
-            { opts: SORT_OPTIONS, value: sort, onChange: setSort }
-          ].map((g, idx) => {
-            const activeIdx = Math.max(0, g.opts.findIndex((o: any) => o.key === g.value))
-            return (
-              <Picker
-                key={idx}
-                mode='selector'
-                range={g.opts.map((o: any) => o.label)}
-                value={activeIdx}
-                onChange={(e: any) => g.onChange(g.opts[Number(e.detail.value)].key)}
-              >
-                <View className={`op-chip ${g.value !== g.opts[0].key ? 'op-chip--active' : ''}`}>
-                  <Text className='op-chip__text'>{g.opts[activeIdx].label}</Text>
-                  <Text className='op-chip__caret'>▾</Text>
-                </View>
-              </Picker>
-            )
-          })}
-        </ScrollView>
+        {/* 统一筛选栏：状态 / 房型 / 价格 / 面积 / 排序（点击就地展开面板） */}
+        <FilterBar
+          tabs={[
+            {
+              key: 'status',
+              label: STATUS_FILTERS.find((o) => o.key === status)?.label || t('common.all'),
+              active: !!status
+            },
+            {
+              key: 'bedrooms',
+              label: BEDROOM_OPTIONS.find((o) => o.key === bedrooms)?.label || t('prop.bedroomAny'),
+              active: !!bedrooms
+            },
+            {
+              key: 'price',
+              label: PRICE_OPTIONS.find((o) => o.key === priceRange)?.label || t('prop.priceAny'),
+              active: !!priceRange
+            },
+            {
+              key: 'area',
+              label: AREA_OPTIONS.find((o) => o.key === areaRange)?.label || t('prop.areaAny'),
+              active: !!areaRange
+            },
+            {
+              key: 'sort',
+              label: SORT_OPTIONS.find((o) => o.key === sort)?.label || t('prop.sortDefault'),
+              active: sort !== 'latest'
+            }
+          ]}
+          openKey={openKey}
+          onToggle={(key) => setOpenKey(openKey === key ? '' : key)}
+        >
+          {openKey === 'status' && (
+            <FilterOptionGrid options={STATUS_FILTERS} value={status} onChange={setStatus} />
+          )}
 
-        {/* 自定义区间输入 */}
-        {(priceRange === 'custom' || areaRange === 'custom') && (
-          <View className='op-custom'>
-            {priceRange === 'custom' && (
-              <View className='op-custom__group'>
-                <Text className='op-custom__name'>{t('prop.priceWan')}</Text>
-                <Input
-                  className='op-custom__input'
-                  type='number'
-                  placeholder={t('prop.minArea')}
-                  value={priceCustomMin}
-                  onInput={(e: any) => setPriceCustomMin(e.detail.value)}
-                />
-                <Text className='op-custom__sep'>-</Text>
-                <Input
-                  className='op-custom__input'
-                  type='number'
-                  placeholder={t('prop.maxArea')}
-                  value={priceCustomMax}
-                  onInput={(e: any) => setPriceCustomMax(e.detail.value)}
-                />
-              </View>
-            )}
-            {areaRange === 'custom' && (
-              <View className='op-custom__group'>
-                <Text className='op-custom__name'>{t('prop.areaShort')}</Text>
-                <Input
-                  className='op-custom__input'
-                  type='number'
-                  placeholder={t('prop.min')}
-                  value={areaCustomMin}
-                  onInput={(e: any) => setAreaCustomMin(e.detail.value)}
-                />
-                <Text className='op-custom__sep'>-</Text>
-                <Input
-                  className='op-custom__input'
-                  type='number'
-                  placeholder={t('prop.max')}
-                  value={areaCustomMax}
-                  onInput={(e: any) => setAreaCustomMax(e.detail.value)}
-                />
-              </View>
-            )}
-          </View>
-        )}
+          {openKey === 'bedrooms' && (
+            <FilterOptionGrid options={BEDROOM_OPTIONS} value={bedrooms} onChange={setBedrooms} />
+          )}
+
+          {openKey === 'price' && (
+            <>
+              <FilterOptionGrid options={PRICE_OPTIONS} value={priceRange} onChange={setPriceRange} />
+              {priceRange === 'custom' && (
+                <View className='op-custom'>
+                  <View className='op-custom__group'>
+                    <Text className='op-custom__name'>{t('prop.priceWan')}</Text>
+                    <Input
+                      className='op-custom__input'
+                      type='number'
+                      placeholder={t('prop.minArea')}
+                      value={priceCustomMin}
+                      onInput={(e: any) => setPriceCustomMin(e.detail.value)}
+                    />
+                    <Text className='op-custom__sep'>-</Text>
+                    <Input
+                      className='op-custom__input'
+                      type='number'
+                      placeholder={t('prop.maxArea')}
+                      value={priceCustomMax}
+                      onInput={(e: any) => setPriceCustomMax(e.detail.value)}
+                    />
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+
+          {openKey === 'area' && (
+            <>
+              <FilterOptionGrid options={AREA_OPTIONS} value={areaRange} onChange={setAreaRange} />
+              {areaRange === 'custom' && (
+                <View className='op-custom'>
+                  <View className='op-custom__group'>
+                    <Text className='op-custom__name'>{t('prop.areaShort')}</Text>
+                    <Input
+                      className='op-custom__input'
+                      type='number'
+                      placeholder={t('prop.min')}
+                      value={areaCustomMin}
+                      onInput={(e: any) => setAreaCustomMin(e.detail.value)}
+                    />
+                    <Text className='op-custom__sep'>-</Text>
+                    <Input
+                      className='op-custom__input'
+                      type='number'
+                      placeholder={t('prop.max')}
+                      value={areaCustomMax}
+                      onInput={(e: any) => setAreaCustomMax(e.detail.value)}
+                    />
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+
+          {openKey === 'sort' && (
+            <FilterOptionGrid options={SORT_OPTIONS} value={sort} onChange={setSort} />
+          )}
+
+          <FilterPanelActions
+            resetLabel={t('pub.reset')}
+            confirmLabel={t('pub.apply')}
+            onConfirm={() => setOpenKey('')}
+            onReset={() => {
+              if (openKey === 'status') setStatus('')
+              else if (openKey === 'bedrooms') setBedrooms('')
+              else if (openKey === 'price') {
+                setPriceRange('')
+                setPriceCustomMin('')
+                setPriceCustomMax('')
+              } else if (openKey === 'area') {
+                setAreaRange('')
+                setAreaCustomMin('')
+                setAreaCustomMax('')
+              } else if (openKey === 'sort') setSort('latest')
+            }}
+          />
+        </FilterBar>
 
         {/* 统计行：名下房源 / 在租 / 空置 / 维护中 / 续约中 */}
         <View className='op-stats'>
@@ -890,7 +945,7 @@ export default function OwnerPropertiesPage() {
             onSubClick={
               query || status || bedrooms || priceRange || areaRange
                 ? undefined
-                : () => Taro.navigateTo({ url: '/pages/property-binding/index' })
+                : () => setBindingOpen(true)
             }
           />
         )}
@@ -1398,6 +1453,16 @@ export default function OwnerPropertiesPage() {
             </View>
           </View>
         </View>
+      )}
+
+      {/* 添加 / 认领房产：材料上传、待审、驳回原因、重新提交全流程都在此面板内 */}
+      {bindingOpen && (
+        <PropertyBindingPanel
+          onClose={() => {
+            setBindingOpen(false)
+            refresh()
+          }}
+        />
       )}
 
       <BottomNav role='owner' active='dashboard' />

@@ -44,6 +44,10 @@ class Lease(TimestampMixin, table=True):
     agent_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="employees.id", index=True, description="成交归属员工/经纪"
     )
+    # 合作公司归属：由佣金结算回填，合作端只读本公司的租约。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )
     start_date: datetime
     end_date: datetime = Field(index=True)
     monthly_rent: float

@@ -50,6 +50,7 @@ VAT_RATE = 0.07  # 泰国 VAT 7%，仅作为展示拆分，不由平台代扣
 class ServiceCode(str, Enum):
     cleaning = "cleaning"  # 清洁
     ac_cleaning = "ac_cleaning"  # 空调清洗
+    moving = "moving"  # 搬家
     utility_payment = "utility_payment"  # 水电代缴（公共事业接口）
     insurance = "insurance"  # 保险
     wifi_install = "wifi_install"  # 网络安装
@@ -71,6 +72,15 @@ SERVICE_PRICE_CATALOG: Dict[str, dict] = {
         "label_th": "ล้างแอร์",
         "unit": "台",
         "base_price": 800.0,
+        "tax_inclusive": False,
+    },
+    ServiceCode.moving.value: {
+        # 同城搬家基准价：含 1 车 1 趟 + 2 名搬运工，超出按车次另计
+        "label_zh": "搬家服务",
+        "label_en": "Moving Service",
+        "label_th": "บริการย้ายบ้าน",
+        "unit": "车",
+        "base_price": 2500.0,
         "tax_inclusive": False,
     },
     ServiceCode.utility_payment.value: {

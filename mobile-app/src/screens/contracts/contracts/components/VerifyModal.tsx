@@ -65,15 +65,60 @@ export default function VerifyModal({ verifyData, verifyLoading, onClose }: Veri
               {Array.isArray(verifyData?.pdf_signature) && verifyData.pdf_signature.length > 0 && (
                 <>
                   <Text style={styles.sectionTitle}>{t('contract.verifyPdfDomains')}</Text>
-                  {verifyData.pdf_signature.map((d: any, idx: number) => (
-                    <DetailField
-                      key={idx}
-                      label={`#${idx + 1}${
-                        d?.signer_name || d?.signed_by ? ` ${d.signer_name || d.signed_by}` : ''
-                      }`}
-                      value={t(Number(d?.valid) === 1 ? 'contract.verifyOk' : 'contract.verifyFail')}
-                    />
-                  ))}
+                  {!!verifyData?.pdf_signature_summary && (
+                    <>
+                      <DetailField
+                        label={t('contract.verifySigTrust')}
+                        value={`${t('contract.verifySigTrusted')} × ${verifyData.pdf_signature_summary.valid_trusted ?? 0} / ${t('contract.verifySigUntrusted')} × ${verifyData.pdf_signature_summary.valid_untrusted ?? 0} / ${t('contract.verifySigInvalid')} × ${verifyData.pdf_signature_summary.invalid ?? 0}`}
+                      />
+                      <DetailField
+                        label={t('contract.verifyTsStatus')}
+                        value={
+                          !verifyData.pdf_signature_summary.timestamp_present
+                            ? t('contract.verifyTsNone')
+                            : (verifyData.pdf_signature_summary.timestamp_untrusted ?? 0) > 0
+                              ? `${t('contract.verifyTsUntrusted')} × ${verifyData.pdf_signature_summary.timestamp_untrusted}`
+                              : `${t('contract.verifyTsTrusted')} × ${verifyData.pdf_signature_summary.timestamp_trusted ?? 0}`
+                        }
+                      />
+                      <DetailField
+                        label={t('contract.verifyTrustLevel')}
+                        value={t(
+                          verifyData.pdf_signature_summary.identity_trust_level === 'public'
+                            ? 'contract.verifyTrustPublic'
+                            : 'contract.verifyTrustPlatform'
+                        )}
+                      />
+                    </>
+                  )}
+                  {verifyData.pdf_signature.map((d: any, idx: number) => {
+                    const status =
+                      d?.signature_status === 'valid_trusted'
+                        ? 'contract.verifySigTrusted'
+                        : d?.signature_status === 'valid_untrusted'
+                          ? 'contract.verifySigUntrusted'
+                          : d?.signature_status === 'invalid' || Number(d?.valid) !== 1
+                            ? 'contract.verifySigInvalid'
+                            : 'contract.verifyOk';
+                    const ts = d?.timestamp;
+                    const tsText = !ts?.present
+                      ? t('contract.verifyTsNone')
+                      : ts.trusted
+                        ? t('contract.verifyTsTrusted')
+                        : t('contract.verifyTsUntrusted');
+                    return (
+                      <View key={idx} style={styles.partyCard}>
+                        <DetailField
+                          label={`#${idx + 1}${d?.signer_name || d?.signed_by ? ` ${d.signer_name || d.signed_by}` : ''}`}
+                          value={t(status)}
+                        />
+                        <DetailField
+                          label={t('contract.verifyTsStatus')}
+                          value={ts?.time ? `${tsText} · ${fmtDate(ts.time)}` : tsText}
+                        />
+                      </View>
+                    );
+                  })}
                 </>
               )}
             </ScrollView>

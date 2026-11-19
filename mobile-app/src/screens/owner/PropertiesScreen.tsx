@@ -24,12 +24,13 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EmptyState from '@/components/EmptyState';
 import ListState from '@/components/ListState';
 import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
+import FilterBar, { FilterOptionGrid } from '@/components/FilterBar';
 import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import { ownerApi, listingApi } from '@/services/api';
@@ -43,6 +44,7 @@ import type { RootStackParamList } from '@/navigation/RootNavigator';
 import { buildListingPayload } from '@/lib/listingPayload';
 import { useI18n } from '@/i18n';
 import { errorText } from '@/lib/errorText'
+import PropertyBindingPanel from './PropertyBindingPanel';
 
 const cur = (c?: string) => (c === 'USD' ? '$' : c === 'CNY' ? '¥' : c === 'MYR' ? 'RM ' : '฿');
 
@@ -409,6 +411,13 @@ export default function PropertiesScreen() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [form, setForm] = useState<PropertyForm>(emptyForm);
 
+  // 添加 / 认领房产（原独立页已收敛到房源管理）
+  const [bindingOpen, setBindingOpen] = useState(false);
+  const route = useRoute<RouteProp<RootStackParamList, 'OwnerProperties'>>();
+  useEffect(() => {
+    if (route.params?.openBinding) setBindingOpen(true);
+  }, [route.params?.openBinding]);
+
   const q = useCachedQuery<OwnerProperty[]>({
     queryKey: schoolId
       ? [...PROPERTIES_KEY, 'school', schoolId, String(schoolKm)]
@@ -450,6 +459,11 @@ export default function PropertiesScreen() {
   };
   const refreshing = q.isRefetching;
   const onRefresh = useCallback(() => {
+    void q.refetch({ cancelRefetch: false });
+  }, [q]);
+
+  const closeBinding = useCallback(() => {
+    setBindingOpen(false);
     void q.refetch({ cancelRefetch: false });
   }, [q]);
 
@@ -871,6 +885,18 @@ export default function PropertiesScreen() {
           />
         }
       >
+        {/* 添加 / 认领房产：原独立页已删除，统一从房源管理进入（含材料上传与审核流程） */}
+        <TouchableOpacity
+          style={styles.topAddBtnSecondary}
+          activeOpacity={0.85}
+          onPress={() => setBindingOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.addProperty')}
+        >
+          <Ionicons name="home-outline" size={18} color={colors.primary} />
+          <Text style={styles.topAddBtnSecondaryText}>{t('profile.addProperty')}</Text>
+        </TouchableOpacity>
+
         {/* 新增房源：置于首屏顶部，保证入口一眼可见（房源管理唯一新增入口，列表区不再重复） */}
         <TouchableOpacity
           style={styles.topAddBtn}
@@ -901,259 +927,207 @@ export default function PropertiesScreen() {
           ) : null}
         </View>
 
-        {/* 状态筛选 */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll} contentContainerStyle={styles.chipRow}>
-          {STATUS_CHIPS.map((c) => (
-            <TouchableOpacity
-              key={c.key || 'all'}
-              style={[styles.chip, status === c.key && styles.chipActive]}
-              activeOpacity={0.7}
-              onPress={() => setStatus(c.key)}
-            >
-              <Text style={[styles.chipText, status === c.key && styles.chipTextActive]}>{c.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* 筛选：房型 / 价格 / 面积 / 排序 */}
-        <View ref={anchorRef} onLayout={measureAnchor}>
-        <View style={styles.filterRow}>
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'bedrooms' && styles.filterChipActive]}
-            activeOpacity={0.7}
-            onPress={() => setActiveFilter(activeFilter === 'bedrooms' ? '' : 'bedrooms')}
-          >
-            <Text style={[styles.filterChipText, activeFilter === 'bedrooms' && styles.filterChipTextActive]}>
-              {t('prop.filterBedrooms', { value: optionLabel(BEDROOM_OPTIONS, bedrooms, t('prop.bedroomsAny')) })}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={activeFilter === 'bedrooms' ? colors.primary : colors.ink3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'price' && styles.filterChipActive]}
-            activeOpacity={0.7}
-            onPress={() => setActiveFilter(activeFilter === 'price' ? '' : 'price')}
-          >
-            <Text style={[styles.filterChipText, activeFilter === 'price' && styles.filterChipTextActive]}>
-              {t('prop.filterPrice', {
+        {/* ---- 统一筛选栏：状态 / 房型 / 价格 / 面积 / 排序 / 学校（点击就地展开）---- */}
+        <FilterBar
+          tabs={[
+            { key: 'status', label: t('prop.status'), active: !!status },
+            {
+              key: 'bedrooms',
+              label: t('prop.filterBedrooms', {
+                value: optionLabel(BEDROOM_OPTIONS, bedrooms, t('prop.bedroomsAny')),
+              }),
+              active: !!bedrooms,
+            },
+            {
+              key: 'price',
+              label: t('prop.filterPrice', {
                 value: priceRange === 'custom' ? t('prop.custom') : optionLabel(PRICE_OPTIONS, priceRange, t('prop.priceAny')),
-              })}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={activeFilter === 'price' ? colors.primary : colors.ink3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'area' && styles.filterChipActive]}
-            activeOpacity={0.7}
-            onPress={() => setActiveFilter(activeFilter === 'area' ? '' : 'area')}
-          >
-            <Text style={[styles.filterChipText, activeFilter === 'area' && styles.filterChipTextActive]}>
-              {t('prop.filterArea', {
+              }),
+              active: !!priceRange,
+            },
+            {
+              key: 'area',
+              label: t('prop.filterArea', {
                 value: areaRange === 'custom' ? t('prop.custom') : optionLabel(AREA_OPTIONS, areaRange, t('prop.areaAny')),
-              })}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={activeFilter === 'area' ? colors.primary : colors.ink3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'sort' && styles.filterChipActive]}
-            activeOpacity={0.7}
-            onPress={() => setActiveFilter(activeFilter === 'sort' ? '' : 'sort')}
-          >
-            <Text style={[styles.filterChipText, activeFilter === 'sort' && styles.filterChipTextActive]}>
-              {t('prop.filterSort', { value: optionLabel(SORT_OPTIONS, sort, t('prop.sort.default')) })}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={activeFilter === 'sort' ? colors.primary : colors.ink3} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterChip, activeFilter === 'school' && styles.filterChipActive]}
-            activeOpacity={0.7}
-            onPress={() => setActiveFilter(activeFilter === 'school' ? '' : 'school')}
-          >
-            <Text style={[styles.filterChipText, activeFilter === 'school' && styles.filterChipTextActive]}>
-              {schoolId ? t('prop.filterSchoolSelected') : t('prop.filterSchool')}
-            </Text>
-            <Ionicons name="chevron-down" size={13} color={activeFilter === 'school' ? colors.primary : colors.ink3} />
-          </TouchableOpacity>
-        </View>
-
-        {/* 展开的筛选项 */}
-        {activeFilter === 'bedrooms' && (
-          <View style={styles.optRow}>
-            {BEDROOM_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.key || 'any'}
-                style={[styles.optChip, bedrooms === o.key && styles.optChipActive]}
-                activeOpacity={0.7}
-                onPress={() => setBedrooms(o.key)}
-              >
-                <Text style={[styles.optChipText, bedrooms === o.key && styles.optChipTextActive]}>{o.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {activeFilter === 'price' && (
-          <View style={styles.optRow}>
-            {PRICE_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.key || 'any'}
-                style={[styles.optChip, priceRange === o.key && styles.optChipActive]}
-                activeOpacity={0.7}
-                onPress={() => setPriceRange(o.key)}
-              >
-                <Text style={[styles.optChipText, priceRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {activeFilter === 'price' && priceRange === 'custom' && (
-          <View style={styles.customRow}>
-            <Text style={styles.customLabel}>{t('prop.min')}</Text>
-            <TextInput
-              style={styles.customInput}
-              value={priceCustomMin}
-              onChangeText={setPriceCustomMin}
-              keyboardType="numeric"
-              placeholder={t('prop.priceEg3')}
-              placeholderTextColor={colors.ink3}
+              }),
+              active: !!areaRange,
+            },
+            {
+              key: 'sort',
+              label: t('prop.filterSort', {
+                value: optionLabel(SORT_OPTIONS, sort, t('prop.sort.default')),
+              }),
+              active: sort !== 'default',
+            },
+            {
+              key: 'school',
+              label: schoolId ? t('prop.filterSchoolSelected') : t('prop.filterSchool'),
+              active: !!schoolId,
+            },
+          ]}
+          openKey={activeFilter || null}
+          onToggle={(key) => setActiveFilter((cur) => (cur === key ? '' : key))}
+          anchorRef={anchorRef}
+          onLayoutAnchor={measureAnchor}
+        >
+          {activeFilter === 'status' && (
+            <FilterOptionGrid
+              options={STATUS_CHIPS}
+              value={status}
+              onChange={setStatus}
             />
-            <Text style={styles.customSep}>-</Text>
-            <Text style={styles.customLabel}>{t('prop.max')}</Text>
-            <TextInput
-              style={styles.customInput}
-              value={priceCustomMax}
-              onChangeText={setPriceCustomMax}
-              keyboardType="numeric"
-              placeholder={t('prop.priceEg8')}
-              placeholderTextColor={colors.ink3}
-            />
-            <Text style={styles.customLabel}>{t('prop.tenThousandPerMonth')}</Text>
-          </View>
-        )}
+          )}
 
-        {activeFilter === 'area' && (
-          <View style={styles.optRow}>
-            {AREA_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.key || 'any'}
-                style={[styles.optChip, areaRange === o.key && styles.optChipActive]}
-                activeOpacity={0.7}
-                onPress={() => setAreaRange(o.key)}
-              >
-                <Text style={[styles.optChipText, areaRange === o.key && styles.optChipTextActive]}>{o.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {activeFilter === 'area' && areaRange === 'custom' && (
-          <View style={styles.customRow}>
-            <Text style={styles.customLabel}>{t('prop.areaMin')}</Text>
-            <TextInput
-              style={styles.customInput}
-              value={areaCustomMin}
-              onChangeText={setAreaCustomMin}
-              keyboardType="numeric"
-              placeholder={t('prop.areaEg60')}
-              placeholderTextColor={colors.ink3}
+          {activeFilter === 'bedrooms' && (
+            <FilterOptionGrid
+              options={BEDROOM_OPTIONS}
+              value={bedrooms}
+              onChange={setBedrooms}
             />
-            <Text style={styles.customSep}>-</Text>
-            <Text style={styles.customLabel}>{t('prop.areaMax')}</Text>
-            <TextInput
-              style={styles.customInput}
-              value={areaCustomMax}
-              onChangeText={setAreaCustomMax}
-              keyboardType="numeric"
-              placeholder={t('prop.areaEg120')}
-              placeholderTextColor={colors.ink3}
-            />
-          </View>
-        )}
+          )}
 
-        {activeFilter === 'sort' && (
-          <View style={styles.optRow}>
-            {SORT_OPTIONS.map((o) => (
-              <TouchableOpacity
-                key={o.key}
-                style={[styles.optChip, sort === o.key && styles.optChipActive]}
-                activeOpacity={0.7}
-                onPress={() => setSort(o.key)}
-              >
-                <Text style={[styles.optChipText, sort === o.key && styles.optChipTextActive]}>{o.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {/* 学校（C 端维度：按学校 + 半径找房） */}
-        {activeFilter === 'school' && (
-          <View style={styles.schoolPanel}>
-            <View style={styles.locGroupLabelWrap}>
-              <Text style={styles.locGroupLabelTxt}>{t('prop.distance')}</Text>
-            </View>
-            <View style={styles.optRow}>
-              {SCHOOL_RADIUS_OPTIONS.map((kmv) => (
-                <TouchableOpacity
-                  key={kmv}
-                  style={[styles.optChip, schoolKm === kmv && styles.optChipActive]}
-                  activeOpacity={0.7}
-                  onPress={() => setSchoolKm(kmv)}
-                >
-                  <Text style={[styles.optChipText, schoolKm === kmv && styles.optChipTextActive]}>
-                    {kmv}km
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.schoolSearch}>
-              <Ionicons name="search" size={14} color={colors.ink3} />
-              <TextInput
-                style={styles.schoolSearchInput}
-                value={schoolKw}
-                onChangeText={setSchoolKw}
-                placeholder={t('prop.searchSchool')}
-                placeholderTextColor={colors.ink3}
-              />
-            </View>
-            <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
-              {filteredSchools.length === 0 ? (
-                <Text style={styles.schoolEmpty}>{t('prop.noSchool')}</Text>
-              ) : (
-                filteredSchools.map((s) => {
-                  const active = schoolId === s.id;
-                  return (
-                    <TouchableOpacity
-                      key={s.id}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        setSchoolId(s.id);
-                        setActiveFilter('');
-                      }}
-                      style={styles.schoolRow}
-                    >
-                      <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
-                        {s.name || s.name_en}
-                      </Text>
-                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                    </TouchableOpacity>
-                  );
-                })
+          {activeFilter === 'price' && (
+            <>
+              <FilterOptionGrid options={PRICE_OPTIONS} value={priceRange} onChange={setPriceRange} />
+              {priceRange === 'custom' && (
+                <View style={styles.customRow}>
+                  <Text style={styles.customLabel}>{t('prop.min')}</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    value={priceCustomMin}
+                    onChangeText={setPriceCustomMin}
+                    keyboardType="numeric"
+                    placeholder={t('prop.priceEg3')}
+                    placeholderTextColor={colors.ink3}
+                  />
+                  <Text style={styles.customSep}>-</Text>
+                  <Text style={styles.customLabel}>{t('prop.max')}</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    value={priceCustomMax}
+                    onChangeText={setPriceCustomMax}
+                    keyboardType="numeric"
+                    placeholder={t('prop.priceEg8')}
+                    placeholderTextColor={colors.ink3}
+                  />
+                  <Text style={styles.customLabel}>{t('prop.tenThousandPerMonth')}</Text>
+                </View>
               )}
-            </ScrollView>
+            </>
+          )}
+
+          {activeFilter === 'area' && (
+            <>
+              <FilterOptionGrid options={AREA_OPTIONS} value={areaRange} onChange={setAreaRange} />
+              {areaRange === 'custom' && (
+                <View style={styles.customRow}>
+                  <Text style={styles.customLabel}>{t('prop.areaMin')}</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    value={areaCustomMin}
+                    onChangeText={setAreaCustomMin}
+                    keyboardType="numeric"
+                    placeholder={t('prop.areaEg60')}
+                    placeholderTextColor={colors.ink3}
+                  />
+                  <Text style={styles.customSep}>-</Text>
+                  <Text style={styles.customLabel}>{t('prop.areaMax')}</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    value={areaCustomMax}
+                    onChangeText={setAreaCustomMax}
+                    keyboardType="numeric"
+                    placeholder={t('prop.areaEg120')}
+                    placeholderTextColor={colors.ink3}
+                  />
+                </View>
+              )}
+            </>
+          )}
+
+          {activeFilter === 'sort' && (
+            <FilterOptionGrid options={SORT_OPTIONS} value={sort} onChange={setSort} />
+          )}
+
+          {activeFilter === 'school' && (
+            <View>
+              <View style={styles.locGroupLabelWrap}>
+                <Text style={styles.locGroupLabelTxt}>{t('prop.distance')}</Text>
+              </View>
+              <FilterOptionGrid
+                options={SCHOOL_RADIUS_OPTIONS.map((kmv) => ({ key: String(kmv), label: `${kmv}km` }))}
+                value={String(schoolKm)}
+                onChange={(k) => setSchoolKm(Number(k))}
+              />
+              <View style={styles.schoolSearch}>
+                <Ionicons name="search" size={14} color={colors.ink3} />
+                <TextInput
+                  style={styles.schoolSearchInput}
+                  value={schoolKw}
+                  onChangeText={setSchoolKw}
+                  placeholder={t('prop.searchSchool')}
+                  placeholderTextColor={colors.ink3}
+                />
+              </View>
+              <ScrollView style={styles.schoolList} keyboardShouldPersistTaps="handled">
+                {filteredSchools.length === 0 ? (
+                  <Text style={styles.schoolEmpty}>{t('prop.noSchool')}</Text>
+                ) : (
+                  filteredSchools.map((s) => {
+                    const active = schoolId === s.id;
+                    return (
+                      <TouchableOpacity
+                        key={s.id}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setSchoolId(s.id);
+                          setActiveFilter('');
+                        }}
+                        style={styles.schoolRow}
+                      >
+                        <Text style={[styles.schoolRowName, active && styles.schoolRowActive]} numberOfLines={1}>
+                          {s.name || s.name_en}
+                        </Text>
+                        {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          )}
+
+          <View style={styles.panelActions}>
             <TouchableOpacity
+              style={styles.resetBtn}
               activeOpacity={0.7}
               onPress={() => {
-                setSchoolId('');
-                setActiveFilter('');
+                if (activeFilter === 'status') setStatus('');
+                else if (activeFilter === 'bedrooms') setBedrooms('');
+                else if (activeFilter === 'price') {
+                  setPriceRange('');
+                  setPriceCustomMin('');
+                  setPriceCustomMax('');
+                } else if (activeFilter === 'area') {
+                  setAreaRange('');
+                  setAreaCustomMin('');
+                  setAreaCustomMax('');
+                } else if (activeFilter === 'sort') setSort('default');
+                else if (activeFilter === 'school') {
+                  setSchoolId('');
+                  setSchoolKm(3);
+                  setSchoolKw('');
+                }
               }}
-              style={styles.schoolReset}
             >
-              <Text style={styles.schoolResetText}>{t('prop.clearSchool')}</Text>
+              <Text style={styles.resetText}>{t('pub.reset')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmBtn} activeOpacity={0.7} onPress={() => setActiveFilter('')}>
+              <Text style={styles.confirmText}>{t('common.confirm')}</Text>
             </TouchableOpacity>
           </View>
-        )}
-        </View>
+
+        </FilterBar>
 
         {/* 统计行 */}
         <View style={styles.statRow}>
@@ -1225,7 +1199,7 @@ export default function PropertiesScreen() {
             title={hasFilter ? t('prop.emptyFiltered') : t('prop.emptyNone')}
             sub={hasFilter ? t('prop.emptyFilteredSub') : t('prop.emptyNoneSub')}
             actionLabel={hasFilter ? undefined : t('profile.addProperty')}
-            onAction={hasFilter ? undefined : () => navigation.navigate('PropertyBinding')}
+            onAction={hasFilter ? undefined : () => setBindingOpen(true)}
           />
         ) : view === 'grid' ? (
           /* ===== 宫格视图：2 列色块卡（顶部状态色浅背景）===== */
@@ -1514,6 +1488,19 @@ export default function PropertiesScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 添加 / 认领房产：全屏面板，保留材料上传 / 待审 / 驳回原因 / 重新提交全流程 */}
+      <Modal visible={bindingOpen} animationType="slide" onRequestClose={closeBinding}>
+        <View style={[styles.bindingModal, { paddingTop: insets.top }]}>
+          <View style={styles.bindingHead}>
+            <Text style={styles.bindingTitle}>{t('pb.title')}</Text>
+            <TouchableOpacity onPress={closeBinding} activeOpacity={0.7} accessibilityRole="button">
+              <Ionicons name="close" size={22} color={colors.ink} />
+            </TouchableOpacity>
+          </View>
+          <PropertyBindingPanel onClose={closeBinding} />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1644,11 +1631,31 @@ const styles = StyleSheet.create({
   optChipText: { fontSize: colors.fontSize.caption, color: colors.ink2, fontWeight: '500' },
   optChipTextActive: { color: '#fff', fontWeight: '600' },
 
+  /* 筛选面板底部操作条（与房源浏览页一致） */
+  panelActions: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  resetBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.surface2,
+  },
+  resetText: { fontSize: colors.fontSize.base, color: colors.ink, fontWeight: '500' },
+  confirmBtn: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: colors.radius.sm,
+    backgroundColor: colors.primary,
+  },
+  confirmText: { fontSize: colors.fontSize.base, color: colors.primaryForeground, fontWeight: '600' },
+
   customRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginHorizontal: 20,
     marginBottom: 12,
   },
   customLabel: { fontSize: colors.fontSize.caption, color: colors.ink2 },
@@ -1694,6 +1701,34 @@ const styles = StyleSheet.create({
     ...colors.shadow.sm,
   },
   topAddBtnText: { fontSize: 15, fontWeight: '700', color: colors.primaryForeground },
+  /* 添加 / 认领房产（次级入口） */
+  topAddBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 46,
+    marginHorizontal: 20,
+    marginTop: 8,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+  },
+  topAddBtnSecondaryText: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  /* 添加 / 认领房产全屏面板 */
+  bindingModal: { flex: 1, backgroundColor: colors.background },
+  bindingHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  bindingTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
 
   /* 列表标题 + 视图切换 */
   sectionHead: {

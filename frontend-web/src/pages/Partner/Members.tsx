@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Modal, Form, Input, message, Popconfirm, Empty, Spin, Tabs, Tag } from 'antd'
+import { Button, Modal, Form, Input, message, Popconfirm, Empty, Select, Tabs, Tag } from 'antd'
 import DataState from '@/components/DataState'
 import { PlusOutlined, UserAddOutlined } from '@ant-design/icons'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 import { errorText } from '@/lib/errorText'
+import { useAuthStore } from '@/stores/auth'
 
 interface Member {
   id: string
@@ -17,6 +18,7 @@ interface Member {
   phone?: string
   is_active: boolean
   position?: string
+  team_id?: string
 }
 
 interface PerfSummary {
@@ -53,6 +55,8 @@ const fmtTime = (v?: string) => (v ? String(v).replace('T', ' ').slice(0, 16) : 
 
 const Members = () => {
   const { t } = useTranslation()
+  // 当前登录的合作管理员本人不应出现「移出本公司」入口（后端同样禁止移除自己）
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const [members, setMembers] = useState<Member[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [perf, setPerf] = useState<PerfData | null>(null)
@@ -65,6 +69,21 @@ const Members = () => {
   const [pullForm] = Form.useForm()
   const [pullOpen, setPullOpen] = useState(false)
   const [pulling, setPulling] = useState(false)
+  // 成员全生命周期（路线图 B1/B4）
+  const [editForm] = Form.useForm()
+  const [editOpen, setEditOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<Member | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [inviteForm] = Form.useForm()
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [invites, setInvites] = useState<any[]>([])
+  const [teams, setTeams] = useState<any[]>([])
+  const [teamForm] = Form.useForm()
+  const [teamOpen, setTeamOpen] = useState(false)
+  const [teamTarget, setTeamTarget] = useState<Member | null>(null)
+  const [teamSelect, setTeamSelect] = useState<string | undefined>()
 
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true)
@@ -102,11 +121,33 @@ const Members = () => {
     }
   }, [t])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await api.get('/partner/teams')
+      const payload = res.data?.data ?? res.data
+      setTeams(Array.isArray(payload) ? payload : [])
+    } catch {
+      setTeams([])
+    }
+  }, [])
+
+  const fetchInvites = useCallback(async () => {
+    try {
+      const res = await api.get('/partner/invitations')
+      const payload = res.data?.data ?? res.data
+      setInvites(Array.isArray(payload) ? payload : [])
+    } catch {
+      setInvites([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchMembers()
     fetchPerf()
     fetchProperties()
-  }, [fetchMembers, fetchPerf, fetchProperties])
+    fetchTeams()
+    fetchInvites()
+  }, [fetchMembers, fetchPerf, fetchProperties, fetchTeams, fetchInvites])
 
   const handleCreate = async () => {
     try {
@@ -158,6 +199,126 @@ const Members = () => {
     }
   }
 
+  const openEdit = (m: Member) => {
+    setEditTarget(m)
+    editForm.setFieldsValue({ full_name: m.full_name, phone: m.phone, position: m.position })
+    setEditOpen(true)
+  }
+
+  const handleEdit = async () => {
+    if (!editTarget) return
+    try {
+      const values = await editForm.validateFields()
+      setSaving(true)
+      await api.patch(`/partner/members/${editTarget.id}`, values)
+      message.success('资料已更新')
+      setEditOpen(false)
+      fetchMembers()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(errorText(err, '更新失败'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleToggleActive = async (m: Member) => {
+    try {
+      await api.post(`/partner/members/${m.id}/${m.is_active ? 'deactivate' : 'activate'}`)
+      message.success(m.is_active ? '已停用，该成员将无法登录' : '已启用')
+      fetchMembers()
+    } catch (err: any) {
+      message.error(errorText(err, '操作失败'))
+    }
+  }
+
+  const handleResetPwd = async (m: Member) => {
+    try {
+      const res = await api.post(`/partner/members/${m.id}/reset-password`, {})
+      const pwd = (res.data?.data ?? res.data)?.password
+      Modal.info({
+        title: `已重置 ${m.full_name || m.email} 的密码`,
+        content: `临时密码：${pwd}（仅显示一次，请转告成员后要求其尽快修改）`,
+      })
+    } catch (err: any) {
+      message.error(errorText(err, '重置失败'))
+    }
+  }
+
+  const handleImport = async () => {
+    if (!importText.trim()) return
+    setImporting(true)
+    try {
+      const res = await api.post('/partner/members/import', { csv: importText })
+      const data = res.data?.data ?? res.data
+      message.success(`导入完成：成功 ${data?.created?.length ?? 0} 行，失败 ${data?.errors?.length ?? 0} 行`)
+      if ((data?.errors ?? []).length) {
+        Modal.warning({
+          title: '以下行未导入',
+          content: (
+            <div style={{ maxHeight: 260, overflow: 'auto' }}>
+              {data.errors.map((e: any) => (
+                <div key={`${e.line}-${e.email}`}>第 {e.line} 行 {e.email || ''}：{e.error}</div>
+              ))}
+            </div>
+          ),
+        })
+      }
+      setImportOpen(false)
+      setImportText('')
+      fetchMembers()
+    } catch (err: any) {
+      message.error(errorText(err, '导入失败'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleInvite = async () => {
+    try {
+      const values = await inviteForm.validateFields()
+      const res = await api.post('/partner/invitations', values)
+      const data = res.data?.data ?? res.data
+      Modal.info({
+        title: '邀请已创建',
+        content: `邀请 token：${data?.token}\n到期：${fmtTime(data?.expires_at)}\n已注册经纪人可在「接受邀请」处输入该 token 加入本公司。`,
+      })
+      setInviteOpen(false)
+      inviteForm.resetFields()
+      fetchInvites()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(errorText(err, '创建邀请失败'))
+    }
+  }
+
+  const handleCreateTeam = async () => {
+    try {
+      const values = await teamForm.validateFields()
+      await api.post('/partner/teams', { name: values.name })
+      message.success('团队已创建')
+      setTeamOpen(false)
+      teamForm.resetFields()
+      fetchTeams()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(errorText(err, '创建失败'))
+    }
+  }
+
+  const handleAssignTeam = async () => {
+    if (!teamTarget) return
+    try {
+      await api.patch(`/partner/members/${teamTarget.id}/team`, { team_id: teamSelect || null })
+      message.success('团队归属已更新')
+      setTeamTarget(null)
+      fetchMembers()
+      fetchTeams()
+    } catch (err: any) {
+      message.error(errorText(err, '设置失败'))
+    }
+  }
+
   const summary = perf?.summary ?? {}
 
   const stats = [
@@ -175,6 +336,8 @@ const Members = () => {
           <p className="rent-page-header__subtitle">{t('member.subtitle')}</p>
         </div>
         <div className="rent-page-header__actions">
+          <Button onClick={() => setImportOpen(true)}>批量导入</Button>
+          <Button onClick={() => setInviteOpen(true)}>邀请加入</Button>
           <Button icon={<UserAddOutlined />} onClick={() => setPullOpen(true)}>
             {t('member.btnPullIn')}
           </Button>
@@ -263,16 +426,33 @@ const Members = () => {
                                 </span>
                               </td>
                               <td>
-                                <Popconfirm
-                                  title={t('member.confirmRemove')}
-                                  okText={t('common.delete')}
-                                  okButtonProps={{ danger: true }}
-                                  onConfirm={() => handleRemove(m)}
-                                >
-                                  <Button size="small" danger type="text">
-                                    {t('common.delete')}
-                                  </Button>
-                                </Popconfirm>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                  <Button size="small" type="text" onClick={() => openEdit(m)}>编辑</Button>
+                                  <Button size="small" type="text" onClick={() => { setTeamTarget(m); setTeamSelect(m.team_id) }}>团队</Button>
+                                  <Popconfirm title="确认重置该成员密码？" onConfirm={() => handleResetPwd(m)}>
+                                    <Button size="small" type="text">重置密码</Button>
+                                  </Popconfirm>
+                                  {m.id !== currentUserId && (
+                                    <>
+                                      <Popconfirm
+                                        title={m.is_active ? '停用后该成员将无法登录，确认？' : '确认启用该成员？'}
+                                        onConfirm={() => handleToggleActive(m)}
+                                      >
+                                        <Button size="small" type="text">{m.is_active ? '停用' : '启用'}</Button>
+                                      </Popconfirm>
+                                      <Popconfirm
+                                        title={t('member.confirmRemove')}
+                                        okText={t('common.delete')}
+                                        okButtonProps={{ danger: true }}
+                                        onConfirm={() => handleRemove(m)}
+                                      >
+                                        <Button size="small" danger type="text">
+                                          {t('common.delete')}
+                                        </Button>
+                                      </Popconfirm>
+                                    </>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -388,11 +568,51 @@ const Members = () => {
               </div>
             ),
           },
+          {
+            key: 'teams',
+            label: `团队（${teams.length}）`,
+            children: (
+              <div className="rent-card">
+                <div className="rent-card__header">
+                  <h3 className="rent-card__title">团队 / 组长</h3>
+                  <Button type="primary" size="small" onClick={() => setTeamOpen(true)}>新建团队</Button>
+                </div>
+                <div className="rent-card__body" style={{ padding: 0 }}>
+                  <div className="rent-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+                    <table className="rent-table">
+                      <thead>
+                        <tr>
+                          <th>团队名称</th>
+                          <th>组长</th>
+                          <th>成员数</th>
+                          <th>说明</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teams.length === 0 ? (
+                          <tr><td colSpan={4}><DataState empty emptyTitle="暂无团队，点击右上角创建" /></td></tr>
+                        ) : teams.map((tm: any) => (
+                          <tr key={tm.id}>
+                            <td style={{ fontWeight: 600 }}>{tm.name}</td>
+                            <td>{tm.leader_name || '—'}</td>
+                            <td>{tm.member_count ?? 0}</td>
+                            <td className="rent-text-sm rent-text-muted">
+                              组长登录后仅可见本组数据（业绩 / 线索 / 带看）
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ),
+          },
         ]}
       />
 
       {/* Create member modal */}
-      <Modal title={t('member.createTitle')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={handleCreate} confirmLoading={saving} destroyOnHidden>
+      <Modal title={t('member.createTitle')} open={createOpen} onCancel={() => setCreateOpen(false)} onOk={handleCreate} confirmLoading={saving} forceRender>
         <Form form={createForm} layout="vertical" preserve={false}>
           <Form.Item name="full_name" label={t('member.labelName')} rules={[{ required: true, message: t('member.errNameRequired') }]}>
             <Input placeholder={t('member.placeholderName')} />
@@ -413,12 +633,68 @@ const Members = () => {
       </Modal>
 
       {/* Pull-in modal */}
-      <Modal title={t('member.pullInTitle')} open={pullOpen} onCancel={() => setPullOpen(false)} onOk={handlePullIn} confirmLoading={pulling} destroyOnHidden>
+      <Modal title={t('member.pullInTitle')} open={pullOpen} onCancel={() => setPullOpen(false)} onOk={handlePullIn} confirmLoading={pulling} forceRender>
         <Form form={pullForm} layout="vertical" preserve={false}>
           <Form.Item name="user_id" label={t('member.labelUserId')} rules={[{ required: true, message: t('member.errUserIdRequired') }]}>
             <Input placeholder={t('member.placeholderUserId')} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 编辑资料 */}
+      <Modal title="编辑成员资料" open={editOpen} onCancel={() => setEditOpen(false)} onOk={handleEdit} confirmLoading={saving} forceRender>
+        <Form form={editForm} layout="vertical" preserve={false}>
+          <Form.Item name="full_name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="phone" label="手机号"><Input /></Form.Item>
+          <Form.Item name="position" label="职位"><Input /></Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 批量导入 */}
+      <Modal title="CSV 批量导入成员" open={importOpen} onCancel={() => setImportOpen(false)} onOk={handleImport} confirmLoading={importing} okText="导入" destroyOnHidden width={640}>
+        <p className="rent-text-sm rent-text-muted">
+          每行一个成员，列为：姓名,邮箱,手机,职位,初始密码（可选，默认 123456）。支持首行表头。重复邮箱只报错该行。
+        </p>
+        <Input.TextArea
+          rows={10} value={importText} onChange={(e) => setImportText(e.target.value)}
+          placeholder={'张三,zhangsan@partner.com,13800000000,经纪人,123456\n李四,lisi@partner.com,,经纪人,'}
+        />
+      </Modal>
+
+      {/* 邀请加入 */}
+      <Modal title="邀请加入本公司" open={inviteOpen} onCancel={() => setInviteOpen(false)} onOk={handleInvite} forceRender>
+        <Form form={inviteForm} layout="vertical" preserve={false}>
+          <Form.Item name="email" label="邮箱（可选）"><Input placeholder="仅用于备注，不限制 token 使用" /></Form.Item>
+          <Form.Item name="position" label="职位（可选）"><Input /></Form.Item>
+          <Form.Item name="expires_in_days" label="有效期（天）" initialValue={7}>
+            <Input type="number" />
+          </Form.Item>
+        </Form>
+        {invites.length > 0 && (
+          <div className="rent-text-sm rent-text-muted">
+            已有邀请：{invites.filter((i) => i.status === 'pending').length} 个待使用
+          </div>
+        )}
+      </Modal>
+
+      {/* 新建团队 */}
+      <Modal title="新建团队" open={teamOpen} onCancel={() => setTeamOpen(false)} onOk={handleCreateTeam} forceRender>
+        <Form form={teamForm} layout="vertical" preserve={false}>
+          <Form.Item name="name" label="团队名称" rules={[{ required: true, message: '请输入团队名称' }]}>
+            <Input placeholder="如：城东一组" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 设置成员团队 */}
+      <Modal title="设置团队归属" open={!!teamTarget} onCancel={() => setTeamTarget(null)} onOk={handleAssignTeam} destroyOnHidden>
+        <Select
+          allowClear style={{ width: '100%' }} placeholder="选择团队（留空=不归属）"
+          value={teamSelect} onChange={setTeamSelect}
+          options={teams.map((tm: any) => ({ value: tm.id, label: tm.name }))}
+        />
       </Modal>
     </div>
   )

@@ -1,0 +1,104 @@
+/* 我的看房 —— 列表页 */
+
+.tenant-viewings-page {
+  min-height: 100vh;
+  background-color: var(--bg);
+  padding-bottom: 48rpx;
+
+  .page-container {
+    padding: 24rpx;
+  }
+
+  .card {
+    background-color: var(--card);
+    border-radius: var(--radius-xl);
+    padding: 28rpx;
+    margin-bottom: 24rpx;
+    box-shadow: var(--shadow-card);
+
+    &--list {
+      padding: 0 28rpx;
+    }
+  }
+
+  .viewing-row {
+    padding: 28rpx 0;
+    border-bottom: 1rpx solid var(--line);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &__main {
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+    }
+
+    &__left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__title {
+      display: block;
+      font-size: 32rpx;
+      font-weight: 600;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__meta {
+      display: block;
+      font-size: 24rpx;
+      color: var(--ink-3);
+      margin-top: 8rpx;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &__badge {
+      flex-shrink: 0;
+      padding: 4rpx 14rpx;
+      border-radius: var(--radius-full);
+      font-size: 20rpx;
+      font-weight: 600;
+
+      &--success {
+        background: rgba(var(--success-rgb), 0.1);
+        color: var(--success-ink);
+      }
+
+      &--warning {
+        background: rgba(var(--warning-rgb), 0.1);
+        color: var(--warning-ink);
+      }
+
+      &--primary {
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary-text);
+      }
+
+      &--error {
+        background: rgba(var(--error-rgb), 0.1);
+        color: var(--error-ink);
+      }
+
+      &--neutral {
+        background: var(--surface-2);
+        color: var(--ink-3);
+      }
+    }
+
+    &__cancel {
+      display: inline-flex;
+      margin-top: 16rpx;
+      padding: 8rpx 24rpx;
+      border: 1rpx solid var(--line);
+      border-radius: var(--radius-full);
+      font-size: 24rpx;
+      color: var(--ink-2);
+    }
+  }
+}

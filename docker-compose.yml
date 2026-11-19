@@ -12,6 +12,13 @@ x-backend-env: &backend-env
   REDIS_URL: redis://redis:6379/0
   CELERY_BROKER_URL: redis://redis:6379/1
   CELERY_RESULT_BACKEND: redis://redis:6379/2
+  # Word/Excel/图片转 PDF。Gotenberg 只在 compose 内网可达，不暴露宿主机端口。
+  GOTENBERG_URL: http://gotenberg:3000
+  # 短信（Twilio）：根目录 .env 留空即未配置 —— OTP 接口返回 503 并说明缺失项，
+  # 不会假成功。补齐三项后容器重启即可真实发码。
+  TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+  TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+  TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
   # CORS_ORIGINS 不在此覆盖，沿用 backend/.env 中的显式配置（禁止使用 *）
 
 services:
@@ -56,6 +63,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------- Gotenberg 8（DOC/DOCX/XLSX → PDF，内置中文字体） ----------
+  gotenberg:
+    build: ./docker/gotenberg
+    container_name: rental_gotenberg
+    restart: unless-stopped
+    # 只走 compose 内网，避免公网滥用格式转换接口。
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # ---------- FastAPI 后端 ----------
   fastapi:
     build: ./backend
@@ -74,6 +96,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     # 就绪探针：真实探测 DB/Redis（容器 CMD 会在启动前执行 alembic upgrade head）
     healthcheck:
@@ -121,7 +145,12 @@ services:
 
   # ---------- 前端 Web（生产构建 + Nginx 托管） ----------
   frontend:
-    build: ./frontend-web
+    build:
+      context: ./frontend-web
+      args:
+        VITE_GOOGLE_MAPS_WEB_API_KEY: ${VITE_GOOGLE_MAPS_WEB_API_KEY:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_APPLE_CLIENT_ID: ${VITE_APPLE_CLIENT_ID:-}
     container_name: rental_frontend
     restart: unless-stopped
     ports:

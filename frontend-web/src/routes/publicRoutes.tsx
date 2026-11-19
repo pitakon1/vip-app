@@ -32,6 +32,10 @@ const Hotel = lazy(() => import('@/pages/category/Hotel'))
 const Land = lazy(() => import('@/pages/category/Land'))
 // 地图找房（匿名公开，按视野拉取点位）
 const MapFind = lazy(() => import('@/pages/MapFind'))
+// 「帮我找房」线索表单（匿名公开，提交后落 CRM Lead）
+const FindMyHome = lazy(() => import('@/pages/FindMyHome'))
+// 平台成交榜单（匿名公开，仅聚合平台已完成成交样本）
+const Rankings = lazy(() => import('@/pages/Rankings'))
 
 export interface PublicRoute {
   path: string
@@ -55,6 +59,8 @@ export const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/category/hotel', element: <Hotel /> },
   { path: '/category/land', element: <Land /> },
   { path: '/map', element: <MapFind /> },
+  { path: '/find-my-home', element: <FindMyHome /> },
+  { path: '/rankings', element: <Rankings /> },
   { path: '/login', element: <Login /> },
   { path: '/register', element: <Register /> },
   { path: '/sign/:token', element: <Sign /> },

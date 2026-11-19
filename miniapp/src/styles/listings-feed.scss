@@ -150,57 +150,7 @@
   }
 }
 
-.hero-divider {
-  height: 2rpx;
-  background-color: var(--line);
-  margin: 20rpx 0;
-}
 
-/* 居室快选：不限 / 1居 / 2居 / 3居+（选中为实心主色圆 + 白勾） */
-.hero-beds {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 4rpx;
-}
-
-.hero-bed {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-
-  .hero-bed__dot {
-    box-sizing: border-box;
-    width: 34rpx;
-    height: 34rpx;
-    border-radius: 50%;
-    border: 2rpx solid var(--line);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    &--on {
-      background-color: var(--primary);
-      border-color: var(--primary);
-    }
-  }
-
-  .hero-bed__check {
-    font-size: 22rpx;
-    font-weight: 700;
-    color: var(--primary-foreground);
-  }
-
-  .hero-bed__text {
-    font-size: 28rpx;
-    color: var(--ink-2);
-
-    &--on {
-      color: var(--primary);
-      font-weight: 600;
-    }
-  }
-}
 
 /* 主按钮：查看 N 套房源 / 去地图看 */
 .hero-actions {

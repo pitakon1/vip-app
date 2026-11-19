@@ -278,9 +278,26 @@ def _active_groups(session: Session) -> List[AttendanceGroup]:
     )
 
 
+def _employee_partner_id(
+    session: Session, employee: Employee
+) -> Optional[uuid.UUID]:
+    """员工所属合作公司：通过 `User.partner_id` 归属，平台员工为 None。"""
+    if not employee.user_id:
+        return None
+    user = session.get(User, employee.user_id)
+    return user.partner_id if user else None
+
+
 def _resolve_rules(session: Session, employee: Employee) -> AttendanceRule:
-    """解析员工生效规则：显式成员 → 所属部门 → 默认组 → 全局 settings。"""
-    groups = {g.id: g for g in _active_groups(session)}
+    """解析员工生效规则：显式成员 → 所属部门 → 默认组 → 全局 settings。
+
+    考勤组按公司隔离：合作公司员工只匹配本公司的组，平台员工只匹配平台组
+    （`partner_id IS NULL`）。否则合作公司的作息会把平台员工套进去，反之亦然。
+    """
+    partner_id = _employee_partner_id(session, employee)
+    groups = {
+        g.id: g for g in _active_groups(session) if g.partner_id == partner_id
+    }
     group: Optional[AttendanceGroup] = None
     if groups:
         member = session.exec(
@@ -715,6 +732,22 @@ def _partner_user_ids(session: Session, partner_id: uuid.UUID) -> List[uuid.UUID
     )
 
 
+def _partner_employee_ids(
+    session: Session, partner_id: uuid.UUID
+) -> List[uuid.UUID]:
+    """合作公司旗下员工的 Employee.id 集合（用于请假等按员工维度的隔离）。"""
+    user_ids = _partner_user_ids(session, partner_id)
+    if not user_ids:
+        return []
+    return list(
+        session.exec(
+            select(Employee.id).where(
+                Employee.user_id.in_(user_ids), Employee.deleted_at.is_(None)
+            )
+        ).all()
+    )
+
+
 def _partner_name_map(
     session: Session, partner_ids: set[uuid.UUID]
 ) -> Dict[uuid.UUID, str]:
@@ -1119,6 +1152,16 @@ def _get_group_or_404(session: Session, group_id: uuid.UUID) -> AttendanceGroup:
     return group
 
 
+def _assert_group_access(user: User, group: AttendanceGroup) -> None:
+    """合作管理员只能操作本公司的考勤组（平台组 partner_id 为 NULL 也不可见）。"""
+    if user.role != UserRole.partner_admin:
+        return
+    if not user.partner_id or group.partner_id != user.partner_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot access another partner company's attendance group"
+        )
+
+
 def _clear_other_defaults(session: Session, keep_id) -> None:
     """默认组只能有一个：把其它组的 is_default 落回 False。"""
     others = session.exec(
@@ -1136,12 +1179,22 @@ def _clear_other_defaults(session: Session, keep_id) -> None:
 @router.get("/groups", response_model=List[AttendanceGroupOut])
 def list_attendance_groups(
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
-    """考勤组列表（含成员数）。管理员用于规则配置与分配。"""
+    """考勤组列表（含成员数）。管理员用于规则配置与分配。
+
+    平台管理员看平台组；合作公司管理员只看本公司的组，互不串味。
+    """
+    conditions = [AttendanceGroup.deleted_at.is_(None)]
+    if user.role == UserRole.partner_admin:
+        if not user.partner_id:
+            raise HTTPException(
+                status_code=403, detail="Account is not bound to any partner company"
+            )
+        conditions.append(AttendanceGroup.partner_id == user.partner_id)
     groups = session.exec(
         select(AttendanceGroup)
-        .where(AttendanceGroup.deleted_at.is_(None))
+        .where(*conditions)
         .order_by(AttendanceGroup.is_default.desc(), AttendanceGroup.created_at)
     ).all()
     members = session.exec(
@@ -1159,18 +1212,37 @@ def list_attendance_groups(
 def create_attendance_group(
     payload: AttendanceGroupIn,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
-    """新建考勤组（多办公点/多班次）。同名的启用组直接 409，避免规则二义。"""
-    dup = session.exec(
-        select(AttendanceGroup).where(
-            AttendanceGroup.name == payload.name,
-            AttendanceGroup.deleted_at.is_(None),
-        )
-    ).first()
+    """新建考勤组（多办公点/多班次）。同名的启用组直接 409，避免规则二义。
+
+    合作管理员创建的组自动归属本公司，且强制 `is_default=False`：
+    默认组是平台全局概念，合作组只通过显式成员生效。
+    """
+    partner_id: Optional[uuid.UUID] = None
+    if user.role == UserRole.partner_admin:
+        if not user.partner_id:
+            raise HTTPException(
+                status_code=403, detail="Account is not bound to any partner company"
+            )
+        partner_id = user.partner_id
+    dup_conditions = [
+        AttendanceGroup.name == payload.name,
+        AttendanceGroup.deleted_at.is_(None),
+    ]
+    dup_conditions.append(
+        AttendanceGroup.partner_id == partner_id
+        if partner_id
+        else AttendanceGroup.partner_id.is_(None)
+    )
+    dup = session.exec(select(AttendanceGroup).where(*dup_conditions)).first()
     if dup:
         raise HTTPException(status_code=409, detail="Attendance group name already exists")
-    group = AttendanceGroup(**payload.model_dump())
+    data = payload.model_dump()
+    if partner_id:
+        data["partner_id"] = partner_id
+        data["is_default"] = False
+    group = AttendanceGroup(**data)
     session.add(group)
     session.flush()
     if group.is_default:
@@ -1185,11 +1257,15 @@ def update_attendance_group(
     group_id: uuid.UUID,
     payload: AttendanceGroupPatchIn,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
-    """更新考勤组规则（局部字段）。"""
+    """更新考勤组规则（局部字段）。合作管理员只能改本公司的组。"""
     group = _get_group_or_404(session, group_id)
+    _assert_group_access(user, group)
     changes = payload.model_dump(exclude_unset=True)
+    # 合作组不允许成为平台全局默认组（默认组只对平台自有员工生效）
+    if user.role == UserRole.partner_admin:
+        changes.pop("is_default", None)
     if "name" in changes:
         name = (changes["name"] or "").strip()
         if not name:
@@ -1199,6 +1275,11 @@ def update_attendance_group(
                 AttendanceGroup.name == name,
                 AttendanceGroup.id != group.id,
                 AttendanceGroup.deleted_at.is_(None),
+                (
+                    AttendanceGroup.partner_id == group.partner_id
+                    if group.partner_id
+                    else AttendanceGroup.partner_id.is_(None)
+                ),
             )
         ).first()
         if dup:
@@ -1224,10 +1305,11 @@ def update_attendance_group(
 def delete_attendance_group(
     group_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
     """删除考勤组（软删，同时解除成员分配）。命中该组的员工回落部门/默认组/settings。"""
     group = _get_group_or_404(session, group_id)
+    _assert_group_access(user, group)
     group.deleted_at = datetime.utcnow()
     session.add(group)
     members = session.exec(
@@ -1247,10 +1329,11 @@ def delete_attendance_group(
 def list_group_members(
     group_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
     """考勤组成员列表（显式指定的员工）。"""
-    _get_group_or_404(session, group_id)
+    group = _get_group_or_404(session, group_id)
+    _assert_group_access(user, group)
     rows = session.exec(
         select(AttendanceGroupMember).where(
             AttendanceGroupMember.group_id == group_id,
@@ -1293,21 +1376,26 @@ def assign_group_members(
     group_id: uuid.UUID,
     payload: AttendanceGroupMembersIn,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
     """把员工并入考勤组（一个员工只能属于一个组：先解绑其它组再并入）。"""
-    _get_group_or_404(session, group_id)
+    group = _get_group_or_404(session, group_id)
+    _assert_group_access(user, group)
     wanted = list(dict.fromkeys(payload.employee_ids))
     if not wanted:
         raise HTTPException(status_code=400, detail="employee_ids must not be empty")
+    employee_conditions = [
+        Employee.id.in_(wanted),
+        Employee.deleted_at.is_(None),
+    ]
+    # 合作管理员只能把本公司员工拉进本公司的组
+    if user.role == UserRole.partner_admin:
+        employee_conditions.append(
+            Employee.user_id.in_(_partner_user_ids(session, user.partner_id))
+        )
     valid = {
         e.id
-        for e in session.exec(
-            select(Employee).where(
-                Employee.id.in_(wanted),
-                Employee.deleted_at.is_(None),
-            )
-        ).all()
+        for e in session.exec(select(Employee).where(*employee_conditions)).all()
     }
     missing = [str(i) for i in wanted if i not in valid]
     if missing:
@@ -1334,10 +1422,11 @@ def remove_group_member(
     group_id: uuid.UUID,
     employee_id: uuid.UUID,
     session: Session = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_role(UserRole.admin, UserRole.partner_admin)),
 ):
     """把员工移出考勤组（回落部门组 / 默认组 / 全局 settings）。"""
-    _get_group_or_404(session, group_id)
+    group = _get_group_or_404(session, group_id)
+    _assert_group_access(user, group)
     rows = session.exec(
         select(AttendanceGroupMember).where(
             AttendanceGroupMember.group_id == group_id,
@@ -1530,15 +1619,33 @@ def list_leave_requests(
     status: Optional[LeaveStatus] = None,
     employee_id: Optional[uuid.UUID] = None,
     session: Session = Depends(get_session),
-    user: User = Depends(require_employee),
+    user: User = Depends(
+        require_role(
+            UserRole.admin, UserRole.agent, UserRole.employee, UserRole.partner_admin
+        )
+    ),
 ):
-    """请假申请列表。管理员/代理看全员（可按状态、员工筛选），员工只看自己。"""
+    """请假申请列表。管理员/代理看全员（可按状态、员工筛选），员工只看自己；
+    合作管理员看本公司员工（同样支持状态与员工筛选）。"""
     conditions = [LeaveRequest.deleted_at.is_(None)]
     if user.role in (UserRole.admin, UserRole.agent):
         if status is not None:
             conditions.append(LeaveRequest.status == status)
         if employee_id is not None:
             conditions.append(LeaveRequest.employee_id == employee_id)
+    elif user.role == UserRole.partner_admin:
+        if not user.partner_id:
+            raise HTTPException(
+                status_code=403, detail="Account is not bound to any partner company"
+            )
+        company_employee_ids = _partner_employee_ids(session, user.partner_id)
+        if not company_employee_ids:
+            return []
+        conditions.append(LeaveRequest.employee_id.in_(company_employee_ids))
+        if employee_id is not None:
+            conditions.append(LeaveRequest.employee_id == employee_id)
+        if status is not None:
+            conditions.append(LeaveRequest.status == status)
     else:
         conditions.append(LeaveRequest.employee_id == _get_employee(session, user).id)
         if status is not None:
@@ -1578,12 +1685,27 @@ def approve_leave(
     leave_id: uuid.UUID,
     payload: LeaveRequestActionIn,
     session: Session = Depends(get_session),
-    user: User = Depends(require_role(UserRole.admin, UserRole.agent)),
+    user: User = Depends(
+        require_role(UserRole.admin, UserRole.agent, UserRole.partner_admin)
+    ),
 ):
-    """审批请假（admin/agent）。通过后按日期区间写入考勤 status=leave。"""
+    """审批请假（admin/agent/合作管理员）。通过后按日期区间写入考勤 status=leave。
+
+    合作管理员只能审批本公司员工的申请，跨公司一律 403。
+    """
     leave = session.get(LeaveRequest, leave_id)
     if not leave or leave.deleted_at:
         raise HTTPException(status_code=404, detail="Leave request not found")
+    if user.role == UserRole.partner_admin:
+        if not user.partner_id:
+            raise HTTPException(
+                status_code=403, detail="Account is not bound to any partner company"
+            )
+        if leave.employee_id not in _partner_employee_ids(session, user.partner_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot review another partner company's leave request",
+            )
     if leave.status != LeaveStatus.pending:
         raise HTTPException(
             status_code=409, detail=f"Leave request already {leave.status.value} (final)"

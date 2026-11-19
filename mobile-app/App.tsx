@@ -11,6 +11,7 @@ import { initI18n } from './src/i18n';
 import { ToastProvider } from './src/components/Toast';
 import { ConfirmProvider } from './src/components/ConfirmDialog';
 import { queryClient } from './src/lib/queryClient';
+import { registerPushToken } from './src/lib/push';
 import { colors } from './src/theme/colors';
 import type { RootStackParamList } from './src/navigation/RootNavigator';
 
@@ -58,6 +59,11 @@ function AppShell() {
     } else if (prev && !isAuthenticated) {
       navigationRef.reset({ index: 0, routes: [{ name: 'Main' }] });
     }
+  }, [isAuthenticated]);
+
+  // 登录后注册 Expo 推送（Web/模拟器自动跳过并返回原因，不伪造成功）
+  useEffect(() => {
+    if (isAuthenticated) void registerPushToken();
   }, [isAuthenticated]);
 
   return (

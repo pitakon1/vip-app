@@ -83,16 +83,16 @@ export default function RentCategory() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'map', label: t('category.rentGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.rentGridMap')) },
-      { key: 'commute', label: t('category.rentGridCommute'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.rentGridCommute')) },
-      { key: 'selfrun', label: t('category.rentGridSelf'), icon: <StarOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.rentGridSelf')) },
-      { key: 'newest', label: t('category.newListings'), icon: <ClockCircleOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, t('category.newListings')) },
-      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.helpFind')) },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
+      { key: 'map', label: t('category.rentGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/map') },
+      { key: 'commute', label: t('category.rentGridCommute'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, navigate, t('category.rentGridCommute'), { reasonKey: 'category.featureHint.commute', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } }) },
+      { key: 'selfrun', label: t('category.rentGridSelf'), icon: <StarOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => navigate('/listings?preset=owner_direct') },
+      { key: 'newest', label: t('category.newListings'), icon: <ClockCircleOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/listings?preset=latest') },
+      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/find-my-home') },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
       { key: 'all', label: t('category.allListings'), icon: <AppstoreOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings') },
       { key: 'school', label: t('publicSite.navSchools'), icon: <ReadOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => navigate('/schools') },
       { key: 'community', label: t('publicSite.navCommunities'), icon: <BankOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/communities') },
-      { key: 'furnished', label: t('category.furnishedListings'), icon: <CrownOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.furnishedListings')) },
+      { key: 'furnished', label: t('category.furnishedListings'), icon: <CrownOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/listings?preset=furnished') },
     ],
     [navigate, t],
   )
@@ -171,7 +171,7 @@ export default function RentCategory() {
       <ServiceBar
         text={t('category.rentServiceText')}
         actionLabel={t('category.helpFind')}
-        onAction={() => notAvailable(t, t('category.helpFind'))}
+        onAction={() => navigate('/find-my-home')}
       />
       {rail.length > 0 ? (
         <>

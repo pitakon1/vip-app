@@ -105,6 +105,12 @@ def _create_commission_settlements(
     factor = rate / 100.0
     base = round(lease.monthly_rent * factor, 2)
 
+    # 租约落合作公司归属：合作端「我的成交」直接按该字段读取，
+    # 无需每次回查佣金结算（历史数据由 backfill_partner_ownership 回填）。
+    if partner_id and lease.partner_id != partner_id:
+        lease.partner_id = partner_id
+        session.add(lease)
+
     splits = _collect_split_roles(session, deal_type, partner_id)
     total = sum(p for _, p in splits) or 100.0
     for role, percent in splits:

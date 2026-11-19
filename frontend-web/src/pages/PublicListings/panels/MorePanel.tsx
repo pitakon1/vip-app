@@ -14,6 +14,14 @@ export default function MorePanel({ f }: { f: ListingFilters }) {
     decorSel, setDecorSel, decorationOptions,
     amenitySel, setAmenitySel, amenityOptions,
     vrSel, setVrSel, featuredSel, setFeaturedSel, ownerDirectSel, setOwnerDirectSel,
+    envSel, setEnvSel,
+    videoOnly, toggleVideoOnly,
+    minLeaseSel, setMinLeaseSel, leaseMonthOptions,
+    tenureSel, setTenureSel, tenureOptions,
+    ageMaxSel, setAgeMaxSel, buildingAgeOptions,
+    wholeFloorSel, setWholeFloorSel,
+    wholeBuildingSel, setWholeBuildingSel,
+    companyRegSel, setCompanyRegSel,
     statusSel, setStatusSel, statusOptions,
     resetMore, setMoreOpen,
   } = f
@@ -117,6 +125,66 @@ export default function MorePanel({ f }: { f: ListingFilters }) {
             { key: 'vr', label: t('browse.vr'), val: vrSel, set: setVrSel },
             { key: 'featured', label: t('browse.featured'), val: featuredSel, set: setFeaturedSel },
             { key: 'ownerDirect', label: t('browse.ownerDirect'), val: ownerDirectSel, set: setOwnerDirectSel },
+            { key: 'env', label: t('category.presets.env'), val: envSel, set: setEnvSel },
+            { key: 'video', label: t('browse.video'), val: videoOnly ? '1' : '', set: () => toggleVideoOnly() },
+          ] as const).map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              className={`rent-loc-panel__chip ${o.val === '1' ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => o.set(o.val === '1' ? '' : '1')}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {/* 租售条件：最短租期 / 产权 / 楼龄（后端 min_lease_months / tenure / building_age_max） */}
+        <div className="rent-loc-panel__group-title">{t('publicSite.minLease')}</div>
+        <div className="rent-loc-panel__chips">
+          {leaseMonthOptions.map((o) => (
+            <button
+              key={o.value || 'any'}
+              type="button"
+              className={`rent-loc-panel__chip ${minLeaseSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setMinLeaseSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.tenureLabel')}</div>
+        <div className="rent-loc-panel__chips">
+          {tenureOptions.map((o) => (
+            <button
+              key={o.value || 'any'}
+              type="button"
+              className={`rent-loc-panel__chip ${tenureSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setTenureSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <div className="rent-loc-panel__group-title">{t('publicSite.buildingAge')}</div>
+        <div className="rent-loc-panel__chips">
+          {buildingAgeOptions.map((o) => (
+            <button
+              key={o.value || 'any'}
+              type="button"
+              className={`rent-loc-panel__chip ${ageMaxSel === o.value ? 'rent-loc-panel__chip--active' : ''}`}
+              onClick={() => setAgeMaxSel(o.value)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {/* 商办专项：整层 / 整栋 / 可注册公司（后端布尔参数，未录入不等于「否」） */}
+        <div className="rent-loc-panel__group-title">{t('publicSite.commercialExtra')}</div>
+        <div className="rent-loc-panel__chips">
+          {([
+            { key: 'wholeFloor', label: t('publicSite.wholeFloor'), val: wholeFloorSel, set: setWholeFloorSel },
+            { key: 'wholeBuilding', label: t('publicSite.wholeBuilding'), val: wholeBuildingSel, set: setWholeBuildingSel },
+            { key: 'companyReg', label: t('publicSite.companyReg'), val: companyRegSel, set: setCompanyRegSel },
           ] as const).map((o) => (
             <button
               key={o.key}

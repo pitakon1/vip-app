@@ -9,11 +9,13 @@ export default {
     'pages/public/school-detail/index',
     'pages/public/communities/index',
     'pages/public/community-detail/index',
+    // 平台成交榜单 / 成交行情（分类页「成交行情 / 降价榜」入口的落点）
+    'pages/public/rankings/index',
     // 地图找房（C 端匿名可进；找房页「去地图看」与分类页地图入口的落点）
     'pages/public/map/index',
-    // 发现（C 端底部 Tab）：城市行情 + 热门小区 + 国际学校，匿名可进
-    'pages/public/discover/index',
     // ===== 主包只留首屏 + 高频 C 端页（冷启动体积），低频作业页全部走分包 =====
+    // C 端底部 Tab「我家」：房产卡 + 四列宫格 + 分组行卡（对齐 App MyHomeScreen）
+    'pages/my-home/index',
     'pages/tenant/home/index',
     'pages/tenant/documents/index',
     // 增值服务（价目/报价/购买）体积较大，放独立分包，避免主包超 2MB
@@ -28,18 +30,25 @@ export default {
     'pages/tenant/category-factory/index',
     'pages/tenant/category-hotel/index',
     'pages/tenant/category-land/index',
-    // C 端「我的 - 常用功能」里的关注 / 浏览历史 / 降价提醒（登录即可用，不按业主租客门槛）
+    // C 端「我的」里的关注 / 浏览历史 / 降价提醒（登录即可用，不按业主租客门槛）
     'pages/tenant/favorites/index',
+    'pages/tenant/viewings/index',
+    'pages/tenant/valuation/index',
+    'pages/tenant/announcements/index',
     'pages/tenant/history/index',
     'pages/tenant/price-alerts/index',
+    // 「帮我找房」线索表单（C 端匿名可进，提交后落 CRM Lead 并通知经纪人）
+    'pages/tenant/find-my-home/index',
+    // 实名认证（证件上传 + 人工审核；材料仅本人与审核员可读）
+    'pages/tenant/identity/index',
     'pages/location/index',
     // C 端「我的 - 关于我们 / 版权信息」详情页（数据取自公开接口 /company/info）
     'pages/about/index',
     'pages/help/index',
     // 语言选择（全屏下钻子页，对齐 App SettingsLanguageScreen：选择后即时生效）
     'pages/language/index',
-    // C 端「添加我的房产」：自助提交绑定申请（后台审核通过后才建立房源关联）
-    'pages/property-binding/index',
+    // 权限设置（逐项展示系统真实授权状态，对齐贝壳权限设置页）
+    'pages/permissions/index',
     'pages/tenant/property-detail/index',
     'pages/tenant/leases/index',
     'pages/profile/index',
@@ -84,7 +93,7 @@ export default {
     // 管理端后台：全部低频，独立分包
     {
       root: 'pages/admin',
-      pages: ['home/index', 'properties/index', 'property-detail/index', 'new-project/index', 'crm/index', 'payments/index', 'leases/index', 'contracts/index', 'accounts/index', 'permissions/index', 'departments/index', 'data-scopes/index', 'options/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index', 'partners/index', 'partner-members/index', 'partner-attendance/index']
+      pages: ['home/index', 'properties/index', 'property-detail/index', 'new-project/index', 'crm/index', 'payments/index', 'leases/index', 'contracts/index', 'accounts/index', 'permissions/index', 'departments/index', 'data-scopes/index', 'options/index', 'commission-rules/index', 'review-center/index', 'attendance-manage/index', 'partners/index', 'partner-members/index', 'partner-attendance/index', 'partner-console/index']
     },
     // 内部/渠道上架作业（发布房源入口已收敛到各端「房源管理」）
     {

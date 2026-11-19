@@ -18,11 +18,14 @@ x-backend-env: &backend-env
   CELERY_RESULT_BACKEND: redis://redis:6379/2
   DEBUG: "false"
 
-# 后端三个容器共用的持久化挂载（上传文件 / 合同渲染 / 每日备份）
+# 后端三个容器共用的持久化挂载（上传文件 / 合同渲染 / 每日备份 / 电子签 CA）
+# sign-engine 必须持久化：里面是签名 CA 私钥与证书，容器重建后若重新生成 CA，
+# 历史合同将全部验签失败。
 x-backend-volumes: &backend-volumes
   - backend_uploads:/app/uploads
   - backend_contracts:/app/contracts
   - backend_backups:/app/backups
+  - backend_sign_engine:/app/sign-engine
 
 x-logging: &default-logging
   driver: json-file
@@ -138,6 +141,7 @@ services:
       - backend_uploads:/app/uploads
       - backend_contracts:/app/contracts
       - backend_backups:/app/backups
+      - backend_sign_engine:/app/sign-engine
       - celery_beat_data:/beat
     depends_on:
       redis:
@@ -151,6 +155,10 @@ services:
     build:
       context: ./frontend-web
       dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_MAPS_WEB_API_KEY: ${VITE_GOOGLE_MAPS_WEB_API_KEY:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_APPLE_CLIENT_ID: ${VITE_APPLE_CLIENT_ID:-}
     image: rental-frontend:prod
     container_name: rental_frontend
     restart: always
@@ -159,6 +167,12 @@ services:
     depends_on:
       fastapi:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     logging: *default-logging
 
 volumes:
@@ -168,3 +182,4 @@ volumes:
   backend_uploads:
   backend_contracts:
   backend_backups:
+  backend_sign_engine:

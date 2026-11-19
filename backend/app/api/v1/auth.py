@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlmodel import Session, select
 from pydantic import BaseModel, ConfigDict
 
@@ -30,6 +31,7 @@ from app.core.auth import get_current_user, is_token_revoked, serialize_user
 from app.core.uploads import detect_image_mime, save_upload
 from app.models.user import User, UserRole
 from app.models.owner import Owner
+from app.models.partner import Partner
 from app.models.tenant import Tenant
 from app.models.verification_code import VerificationCode
 from app.providers.notification.base import NotificationChannel, NotificationMessage
@@ -190,6 +192,11 @@ def _resolve_user_by_identifier(session: Session, identifier: str) -> User | Non
 
 def _finalize_login(session: Session, user: User) -> TokenResponse:
     """记录登录时间（运营看板 DAU/MAU 数据源）并返回令牌。"""
+    # 停用合作公司：旗下账号立即禁止登录（路线图 §4.2-5）
+    if user.partner_id:
+        partner = session.get(Partner, user.partner_id)
+        if not partner or partner.deleted_at or not partner.is_active:
+            raise HTTPException(status_code=403, detail="Partner company is not active")
     user.last_login_at = datetime.utcnow()
     session.add(user)
     session.commit()
@@ -294,6 +301,71 @@ def _consume_otp(session: Session, recipient: str, code: str) -> None:
     latest.used_at = now
     session.add(latest)
     session.commit()
+
+
+def _enforce_otp_send_limits(session: Session, recipient: str) -> None:
+    """按接收方限制发码频率：最小重发间隔 + 24h 条数上限。
+
+    计数源就是 verification_codes 表本身（作废只置 used_at，不删行），
+    因此不需要额外引入 Redis 计数。任一条超出一律 429 + Retry-After，
+    且必须在 `_issue_otp` 之前调用——被限流的请求不应消耗配额、也不该落库。
+    """
+    now = datetime.utcnow()
+
+    cooldown = max(int(settings.OTP_RESEND_SECONDS or 0), 0)
+    if cooldown:
+        latest = session.exec(
+            select(VerificationCode)
+            .where(VerificationCode.recipient == recipient)
+            .order_by(VerificationCode.created_at.desc())
+        ).first()
+        if latest and latest.created_at:
+            elapsed = (now - latest.created_at).total_seconds()
+            if elapsed < cooldown:
+                retry_after = max(int(cooldown - elapsed), 1)
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        "Verification code requested too frequently, "
+                        f"retry in {retry_after}s"
+                    ),
+                    headers={"Retry-After": str(retry_after)},
+                )
+
+    daily_limit = int(settings.OTP_DAILY_LIMIT or 0)
+    if daily_limit > 0:
+        since = now - timedelta(hours=24)
+        sent_24h = session.exec(
+            select(func.count())
+            .select_from(VerificationCode)
+            .where(
+                VerificationCode.recipient == recipient,
+                VerificationCode.created_at >= since,
+            )
+        ).one()
+        if int(sent_24h or 0) >= daily_limit:
+            oldest = session.exec(
+                select(VerificationCode)
+                .where(
+                    VerificationCode.recipient == recipient,
+                    VerificationCode.created_at >= since,
+                )
+                .order_by(VerificationCode.created_at.asc())
+            ).first()
+            wait = 3600
+            if oldest and oldest.created_at:
+                wait = max(
+                    int((oldest.created_at + timedelta(hours=24) - now).total_seconds()),
+                    60,
+                )
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Daily verification code limit reached, "
+                    f"retry in {wait}s"
+                ),
+                headers={"Retry-After": str(wait)},
+            )
 
 
 def _sync_role_profile(session: Session, user: User) -> None:
@@ -406,11 +478,33 @@ def request_otp(
     else:
         raise HTTPException(status_code=400, detail="channel must be sms or email")
 
-    code = _issue_otp(session, recipient, channel)
-    sent = _send_code(recipient, channel, code)
-
     # 联调回显：必须显式双开关，非 DEBUG 时一律忽略该配置
     echo_dev_code = bool(settings.DEBUG and settings.OTP_DEV_CODE_ECHO)
+
+    # 未配短信凭据时直接 503，且不落库、不消耗频控配额：
+    # 缺哪几个变量要说清楚，便于部署方补齐（而不是让人对着"发送失败"猜）。
+    if channel == "sms" and not echo_dev_code:
+        missing = SMSProvider.missing_credentials()
+        if missing:
+            logger.warning(
+                "otp.sms_not_configured recipient=%s missing=%s",
+                recipient,
+                ",".join(missing),
+            )
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "SMS delivery not configured (missing: "
+                    + ", ".join(missing)
+                    + ")"
+                ),
+            )
+
+    # 频控在发码之前：超限请求不生成验证码，也不应把旧码作废
+    _enforce_otp_send_limits(session, recipient)
+
+    code = _issue_otp(session, recipient, channel)
+    sent = _send_code(recipient, channel, code)
 
     if not sent and not echo_dev_code:
         _void_unused_otp(session, recipient)

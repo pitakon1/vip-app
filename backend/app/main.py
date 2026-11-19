@@ -29,6 +29,7 @@ from app.core.error_handlers import rate_limited_response, register_exception_ha
 from app.core.logging import configure_logging, get_logger
 from app.core.migrations import (
     backfill_lease_contract_numbers,
+    backfill_partner_ownership,
     backfill_serial_numbers,
     ensure_schema,
     seed_approval_rules,
@@ -256,6 +257,8 @@ async def lifespan(app: FastAPI):
     backfill_serial_numbers(engine)
     # 幂等回填租约合同编号（HT-YYYYMMDD-NNNN，只补 NULL 行）
     backfill_lease_contract_numbers(engine)
+    # 幂等回填租约/合同的合作公司归属（依据佣金结算）
+    backfill_partner_ownership(engine)
     # 幂等补种权限点与角色默认权限（不覆盖已有配置）
     with Session(engine) as session:
         seed_permissions(session)

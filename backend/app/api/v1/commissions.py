@@ -140,4 +140,22 @@ def approve_commission(
     session.add(commission)
     session.commit()
     session.refresh(commission)
+    # 佣金状态变更推送（合作公司 Webhook），失败不影响主流程
+    try:
+        from app.services.partner_webhook import create_events
+
+        if create_events(
+            session,
+            commission.partner_id,
+            "settlement.approved",
+            {
+                "settlement_id": str(commission.id),
+                "lease_id": str(commission.lease_id),
+                "amount": commission.commission_amount,
+                "status": commission.status.value,
+            },
+        ):
+            session.commit()
+    except Exception:  # pragma: no cover - 推送失败不阻断审批
+        session.rollback()
     return commission

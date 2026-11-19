@@ -260,8 +260,8 @@ const Marketing = () => {
                   emptyTitle={t('propertyBinding.noPropertyTitle')}
                   emptySub={t('propertyBinding.noPropertySub')}
                   emptyAction={
-                    <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
-                      {t('menu.addProperty')}
+                    <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/my-properties?add=1">
+                      {t('propertyBinding.title')}
                     </Link>
                   }
                 />

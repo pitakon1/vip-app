@@ -222,6 +222,64 @@ export interface PublicProjectDetail extends PublicProject {
   listings?: PublicListing[];
 }
 
+/** 小区画像（对标贝壳「我家」行情段，全部为库内真实数据）。 */
+export interface PublicProjectInsights {
+  project_id: string;
+  project_name?: string | null;
+  currency?: string | null;
+  active_sale_count: number;
+  active_rent_count: number;
+  avg_sale_price_sqm?: number | null;
+  avg_rent?: number | null;
+  /** 近 12 个月成交均价（元/㎡），按成交月聚合 */
+  price_trend: {
+    period: string;
+    avg_price_sqm: number | null;
+    sample_count: number;
+  }[];
+  /** 近 180 天成交记录（相似房源成交提醒） */
+  similar_deals: {
+    id: string;
+    sale_price: number;
+    currency?: string | null;
+    size_sqm?: number | null;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    price_sqm?: number | null;
+    deal_date?: string | null;
+    address?: string | null;
+    room_number?: string | null;
+  }[];
+  liquidity: {
+    sold_90d: number;
+    sold_180d: number;
+    active_sale_count: number;
+    clearance_months?: number | null;
+  } | null;
+  competitiveness: {
+    project_price_sqm: number;
+    district_price_sqm: number;
+    delta_pct: number;
+    district_rank?: number | null;
+    district_total: number;
+    district?: string | null;
+  } | null;
+  city_market: {
+    city?: string | null;
+    avg_price_sqm?: number | null;
+    sale_count: number;
+    rent_count: number;
+    sold_30d: number;
+  } | null;
+  rental_market: {
+    avg_rent?: number | null;
+    avg_rent_sqm?: number | null;
+    rent_count: number;
+    gross_yield_pct?: number | null;
+    currency?: string | null;
+  } | null;
+}
+
 /** 后端统一分页信封（`app/core/pagination.py` 的 Page）。 */
 export interface PublicPage<T> {
   items: T[];
@@ -255,6 +313,16 @@ export interface PublicListingQuery {
   district?: string;
   city?: string;
   decoration?: string;
+  /** 朝向：north/south/east/west/northeast/northwest/southeast/southwest */
+  orientation?: string;
+  /** 楼层段（多值，任一命中）：low / mid / high */
+  floor_level?: string[];
+  /** 租房专项：最短租期（月），如 3 / 6 / 12 */
+  min_lease_months?: number;
+  /** 产权类型（来自所属楼盘） */
+  tenure?: 'freehold' | 'leasehold' | 'mixed';
+  /** 楼龄上限（年），如 5 = 五年以内 */
+  building_age_max?: number;
   /** 配套设施（多值，任一命中） */
   amenity?: string[];
   has_video?: boolean;
@@ -283,6 +351,14 @@ export interface PublicInquiryPayload {
   project_id?: string;
   school_id?: string;
   source?: string;
+  /** 「帮我找房」：服务端据此把预算/区域/入住时间结构化写入 Lead */
+  intent?: 'listing_detail' | 'find_my_home';
+  budget_min?: number;
+  budget_max?: number;
+  currency?: string;
+  areas?: string[];
+  move_in_date?: string;
+  language?: 'zh' | 'en' | 'th';
 }
 
 /** 区域（区域下拉 / 行情对比的数据面，含套数与均价）。 */
@@ -331,6 +407,8 @@ export interface PublicMapPointQuery {
   is_new_development?: boolean;
   district?: string;
   city?: string;
+  /** 户型：0-2 精确匹配，3=3 室及以上（贝壳式「户型」筛选） */
+  bedrooms?: number;
   min_lat?: number;
   max_lat?: number;
   min_lng?: number;
@@ -380,6 +458,23 @@ export const publicApi = {
   listing: (id: string) => api.get(`/public/listings/${id}`),
   /** 相似房源推荐（详情页「猜你喜欢」） */
   similar: (id: string) => api.get(`/public/listings/${id}/similar`),
+  /**
+   * 平台成交榜单（仅聚合 property_deals 平台样本）。
+   * 响应固定带 `sample_count` / `min_sample` / `published`，必须在界面上展示
+   * 「平台样本 n=xx，非全市场」。
+   */
+  rankings: (params?: {
+    scope?: 'project' | 'district';
+    metric?: 'deal_count' | 'avg_price' | 'avg_psqm';
+    days?: number;
+    limit?: number;
+  }) => api.get('/public/rankings', { params }),
+  /**
+   * 通勤测算（Google Routes）。未配置 Key 时后端返回 `available:false, reason:'no_key'`，
+   * 前端按 reason 提示，不做本地估算。
+   */
+  estimateCommute: (id: string, data: { destination: string; mode?: 'transit' | 'driving' }) =>
+    api.post(`/public/listings/${id}/commute`, data),
   /** 学校列表 */
   schools: (params?: { page?: number; page_size?: number; q?: string; stage?: string; curriculum?: string }) =>
     api.get('/public/schools', { params }),
@@ -391,6 +486,8 @@ export const publicApi = {
   /** 小区详情（含该小区房源） */
   project: (id: string, params?: { listing_limit?: number }) =>
     api.get(`/public/projects/${id}`, { params }),
+  /** 小区画像：成交趋势 / 相似成交 / 流通性 / 竞争力 / 全城 / 出租行情 */
+  projectInsights: (id: string) => api.get(`/public/projects/${id}/insights`),
   /** 分类页聚合摘要（数据胶囊 + 行情对比 + 分类计数） */
   listingCategorySummary: (params?: { city?: string }) =>
     api.get('/public/listing-categories/summary', { params }),

@@ -79,6 +79,14 @@ const ROLE_META: Record<string, string> = {
   agent: 'contract.roleAgent'
 }
 
+// 签署方式（后端 SignMethod）文案映射
+const METHOD_META: Record<string, string> = {
+  personal_handwrite: 'contract.method_personal_handwrite',
+  personal_seal: 'contract.method_personal_seal',
+  company_seal: 'contract.method_company_seal',
+  date: 'contract.method_date'
+}
+
 // 落章方式（后端 method）：电子印章 / 手写签名 / 日期（日期由后端按当天渲染，不带图）
 type SignMethod = 'company_seal' | 'personal_handwrite' | 'date'
 
@@ -117,6 +125,11 @@ export default function MyContractsPage() {
   const [detail, setDetail] = useState<any>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [signing, setSigning] = useState(false)
+
+  // 验签报告（只读）：三端统一按 signature_status + timestamp 展示
+  const [showVerify, setShowVerify] = useState(false)
+  const [verifyData, setVerifyData] = useState<any>(null)
+  const [verifyLoading, setVerifyLoading] = useState(false)
 
   // PDF 页图预览：pdf_available 为真时以页图作为签署画布
   const [pdfAvailable, setPdfAvailable] = useState(false)
@@ -220,6 +233,22 @@ export default function MyContractsPage() {
       Taro.showToast({ title: t('contract.loadFail'), icon: 'none' })
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const openVerify = async (id: string) => {
+    setShowVerify(true)
+    setVerifyLoading(true)
+    setVerifyData(null)
+    try {
+      const res: any = await contractsApi.verify(id)
+      setVerifyData(unwrap(res))
+    } catch (error) {
+      console.error('[MyContracts] 验签失败', error)
+      Taro.showToast({ title: errorText(error, t('contract.verifyError')), icon: 'none' })
+      setShowVerify(false)
+    } finally {
+      setVerifyLoading(false)
     }
   }
 
@@ -1011,6 +1040,10 @@ export default function MyContractsPage() {
                     <Text className='mc-card__row-label'>{t('contract.created_at')}</Text>
                     <Text className='mc-card__row-value'>{fmtDate(detail?.created_at)}</Text>
                   </View>
+                  <View className='mc-card__row' onClick={() => void openVerify(detail.id)}>
+                    <Text className='mc-card__row-label'>{t('contract.verifyReportLabel')}</Text>
+                    <Text className='mc-card__row-value'>{t('contract.verify')} ›</Text>
+                  </View>
                 </View>
 
                 {/* 签署方（本人高亮）列表 */}
@@ -1219,6 +1252,103 @@ export default function MyContractsPage() {
                 <Text className='mc-pending__foot'>
                   {t('contract.fieldsDone', { done: myDoneCount, total: mySortedFields.length })}
                 </Text>
+              </View>
+            </View>
+          )}
+
+          {/* 验签报告：三端统一口径（有效且可信 / 有效但签发者不受信 / 无效 + 时间戳状态） */}
+          {showVerify && (
+            <View className='mc-mask' onClick={() => { if (!verifyLoading) setShowVerify(false) }}>
+              <View className='mc-sheet' catchMove onClick={(e: any) => e.stopPropagation?.()}>
+                <View className='mc-sheet__head'>
+                  <Text className='mc-sheet__title'>{t('contract.verifyTitle')}</Text>
+                  <View className='mc-sheet__close' onClick={() => { if (!verifyLoading) setShowVerify(false) }}>
+                    <View className='icon-svg' style={iconStyle('close', 30)} />
+                  </View>
+                </View>
+                {verifyLoading ? (
+                  <Text className='mc-sheet__hint'>{t('pub.loading')}</Text>
+                ) : verifyData ? (
+                  <ScrollView scrollY style={{ maxHeight: '68vh' }}>
+                    <Text className={`mc-badge ${verifyData?.tampered ? 'mc-badge--error' : 'mc-badge--success'}`}>
+                      {t(verifyData?.tampered ? 'contract.verifyTampered' : 'contract.verifyIntact')}
+                    </Text>
+                    <View className='mc-verify-row'>
+                      <Text className='mc-card__row-label'>{t('contract.verifyDocumentHash')}</Text>
+                      <Text className='mc-card__row-value'>{String(verifyData?.document_hash ?? '-')}</Text>
+                    </View>
+
+                    {!!verifyData?.pdf_signature_summary && (
+                      <View className='mc-sheet__verify'>
+                        <Text className='mc-sheet__hint'>
+                          {t('contract.verifySigTrust')}：{t('contract.verifySigTrusted')} × {verifyData.pdf_signature_summary.valid_trusted ?? 0}
+                          {' / '}{t('contract.verifySigUntrusted')} × {verifyData.pdf_signature_summary.valid_untrusted ?? 0}
+                          {' / '}{t('contract.verifySigInvalid')} × {verifyData.pdf_signature_summary.invalid ?? 0}
+                        </Text>
+                        <Text className='mc-sheet__hint'>
+                          {t('contract.verifyTsStatus')}：
+                          {!verifyData.pdf_signature_summary.timestamp_present
+                            ? t('contract.verifyTsNone')
+                            : (verifyData.pdf_signature_summary.timestamp_untrusted ?? 0) > 0
+                              ? `${t('contract.verifyTsUntrusted')} × ${verifyData.pdf_signature_summary.timestamp_untrusted}`
+                              : `${t('contract.verifyTsTrusted')} × ${verifyData.pdf_signature_summary.timestamp_trusted ?? 0}`}
+                        </Text>
+                        <Text className='mc-sheet__hint mc-sheet__hint--muted'>
+                          {t('contract.verifyTrustLevel')}：
+                          {t(verifyData.pdf_signature_summary.identity_trust_level === 'public'
+                            ? 'contract.verifyTrustPublic'
+                            : 'contract.verifyTrustPlatform')}
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text className='mc-config__title'>{t('contract.verifySignatures')}</Text>
+                    {Array.isArray(verifyData?.signatures) && verifyData.signatures.length ? (
+                      verifyData.signatures.map((sig: any, idx: number) => (
+                        <View key={`sig-${idx}`} className='mc-verify-row'>
+                          <Text className='mc-card__row-label'>
+                            {t(METHOD_META[sig?.method] || 'contract.unknown')}
+                          </Text>
+                          <Text className='mc-card__row-value'>
+                            {fmtDate(sig?.signed_at)} · {t(sig?.signature_success ? 'contract.verifyOk' : 'contract.verifyFail')}
+                          </Text>
+                        </View>
+                      ))
+                    ) : (
+                      <Text className='mc-sheet__hint mc-sheet__hint--muted'>{t('contract.verifyNoSig')}</Text>
+                    )}
+
+                    {Array.isArray(verifyData?.pdf_signature) && verifyData.pdf_signature.length > 0 && (
+                      <>
+                        <Text className='mc-config__title'>{t('contract.verifyPdfDomains')}</Text>
+                        {verifyData.pdf_signature.map((d: any, idx: number) => (
+                          <View key={`pdf-${idx}`} className='mc-sheet__verify'>
+                            <Text className='mc-sheet__hint'>
+                              #{idx + 1} {d?.signer_name || d?.signed_by || '-'}
+                            </Text>
+                            <Text className='mc-sheet__hint'>
+                              {t(d?.signature_status === 'valid_trusted'
+                                ? 'contract.verifySigTrusted'
+                                : d?.signature_status === 'valid_untrusted'
+                                  ? 'contract.verifySigUntrusted'
+                                  : d?.signature_status === 'invalid' || Number(d?.valid) !== 1
+                                    ? 'contract.verifySigInvalid'
+                                    : 'contract.verifyOk')}
+                            </Text>
+                            <Text className='mc-sheet__hint mc-sheet__hint--muted'>
+                              {t('contract.verifyTsStatus')}：
+                              {!d?.timestamp?.present
+                                ? t('contract.verifyTsNone')
+                                : d?.timestamp?.trusted
+                                  ? `${t('contract.verifyTsTrusted')}${d?.timestamp?.time ? ` · ${fmtDate(d.timestamp.time)}` : ''}`
+                                  : t('contract.verifyTsUntrusted')}
+                            </Text>
+                          </View>
+                        ))}
+                      </>
+                    )}
+                  </ScrollView>
+                ) : null}
               </View>
             </View>
           )}

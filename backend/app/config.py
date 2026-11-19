@@ -105,9 +105,23 @@ class Settings(BaseSettings):
     # 形如 http://gotenberg:3000。留空＝不启用转换（上传件仅保留原件，不阻断上传）。
     GOTENBERG_URL: str = ""
     GOTENBERG_TIMEOUT_SECONDS: int = 30
-    # RFC 3161 可信时间戳服务地址（可选）。留空＝不向签名嵌入时间戳；
-    # 不内置任何商业 CA，生产可接自建 OpenTSA / 公共 FreeTSA（见 docs）。
+    # RFC 3161 可信时间戳服务。默认关闭（空字符串＝不向签名嵌入时间戳），
+    # 保持自建签名链路在电子签选型确定前与既有行为一致、无外部依赖。
+    # 如需启用对外可信时间戳：TSA_URL=http://timestamp.digicert.com
     TSA_URL: str = ""
+    # 部分商业 TSA 需要 HTTP Basic 凭据；为空则匿名请求（DigiCert/FreeTSA 均匿名）。
+    TSA_USERNAME: str = ""
+    TSA_PASSWORD: str = ""
+    TSA_TIMEOUT_SECONDS: int = 10
+    # 文档签名证书（采购公共 CA 证书后填这里）。留空＝继续用平台自签证书，
+    # 此时验签页标注「平台内部信任，未接公共 CA」（Adobe 会提示签名者不受信，属预期）。
+    # 支持 .pfx/.p12（SIGN_CERT_PASSWORD 为导出密码）或 PEM：
+    #   SIGN_CERT_PATH=/path/to/cert.pem 且 /path/to/key.pem（同目录同名 .key）
+    SIGN_CERT_PATH: str = ""
+    SIGN_CERT_PASSWORD: str = ""
+    # 额外信任锚目录（PEM/DER）。默认 backend/sign-engine/tsa-roots，
+    # 用于补充 certifi 未收录的 TSA/证书根（如 DigiCert Assured ID Root CA）。
+    EXTRA_TRUST_ROOTS_DIR: str = ""
     # 电子签后台任务轮询间隔（秒）：过期扫描 + 回调计划重投（30s/2m/10m）
     CONTRACT_HOUSEKEEPING_SECONDS: int = 60
 
@@ -131,6 +145,10 @@ class Settings(BaseSettings):
     # 留空时：有旧名 Key 用旧名，否则服务端地理编码走确定性站内 mock。
     GOOGLE_MAPS_SERVER_API_KEY: str = ""
     GOOGLE_MAPS_ORIGIN: str = ""  # 可选 CORS 来源
+
+    # 通勤测算缓存有效期（秒）。Google Routes API 按次计费，默认缓存 24h。
+    COMMUTE_CACHE_TTL_SECONDS: int = 86400
+    COMMUTE_TIMEOUT_SECONDS: int = 15
 
     # 6) Google 翻译（Cloud Translation v2）
     GOOGLE_TRANSLATE_API_KEY: str = ""
@@ -165,6 +183,17 @@ class Settings(BaseSettings):
     OTP_EXPIRE_MINUTES: int = 10  # 验证码有效期
     OTP_MAX_ATTEMPTS: int = 5  # 单码校验次数上限（超出作废）
     OTP_DEV_CODE_ECHO: bool = False  # 仅 DEBUG 生效的联调开关，生产必须保持 False
+    # 频控：同一接收方（手机号/邮箱）两次发码的最小间隔与 24h 条数上限。
+    # 超限一律 429 + Retry-After，不发码、不落库。
+    OTP_RESEND_SECONDS: int = 60
+    OTP_DAILY_LIMIT: int = 10
+
+    # 12) 短信（Twilio REST API）：手机号验证码与关键业务通知。
+    #     三项缺任一即视为"未配置"：发送 fail closed（OTP 接口返回 503），
+    #     绝不返回"已发送"的假成功。本地联调可留空并把验证码从服务端日志外的调试手段取。
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""  # E.164，如 +14155551234
 
     # 10) 小程序微信登录（miniapp 对标国内小程序）。
     #     code2session / getPhoneNumber 需要真实小程序 AppID 与 AppSecret，

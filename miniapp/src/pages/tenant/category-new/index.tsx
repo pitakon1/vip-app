@@ -32,7 +32,8 @@ import {
   projectSortGroup,
   rangeOptions,
   useCategorySummary,
-  useDistrictNodes
+  useDistrictNodes,
+  type FeatureAction
 } from '@/lib/categoryShared'
 import './index.scss'
 
@@ -70,23 +71,42 @@ export default function CategoryNewPage() {
   )
 
   const grid: GridItem[] = useMemo(() => {
-    const mk = (key: string, label: string, icon: GridItem['icon']): GridItem => ({
+    const browseNew = {
+      labelKey: 'featureAction.browseNewHomes',
+      url: '/pages/public/listings/index?preset=new'
+    }
+    const mk = (
+      key: string,
+      label: string,
+      icon: GridItem['icon'],
+      reasonKey: string,
+      action: FeatureAction
+    ): GridItem => ({
       key,
       label,
       icon,
-      onPress: () => notAvailable(label)
+      onPress: () => notAvailable(label, { reasonKey, action })
     })
     return [
-      mk('brand', t('category.newGridBrand'), 'award'),
-      mk('land', t('category.newGridLand'), 'map'),
-      mk('broker', t('category.findBroker'), 'users'),
-      mk('ready', t('category.newGridReady'), 'home'),
-      mk('small', t('category.newGridSmall'), 'maximize'),
-      mk('rank', t('category.newGridRank'), 'chart'),
-      mk('vr', t('category.newGridVr'), 'cube'),
-      mk('live', t('category.newGridLive'), 'video'),
-      mk('three', t('category.newGridThree'), 'users'),
-      mk('subway', t('category.newGridSubway'), 'train')
+      mk('brand', t('category.newGridBrand'), 'award', 'featureHint.developer', browseNew),
+      mk('land', t('category.newGridLand'), 'map', 'featureHint.landAuction', browseNew),
+      mk('broker', t('category.findBroker'), 'users', 'featureHint.broker', {
+        labelKey: 'featureAction.registerNeed',
+        url: '/pages/tenant/find-my-home/index'
+      }),
+      mk('ready', t('category.newGridReady'), 'home', 'featureHint.ready', browseNew),
+      mk('small', t('category.newGridSmall'), 'maximize', 'featureHint.small', browseNew),
+      {
+        key: 'rank',
+        label: t('category.newGridRank'),
+        icon: 'chart',
+        onPress: () =>
+          Taro.navigateTo({ url: '/pages/public/rankings/index?scope=project&metric=deal_count' })
+      },
+      mk('vr', t('category.newGridVr'), 'cube', 'featureHint.projectVr', browseNew),
+      mk('live', t('category.newGridLive'), 'video', 'featureHint.live', browseNew),
+      mk('three', t('category.newGridThree'), 'users', 'featureHint.groupBuy', browseNew),
+      mk('subway', t('category.newGridSubway'), 'train', 'featureHint.subway', browseNew)
     ]
   }, [t])
 

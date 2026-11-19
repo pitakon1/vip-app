@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
   filterTabBadgeText: { color: colors.primaryForeground, fontSize: colors.fontSize.xs, fontWeight: '600', lineHeight: colors.lineHeight.tight},
   dropPanel: {
     marginHorizontal: 0,
-    marginTop: 6,
+    marginTop: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
@@ -1562,11 +1562,23 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  // 下拉面板内选项 chip：与 C 端浏览页筛选 chip 同一套排版语言
-  optChip: { ...filterStyles.chip },
-  optChipActive: { ...filterStyles.chipActive },
-  optChipText: { ...filterStyles.chipText },
-  optChipTextActive: { ...filterStyles.chipTextActive },
+  // 下拉面板内选项卡片：与 C 端浏览页统一为两列矩形卡片
+  optChip: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: colors.radius.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optChipActive: { backgroundColor: colors.tint, borderColor: colors.primary },
+  optChipText: { fontSize: colors.fontSize.sm, color: colors.ink },
+  optChipTextActive: { color: colors.primary, fontWeight: '600' },
 
   customRow: {
     flexDirection: 'row',

@@ -66,15 +66,48 @@ export default function CategoryRentPage() {
   const grid: GridItem[] = useMemo(
     () => [
       { key: 'map', label: t('category.rentGridMap'), icon: 'map', onPress: () => Taro.navigateTo({ url: '/pages/public/map/index?listing_type=rent' }) },
-      { key: 'commute', label: t('category.rentGridCommute'), icon: 'train', onPress: () => notAvailable(t('category.rentGridCommute')) },
-      { key: 'selfrun', label: t('category.rentGridSelf'), icon: 'award', onPress: () => notAvailable(t('category.rentGridSelf')) },
-      { key: 'newest', label: t('category.newListings'), icon: 'clock', onPress: () => notAvailable(t('category.newListings')) },
-      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => notAvailable(t('category.helpFind')) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
+      {
+        key: 'commute',
+        label: t('category.rentGridCommute'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.rentGridCommute'), {
+            reasonKey: 'featureHint.commute',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'selfrun',
+        label: t('category.rentGridSelf'),
+        icon: 'award',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=owner_direct' })
+      },
+      {
+        key: 'newest',
+        label: t('category.newListings'),
+        icon: 'clock',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=latest' })
+      },
+      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' }) },
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
       { key: 'all', label: t('category.allListings'), icon: 'grid', onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index' }) },
       { key: 'school', label: t('pub.tabSchools'), icon: 'school', onPress: () => Taro.navigateTo({ url: '/pages/public/schools/index' }) },
       { key: 'community', label: t('pub.tabCommunities'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'furnished', label: t('category.furnishedListings'), icon: 'sparkles', onPress: () => notAvailable(t('category.furnishedListings')) }
+      {
+        key: 'furnished',
+        label: t('category.furnishedListings'),
+        icon: 'sparkles',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=furnished' })
+      }
     ],
     [t]
   )
@@ -146,7 +179,7 @@ export default function CategoryRentPage() {
       <ServiceBar
         text={t('category.rentServiceText')}
         actionLabel={t('category.helpFind')}
-        onAction={() => notAvailable(t('category.helpFind'))}
+        onAction={() => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' })}
       />
       {rail.length > 0 ? (
         <View>

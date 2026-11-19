@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>方案 C · 杂志式</title>
+<link rel="stylesheet" href="../shared.css" />
+<style>
+  /* ================= 方案 C：大标题排版 + 焦点大卡 + 标签式入口 ================= */
+  .top { padding: 6px 16px 0; }
+  .top .eyebrow-row { display: flex; align-items: center; justify-content: space-between; height: 18px; }
+  /* 身份切换做成文字 tab + 2px 下划线，和 A/B 的胶囊区分 */
+  .tabs { display: flex; gap: 18px; }
+  .tabs span { position: relative; font-size: 13px; color: var(--ink3); padding-bottom: 4px; }
+  .tabs .on { color: var(--ink); font-weight: 600; }
+  .tabs .on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--primary); }
+  /* 22 / 700 / 行高 28 的两行标题，营造杂志刊头 */
+  .top h1 { margin-top: 8px; font-size: 22px; font-weight: 700; line-height: 28px; letter-spacing: -.6px; }
+  .top h1 em { font-style: normal; color: var(--primary); }
+
+  /* 焦点大卡：343 × 164，圆角 16，图上压字 */
+  .focus {
+    position: relative; margin: 14px 16px 0; height: 176px;
+    border-radius: var(--r16); overflow: hidden;
+    box-shadow: 0 10px 24px rgba(23, 26, 29, .12);
+  }
+  .focus > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .focus .veil {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(23,26,29,.06) 0%, rgba(23,26,29,.26) 44%, rgba(23,26,29,.86) 100%);
+  }
+  .focus .cap { position: absolute; left: 14px; bottom: 26px; right: 56px; color: #fff; }
+  .focus .cap .k { font-size: 12px; line-height: 16px; color: rgba(255,255,255,.82); }
+  .focus .cap .nm { font-size: 15px; font-weight: 600; line-height: 21px; margin-top: 1px; }
+  .focus .cap .mt { font-size: 12px; line-height: 16px; color: rgba(255,255,255,.82); margin-top: 1px; }
+  .focus .pill { position: absolute; left: 14px; top: 12px; background: rgba(23,26,29,.34); color: #fff; backdrop-filter: blur(8px); }
+  .focus .go {
+    position: absolute; right: 12px; bottom: 26px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(255,255,255,.92); color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; line-height: 18px;
+  }
+
+  /* 数据条：上移 16，高 58，三列 */
+  .statbar {
+    position: relative; z-index: 3; margin: -16px 16px 0; height: 62px;
+    background: #fff; border-radius: var(--r16); box-shadow: var(--shadow-lg);
+    display: grid; grid-template-columns: repeat(3, 1fr); align-items: center;
+    padding: 0 6px;
+  }
+  .st { text-align: center; }
+  .st .v { font-size: 15px; font-weight: 700; line-height: 20px; font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
+  .st .v.ok { color: var(--success-ink); }
+  .st .l { font-size: 12px; line-height: 16px; color: var(--ink3); }
+
+  .block { padding: 20px 16px 0; }
+  .block .sec-head { margin-bottom: 12px; }
+
+  /* 待办：3 条填充色行，高 48，间距 8 —— 视觉权重高于入口 */
+  .reminders { display: flex; flex-direction: column; gap: 8px; }
+  .rem {
+    height: 52px; border-radius: var(--r16); padding: 0 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .rem.warn { background: var(--warning-soft); }
+  .rem.err { background: var(--error-soft); }
+  .rem.ok { background: var(--success-soft); }
+  .rem svg { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .rem.warn svg { stroke: var(--warning-ink); }
+  .rem.err svg { stroke: var(--error-ink); }
+  .rem.ok svg { stroke: var(--success-ink); }
+  .rem .t { font-size: 14px; font-weight: 600; line-height: 18px; }
+  .rem .d { font-size: 12px; line-height: 16px; color: var(--ink2); }
+  .rem .r { margin-left: auto; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .rem.warn .r { color: var(--warning-ink); }
+  .rem.err .r { color: var(--error-ink); }
+  .rem.ok .r { color: var(--success-ink); }
+
+  /* 入口：标签 chips，不用列表行 */
+  .chips-wrap { padding: 18px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+  .chip-group { display: flex; align-items: center; gap: 10px; }
+  .chip-group .gl {
+    flex: 0 0 auto; width: 28px;
+    font-size: 12px; font-weight: 600; color: var(--ink3); letter-spacing: .5px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    position: relative;
+    height: 32px; padding: 0 11px; border-radius: var(--full);
+    background: #fff; border: 1px solid var(--line);
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 13px; color: var(--ink);
+    font-weight: 500;
+  }
+  .chip svg { width: 14px; height: 14px; fill: none; stroke: var(--primary); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .chip .dot { position: absolute; top: 4px; right: 5px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 8.2A2.7 2.7 0 0 1 6.7 5.5h9.6A2.7 2.7 0 0 1 19 8.2v9.1a2.7 2.7 0 0 1-2.7 2.7H6.7A2.7 2.7 0 0 1 4 17.3z"/><path d="M4 9.4h15"/><circle cx="15.6" cy="14" r="1.3"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M15.6 4.4a4.6 4.6 0 0 0-6 6L4 16v4h4l5.6-5.6a4.6 4.6 0 0 0 6-6l-2.9 2.9-2.4-2.4z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.2h6.6L18.5 8v12.8H7z"/><path d="M13.4 3.4V8.2h4.7M9.8 12.4h5.4M9.8 15.6h5.4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2.6"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.2a2.2 2.2 0 0 1 2.2-2.2h4.4l2.1 2.2h6.1a2.2 2.2 0 0 1 2.2 2.2v8.2a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.4l1.7 4.4 4.4 1.7-4.4 1.7L11 15.6 9.3 11.2 4.9 9.5l4.4-1.7z"/><path d="M17.8 14.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.4 13.8v-1.6a7.6 7.6 0 0 1 15.2 0v1.6"/><rect x="2.9" y="13.4" width="4.2" height="6.2" rx="2.1"/><rect x="16.9" y="13.4" width="4.2" height="6.2" rx="2.1"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4.5 20.5V9.4L12 3.6l7.5 5.8v11.1z"/><path d="M9.6 20.5v-5.2h4.8v5.2"/><path d="M8.3 11.6h1.7M14 11.6h1.7"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16.4l5-5.1 3.6 3.1 6.9-7.4"/><path d="M14.6 6.6h5.2v5.2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4.2" width="12" height="16.6" rx="2.4"/><path d="M9.2 3.2h5.6v2.6H9.2z"/><path d="M9.2 13l2.2 2.2 3.6-3.9"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="M3.4 10.4v3.2a1 1 0 0 0 1 1h2.9l8.5 4.4V5L7.3 9.4H4.4a1 1 0 0 0-1 1z"/><path d="M8.2 14.8v4.4h2.6v-3.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 8.2v7.6M8.2 12h7.6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.4l7.4 2.8v5.6c0 4.6-3.2 7.4-7.4 8.4-4.2-1-7.4-3.8-7.4-8.4V6.2z"/><path d="M9 12l2.2 2.2 4-4.2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.8L12 3.9l8.2 6.9v9.4h-5.6v-5.9H9.4v5.9H3.8z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.7" y="3.7" width="7" height="7" rx="2.1"/><rect x="13.3" y="3.7" width="7" height="7" rx="2.1"/><rect x="3.7" y="13.3" width="7" height="7" rx="2.1"/><rect x="13.3" y="13.3" width="7" height="7" rx="2.1"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.2h16v10.4h-9.4L5.8 20.2v-3.6H4z"/><path d="M8 10h8M8 12.8h5"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M4.9 20.3a7.1 7.1 0 0 1 14.2 0"/></symbol>
+
+  <!-- 焦点大图（租客）：客厅 -->
+  <symbol id="wide-room" viewBox="0 0 343 176">
+    <defs>
+      <linearGradient id="wWall" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" stop-color="#f6eee2"/><stop offset="1" stop-color="#e2d4c1"/></linearGradient>
+      <linearGradient id="wSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eaf3f1"/><stop offset="1" stop-color="#c6d8d4"/></linearGradient>
+      <linearGradient id="wBeam" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <linearGradient id="wShade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a6a55" stop-opacity=".16"/><stop offset="1" stop-color="#7a6a55" stop-opacity="0"/></linearGradient>
+    </defs>
+    <rect width="343" height="176" fill="url(#wWall)"/>
+    <rect x="0" y="0" width="86" height="176" fill="url(#wShade)"/>
+    <!-- 窗与外景 -->
+    <rect x="168" y="10" width="158" height="104" fill="url(#wSky)"/>
+    <path d="M168 62h158v20H168z" fill="#98aaa7"/>
+    <path d="M178 46h26v16h-26zM214 34h20v28h-20zM252 52h34v10h-34zM296 40h22v22h-22z" fill="#7d918e" opacity=".92"/>
+    <path d="M168 40h158M168 68h158M232 10v104" stroke="#dbe6e3" stroke-width="3"/>
+    <rect x="168" y="10" width="158" height="104" fill="none" stroke="#b6a690" stroke-width="5"/>
+    <!-- 地面、光斑、地毯 -->
+    <rect y="112" width="343" height="64" fill="#cbbca6"/>
+    <path d="M168 112h158l22 64H150z" fill="url(#wBeam)"/>
+    <ellipse cx="150" cy="150" rx="126" ry="17" fill="#ded0bc"/>
+    <!-- 沙发 -->
+    <rect x="20" y="68" width="128" height="32" rx="13" fill="#b6a58f"/>
+    <rect x="20" y="94" width="128" height="32" rx="11" fill="#a4917a"/>
+    <rect x="32" y="86" width="46" height="27" rx="10" fill="#c8b8a2"/>
+    <rect x="84" y="86" width="46" height="27" rx="10" fill="#c8b8a2"/>
+    <path d="M26 126v15M142 126v15" stroke="#7e6b54" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="84" cy="142" rx="66" ry="6" fill="#7a6a55" opacity=".16"/>
+    <!-- 茶几 -->
+    <rect x="58" y="132" width="82" height="7" rx="3" fill="#8e7b63"/>
+    <path d="M64 139v15M134 139v15" stroke="#7a6750" stroke-width="3.5"/>
+    <!-- 绿植 -->
+    <rect x="296" y="124" width="28" height="22" rx="4" fill="#ab967d"/>
+    <path d="M310 124c-11 0-17-10-17-22 12 0 17 8 17 22zM310 124c11 0 17-10 17-22-12 0-17 8-17 22z" fill="#6d8377"/>
+  </symbol>
+
+  <!-- 焦点大图（业主）：黄昏立面 -->
+  <symbol id="wide-city" viewBox="0 0 343 176">
+    <defs>
+      <linearGradient id="cSky" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#f2efe8"/><stop offset=".5" stop-color="#dfe6e4"/><stop offset="1" stop-color="#c6d5d6"/></linearGradient>
+      <linearGradient id="cFace" x1="0" y1="0" x2="1" y2=".8"><stop offset="0" stop-color="#bfcacb"/><stop offset="1" stop-color="#94a3a6"/></linearGradient>
+      <linearGradient id="cGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    </defs>
+    <rect width="343" height="176" fill="url(#cSky)"/>
+    <circle cx="298" cy="30" r="54" fill="#fff" opacity=".34"/>
+    <rect x="0" y="104" width="66" height="72" fill="#c2cfd0"/>
+    <rect x="252" y="84" width="91" height="92" fill="#b1c0c2"/>
+    <rect x="20" y="58" width="40" height="118" fill="#c7d3d4"/>
+    <!-- 主楼 -->
+    <rect x="58" y="20" width="192" height="156" rx="3" fill="url(#cFace)"/>
+    <rect x="58" y="20" width="192" height="156" rx="3" fill="url(#cGlass)"/>
+    <g fill="#8b9a9d" opacity=".45">
+      <rect x="58" y="54" width="192" height="5"/><rect x="58" y="94" width="192" height="5"/><rect x="58" y="134" width="192" height="5"/>
+    </g>
+    <g fill="#69797d" opacity=".55">
+      <rect x="72" y="30" width="18" height="20"/><rect x="108" y="30" width="18" height="20"/><rect x="144" y="30" width="18" height="20"/><rect x="180" y="30" width="18" height="20"/><rect x="216" y="30" width="14" height="20"/>
+      <rect x="72" y="64" width="18" height="24"/><rect x="144" y="64" width="18" height="24"/><rect x="180" y="64" width="18" height="24"/>
+      <rect x="72" y="104" width="18" height="24"/><rect x="108" y="104" width="18" height="24"/><rect x="180" y="104" width="18" height="24"/>
+      <rect x="108" y="144" width="18" height="24"/><rect x="144" y="144" width="18" height="24"/>
+    </g>
+    <g fill="#f3c68c">
+      <rect x="108" y="64" width="18" height="24"/><rect x="216" y="64" width="14" height="24"/>
+      <rect x="144" y="104" width="18" height="24"/><rect x="72" y="144" width="18" height="24"/>
+    </g>
+    <rect x="58" y="20" width="192" height="156" rx="3" fill="none" stroke="#7e8e91" stroke-width="2"/>
+    <!-- 前景绿植 -->
+    <path d="M0 176c0-26 12-40 26-40s26 14 26 40z" fill="#7c8f86"/>
+    <path d="M286 176c0-30 13-46 29-46s28 16 28 46z" fill="#71847b"/>
+    <path d="M0 158h343v18H0z" fill="#87968f" opacity=".4"/>
+  </symbol>
+</defs></svg>
+
+<div class="board">
+
+  <!-- ================= C · 租客 ================= -->
+  <div class="col">
+    <div class="frame-label">方案 C · 租客<span>375 × 812</span></div>
+    <div class="frame" id="c-tenant">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#171a1d" stroke-opacity=".38"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+        </span>
+      </div>
+
+      <div class="top">
+        <div class="eyebrow-row">
+          <span class="eyebrow">SERVICE · 11.16</span>
+          <div class="tabs"><span class="on">租客</span><span>业主</span></div>
+        </div>
+        <h1>这个月，<br>还有 <em>3</em> 件事要办。</h1>
+      </div>
+
+      <section class="focus">
+        <svg viewBox="0 0 343 176" preserveAspectRatio="xMidYMid slice"><use href="#wide-room"/></svg>
+        <div class="veil"></div>
+        <span class="pill glass">当前租约</span>
+        <div class="cap">
+          <div class="k">滨江壹号 3-1802</div>
+          <div class="nm">还剩 4 个月到期</div>
+          <div class="mt">1 室 1 厅 · 月租 ¥8,600</div>
+        </div>
+        <div class="go">›</div>
+      </section>
+
+      <div class="statbar">
+        <div class="st"><div class="v">¥8,600</div><div class="l">本月待缴</div></div>
+        <div class="st"><div class="v">2027-03</div><div class="l">租约到期</div></div>
+        <div class="st"><div class="v">12</div><div class="l">份文档</div></div>
+      </div>
+
+      <div class="block">
+        <div class="sec-head"><h2>本期待办</h2><span class="meta">3 项</span></div>
+        <div class="reminders">
+          <div class="rem warn">
+            <svg><use href="#i-wallet"/></svg>
+            <div><div class="t">11 月租金待缴</div></div>
+            <span class="r">¥8,600 · 11-20</span>
+          </div>
+          <div class="rem warn">
+            <svg><use href="#i-doc"/></svg>
+            <div><div class="t">续租合同待签</div></div>
+            <span class="r">剩 3 天</span>
+          </div>
+          <div class="rem ok">
+            <svg><use href="#i-wrench"/></svg>
+            <div><div class="t">空调报修处理中</div></div>
+            <span class="r">今日上门</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chips-wrap">
+        <div class="chip-group">
+          <span class="gl">事务</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-wallet"/></svg>账单</span>
+            <span class="chip"><svg><use href="#i-wrench"/></svg>报修</span>
+            <span class="chip"><svg><use href="#i-doc"/></svg>合同<i class="dot"></i></span>
+            <span class="chip"><svg><use href="#i-cal"/></svg>租约</span>
+          </div>
+        </div>
+        <div class="chip-group">
+          <span class="gl">资产</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-folder"/></svg>文档中心</span>
+            <span class="chip"><svg><use href="#i-wallet"/></svg>交易订单</span>
+          </div>
+        </div>
+        <div class="chip-group">
+          <span class="gl">服务</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-spark"/></svg>增值服务</span>
+            <span class="chip"><svg><use href="#i-headset"/></svg>在线客服</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ================= C · 业主 ================= -->
+  <div class="col">
+    <div class="frame-label">方案 C · 业主<span>375 × 812</span></div>
+    <div class="frame" id="c-owner">
+      <div class="sb">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#171a1d" stroke-opacity=".38"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+        </span>
+      </div>
+
+      <div class="top">
+        <div class="eyebrow-row">
+          <span class="eyebrow">SERVICE · 11.16</span>
+          <div class="tabs"><span>租客</span><span class="on">业主</span></div>
+        </div>
+        <h1>3 套房，<br>都在正常运转。</h1>
+      </div>
+
+      <section class="focus">
+        <svg viewBox="0 0 343 176" preserveAspectRatio="xMidYMid slice"><use href="#wide-city"/></svg>
+        <div class="veil"></div>
+        <span class="pill glass">主推房源</span>
+        <div class="cap">
+          <div class="k">滨江壹号 5-0901</div>
+          <div class="nm">空置 12 天，建议调价</div>
+          <div class="mt">2 室 2 厅 · 挂牌 ¥9,200</div>
+        </div>
+        <div class="go">›</div>
+      </section>
+
+      <div class="statbar">
+        <div class="st"><div class="v">3 套</div><div class="l">在管房产</div></div>
+        <div class="st"><div class="v ok">¥12,480</div><div class="l">本月收益</div></div>
+        <div class="st"><div class="v">12 天</div><div class="l">空置时长</div></div>
+      </div>
+
+      <div class="block">
+        <div class="sec-head"><h2>本期待办</h2><span class="meta">2 项</span></div>
+        <div class="reminders">
+          <div class="rem err">
+            <svg><use href="#i-clip"/></svg>
+            <div><div class="t">维修申请待审批</div></div>
+            <span class="r">2 单</span>
+          </div>
+          <div class="rem warn">
+            <svg><use href="#i-doc"/></svg>
+            <div><div class="t">出租委托待签</div></div>
+            <span class="r">剩 5 天</span>
+          </div>
+          <div class="rem ok">
+            <svg><use href="#i-trend"/></svg>
+            <div><div class="t">11 月收益待结算</div></div>
+            <span class="r">¥12,480</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chips-wrap">
+        <div class="chip-group">
+          <span class="gl">资产</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-building"/></svg>我的房产</span>
+            <span class="chip"><svg><use href="#i-plus"/></svg>绑定房产</span>
+            <span class="chip"><svg><use href="#i-trend"/></svg>收益明细</span>
+          </div>
+        </div>
+        <div class="chip-group">
+          <span class="gl">事务</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-clip"/></svg>维修审批<i class="dot"></i></span>
+            <span class="chip"><svg><use href="#i-doc"/></svg>合同</span>
+            <span class="chip"><svg><use href="#i-mega"/></svg>委托营销</span>
+          </div>
+        </div>
+        <div class="chip-group">
+          <span class="gl">服务</span>
+          <div class="chips">
+            <span class="chip"><svg><use href="#i-shield"/></svg>业主服务</span>
+            <span class="chip"><svg><use href="#i-folder"/></svg>文档中心</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg><i class="tab-badge">2</i></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+</div>
+
+<section class="legend">
+  <h3>方案 C 关键尺寸标注</h3>
+  <table>
+    <tr><th style="width:170px">区块</th><th style="width:210px">尺寸</th><th>说明</th></tr>
+    <tr><td>刊头</td><td>距顶 6；栏眉 12 / 600 / 字距 1</td><td>身份切换用 13px 文字 tab + 2px 主色下划线（区别于 A/B 胶囊）</td></tr>
+    <tr><td>主标题</td><td>22 / 700 / 行高 28 / 字距 -0.6</td><td>两行排版，关键数字用主色 <code>&lt;em&gt;</code>；标题直接承担结论</td></tr>
+    <tr><td>焦点大卡</td><td>343 × 176，圆角 16，上距 14</td><td>图上压字 + 底部 78% 暗化渐变；标签胶囊深色玻璃底；右下 30 圆形按钮</td></tr>
+    <tr><td>数据条</td><td>高 62，上移 16，三列</td><td>数值 15 / 700 + 标签 12；无分割线</td></tr>
+    <tr><td>待办色行</td><td>高 52，间距 8，圆角 16</td><td>warning / error / success 浅底填充，标题 14 / 600，右侧 12 / 600 数值</td></tr>
+    <tr><td>入口 chips</td><td>高 32，内边距 0 11，圆角 full，间距 6</td><td>图标 14 主色 + 文字 13；左侧 28px 分组字（事务 / 资产 / 服务）</td></tr>
+    <tr><td>区块间距</td><td>18 / 14</td><td>标题 16 / 700，副信息 12</td></tr>
+    <tr><td>底部 Tab</td><td>高 72</td><td>与 A / B 一致</td></tr>
+  </table>
+  <p>取舍：全页只有一个视觉焦点（大图 + 标题结论），待办用整块浅色填充（3 条），入口退为描边小标签，形成「图 → 色块 → 标签」由重到轻的三级。信息密度最低，但与首页的卡片流差异最大，适合做品牌感更强的一版。</p>
+</section>
+
+</body>
+</html>

@@ -51,7 +51,65 @@ const BEDROOM_OPTIONS: Array<[string, string]> = [
   ['4', 'pub.bed.4p']
 ]
 
+/** 房产类型组合口径（与 App / Web 一致）：公寓=apartment+condo，商铺办公=office+shop */
+const TYPE_CLASS_GROUPS: Record<string, string[]> = {
+  apartment: ['apartment', 'condo'],
+  villa: ['villa', 'house'],
+  commercial: ['office', 'shop'],
+  factory: ['factory'],
+  hotel: ['hotel'],
+  land: ['land']
+}
+const TYPE_CLASS_OPTIONS: Array<[string, string]> = [
+  ['', 'pub.filterAny'],
+  ['apartment', 'prop.type.apartment'],
+  ['villa', 'prop.type.house'],
+  ['commercial', 'pub.shopOffice'],
+  ['factory', 'prop.type.factory'],
+  ['hotel', 'prop.type.hotel'],
+  ['land', 'prop.type.land']
+]
+const ORIENTATIONS = [
+  'north',
+  'south',
+  'east',
+  'west',
+  'northeast',
+  'northwest',
+  'southeast',
+  'southwest'
+]
+const DECORATIONS = ['fully_furnished', 'standard', 'simple', 'bare', 'luxury']
+const FLOOR_LEVELS = ['low', 'mid', 'high']
+const TENURES = ['freehold', 'leasehold', 'mixed']
+const AMENITIES = ['aircon', 'pool', 'gym', 'parking', 'elevator', 'balcony', 'garden']
+const LEASE_MONTHS = ['3', '6', '12']
+const BUILDING_AGES = ['5', '10', '20']
+
 type FilterTab = '' | 'school' | 'more'
+
+// 分类页快捷入口带入的预设筛选；都对应后端已开放且对 C 端公开的查询参数
+type PresetKey = 'latest' | 'furnished' | 'owner_direct' | 'featured' | 'vr' | 'env' | 'new'
+
+const PRESET_KEYS: PresetKey[] = [
+  'latest',
+  'furnished',
+  'owner_direct',
+  'featured',
+  'vr',
+  'env',
+  'new'
+]
+
+const PRESET_LABEL_KEY: Record<PresetKey, string> = {
+  latest: 'pub.presetLatest',
+  furnished: 'pub.presetFurnished',
+  owner_direct: 'pub.presetOwnerDirect',
+  featured: 'pub.presetFeatured',
+  vr: 'pub.presetVr',
+  env: 'pub.presetEnv',
+  new: 'pub.presetNew'
+}
 
 export default function PublicListingsPage() {
   const { t } = useI18n()
@@ -61,8 +119,18 @@ export default function PublicListingsPage() {
   const initialSchoolId = String(router.params?.school_id ?? '')
   const initialSchoolName = String(router.params?.school_name ?? '')
   const initialSchoolKm = Number(router.params?.school_km) || 3
+  // 分类页入口的预设（新上 / 带家具 / 业主直租 / 精选 / VR / 可环评 / 新房）
+  const presetParam = String(router.params?.preset ?? '')
   // ---- 基础筛选 ----
-  const [type, setType] = useState('')
+  const [preset, setPreset] = useState<PresetKey | ''>(
+    PRESET_KEYS.includes(presetParam as PresetKey) ? (presetParam as PresetKey) : ''
+  )
+  // 标题按入口语义命名（房东直租 / 新上房源 / 带家具房源…），并同步系统导航栏标题
+  const pageTitle = preset ? t(PRESET_LABEL_KEY[preset]) : t('category.allListings')
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: pageTitle })
+  }, [pageTitle])
+  const [type, setType] = useState(presetParam === 'new' ? 'sell' : '')
   const [keyword, setKeyword] = useState(initialQ)
   const [debounced, setDebounced] = useState(initialQ.trim())
   const [sort, setSort] = useState('latest')
@@ -74,6 +142,41 @@ export default function PublicListingsPage() {
   const [areaMax, setAreaMax] = useState('')
   const [bedsMin, setBedsMin] = useState('')
 
+  // ---- 更多：后端已支持、原先只有分类页预设入口的维度 ----
+  // 预设入口的值灌进这些 state，进到列表页后面板里能看到选中态，也能单独点掉。
+  const [typeClass, setTypeClass] = useState('')
+  const [orientation, setOrientation] = useState('')
+  const [floorLevels, setFloorLevels] = useState<string[]>([])
+  const [decoration, setDecoration] = useState(
+    presetParam === 'furnished' ? 'fully_furnished' : ''
+  )
+  const [amenities, setAmenities] = useState<string[]>([])
+  const [ownerDirect, setOwnerDirect] = useState(presetParam === 'owner_direct')
+  const [featured, setFeatured] = useState(presetParam === 'featured')
+  const [hasVr, setHasVr] = useState(presetParam === 'vr')
+  const [hasVideo, setHasVideo] = useState(false)
+  const [envPermit, setEnvPermit] = useState(presetParam === 'env')
+  const [newDev, setNewDev] = useState(presetParam === 'new')
+  const [minLease, setMinLease] = useState('')
+  const [tenure, setTenure] = useState('')
+  const [ageMax, setAgeMax] = useState('')
+  const [wholeFloor, setWholeFloor] = useState(false)
+  const [wholeBuilding, setWholeBuilding] = useState(false)
+  const [companyReg, setCompanyReg] = useState(false)
+
+  // 小程序页面实例可能被复用：入口 preset 变化时，把条件重新灌进面板状态
+  useEffect(() => {
+    const p = (PRESET_KEYS.includes(presetParam as PresetKey) ? presetParam : '') as PresetKey | ''
+    setPreset(p)
+    setDecoration(p === 'furnished' ? 'fully_furnished' : '')
+    setOwnerDirect(p === 'owner_direct')
+    setFeatured(p === 'featured')
+    setHasVr(p === 'vr')
+    setEnvPermit(p === 'env')
+    setNewDev(p === 'new')
+    if (p === 'new') setType('sell')
+  }, [presetParam])
+
   // ---- 学校筛选（空间筛选）----
   const [schoolId, setSchoolId] = useState(initialSchoolId)
   const [schoolName, setSchoolName] = useState(initialSchoolName)
@@ -83,8 +186,9 @@ export default function PublicListingsPage() {
 
   // ---- 下拉面板 ----
   const [openTab, setOpenTab] = useState<FilterTab>('')
-  // 「更多」面板左侧一级类目：排序 / 价格 / 面积 / 户型
-  const [moreTab, setMoreTab] = useState<'sort' | 'price' | 'area' | 'beds'>('sort')
+  const [moreTab, setMoreTab] = useState<
+    'sort' | 'price' | 'area' | 'beds' | 'type' | 'room' | 'tags' | 'lease' | 'business' | 'amenity'
+  >('sort')
 
   // ---- 列表状态 ----
   const [items, setItems] = useState<PublicListing[]>([])
@@ -118,7 +222,30 @@ export default function PublicListingsPage() {
       )
     : schools
 
-  const moreActive = !!(priceMin || priceMax || areaMin || areaMax || bedsMin)
+  // 「更多」面板的已选维度数（每个维度算 1；多选组按维度计）
+  const moreActiveDims = [
+    !!(priceMin || priceMax),
+    !!(areaMin || areaMax),
+    !!bedsMin,
+    !!typeClass,
+    !!orientation,
+    floorLevels.length > 0,
+    !!decoration,
+    amenities.length > 0,
+    ownerDirect,
+    featured,
+    hasVr,
+    hasVideo,
+    envPermit,
+    newDev,
+    !!minLease,
+    !!tenure,
+    !!ageMax,
+    wholeFloor,
+    wholeBuilding,
+    companyReg
+  ]
+  const moreActive = moreActiveDims.filter(Boolean).length
 
   const resetSchool = () => {
     setSchoolId('')
@@ -131,6 +258,64 @@ export default function PublicListingsPage() {
     setAreaMin('')
     setAreaMax('')
     setBedsMin('')
+    setTypeClass('')
+    setOrientation('')
+    setFloorLevels([])
+    setDecoration('')
+    setAmenities([])
+    setOwnerDirect(false)
+    setFeatured(false)
+    setHasVr(false)
+    setHasVideo(false)
+    setEnvPermit(false)
+    setNewDev(false)
+    setMinLease('')
+    setTenure('')
+    setAgeMax('')
+    setWholeFloor(false)
+    setWholeBuilding(false)
+    setCompanyReg(false)
+  }
+
+  // 预设 chip 的 × ：只清掉该预设对应的维度，其他已选条件保留
+  const clearPreset = () => {
+    if (preset === 'furnished') setDecoration('')
+    else if (preset === 'owner_direct') setOwnerDirect(false)
+    else if (preset === 'featured') setFeatured(false)
+    else if (preset === 'vr') setHasVr(false)
+    else if (preset === 'env') setEnvPermit(false)
+    else if (preset === 'new') setNewDev(false)
+    setPreset('')
+  }
+
+  // 「更多」多选组
+  const tagSelected = [
+    ownerDirect ? 'owner' : '',
+    featured ? 'featured' : '',
+    hasVr ? 'vr' : '',
+    hasVideo ? 'video' : '',
+    envPermit ? 'env' : '',
+    newDev ? 'new' : ''
+  ].filter(Boolean)
+  const toggleTag = (k: string) => {
+    const on = !tagSelected.includes(k)
+    if (k === 'owner') setOwnerDirect(on)
+    else if (k === 'featured') setFeatured(on)
+    else if (k === 'vr') setHasVr(on)
+    else if (k === 'video') setHasVideo(on)
+    else if (k === 'env') setEnvPermit(on)
+    else if (k === 'new') setNewDev(on)
+  }
+  const bizSelected = [
+    wholeFloor ? 'floor' : '',
+    wholeBuilding ? 'building' : '',
+    companyReg ? 'company' : ''
+  ].filter(Boolean)
+  const toggleBizExtra = (k: string) => {
+    const on = !bizSelected.includes(k)
+    if (k === 'floor') setWholeFloor(on)
+    else if (k === 'building') setWholeBuilding(on)
+    else if (k === 'company') setCompanyReg(on)
   }
 
   // 点某所学校：已选则取消，未选则选中；选中后立即生效并按距离排序
@@ -159,11 +344,29 @@ export default function PublicListingsPage() {
           q: debounced || undefined,
           // 选了学校时默认按距离排序（学区找房的自然语义）
           sort: (schoolId && sort === 'latest' ? 'distance' : sort) as any,
+          property_type: typeClass ? TYPE_CLASS_GROUPS[typeClass] : undefined,
           price_min: priceMin ? Number(priceMin) : undefined,
           price_max: priceMax ? Number(priceMax) : undefined,
           area_min: areaMin ? Number(areaMin) : undefined,
           area_max: areaMax ? Number(areaMax) : undefined,
           bedrooms_min: bedsMin ? Number(bedsMin) : undefined,
+          // ---- 房况 / 标签 / 租售条件 / 商办专项（预设入口的值已灌进 state）----
+          orientation: orientation || undefined,
+          floor_level: floorLevels.length ? floorLevels : undefined,
+          decoration: decoration || undefined,
+          amenity: amenities.length ? amenities : undefined,
+          owner_direct: ownerDirect || undefined,
+          is_featured: featured || undefined,
+          has_vr: hasVr || undefined,
+          has_video: hasVideo || undefined,
+          environmental_permit: envPermit || undefined,
+          is_new_development: newDev || undefined,
+          min_lease_months: minLease ? Number(minLease) : undefined,
+          tenure: (tenure || undefined) as 'freehold' | 'leasehold' | 'mixed' | undefined,
+          building_age_max: ageMax ? Number(ageMax) : undefined,
+          whole_floor_only: wholeFloor || undefined,
+          whole_building_only: wholeBuilding || undefined,
+          company_registrable: companyReg || undefined,
           school_id: schoolId || undefined,
           school_radius_km: schoolId ? schoolKm : undefined
         })
@@ -183,11 +386,28 @@ export default function PublicListingsPage() {
       type,
       debounced,
       sort,
+      typeClass,
       priceMin,
       priceMax,
       areaMin,
       areaMax,
       bedsMin,
+      orientation,
+      floorLevels,
+      decoration,
+      amenities,
+      ownerDirect,
+      featured,
+      hasVr,
+      hasVideo,
+      envPermit,
+      newDev,
+      minLease,
+      tenure,
+      ageMax,
+      wholeFloor,
+      wholeBuilding,
+      companyReg,
       schoolId,
       schoolKm
     ]
@@ -213,7 +433,7 @@ export default function PublicListingsPage() {
       <StatusTop />
       <View className='pub-inner'>
         <View className='pub-head'>
-          <Text className='pub-head__title'>{t('pub.listingsTitle')}</Text>
+          <Text className='pub-head__title'>{pageTitle}</Text>
           <Text className='pub-head__hint'>
             {t('pub.listingsHint')}
           </Text>
@@ -243,6 +463,18 @@ export default function PublicListingsPage() {
           ))}
         </View>
 
+        {/* 分类页入口带入的预设：显式回显，可一键清除 */}
+        {preset ? (
+          <View className='pub-chips pub-preset-row'>
+            <View className='pub-chip pub-chip--on'>
+              <Text>{t(PRESET_LABEL_KEY[preset])}</Text>
+              <Text className='pub-preset-row__close' onClick={clearPreset}>
+                ×
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {/* 吸顶筛选坞：筛选行 + 面板同属一个 sticky 容器，
             粘住后成为同一块，面板永远贴在筛选行下沿，不会脱开 */}
         <View className={`pub-filter${openTab ? ' pub-filter--open' : ''}`}>
@@ -270,11 +502,6 @@ export default function PublicListingsPage() {
           >
             <Text>{t('pub.filterMore')}</Text>
           </View>
-          {schoolId ? (
-            <View className='pub-chip pub-chip--ghost' onClick={resetSchool}>
-              <Text>{t('pub.schoolAny')}</Text>
-            </View>
-          ) : null}
         </View>
 
         {/* 学校下拉面板：半径 + 搜索 + 学校列表，选中即生效 */}
@@ -341,13 +568,24 @@ export default function PublicListingsPage() {
         {openTab === 'more' ? (
           <View className='pub-filter__panel'>
             <View className='pub-filter__body'>
-              <View className='pub-filter__rail'>
+              <ScrollView className='pub-filter__rail' scrollY>
                 {([
                   ['sort', t('pub.sort')],
                   ['price', t('pub.filterPrice')],
                   ['area', t('pub.filterArea')],
-                  ['beds', t('pub.filterBeds')]
-                ] as Array<['sort' | 'price' | 'area' | 'beds', string]>).map(([key, label]) => (
+                  ['beds', t('pub.filterBeds')],
+                  ['type', t('pub.propertyTypeGroup')],
+                  ['room', t('pub.filterRoom')],
+                  ['tags', t('pub.filterTags')],
+                  ['lease', t('pub.filterLeaseTerms')],
+                  ['business', t('pub.filterCommercial')],
+                  ['amenity', t('list.amenities')]
+                ] as Array<
+                  [
+                    'sort' | 'price' | 'area' | 'beds' | 'type' | 'room' | 'tags' | 'lease' | 'business' | 'amenity',
+                    string
+                  ]
+                >).map(([key, label]) => (
                   <View
                     key={key}
                     className={`pub-filter__rail-item${
@@ -358,7 +596,7 @@ export default function PublicListingsPage() {
                     <Text>{label}</Text>
                   </View>
                 ))}
-              </View>
+              </ScrollView>
               <ScrollView className='pub-filter__content' scrollY>
                 {moreTab === 'sort' ? (
                   <View className='pub-chips pub-chips--wrap'>
@@ -435,6 +673,193 @@ export default function PublicListingsPage() {
                     ))}
                   </View>
                 ) : null}
+
+                {moreTab === 'type' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {TYPE_CLASS_OPTIONS.map(([key, label]) => (
+                      <View
+                        key={key || 'any'}
+                        className={`pub-chip${typeClass === key ? ' pub-chip--on' : ''}`}
+                        onClick={() => setTypeClass(key)}
+                      >
+                        <Text>{t(label)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {moreTab === 'room' ? (
+                  <>
+                    <Text className='pub-chips__label'>{t('pub.orientationLabel')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      <View
+                        className={`pub-chip${orientation === '' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setOrientation('')}
+                      >
+                        <Text>{t('pub.filterAny')}</Text>
+                      </View>
+                      {ORIENTATIONS.map((o) => (
+                        <View
+                          key={o}
+                          className={`pub-chip${orientation === o ? ' pub-chip--on' : ''}`}
+                          onClick={() => setOrientation(orientation === o ? '' : o)}
+                        >
+                          <Text>{t(`pub.orientation.${o}`)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text className='pub-chips__label'>{t('pub.floor')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      {FLOOR_LEVELS.map((lv) => (
+                        <View
+                          key={lv}
+                          className={`pub-chip${floorLevels.includes(lv) ? ' pub-chip--on' : ''}`}
+                          onClick={() =>
+                            setFloorLevels((prev) =>
+                              prev.includes(lv) ? prev.filter((x) => x !== lv) : [...prev, lv]
+                            )
+                          }
+                        >
+                          <Text>{t(`pub.floorLevel.${lv}`)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text className='pub-chips__label'>{t('pub.decorationLabel')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      <View
+                        className={`pub-chip${decoration === '' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setDecoration('')}
+                      >
+                        <Text>{t('pub.filterAny')}</Text>
+                      </View>
+                      {DECORATIONS.map((d) => (
+                        <View
+                          key={d}
+                          className={`pub-chip${decoration === d ? ' pub-chip--on' : ''}`}
+                          onClick={() => setDecoration(decoration === d ? '' : d)}
+                        >
+                          <Text>{t(`pub.decoration.${d}`)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+
+                {moreTab === 'tags' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {[
+                      ['owner', t('pub.presetOwnerDirect')],
+                      ['featured', t('pub.presetFeatured')],
+                      ['vr', t('pub.presetVr')],
+                      ['video', t('pub.filterVideo')],
+                      ['env', t('pub.presetEnv')],
+                      ['new', t('pub.presetNew')]
+                    ].map(([key, label]) => (
+                      <View
+                        key={key}
+                        className={`pub-chip${tagSelected.includes(key) ? ' pub-chip--on' : ''}`}
+                        onClick={() => toggleTag(key)}
+                      >
+                        <Text>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {moreTab === 'lease' ? (
+                  <>
+                    <Text className='pub-chips__label'>{t('pub.filterMinLease')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      <View
+                        className={`pub-chip${minLease === '' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setMinLease('')}
+                      >
+                        <Text>{t('pub.filterAny')}</Text>
+                      </View>
+                      {LEASE_MONTHS.map((n) => (
+                        <View
+                          key={n}
+                          className={`pub-chip${minLease === n ? ' pub-chip--on' : ''}`}
+                          onClick={() => setMinLease(minLease === n ? '' : n)}
+                        >
+                          <Text>{t('pub.leaseMonths', { n })}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text className='pub-chips__label'>{t('pub.tenure')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      <View
+                        className={`pub-chip${tenure === '' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setTenure('')}
+                      >
+                        <Text>{t('pub.filterAny')}</Text>
+                      </View>
+                      {TENURES.map((x) => (
+                        <View
+                          key={x}
+                          className={`pub-chip${tenure === x ? ' pub-chip--on' : ''}`}
+                          onClick={() => setTenure(tenure === x ? '' : x)}
+                        >
+                          <Text>{t(`pub.tenure.${x}`)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text className='pub-chips__label'>{t('pub.filterBuildingAge')}</Text>
+                    <View className='pub-chips pub-chips--wrap'>
+                      <View
+                        className={`pub-chip${ageMax === '' ? ' pub-chip--on' : ''}`}
+                        onClick={() => setAgeMax('')}
+                      >
+                        <Text>{t('pub.filterAny')}</Text>
+                      </View>
+                      {BUILDING_AGES.map((n) => (
+                        <View
+                          key={n}
+                          className={`pub-chip${ageMax === n ? ' pub-chip--on' : ''}`}
+                          onClick={() => setAgeMax(ageMax === n ? '' : n)}
+                        >
+                          <Text>{t('pub.ageWithin', { n })}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+
+                {moreTab === 'business' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {[
+                      ['floor', t('pub.filterWholeFloor')],
+                      ['building', t('pub.filterWholeBuilding')],
+                      ['company', t('pub.filterCompanyReg')]
+                    ].map(([key, label]) => (
+                      <View
+                        key={key}
+                        className={`pub-chip${bizSelected.includes(key) ? ' pub-chip--on' : ''}`}
+                        onClick={() => toggleBizExtra(key)}
+                      >
+                        <Text>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {moreTab === 'amenity' ? (
+                  <View className='pub-chips pub-chips--wrap'>
+                    {AMENITIES.map((a) => (
+                      <View
+                        key={a}
+                        className={`pub-chip${amenities.includes(a) ? ' pub-chip--on' : ''}`}
+                        onClick={() =>
+                          setAmenities((prev) =>
+                            prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
+                          )
+                        }
+                      >
+                        <Text>{t(`prop.amenity.${a}`)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </ScrollView>
             </View>
             <View className='pub-filter__actions'>
@@ -476,8 +901,7 @@ export default function PublicListingsPage() {
         ) : items.length === 0 ? (
           <StateBlock
             empty
-            filtered={!!(debounced || type || schoolId || moreActive || sort !== 'latest')}
-            text={t('pub.emptyWiden')}
+            filtered={!!(debounced || type || schoolId || moreActive || preset || sort !== 'latest')}            text={t('pub.emptyWiden')}
           />
         ) : (
           <>

@@ -60,11 +60,11 @@ export default function Land() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.landGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.landGridSelect')) },
+      { key: 'select', label: t('category.landGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings?preset=featured') },
       { key: 'rent', label: t('category.landTabRent'), icon: <GlobalOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => setTab('rent-land') },
       { key: 'sell', label: t('category.landTabSell'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => setTab('sell-land') },
       { key: 'map', label: t('category.rentGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/map') },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
       { key: 'all', label: t('category.allListings'), icon: <AppstoreOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings') },
     ],
     [navigate, t],
@@ -139,7 +139,7 @@ export default function Land() {
         title={t('category.landBannerTitle')}
         sub={t('category.landBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t, t('category.landBannerTitle'))}
+        onPress={() => navigate('/find-my-home')}
       />
     </div>
   )

@@ -18,7 +18,6 @@ import {
   publicApi,
   unwrapPage,
   type PublicSchool,
-  type PublicMapPoint,
 } from '@/services/publicApi';
 import { notify } from '@/utils/feedback';
 import { propertyCoverUrl } from '@/lib/property';
@@ -26,7 +25,7 @@ import { METRO_LINES } from '@/data/locationMetro';
 import { useLocationStore, findCityByKey } from '@/stores/location';
 import { useI18n } from '@/i18n';
 import { cityDisplayName } from '@/data/locationNames';
-import ListingsMapModal from '@/components/ListingsMapModal';
+import MapSearch from '@/components/MapSearch';
 import ListingsFeed, {
   priceRanges,
   salePriceRanges,
@@ -160,9 +159,6 @@ export default function PropertyBrowseScreen() {
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
-  const [mapPoints, setMapPoints] = useState<PublicMapPoint[]>([]);
-  const [mapLoading, setMapLoading] = useState(false);
-  const [mapError, setMapError] = useState(false);
 
   // 已选区域/地铁的关键词（服务端 keywords 同义词匹配）
   const activeLocationKw = useMemo(() => {
@@ -489,30 +485,7 @@ export default function PropertyBrowseScreen() {
     [t],
   );
 
-  // 地图点位（与 C 端同款：消费 /public/map-points）
-  const loadMapPoints = useCallback(async () => {
-    setMapLoading(true);
-    setMapError(false);
-    try {
-      const params: any = {
-        limit: DETAIL_PAGE_SIZE,
-        ...(biz === 'all' ? {} : { listing_type: biz === 'rent' ? 'rent' : 'sell' }),
-        ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
-        ...(keyword.trim() ? { q: keyword.trim() } : {}),
-      };
-      const res = await publicApi.mapPoints(params);
-      const data = res?.data;
-      const items = Array.isArray(data) ? data : (data as any)?.items ?? (data as any)?.data ?? [];
-      setMapPoints(items as PublicMapPoint[]);
-    } catch {
-      setMapPoints([]);
-      setMapError(true);
-    } finally {
-      setMapLoading(false);
-    }
-  }, [biz, locSel.cityKey, keyword]);
-
-  // 「去地图看」：打开共享地图弹层（与 C 端同款）
+  // 「去地图看」：打开贝壳式全屏地图（组件内部按视野拉 /public/map-points）
   const handleGoMap = useCallback(() => {
     setMapOpen(true);
     if (!userPos) {
@@ -525,8 +498,7 @@ export default function PropertyBrowseScreen() {
         })
         .catch(() => {});
     }
-    void loadMapPoints();
-  }, [userPos, loadMapPoints]);
+  }, [userPos]);
 
   const handleOpenDetail = useCallback(
     (item: Listing) => navigation.navigate('PropertyDetail', { id: String(item.id) }),
@@ -573,15 +545,16 @@ export default function PropertyBrowseScreen() {
         defaultMetroLineKey={METRO_LINES[0].key}
       />
 
-      {/* 地图找房弹层：与 C 端共用同一组件 */}
-      <ListingsMapModal
+      {/* 地图找房：贝壳式全屏地图，与 C 端共用同一组件 */}
+      <MapSearch
         visible={mapOpen}
         onClose={() => setMapOpen(false)}
-        loading={mapLoading}
-        error={mapError}
-        points={mapPoints}
+        city={locSel.cityKey}
+        listingType={biz === 'all' ? undefined : biz === 'rent' ? 'rent' : 'sell'}
+        propertyType={filterTypes}
+        isNewDevelopment={biz === 'new' ? true : biz === 'resale' ? false : undefined}
+        keyword={keyword}
         userPos={userPos}
-        onRetry={loadMapPoints}
         onOpenPoint={(p) => {
           setMapOpen(false);
           navigation.navigate('PropertyDetail', { id: p.id });

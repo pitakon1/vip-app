@@ -11,11 +11,13 @@ export default function TenantOrders({
   statusLabelMap,
   onReview,
   onDetail,
+  onPay,
 }: {
   bookings: Booking[]
   statusLabelMap: Record<Booking['status'], string>
   onReview: (item: Booking) => void
   onDetail: (item: Booking) => void
+  onPay: (item: Booking) => void
 }) {
   const { t } = useTranslation()
 
@@ -48,6 +50,11 @@ export default function TenantOrders({
                     <span className="svc-order-status__dot"></span>
                     {stLabel}
                   </span>
+                  {item.status === 'pending' && Number(item.amount || 0) > 0 && (
+                    <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => onPay(item)}>
+                      {t('tenantServices.goPay')}
+                    </button>
+                  )}
                   {item.status === 'completed' && !item.rating ? (
                     <button className="rent-btn rent-btn--primary rent-btn--sm" onClick={() => onReview(item)}>
                       {t('tenantServices.review')}

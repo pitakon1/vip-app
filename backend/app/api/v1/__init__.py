@@ -33,6 +33,7 @@ from .backup import router as backup_router
 from .geo import router as geo_router
 from .translate import router as translate_router
 from .viewings import router as viewings_router
+from .announcements import router as announcements_router
 from .calendar_events import router as calendar_events_router
 from .audit import router as audit_router
 from .commission_rules import router as commission_rules_router
@@ -48,6 +49,7 @@ from .users_admin import router as users_admin_router
 from .user_groups import router as user_groups_router
 from .partners_admin import router as partners_admin_router
 from .partner_members import router as partner_members_router
+from .partner_console import router as partner_console_router
 from .permissions_admin import router as permissions_admin_router
 from .departments import router as departments_router
 from .data_scopes import router as data_scopes_router
@@ -60,6 +62,8 @@ from .dedupe_reviews import router as dedupe_reviews_router
 from .public import router as public_router
 from .verifications import router as verifications_router
 from .uploads_admin import router as uploads_admin_router
+from .devices import router as devices_router
+from .identity import router as identity_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -92,6 +96,7 @@ api_router.include_router(backup_router)
 api_router.include_router(geo_router)
 api_router.include_router(translate_router)
 api_router.include_router(viewings_router)
+api_router.include_router(announcements_router)
 api_router.include_router(calendar_events_router)
 api_router.include_router(audit_router)
 api_router.include_router(commission_rules_router)
@@ -107,6 +112,7 @@ api_router.include_router(users_admin_router)
 api_router.include_router(user_groups_router)
 api_router.include_router(partners_admin_router)
 api_router.include_router(partner_members_router)
+api_router.include_router(partner_console_router)
 api_router.include_router(permissions_admin_router)
 api_router.include_router(departments_router)
 api_router.include_router(data_scopes_router)
@@ -119,5 +125,7 @@ api_router.include_router(dedupe_reviews_router)
 api_router.include_router(public_router)
 api_router.include_router(verifications_router)
 api_router.include_router(uploads_admin_router)
+api_router.include_router(devices_router)
+api_router.include_router(identity_router)
 
 __all__ = ["api_router"]

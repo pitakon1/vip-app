@@ -8,7 +8,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AREA_TIERS, PRICE_TIERS } from '@/constants/filters'
 import { METRO_LINES } from '@/data/locationMetro'
-import { FilterTab, OptGrid } from './filterWidgets'
+import FilterBar from '@/components/FilterBar'
+import { OptGrid } from './filterWidgets'
 import type { PropertyFilters } from './hooks/usePropertyFilters'
 
 export default function PropertyFilterBar({
@@ -25,8 +26,18 @@ export default function PropertyFilterBar({
   const { t } = useTranslation()
   const f = filters
 
-  // 当前打开的筛选 chip（单开）
+  // 当前打开的筛选（单开）：定位面板沿用 filters 自身的 locOpen，其余共用一个 key
   const [filterOpen, setFilterOpen] = useState('')
+  const openKey = f.locOpen ? 'loc' : (filterOpen || null)
+  const setOpenKey = (key: string | null) => {
+    if (key === 'loc') {
+      setFilterOpen('')
+      f.onLocOpenChange(true)
+      return
+    }
+    if (f.locOpen) f.onLocOpenChange(false)
+    setFilterOpen(key || '')
+  }
 
   const currentOptLabel = (opts: { key: string; label: string }[], value: string, fallback: string) =>
     opts.find((o) => o.key === value)?.label ?? fallback
@@ -460,79 +471,67 @@ export default function PropertyFilterBar({
           onChange={(e) => f.setKeyword(e.target.value)}
         />
       </div>
-      <div className="pf-bar">
-        <div className="pf-bar__tabs">
-          <FilterTab label={f.locLabel} active={!!f.activeLocationKw.length} open={f.locOpen} onOpenChange={f.onLocOpenChange}>
-            {locPanelContent}
-          </FilterTab>
-          <FilterTab
-            label={typeTabLabel}
-            active={!!f.typeClass || !!f.bizType}
-            open={filterOpen === 'type'}
-            onOpenChange={(o) => setFilterOpen(o ? 'type' : '')}
-          >
-            {typePanelContent}
-          </FilterTab>
-          <FilterTab
-            label={f.priceRange ? currentOptLabel(PRICE_OPTS, f.priceRange, t('browse.filterPrice')) : t('browse.filterPrice')}
-            active={!!f.priceRange}
-            open={filterOpen === 'price'}
-            onOpenChange={(o) => setFilterOpen(o ? 'price' : '')}
-          >
-            {renderRangePanel('price')}
-          </FilterTab>
-          <FilterTab
-            label={f.bedrooms !== '' ? currentOptLabel(BED_OPTS, f.bedrooms, t('browse.filterRoom')) : t('browse.filterRoom')}
-            active={f.bedrooms !== ''}
-            open={filterOpen === 'bedrooms'}
-            onOpenChange={(o) => setFilterOpen(o ? 'bedrooms' : '')}
-          >
-            <OptGrid
-              title={t('browse.filterRoom')}
-              options={BED_OPTS}
-              value={f.bedrooms}
-              onPick={(k) => { f.setBedrooms(k); setFilterOpen('') }}
-              onReset={() => { f.setBedrooms(''); setFilterOpen('') }}
-              onClose={() => setFilterOpen('')}
-            />
-          </FilterTab>
-          <FilterTab
-            label={t('browse.filterMore')}
-            active={!!f.status || !!f.areaRange}
-            open={filterOpen === 'more'}
-            onOpenChange={(o) => setFilterOpen(o ? 'more' : '')}
-          >
-            {morePanelContent}
-          </FilterTab>
-          <FilterTab
-            label={f.sort !== 'created' ? currentOptLabel(SORT_OPTS, f.sort, t('browse.filterSort')) : t('browse.filterSort')}
-            active={f.sort !== 'created'}
-            open={filterOpen === 'sort'}
-            onOpenChange={(o) => setFilterOpen(o ? 'sort' : '')}
-          >
-            <OptGrid
-              title={t('browse.filterSort')}
-              options={SORT_OPTS}
-              value={f.sort}
-              onPick={(k) => { f.setSort(k); setFilterOpen('') }}
-              onReset={() => { f.setSort('created'); setFilterOpen('') }}
-              onClose={() => setFilterOpen('')}
-            />
-          </FilterTab>
-        </div>
-        <button
-          type="button"
-          className="pf-video"
-          data-active={f.onlyVideo}
-          onClick={() => f.setOnlyVideo((v) => !v)}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
-          {t('propertiesPage.onlyVideo')}
-        </button>
-      </div>
-      <div className="pf-count">
-        {t('common.total')} <strong>{total}</strong> {t('property.units')}
-      </div>
+      <FilterBar
+        openKey={openKey}
+        onOpenChange={setOpenKey}
+        tabs={[
+          { key: 'loc', label: f.locLabel, active: !!f.activeLocationKw.length, panel: locPanelContent },
+          { key: 'type', label: typeTabLabel, active: !!f.typeClass || !!f.bizType, panel: typePanelContent },
+          {
+            key: 'price',
+            label: f.priceRange ? currentOptLabel(PRICE_OPTS, f.priceRange, t('browse.filterPrice')) : t('browse.filterPrice'),
+            active: !!f.priceRange,
+            panel: renderRangePanel('price'),
+          },
+          {
+            key: 'bedrooms',
+            label: f.bedrooms !== '' ? currentOptLabel(BED_OPTS, f.bedrooms, t('browse.filterRoom')) : t('browse.filterRoom'),
+            active: f.bedrooms !== '',
+            panel: (
+              <OptGrid
+                title={t('browse.filterRoom')}
+                options={BED_OPTS}
+                value={f.bedrooms}
+                onPick={(k) => { f.setBedrooms(k); setFilterOpen('') }}
+                onReset={() => { f.setBedrooms(''); setFilterOpen('') }}
+                onClose={() => setFilterOpen('')}
+              />
+            ),
+          },
+          { key: 'more', label: t('browse.filterMore'), active: !!f.status || !!f.areaRange, panel: morePanelContent },
+          {
+            key: 'sort',
+            label: f.sort !== 'created' ? currentOptLabel(SORT_OPTS, f.sort, t('browse.filterSort')) : t('browse.filterSort'),
+            active: f.sort !== 'created',
+            panel: (
+              <OptGrid
+                title={t('browse.filterSort')}
+                options={SORT_OPTS}
+                value={f.sort}
+                onPick={(k) => { f.setSort(k); setFilterOpen('') }}
+                onReset={() => { f.setSort('created'); setFilterOpen('') }}
+                onClose={() => setFilterOpen('')}
+              />
+            ),
+          },
+        ]}
+        right={
+          <>
+            <button
+              type="button"
+              className="pf-video"
+              data-active={f.onlyVideo}
+              onClick={() => f.setOnlyVideo((v) => !v)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="14" height="14" rx="2" /><polygon points="22 7 16 11 16 13 22 17 22 7" /></svg>
+              {t('propertiesPage.onlyVideo')}
+            </button>
+            <span className="rent-filter-bar__count">
+              {t('common.total')} <strong>{total}</strong> {t('property.units')}
+            </span>
+          </>
+        }
+      />
     </>
   )
 }

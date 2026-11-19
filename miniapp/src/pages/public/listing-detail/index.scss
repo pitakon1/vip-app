@@ -7,6 +7,99 @@
   font-size: 52rpx;
 }
 
+/* 通勤测算：输入 + 方式 chips + 结果 */
+.pub-commute__row {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+  margin-top: 20rpx;
+}
+
+.pub-commute__input {
+  flex: 1;
+  height: 80rpx;
+  padding: 0 20rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--line);
+  background: var(--surface-2);
+  font-size: 28rpx;
+  color: var(--ink);
+}
+
+.pub-commute__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  padding: 0 28rpx;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+}
+
+.pub-commute__btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary-foreground);
+}
+
+.pub-commute__modes {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.pub-commute__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--line);
+  background: var(--card);
+  font-size: 24rpx;
+  color: var(--ink-2);
+}
+
+.pub-commute__chip--active {
+  border-color: var(--primary);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.pub-commute__result {
+  margin-top: 20rpx;
+}
+
+.pub-commute__main {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pub-commute__sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: var(--ink-2);
+}
+
+.pub-commute__note {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+
+.pub-commute__error {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: var(--error);
+  line-height: 1.5;
+}
+
 /* 快捷看房时间：与筛选 chip 同一套选中态 */
 .view-times {
   display: flex;

@@ -16,6 +16,7 @@ import './index.scss'
 const SERVICE_ICONS: Record<string, IconKey> = {
   cleaning: 'sparkles',
   ac_cleaning: 'sparkles',
+  moving: 'grid',
   wifi_install: 'grid',
   utility_payment: 'money',
   insurance: 'briefcase'
@@ -24,6 +25,7 @@ const SERVICE_ICONS: Record<string, IconKey> = {
 const SERVICE_NAME_KEYS: Record<string, string> = {
   cleaning: 'svc.name.cleaning',
   ac_cleaning: 'svc.name.acCleaning',
+  moving: 'svc.name.moving',
   wifi_install: 'svc.name.wifiInstall',
   utility_payment: 'svc.name.utility',
   insurance: 'svc.name.insurance'
@@ -119,6 +121,7 @@ export default function TenantServicesPage() {
   const [modelQuotes, setModelQuotes] = useState<Partial<Record<BuyModel, number>>>({})
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [payingId, setPayingId] = useState<string | null>(null)
 
   const { data, loading, refresh } = useSwrCache<ServicesPayload>({
     key: `tenant:services:${uid}`,
@@ -253,6 +256,59 @@ export default function TenantServicesPage() {
     return k ? t(k) : item.code
   }
 
+  // 发起支付：服务订单 → 支付单 → 连连收银台。
+  // 小程序不能直接打开外部收银台，拿到链接后复制并明确提示，失败必须显式提示。
+  const payOrder = async (orderId: string) => {
+    setPayingId(orderId)
+    try {
+      const res: any = await serviceOrdersApi.pay(orderId, 'lianlian')
+      const data = res?.data ?? res
+      if (data?.already_paid) {
+        Taro.showToast({ title: t('svc.alreadyPaid'), icon: 'none' })
+        void refresh(true)
+        return
+      }
+      // 渠道发起失败时后端仍返回 200，但 ok=false：必须按失败处理
+      if (data?.ok === false) {
+        if (data?.status === 'processing') {
+          Taro.showToast({ title: t('svc.payProcessing'), icon: 'none' })
+        } else {
+          Taro.showModal({
+            title: t('svc.payFail'),
+            content: String(data?.error || t('svc.payFailMsg')),
+            showCancel: false
+          })
+        }
+        void refresh(true)
+        return
+      }
+      const link = data?.checkout_url || data?.qr_code_data
+      if (!link) {
+        Taro.showModal({
+          title: t('svc.orderCreated'),
+          content: t('svc.noPayLink'),
+          showCancel: false
+        })
+        return
+      }
+      await Taro.setClipboardData({ data: String(link) })
+      Taro.showModal({
+        title: t('svc.payLinkCopiedTitle'),
+        content: t('svc.payLinkCopiedMsg'),
+        showCancel: false
+      })
+      void refresh(true)
+    } catch (err: any) {
+      Taro.showModal({
+        title: t('svc.payFail'),
+        content: String(err?.message || t('svc.payFailMsg')),
+        showCancel: false
+      })
+    } finally {
+      setPayingId(null)
+    }
+  }
+
   // 提交购买：写入真实服务订单（orderer_id / orderer_type / property_id 必填）
   const handleBuy = async () => {
     if (!selected) return
@@ -280,7 +336,7 @@ export default function TenantServicesPage() {
           ? '公共事业代缴（单笔）'
           : `${t(MODEL_OPTIONS.find((m) => m.key === buyModel)?.labelKey ?? 'svc.model.perUse')} x${buyQty}`
       }
-      await serviceOrdersApi.create(
+      const order: any = await serviceOrdersApi.create(
         isUtility
           ? orderBase
           : {
@@ -290,12 +346,18 @@ export default function TenantServicesPage() {
               billing_amount: unitPrice
             }
       )
-      Taro.showToast({
-        title: isUtility ? t('svc.paySuccess') : t('svc.buySuccess'),
-        icon: 'success'
-      })
       closeBuy()
       void refresh(true)
+      // 下单成功即进入支付：不再出现「只提示成功、没有付款入口」
+      if (order?.id) {
+        await payOrder(order.id)
+      } else {
+        Taro.showModal({
+          title: t('svc.orderCreated'),
+          content: t('svc.noPayLink'),
+          showCancel: false
+        })
+      }
     } catch (err) {
       console.error('[TenantServices] 下单失败', err)
       Taro.showToast({ title: t('svc.buyFail'), icon: 'none' })
@@ -379,8 +441,9 @@ export default function TenantServicesPage() {
             {orderList.map((o) => {
               const meta = ORDER_STATUS[o.status || 'pending'] || ORDER_STATUS.pending
               const matched = catalog.find((c) => c.code === o.service_type)
+              const canPay = o.status === 'pending' && Number(o.amount || 0) > 0
               return (
-                <View key={o.id} className='order-card'>
+                <View key={o.id} className={`order-card ${canPay ? 'order-card--payable' : ''}`}>
                   <View className='order-icon icon-svg' style={iconStyle('clipboard', 40)} />
                   <View className='order-info'>
                     <Text className='order-name'>
@@ -391,6 +454,19 @@ export default function TenantServicesPage() {
                     </Text>
                   </View>
                   <Text className={`badge ${meta.badge} order-status`}>{t(meta.text)}</Text>
+                  {canPay && (
+                    <View
+                      className={`order-pay ${payingId ? 'order-pay--disabled' : ''}`}
+                      onClick={() => {
+                        if (payingId) return
+                        void payOrder(String(o.id))
+                      }}
+                    >
+                      <Text className='order-pay__text'>
+                        {payingId === String(o.id) ? t('svc.paying') : t('svc.goPay')}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )
             })}

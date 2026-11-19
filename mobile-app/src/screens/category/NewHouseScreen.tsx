@@ -73,25 +73,41 @@ export default function NewHouseScreen() {
   );
 
   const grid: GridItem[] = useMemo(() => {
-    const mk = (key: string, label: string, icon: GridItem['icon'], color: string, rgb: string): GridItem => ({
+    const mk = (
+      key: string,
+      label: string,
+      icon: GridItem['icon'],
+      color: string,
+      rgb: string,
+      opts?: { hintKey?: string; action?: { labelKey: string; screen: 'PublicListings' | 'FindMyHome' | 'PublicRankings'; params?: Record<string, any> }; onPress?: () => void },
+    ): GridItem => ({
       key,
       label,
       icon,
       color,
       tint: colors.alpha(rgb, 0.1),
-      onPress: () => notAvailable(navigation, label),
+      onPress:
+        opts?.onPress ??
+        (() =>
+          notAvailable(navigation, label, {
+            hintKey: opts?.hintKey,
+            action: opts?.action,
+          })),
     });
+    const browseNew = { labelKey: 'featureAction.browseNewHomes', screen: 'PublicListings' as const, params: { preset: 'new' } };
     return [
-      mk('brand', t('category.newGridBrand'), 'ribbon-outline', colors.primary, colors.primaryRgb),
-      mk('land', t('category.newGridLand'), 'map-outline', colors.info, colors.infoRgb),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.warning, colors.warningRgb),
-      mk('ready', t('category.newGridReady'), 'home-outline', colors.primaryText, colors.primaryRgb),
-      mk('small', t('category.newGridSmall'), 'resize-outline', colors.error, colors.errorRgb),
-      mk('rank', t('category.newGridRank'), 'podium-outline', colors.primary, colors.primaryRgb),
-      mk('vr', t('category.newGridVr'), 'cube-outline', colors.info, colors.infoRgb),
-      mk('live', t('category.newGridLive'), 'videocam-outline', colors.warning, colors.warningRgb),
-      mk('three', t('category.newGridThree'), 'people-outline', colors.primaryText, colors.primaryRgb),
-      mk('subway', t('category.newGridSubway'), 'subway-outline', colors.error, colors.errorRgb),
+      mk('brand', t('category.newGridBrand'), 'ribbon-outline', colors.primary, colors.primaryRgb, { hintKey: 'featureHint.developer', action: browseNew }),
+      mk('land', t('category.newGridLand'), 'map-outline', colors.info, colors.infoRgb, { hintKey: 'featureHint.landAuction', action: browseNew }),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.warning, colors.warningRgb, { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } }),
+      mk('ready', t('category.newGridReady'), 'home-outline', colors.primaryText, colors.primaryRgb, { hintKey: 'featureHint.ready', action: browseNew }),
+      mk('small', t('category.newGridSmall'), 'resize-outline', colors.error, colors.errorRgb, { hintKey: 'featureHint.small', action: browseNew }),
+      mk('rank', t('category.newGridRank'), 'podium-outline', colors.primary, colors.primaryRgb, {
+        onPress: () => navigation.navigate('PublicRankings', { scope: 'project', metric: 'deal_count' }),
+      }),
+      mk('vr', t('category.newGridVr'), 'cube-outline', colors.info, colors.infoRgb, { hintKey: 'featureHint.projectVr', action: browseNew }),
+      mk('live', t('category.newGridLive'), 'videocam-outline', colors.warning, colors.warningRgb, { hintKey: 'featureHint.live', action: browseNew }),
+      mk('three', t('category.newGridThree'), 'people-outline', colors.primaryText, colors.primaryRgb, { hintKey: 'featureHint.groupBuy', action: browseNew }),
+      mk('subway', t('category.newGridSubway'), 'subway-outline', colors.error, colors.errorRgb, { hintKey: 'featureHint.subway', action: browseNew }),
     ];
   }, [t, navigation]);
 

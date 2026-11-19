@@ -70,16 +70,16 @@ export default function FactoryScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('select', t('category.factGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.factGridSelect'))),
+      mk('select', t('category.factGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'featured' })),
       mk('rent', t('category.factTabRent'), 'cube-outline', colors.info, colors.infoRgb, () => setTab('rent-factory')),
       mk('sell', t('category.factTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-factory')),
       mk('project', t('category.factGridProject'), 'business-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicCommunities')),
       mk('land', t('category.factGridLand'), 'map-outline', colors.error, colors.errorRgb, () => navigation.navigate('Land')),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('subway', t('category.factGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.factGridSubway'))),
-      mk('env', t('category.factGridEnv'), 'leaf-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.factGridEnv'))),
-      mk('vr', t('category.factGridVr'), 'cube-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.factGridVr'))),
-      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.helpFind'))),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('subway', t('category.factGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.factGridSubway'), { hintKey: 'featureHint.logistics', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('env', t('category.factGridEnv'), 'leaf-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'env' })),
+      mk('vr', t('category.factGridVr'), 'cube-outline', colors.error, colors.errorRgb, () => navigation.navigate('PublicListings', { preset: 'vr' })),
+      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('FindMyHome')),
     ];
   }, [t, navigation]);
 
@@ -157,7 +157,7 @@ export default function FactoryScreen() {
         title={t('category.factBannerTitle')}
         sub={t('category.factBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(navigation, t('category.factBannerTitle'))}
+        onPress={() => navigation.navigate('FindMyHome')}
       />
     </View>
   );

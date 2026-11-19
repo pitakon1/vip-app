@@ -13,10 +13,16 @@ from app.core.auth import STAFF_ROLES, get_current_user
 from app.core.datetime_utils import UtcInstant
 from app.core.events import publish_event
 from app.core.pagination import Page, PaginationParams, paginate_query
+from app.providers.payment.service import payment_service
+from app.services.payment_partner import resolve_payment_partner
 from app.services.pricing import service_quote
+from app.services.serial_number import next_no
 from app.models import (
     Lease,
     Owner,
+    Payment,
+    PaymentStatus,
+    PaymentType,
     Property,
     ServiceOrder,
     ServiceType,
@@ -77,6 +83,12 @@ class ServiceOrderReview(BaseModel):
 
     rating: int = Field(ge=1, le=5)
     comment: Optional[str] = Field(default=None, max_length=1000)
+
+
+class ServiceOrderPayRequest(BaseModel):
+    """增值服务订单发起支付。默认连连聚合收银台（卡 / PromptPay / 手机银行）。"""
+
+    channel: str = "lianlian"
 
 
 @router.get("", response_model=Page[ServiceOrder])
@@ -217,6 +229,89 @@ def create_service_order(
     session.commit()
     session.refresh(order)
     return order
+
+
+@router.post("/{order_id}/pay")
+def pay_service_order(
+    order_id: uuid.UUID,
+    req: ServiceOrderPayRequest,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """为增值服务订单发起支付：创建/复用支付单并调起渠道收银台。
+
+    幂等口径：同一订单固定使用 `idempotency_key=service-order:{order.id}`，重复
+    点击只会复用同一张支付单，不会生成第二笔扣款。已支付直接返回
+    `already_paid`；渠道处理中同样返回状态，避免再开一笔渠道订单造成重复扣款。
+    """
+    order = session.get(ServiceOrder, order_id)
+    if not order or order.deleted_at:
+        raise HTTPException(status_code=404, detail="Service order not found")
+    if order.orderer_id != user.id and user.role not in STAFF_ROLES:
+        raise HTTPException(status_code=403, detail="Not allowed to pay this order")
+    if order.status == ServiceOrderStatus.cancelled:
+        raise HTTPException(status_code=409, detail="Service order is cancelled")
+    if float(order.amount or 0) <= 0:
+        raise HTTPException(status_code=400, detail="Service order has no payable amount")
+
+    payment: Optional[Payment] = None
+    if order.payment_id:
+        payment = session.get(Payment, order.payment_id)
+        if payment and payment.deleted_at:
+            payment = None
+    if payment is None:
+        payment = session.exec(
+            select(Payment).where(
+                Payment.idempotency_key == f"service-order:{order.id}"
+            )
+        ).first()
+    if payment is None:
+        payment = Payment(
+            receipt_no=next_no(session, "SK"),
+            partner_id=resolve_payment_partner(
+                session, payer_id=user.id, property_id=order.property_id
+            ),
+            payer_id=user.id,
+            property_id=order.property_id,
+            amount=float(order.amount),
+            currency=order.currency or "THB",
+            payment_type=PaymentType.service_fee,
+            status=PaymentStatus.pending,
+            idempotency_key=f"service-order:{order.id}",
+            description=f"增值服务 {order.service_type.value}",
+        )
+        session.add(payment)
+        session.commit()
+        session.refresh(payment)
+    if order.payment_id != payment.id:
+        order.payment_id = payment.id
+        session.add(order)
+        session.commit()
+        session.refresh(order)
+
+    if payment.status == PaymentStatus.succeeded:
+        return {
+            "ok": True,
+            "already_paid": True,
+            "payment_id": str(payment.id),
+            "status": payment.status.value,
+        }
+    if payment.status in (PaymentStatus.refunded, PaymentStatus.expired):
+        raise HTTPException(
+            status_code=409, detail=f"Payment is {payment.status.value}"
+        )
+    if payment.status == PaymentStatus.processing:
+        return {
+            "ok": False,
+            "payment_id": str(payment.id),
+            "status": payment.status.value,
+            "error": "Payment is being processed",
+        }
+
+    result = payment_service.create_order(
+        session, payment, req.channel, customer_email=user.email
+    )
+    return {"payment_id": str(payment.id), **result}
 
 
 @router.get("/{order_id}", response_model=ServiceOrder)

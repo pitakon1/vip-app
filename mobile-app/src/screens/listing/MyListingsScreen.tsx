@@ -216,7 +216,7 @@ export default function MyListingsScreen() {
           title={t('myListings.emptyTitle')}
           sub={t('myListings.emptySub')}
           actionLabel={t('profile.addProperty')}
-          onAction={() => navigation.navigate('PropertyBinding')}
+          onAction={() => navigation.navigate('OwnerProperties', { openBinding: true })}
         />
       ) : (
         <>

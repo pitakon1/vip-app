@@ -9,6 +9,7 @@ import type { Booking, IconType, PlanItem, TicketFilter } from './types'
 export const ICON_TYPE: Record<string, IconType> = {
   cleaning: 'cleaning',
   ac_cleaning: 'ac',
+  moving: 'moving',
   wifi_install: 'wifi',
   utility_payment: 'utility',
 }
@@ -20,6 +21,7 @@ export const CARD_META: Record<
 > = {
   cleaning: { badgeType: 'primary', iconBg: 'rgba(20, 184, 166, 0.12)', iconColor: 'var(--rent-primary)' },
   ac_cleaning: { badgeType: 'info', iconBg: 'rgba(14,165,233,0.12)', iconColor: 'var(--state-info)' },
+  moving: { badgeType: 'success', iconBg: 'rgba(16,185,129,0.12)', iconColor: 'var(--state-success)' },
   wifi_install: { badgeType: 'primary', iconBg: 'rgba(20,184,166,0.12)', iconColor: 'var(--rent-primary-text)' },
   utility_payment: { badgeType: 'warning', iconBg: 'rgba(217,119,6,0.12)', iconColor: 'var(--state-warning)' },
 }

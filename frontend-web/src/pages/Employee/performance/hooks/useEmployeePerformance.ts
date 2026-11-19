@@ -11,12 +11,15 @@ import type {
   BarItem,
   CommissionRow,
   DealRow,
+  ManualDealInput,
+  ManualDealRow,
   MonthPerf,
   MonthlyRecord,
   PerfRow,
   PerfSummary,
 } from '../types'
 import { fmtCompact, fmtMoney } from '../utils'
+import { errorText } from '@/lib/errorText'
 
 /** 员工业绩页：汇总 / 趋势 / 月度记录 / 全员业绩 / 合作公司（全部只读） */
 export const useEmployeePerformance = () => {
@@ -34,6 +37,10 @@ export const useEmployeePerformance = () => {
   const [agentSort, setAgentSort] = useState('total_commission')
   // 员工业绩追踪排序方向
   const [agentOrder, setAgentOrder] = useState<'asc' | 'desc'>('desc')
+  // 手工补录成交（线下成交）：本月记录 + 保存中状态
+  const [manualDeals, setManualDeals] = useState<ManualDealRow[]>([])
+  const [dealsLoading, setDealsLoading] = useState(false)
+  const [dealSaving, setDealSaving] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -108,6 +115,59 @@ export const useEmployeePerformance = () => {
     fetchAgents()
     fetchPartners()
   }, [fetchData, fetchAgents, fetchPartners])
+
+  // 本月手工补录成交（后端默认当前月；非 admin 只返回本人）
+  const fetchManualDeals = useCallback(async () => {
+    setDealsLoading(true)
+    try {
+      const res = await performanceApi.deals({
+        year: dayjs().year(),
+        month: dayjs().month() + 1,
+      })
+      const payload = res.data?.data ?? res.data
+      setManualDeals(Array.isArray(payload) ? (payload as ManualDealRow[]) : [])
+    } catch {
+      setManualDeals([])
+    } finally {
+      setDealsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void fetchManualDeals()
+  }, [fetchManualDeals])
+
+  // 补录成功后同时刷新「本月业绩」汇总，避免列表有了、KPI 还是旧值
+  const createManualDeal = useCallback(
+    async (payload: ManualDealInput) => {
+      setDealSaving(true)
+      try {
+        await performanceApi.createDeal(payload)
+        message.success(t('employeePerformance.manualSaved'))
+        await Promise.all([fetchManualDeals(), fetchData()])
+        return true
+      } catch (err) {
+        message.error(errorText(err, t('employeePerformance.manualSaveFailed')))
+        return false
+      } finally {
+        setDealSaving(false)
+      }
+    },
+    [fetchManualDeals, fetchData, t],
+  )
+
+  const removeManualDeal = useCallback(
+    async (id: string) => {
+      try {
+        await performanceApi.removeDeal(id)
+        message.success(t('employeePerformance.manualDeleted'))
+        await Promise.all([fetchManualDeals(), fetchData()])
+      } catch (err) {
+        message.error(errorText(err, t('employeePerformance.manualSaveFailed')))
+      }
+    },
+    [fetchManualDeals, fetchData, t],
+  )
 
   const s = summary
 
@@ -329,6 +389,11 @@ export const useEmployeePerformance = () => {
     sortedAgents,
     sortBy,
     monthlyRecords,
+    manualDeals,
+    dealsLoading,
+    dealSaving,
+    createManualDeal,
+    removeManualDeal,
     fetchData,
     handleExport,
     handleSubmitReport,

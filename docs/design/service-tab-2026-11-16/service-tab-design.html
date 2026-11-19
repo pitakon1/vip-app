@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>服务 Tab 页面示意图 · 375×812</title>
+<style>
+  :root {
+    /* ===== 取自 mobile-app/src/theme/colors.ts，不新增色值 ===== */
+    --primary: #14b8a6;
+    --primary-fg: #171a1d;
+    --active: #edf1f2;
+    --bg: #fafbfc;
+    --card: #ffffff;
+    --ink: #171a1d;
+    --ink2: #4c555d;
+    --ink3: #68717a;
+    --line: #e6e9ec;
+    --surface2: #f2f4f5;
+    --field: #f4f6f7;
+    --success: #16a34a;
+    --success-ink: #15803d;
+    --success-soft: rgba(22, 163, 74, 0.08);
+    --warning: #d97706;
+    --warning-ink: #a64c07;
+    --warning-soft: #fdf5e9;
+    --warning-border: #f4d9ad;
+    --error: #dc2626;
+    --error-ink: #b91c1c;
+    --error-soft: rgba(220, 38, 38, 0.08);
+    --info: #0ea5e9;
+    --info-ink: #0369a1;
+    --info-soft: rgba(14, 165, 233, 0.08);
+
+    /* 圆角：sm 8 / md 12 / lg 16 / xl 20 / full */
+    --r8: 8px; --r12: 12px; --r16: 16px; --r20: 20px; --full: 999px;
+    --gutter: 16px;
+    --shadow-card: 0 2px 10px rgba(23, 26, 29, 0.05);
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+      "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #eef1f3;
+    font-family: var(--font);
+    color: var(--ink);
+    padding: 40px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .board { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; }
+  .frame-wrap { display: flex; flex-direction: column; gap: 12px; }
+  .frame-label { font-size: 13px; font-weight: 600; color: #4c555d; letter-spacing: 0.2px; }
+  .frame-label span { font-weight: 400; color: #68717a; margin-left: 6px; }
+
+  /* ================= 手机画布 ================= */
+  .frame {
+    position: relative;
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: var(--font);
+    color: var(--ink);
+  }
+
+  /* ---------- 状态栏 ---------- */
+  .statusbar {
+    height: 44px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--ink);
+  }
+  .sb-time { font-size: 15px; font-weight: 600; letter-spacing: 0.2px; font-variant-numeric: tabular-nums; }
+  .sb-icons { display: flex; align-items: center; gap: 5px; }
+  .sb-icons svg { fill: var(--ink); }
+
+  /* ---------- 顶部标题 + 身份切换 ---------- */
+  .hd { padding: 2px 16px 8px; }
+  .hd-row { display: flex; align-items: center; justify-content: space-between; height: 34px; }
+  .hd h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 30px; }
+  .seg {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    padding: 3px;
+    background: var(--field);
+    border-radius: var(--full);
+  }
+  .seg span {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 52px; height: 28px; padding: 0 10px;
+    font-size: 13px; font-weight: 500; color: var(--ink3);
+    border-radius: var(--full);
+  }
+  .seg .on {
+    background: var(--card);
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(23, 26, 29, 0.08);
+  }
+  .hd-sub {
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 4px; font-size: 12px; color: var(--ink3);
+  }
+  .hd-sub svg { stroke: var(--ink3); }
+
+  /* ---------- 内容区 ---------- */
+  .body { padding: 0 var(--gutter) 90px; }
+
+  .sec-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 0 0 8px;
+  }
+  .sec-head h2 { font-size: 16px; font-weight: 700; line-height: 20px; color: var(--ink); }
+  .sec-head .meta { font-size: 12px; color: var(--ink3); }
+  .sec-head .link { font-size: 12px; font-weight: 600; color: var(--primary); }
+  .sec-head.group { margin: 11px 0 6px; }
+  .sec-head.group h2 { font-size: 15px; letter-spacing: -0.1px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--r16);
+    overflow: hidden;
+  }
+
+  /* ---------- 待办行 ---------- */
+  .row { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  .row + .row::after {
+    content: ""; position: absolute; left: 58px; right: 0; top: 0;
+    height: 1px; background: var(--line);
+  }
+  .todo-row { height: 51px; }
+  .entry { height: 46px; }
+
+  .ico {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    border-radius: var(--r8);
+  }
+  .ico svg { stroke-width: 1.7; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .ico-lg { width: 34px; height: 34px; }
+  .ico-lg svg { width: 19px; height: 19px; }
+  .ico-sm { width: 30px; height: 30px; background: var(--active); }
+  .ico-sm svg { width: 18px; height: 18px; stroke: var(--primary); }
+  .tone-warn { background: var(--warning-soft); }
+  .tone-warn svg { stroke: var(--warning-ink); }
+  .tone-info { background: var(--info-soft); }
+  .tone-info svg { stroke: var(--info-ink); }
+  .tone-err { background: var(--error-soft); }
+  .tone-err svg { stroke: var(--error-ink); }
+  .tone-ok { background: var(--success-soft); }
+  .tone-ok svg { stroke: var(--success-ink); }
+
+  .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .txt .t {
+    font-size: 14px; font-weight: 500; line-height: 19px; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .txt .d {
+    font-size: 12px; line-height: 16px; color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .entry .txt .t { font-weight: 500; }
+
+  .chev { flex: 0 0 auto; font-size: 20px; line-height: 20px; color: var(--ink3); margin-left: -2px; }
+
+  /* ---------- 角标 ---------- */
+  .pill {
+    flex: 0 0 auto;
+    height: 20px; padding: 0 8px;
+    display: inline-flex; align-items: center;
+    border-radius: var(--full);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.1px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .pill.warn { background: var(--warning-soft); border: 1px solid var(--warning-border); color: var(--warning-ink); }
+  .pill.info { background: var(--info-soft); color: var(--info-ink); }
+  .pill.err { background: var(--error-soft); color: var(--error-ink); }
+  .pill.ok { background: var(--success-soft); color: var(--success-ink); }
+  .pill.mute { background: var(--field); color: #3a424a; }
+  .count {
+    flex: 0 0 auto; min-width: 18px; height: 18px; padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--error); color: #fff;
+    font-size: 11px; font-weight: 600; border-radius: var(--full);
+    font-variant-numeric: tabular-nums;
+  }
+  .val { flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .val.ok { color: var(--success-ink); }
+
+  /* ---------- 空态 ---------- */
+  .empty {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 14px;
+  }
+  .empty-ico {
+    width: 36px; height: 36px; flex: 0 0 auto;
+    border-radius: var(--full);
+    background: var(--success-soft);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .empty-ico svg { width: 20px; height: 20px; stroke: var(--success-ink); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- 角标规范 ---------- */
+  .spec { margin-top: 18px; padding: 14px; border-radius: var(--r16); background: var(--card); border: 1px dashed #d8dde1; }
+  .spec-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink3); letter-spacing: 0.3px; }
+  .spec-title::before { content: ""; width: 3px; height: 11px; border-radius: 2px; background: var(--primary); }
+  .spec-rows { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .spec-item { display: flex; align-items: center; gap: 10px; }
+  .spec-item .sample { width: 112px; flex: 0 0 auto; display: flex; align-items: center; }
+  .spec-item .name { width: 62px; font-size: 12px; color: var(--ink3); flex: 0 0 auto; }
+  .spec-item .note { font-size: 11px; color: #8c959d; }
+
+  /* ---------- 底部 Tab ---------- */
+  .tabbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 72px; padding: 6px 0 0;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    display: flex;
+  }
+  .tab {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    color: var(--ink3);
+  }
+  .tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tab span { font-size: 12px; line-height: 16px; }
+  .tab.on { color: var(--primary); }
+  .tab.on svg { stroke-width: 1.9; }
+  .tab-ico { position: relative; display: flex; }
+  .tab-badge {
+    position: absolute; top: -4px; right: -8px;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--error); color: #fff;
+    border-radius: var(--full);
+    font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;
+    border: 1.5px solid var(--card);
+  }
+  .home-ind {
+    position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+    width: 134px; height: 5px; border-radius: 3px; background: var(--ink);
+  }
+
+  /* ---------- 设计说明（不参与截图） ---------- */
+  .legend { margin-top: 56px; max-width: 1240px; background: #fff; border-radius: 16px; padding: 24px 28px; }
+  .legend h3 { font-size: 15px; margin-bottom: 12px; }
+  .legend table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .legend th, .legend td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef1f3; color: #4c555d; }
+  .legend th { color: #171a1d; font-weight: 600; background: #fafbfc; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.06); }
+</style>
+</head>
+<body>
+
+<!-- ============ 图标（线性，1.7px，与 Ionicons outline 同等视觉重量） ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8z"/><path d="M9.2 8.2h5.6M9.2 11.8h5.6"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M15.6 4.4a4.6 4.6 0 0 0-6 6L4 16v4h4l5.6-5.6a4.6 4.6 0 0 0 6-6l-2.9 2.9-2.4-2.4z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.2h6.6L18.5 8v12.8H7z"/><path d="M13.4 3.4V8.2h4.7M9.8 12.4h5.4M9.8 15.6h5.4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2.6"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.2a2.2 2.2 0 0 1 2.2-2.2h4.4l2.1 2.2h6.1a2.2 2.2 0 0 1 2.2 2.2v8.2a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2z"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.6 8h12.8l1 12.4H4.6z"/><path d="M9 8V6.3a3 3 0 0 1 6 0V8"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.4l1.7 4.4 4.4 1.7-4.4 1.7L11 15.6 9.3 11.2 4.9 9.5l4.4-1.7z"/><path d="M17.8 14.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.4 13.8v-1.6a7.6 7.6 0 0 1 15.2 0v1.6"/><rect x="2.9" y="13.4" width="4.2" height="6.2" rx="2.1"/><rect x="16.9" y="13.4" width="4.2" height="6.2" rx="2.1"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4.5 20.5V9.4L12 3.6l7.5 5.8v11.1z"/><path d="M9.6 20.5v-5.2h4.8v5.2"/><path d="M8.3 11.6h1.7M14 11.6h1.7"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16.4l5-5.1 3.6 3.1 6.9-7.4"/><path d="M14.6 6.6h5.2v5.2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4.2" width="12" height="16.6" rx="2.4"/><path d="M9.2 3.2h5.6v2.6H9.2z"/><path d="M9.2 13l2.2 2.2 3.6-3.9"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="M3.4 10.4v3.2a1 1 0 0 0 1 1h2.9l8.5 4.4V5L7.3 9.4H4.4a1 1 0 0 0-1 1z"/><path d="M8.2 14.8v4.4h2.6v-3.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 8.2v7.6M8.2 12h7.6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.4l7.4 2.8v5.6c0 4.6-3.2 7.4-7.4 8.4-4.2-1-7.4-3.8-7.4-8.4V6.2z"/><path d="M9 12l2.2 2.2 4-4.2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.8L12 3.9l8.2 6.9v9.4h-5.6v-5.9H9.4v5.9H3.8z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.7" y="3.7" width="7" height="7" rx="2.1"/><rect x="13.3" y="3.7" width="7" height="7" rx="2.1"/><rect x="3.7" y="13.3" width="7" height="7" rx="2.1"/><rect x="13.3" y="13.3" width="7" height="7" rx="2.1"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.2h16v10.4h-9.4L5.8 20.2v-3.6H4z"/><path d="M8 10h8M8 12.8h5"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M4.9 20.3a7.1 7.1 0 0 1 14.2 0"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.4-6 6.4-11a6.4 6.4 0 1 0-12.8 0C5.6 15 12 21 12 21z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5.2 12.6l4.3 4.3 9.3-9.6"/></symbol>
+</defs></svg>
+
+<div class="board">
+
+  <!-- ================= 1. 租客视角 ================= -->
+  <div class="frame-wrap">
+    <div class="frame-label">01 · 租客视角<span>有待缴 / 待签 / 处理中工单</span></div>
+    <div class="frame" id="frame-tenant">
+      <div class="statusbar">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#171a1d" stroke-opacity=".38"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+        </span>
+      </div>
+
+      <header class="hd">
+        <div class="hd-row">
+          <h1>服务</h1>
+          <div class="seg"><span class="on">租客</span><span>业主</span></div>
+        </div>
+        <div class="hd-sub">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pin"/></svg>
+          滨江壹号 3-1802 · 租约至 2027-03-31
+        </div>
+      </header>
+
+      <main class="body">
+        <div class="sec-head"><h2>待办提醒</h2><span class="meta">3 项待处理</span></div>
+        <section class="card">
+          <div class="row todo-row">
+            <span class="ico ico-lg tone-warn"><svg><use href="#i-receipt"/></svg></span>
+            <span class="txt"><span class="t">11 月租金待缴</span><span class="d">¥8,600 · 11-20 到期</span></span>
+            <span class="pill warn">待缴</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row todo-row">
+            <span class="ico ico-lg tone-warn"><svg><use href="#i-doc"/></svg></span>
+            <span class="txt"><span class="t">续租合同待签署</span><span class="d">ZH-2026-0412 · 剩余 3 天</span></span>
+            <span class="pill warn">待签</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row todo-row">
+            <span class="ico ico-lg tone-info"><svg><use href="#i-wrench"/></svg></span>
+            <span class="txt"><span class="t">空调报修已派单</span><span class="d">师傅今日 14:00 上门</span></span>
+            <span class="pill info">处理中</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的事务</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-receipt"/></svg></span>
+            <span class="txt"><span class="t">账单缴费</span><span class="d">待缴、账单与电子收据</span></span>
+            <span class="pill warn">待缴 ¥8,600</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-wrench"/></svg></span>
+            <span class="txt"><span class="t">服务工单</span><span class="d">报修进度与历史工单</span></span>
+            <span class="count">1</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-doc"/></svg></span>
+            <span class="txt"><span class="t">电子签合同</span><span class="d">查看与签署租约合同</span></span>
+            <span class="val">2 待签</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-cal"/></svg></span>
+            <span class="txt"><span class="t">我的租约</span><span class="d">租期、租金与续约</span></span>
+            <span class="val">2027-03-31</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的资产</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-folder"/></svg></span>
+            <span class="txt"><span class="t">文档中心</span><span class="d">租约、收据与对账单</span></span>
+            <span class="val">12 份</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>服务与帮助</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-spark"/></svg></span>
+            <span class="txt"><span class="t">增值服务</span><span class="d">保洁搬家等上门服务</span></span>
+            <span class="pill mute">新</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-headset"/></svg></span>
+            <span class="txt"><span class="t">在线客服</span><span class="d">9:00-21:00 人工在线</span></span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ================= 2. 业主视角 ================= -->
+  <div class="frame-wrap">
+    <div class="frame-label">02 · 业主视角<span>有待审 / 待签 / 待结算</span></div>
+    <div class="frame" id="frame-owner">
+      <div class="statusbar">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#171a1d" stroke-opacity=".38"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+        </span>
+      </div>
+
+      <header class="hd">
+        <div class="hd-row">
+          <h1>服务</h1>
+          <div class="seg"><span>租客</span><span class="on">业主</span></div>
+        </div>
+        <div class="hd-sub">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pin"/></svg>
+          在管 3 套 · 滨江壹号 5-0901
+        </div>
+      </header>
+
+      <main class="body">
+        <div class="sec-head"><h2>待办提醒</h2><span class="meta">2 项待处理</span></div>
+        <section class="card">
+          <div class="row todo-row">
+            <span class="ico ico-lg tone-err"><svg><use href="#i-wrench"/></svg></span>
+            <span class="txt"><span class="t">维修申请待审批</span><span class="d">5-0901 更换热水器 · 已等 2 天</span></span>
+            <span class="pill err">待审批</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row todo-row">
+            <span class="ico ico-lg tone-warn"><svg><use href="#i-doc"/></svg></span>
+            <span class="txt"><span class="t">出租委托待签署</span><span class="d">3-1802 · 委托期 12 个月</span></span>
+            <span class="pill warn">待签</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的资产</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-plus"/></svg></span>
+            <span class="txt"><span class="t">绑定我的房产</span><span class="d">提交房产，审核后生效</span></span>
+            <span class="pill info">1 审核中</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-building"/></svg></span>
+            <span class="txt"><span class="t">我的房产</span><span class="d">在管房产、租约与状态</span></span>
+            <span class="val">3 套</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-trend"/></svg></span>
+            <span class="txt"><span class="t">收益明细</span><span class="d">租金流水与结算单</span></span>
+            <span class="val ok">¥12,480</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的事务</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-clip"/></svg></span>
+            <span class="txt"><span class="t">维修审批</span><span class="d">租客报修与费用审批</span></span>
+            <span class="count">2</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-doc"/></svg></span>
+            <span class="txt"><span class="t">电子签合同</span><span class="d">委托与租赁合同签署</span></span>
+            <span class="val">1 待签</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-mega"/></svg></span>
+            <span class="txt"><span class="t">委托挂牌与营销</span><span class="d">定价、带看与推广</span></span>
+            <span class="val">1 套空置</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>服务与帮助</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-shield"/></svg></span>
+            <span class="txt"><span class="t">业主服务</span><span class="d">托管、保洁与维修套餐</span></span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-folder"/></svg></span>
+            <span class="txt"><span class="t">文档中心</span><span class="d">委托书、合同与结算单</span></span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg><i class="tab-badge">2</i></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ================= 3. 空态 + 角标规范 ================= -->
+  <div class="frame-wrap">
+    <div class="frame-label">03 · 空态与角标<span>无待办时的样子 + 角标规格</span></div>
+    <div class="frame" id="frame-states">
+      <div class="statusbar">
+        <span class="sb-time">9:41</span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#171a1d" stroke-opacity=".38"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+        </span>
+      </div>
+
+      <header class="hd">
+        <div class="hd-row">
+          <h1>服务</h1>
+          <div class="seg"><span class="on">租客</span><span>业主</span></div>
+        </div>
+        <div class="hd-sub">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pin"/></svg>
+          滨江壹号 3-1802 · 租约至 2027-03-31
+        </div>
+      </header>
+
+      <main class="body">
+        <div class="sec-head"><h2>待办提醒</h2><span class="meta">0 项待处理</span></div>
+        <section class="card">
+          <div class="empty">
+            <span class="empty-ico"><svg><use href="#i-check"/></svg></span>
+            <span class="txt">
+              <span class="t">暂无待办事项</span>
+              <span class="d">本月账单已结清，没有需要处理的事</span>
+            </span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的事务</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-receipt"/></svg></span>
+            <span class="txt"><span class="t">账单缴费</span><span class="d">待缴、账单与电子收据</span></span>
+            <span class="pill ok">已结清</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-wrench"/></svg></span>
+            <span class="txt"><span class="t">服务工单</span><span class="d">报修进度与历史工单</span></span>
+            <span class="val">无进行中</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-doc"/></svg></span>
+            <span class="txt"><span class="t">电子签合同</span><span class="d">查看与签署租约合同</span></span>
+            <span class="val">无待签</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>我的资产</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-folder"/></svg></span>
+            <span class="txt"><span class="t">文档中心</span><span class="d">租约、收据与对账单</span></span>
+            <span class="val">12 份</span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <div class="sec-head group"><h2>服务与帮助</h2></div>
+        <section class="card">
+          <div class="row entry">
+            <span class="ico ico-sm"><svg><use href="#i-headset"/></svg></span>
+            <span class="txt"><span class="t">在线客服</span><span class="d">9:00-21:00 人工在线</span></span>
+            <span class="chev">›</span>
+          </div>
+        </section>
+
+        <!-- 设计标注：角标规范（非业务界面） -->
+        <div class="spec">
+          <div class="spec-title">角标规范 · 设计标注</div>
+          <div class="spec-rows">
+            <div class="spec-item">
+              <span class="sample"><span class="pill warn">待缴 ¥8,600</span></span>
+              <span class="name">文字角标</span>
+              <span class="note">待缴 / 待签 / 待审批</span>
+            </div>
+            <div class="spec-item">
+              <span class="sample"><span class="count">3</span></span>
+              <span class="name">数字角标</span>
+              <span class="note">计数类待办，18px 高</span>
+            </div>
+            <div class="spec-item">
+              <span class="sample"><span class="pill mute">新</span></span>
+              <span class="name">弱提示</span>
+              <span class="note">新品 / 无待办说明</span>
+            </div>
+            <div class="spec-item">
+              <span class="sample"><span class="val ok">¥12,480</span></span>
+              <span class="name">数值</span>
+              <span class="note">金额、份数、日期</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= 令牌说明（截图不含） ================= -->
+<section class="legend">
+  <h3>设计令牌与组件规格（全部取自 mobile-app/src/theme/colors.ts）</h3>
+  <table>
+    <tr><th style="width:130px">令牌</th><th style="width:150px">取值</th><th>使用位置</th></tr>
+    <tr><td>主色</td><td><span class="sw" style="background:#14b8a6"></span>#14b8a6</td><td>入口图标、身份切换选中文字、当前 Tab、区块左侧标记</td></tr>
+    <tr><td>页面底 / 卡片</td><td><span class="sw" style="background:#fafbfc"></span>#fafbfc / <span class="sw" style="background:#ffffff"></span>#ffffff</td><td>背景与分组卡片</td></tr>
+    <tr><td>墨色</td><td><span class="sw" style="background:#171a1d"></span>#171a1d · <span class="sw" style="background:#4c555d"></span>#4c555d · <span class="sw" style="background:#68717a"></span>#68717a</td><td>标题 / 次级 / 说明与箭头</td></tr>
+    <tr><td>描边</td><td><span class="sw" style="background:#e6e9ec"></span>#e6e9ec</td><td>卡片 1px 描边、行分隔线（左缩进 58px）</td></tr>
+    <tr><td>图标底</td><td><span class="sw" style="background:#edf1f2"></span>#edf1f2</td><td>页面入口图标底（与「我的」宫格一致）</td></tr>
+    <tr><td>状态色</td><td><span class="sw" style="background:#a64c07"></span>#a64c07 · <span class="sw" style="background:#b91c1c"></span>#b91c1c · <span class="sw" style="background:#0369a1"></span>#0369a1 · <span class="sw" style="background:#15803d"></span>#15803d</td><td>待缴 / 待审 / 处理中 / 已结清 文字与角标</td></tr>
+    <tr><td>圆角</td><td>8 / 16 / full</td><td>图标底 8；分组卡 16；身份切换与角标 full</td></tr>
+    <tr><td>字号</td><td>22 / 16 / 15 / 14 / 12</td><td>页面标题 / 区块标题 / 分组标题 / 行标题 / 说明</td></tr>
+    <tr><td>行高</td><td>51 待办行 · 46 入口行</td><td>入口 = 30 图标 + 两行文字（19 + 16）+ 上下留白</td></tr>
+    <tr><td>底栏</td><td>72px（图标 23 + 标签 12px）</td><td>首页 / 服务 / 消息 / 我的，选中态 #14b8a6；有待办时右上角数字角标，空态不显示</td></tr>
+  </table>
+</section>
+
+</body>
+</html>

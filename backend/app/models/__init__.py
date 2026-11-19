@@ -124,6 +124,7 @@ from .contract import (
 from .backup import BackupJob, BackupStatus, BackupType
 from .external_trip import ExternalTripApplication, TripStatus
 from .viewing_appointment import ViewingAppointment, ViewingStatus
+from .announcement import Announcement, AnnouncementCategory
 from .user_calendar_event import UserCalendarEvent
 from .commission_rule import CommissionRule, CommissionRuleScope
 from .favorite import Favorite
@@ -166,12 +167,32 @@ from .market_data import (
 )
 from .rbac import Permission, RolePermission, UserGroup, UserGroupMember
 from .partner import Partner, PartnerStatus
+from .partner_ops import (
+    AttendanceShift,
+    GrantStatus,
+    LeadClaim,
+    PartnerApproval,
+    PartnerAuditLog,
+    PartnerInvitation,
+    PartnerMaterial,
+    PartnerPropertyGrant,
+    PartnerTask,
+    PartnerWebhook,
+    PartnerWebhookEvent,
+)
 from .company_profile import CompanyProfile
 from .verification import (
     PropertyVerification,
     VerificationMethod,
     VerificationResult,
     ListingVerificationStatus,
+)
+from .device_push_token import DevicePushToken
+from .commute_cache import CommuteCache
+from .identity_verification import (
+    IdentityDocType,
+    IdentityReviewStatus,
+    IdentityVerification,
 )
 
 # 全局注册乐观锁版本号自增（Web 与 Celery worker 都从本模块导入模型）
@@ -185,6 +206,11 @@ __all__ = [
     "UserRole",
     "UserType",
     "VerificationCode",
+    "DevicePushToken",
+    "CommuteCache",
+    "IdentityVerification",
+    "IdentityDocType",
+    "IdentityReviewStatus",
     "Project",
     "Tenure",
     "School",
@@ -305,6 +331,8 @@ __all__ = [
     "TripStatus",
     "ViewingAppointment",
     "ViewingStatus",
+    "Announcement",
+    "AnnouncementCategory",
     "UserCalendarEvent",
     "CommissionRule",
     "CommissionRuleScope",
@@ -342,6 +370,17 @@ __all__ = [
     "UserGroupMember",
     "Partner",
     "PartnerStatus",
+    "AttendanceShift",
+    "GrantStatus",
+    "LeadClaim",
+    "PartnerApproval",
+    "PartnerAuditLog",
+    "PartnerInvitation",
+    "PartnerMaterial",
+    "PartnerPropertyGrant",
+    "PartnerTask",
+    "PartnerWebhook",
+    "PartnerWebhookEvent",
     "CompanyProfile",
     "PropertyVerification",
     "VerificationMethod",

@@ -79,3 +79,28 @@ export interface BarItem {
   height: string
   active: boolean
 }
+
+// 手工补录成交（线下成交，非平台自动核算）
+export interface ManualDealRow {
+  id: string
+  source?: string | null
+  deal_type?: string | null
+  deal_date?: string | null
+  deal_amount?: number
+  commission_amount?: number
+  currency?: string
+  customer_name?: string | null
+  note?: string | null
+}
+
+// 补录入参（与后端 ManualDealCreate 对齐）
+export interface ManualDealInput {
+  source: 'platform_customer' | 'self_sourced'
+  deal_type: string
+  deal_date: string
+  deal_amount: number
+  commission_amount: number
+  currency?: string
+  customer_name?: string
+  note?: string
+}

@@ -22,6 +22,8 @@ from app.core.pagination import Page, PaginationParams, paginate_query
 from app.services.data_scope import staff_employee_ids_in_scope
 from app.models import (
     Employee,
+    Listing,
+    ListingStatus,
     Property,
     User,
     UserRole,
@@ -77,6 +79,7 @@ class ViewingOut(BaseModel):
 
     id: Optional[str] = None
     property_id: Optional[str] = None
+    listing_id: Optional[str] = None
     property_title: Optional[str] = None
     property_address: Optional[str] = None
     scheduled_at: Optional[str] = None
@@ -129,9 +132,21 @@ def _can_manage(session: Session, user: User, v: ViewingAppointment) -> bool:
 
 def _with_property(session: Session, v: ViewingAppointment) -> dict:
     prop = session.get(Property, v.property_id)
+    # 公开详情页只认上架单 id：这里直接把该房源当前在架的上架单带出去，
+    # 前端点预约记录才能跳到 /listing/:id（此前只给 property_id，跳转必 404）。
+    listing = session.exec(
+        select(Listing)
+        .where(
+            Listing.property_id == v.property_id,
+            Listing.status == ListingStatus.active,
+            Listing.deleted_at.is_(None),
+        )
+        .order_by(Listing.created_at.desc())
+    ).first()
     return {
         "id": str(v.id),
         "property_id": str(v.property_id),
+        "listing_id": str(listing.id) if listing else None,
         "property_title": prop.display_name if prop else None,
         "property_address": prop.address if prop else None,
         "scheduled_at": v.scheduled_at.isoformat() if v.scheduled_at else None,
@@ -260,6 +275,39 @@ def list_my_viewings(
         .order_by(ViewingAppointment.scheduled_at.desc())
     ).all()
     return {"items": [_with_property(session, v) for v in items], "total": len(items)}
+
+
+@router.post("/{viewing_id}/cancel", response_model=ViewingOut)
+def cancel_my_viewing(
+    viewing_id: uuid.UUID,
+    req: Optional[dict] = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """租客本人取消自己发起的预约（仅待确认/已确认）。
+
+    员工侧的状态机在 `PATCH /viewings/{id}`，且只允许员工调用；C 端「我的看房」
+    需要本人撤回，因此单独开一条只认 requester_user_id 的取消入口。
+    """
+    v = session.get(ViewingAppointment, viewing_id)
+    if not v or v.deleted_at:
+        raise HTTPException(status_code=404, detail="Viewing not found")
+    if v.requester_user_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Only the requester can cancel this viewing"
+        )
+    if v.status not in (ViewingStatus.pending, ViewingStatus.confirmed):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Viewing cannot be cancelled in status {v.status.value}",
+        )
+    reason = (req or {}).get("reason") if isinstance(req, dict) else None
+    v.status = ViewingStatus.cancelled
+    v.cancel_reason = reason or "Cancelled by requester"
+    session.add(v)
+    session.commit()
+    session.refresh(v)
+    return _with_property(session, v)
 
 
 @router.get("/{viewing_id}", response_model=ViewingOut)

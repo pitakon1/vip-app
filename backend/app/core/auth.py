@@ -17,6 +17,7 @@ from ..models.contract import Contract, ContractParty
 from ..models.property_deal import PropertyDeal
 from ..models.tenant import Tenant
 from ..models.user import User, UserRole
+from ..models.partner import Partner
 from ..services.data_scope import (
     staff_employee_ids_in_scope,
     staff_user_ids_in_scope,
@@ -73,6 +74,11 @@ def user_from_token(token: str, session: Session) -> User:
     user = session.get(User, user_uid)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    # 停用合作公司：旗下账号立即禁止访问（含已签发的存量 token）
+    if user.partner_id:
+        partner = session.get(Partner, user.partner_id)
+        if not partner or partner.deleted_at or not partner.is_active:
+            raise HTTPException(status_code=403, detail="Partner company is not active")
     if is_token_revoked(payload, user):
         raise HTTPException(
             status_code=401,

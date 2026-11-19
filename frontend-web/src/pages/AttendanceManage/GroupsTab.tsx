@@ -9,7 +9,14 @@ import GroupFormModal from './GroupFormModal'
 import GroupMembersModal from './GroupMembersModal'
 import type { AttendanceTab } from './attendanceTypes'
 
-export default function GroupsTab({ tab }: { tab: AttendanceTab }) {
+export default function GroupsTab({
+  tab,
+  isPartnerAdmin = false,
+}: {
+  tab: AttendanceTab
+  // 合作管理员的组只对本司员工生效，不能设为平台全局默认组，因此在表单里隐藏该开关
+  isPartnerAdmin?: boolean
+}) {
   const { t } = useTranslation()
   const state = useGroupsTab(tab)
   const {
@@ -158,6 +165,7 @@ export default function GroupsTab({ tab }: { tab: AttendanceTab }) {
         form={groupForm}
         setForm={setGroupForm}
         saving={saving}
+        hideDefault={isPartnerAdmin}
         onCancel={closeGroupModal}
         onSubmit={submitGroup}
       />

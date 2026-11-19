@@ -103,6 +103,11 @@ class AttendanceGroup(TimestampMixin, table=True):
     # 默认组：员工未命中部门组时回落至此
     is_default: bool = Field(default=False, index=True)
     is_active: bool = Field(default=True, index=True)
+    # 归属合作公司：NULL 表示平台自有考勤组；合作管理员只能看到/管理本公司的组，
+    # 且合作组不允许成为平台全局默认组，避免把本司作息套到平台员工身上。
+    partner_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="partners.id", index=True
+    )
 
 
 class AttendanceGroupMember(TimestampMixin, table=True):

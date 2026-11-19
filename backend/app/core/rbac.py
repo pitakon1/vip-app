@@ -76,6 +76,17 @@ PERMISSION_DEFS: dict[str, list[tuple[str, str, str]]] = {
         ("partner:manage", "合作公司管理", "平台创建/编辑/启停合作公司并指定管理员"),
         ("partner:member:manage", "本司成员管理", "合作公司管理员维护本公司员工/拉入经纪人"),
         ("attendance:partner:view", "本公司考勤查看", "合作公司管理员查看本公司员工考勤"),
+        # 以下为合作伙伴赋能路线图新增（合作公司自助管理能力）
+        ("partner:dashboard:view", "经营看板查看", "合作公司经营驾驶舱与趋势"),
+        ("partner:settlement:view", "佣金对账查看", "合作公司结算单列表与导出"),
+        ("partner:member:update", "成员资料编辑", "合作公司启停成员、编辑资料/职位"),
+        ("partner:member:reset_password", "成员重置密码", "合作公司重置本公司成员密码"),
+        ("partner:team:manage", "团队管理", "合作公司团队/组长与成员归属"),
+        ("partner:review:trip", "外勤审批", "合作公司审批本公司外勤/出差申请"),
+        ("partner:review:appeal", "申诉审批", "合作公司审批本公司打卡申诉"),
+        ("partner:lead:assign", "线索分配", "合作公司线索池分配与客户报备"),
+        ("partner:grant:view", "授权房源查看", "合作公司查看平台授权代销房源"),
+        ("partner:ops:manage", "公司运营管理", "公告/任务/审批/素材/Webhook/审计"),
     ],
 }
 
@@ -105,6 +116,8 @@ DEFAULT_ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
         "review:service",
         "review:contract",
         "commission:manage",
+        # 合作公司经纪人可看授权代销房源（平台 agent 即使有权限点也会因无 partner_id 被拒）
+        "partner:grant:view",
     ],
     UserRole.employee: ["data:view", CONTRACT_APPROVE_L1],
     UserRole.owner: [],
@@ -113,6 +126,16 @@ DEFAULT_ROLE_PERMISSIONS: dict[UserRole, list[str]] = {
         "partner:member:manage",
         "data:view",
         "attendance:partner:view",
+        "partner:dashboard:view",
+        "partner:settlement:view",
+        "partner:member:update",
+        "partner:member:reset_password",
+        "partner:team:manage",
+        "partner:review:trip",
+        "partner:review:appeal",
+        "partner:lead:assign",
+        "partner:grant:view",
+        "partner:ops:manage",
     ],
 }
 

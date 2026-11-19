@@ -31,7 +31,11 @@ def _request_id(request: Request) -> str | None:
 
 
 def _error_response(
-    request: Request, status_code: int, message: str, code: str
+    request: Request,
+    status_code: int,
+    message: str,
+    code: str,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
@@ -46,6 +50,9 @@ def _error_response(
             "data": None,
             "request_id": _request_id(request),
         },
+        # HTTPException 自带的响应头（如 429 的 Retry-After）必须透传，
+        # 否则客户端拿不到"何时可重试"，频控形同虚设。
+        headers=headers,
     )
 
 
@@ -76,7 +83,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         message, code = _split_detail(exc.detail)
-        return _error_response(request, exc.status_code, message, code)
+        return _error_response(
+            request, exc.status_code, message, code, headers=exc.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(

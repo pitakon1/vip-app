@@ -72,16 +72,16 @@ export default function Commercial() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.commGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.commGridSelect')) },
+      { key: 'select', label: t('category.commGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings?preset=featured') },
       { key: 'rent-office', label: t('category.commTabRentOffice'), icon: <BuildOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => setTab('rent-office') },
       { key: 'sell-office', label: t('category.commTabSellOffice'), icon: <BankOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => setTab('sell-office') },
       { key: 'rent-shop', label: t('category.commTabRentShop'), icon: <ShopOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => setTab('rent-shop') },
       { key: 'sell-shop', label: t('category.commTabSellShop'), icon: <ContainerOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => setTab('sell-shop') },
       { key: 'project', label: t('category.commGridProject'), icon: <BuildOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/communities') },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
-      { key: 'subway', label: t('category.commGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.commGridSubway')) },
-      { key: 'vr', label: t('category.commGridVr'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, t('category.commGridVr')) },
-      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.helpFind')) },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
+      { key: 'subway', label: t('category.commGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, navigate, t('category.commGridSubway'), { reasonKey: 'category.featureHint.subway', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } }) },
+      { key: 'vr', label: t('category.commGridVr'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/listings?preset=vr') },
+      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/find-my-home') },
     ],
     [navigate, t],
   )
@@ -164,7 +164,7 @@ export default function Commercial() {
         title={t('category.commBannerTitle')}
         sub={t('category.commBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t, t('category.commBannerTitle'))}
+        onPress={() => navigate('/find-my-home')}
       />
     </div>
   )

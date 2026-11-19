@@ -67,16 +67,44 @@ export default function CategoryCommercialPage() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.commGridSelect'), icon: 'star', onPress: () => notAvailable(t('category.commGridSelect')) },
+      {
+        key: 'select',
+        label: t('category.commGridSelect'),
+        icon: 'star',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=featured' })
+      },
       { key: 'rent-office', label: t('category.commTabRentOffice'), icon: 'briefcase', onPress: () => setTab('rent-office') },
       { key: 'sell-office', label: t('category.commTabSellOffice'), icon: 'award', onPress: () => setTab('sell-office') },
       { key: 'rent-shop', label: t('category.commTabRentShop'), icon: 'storefront', onPress: () => setTab('rent-shop') },
       { key: 'sell-shop', label: t('category.commTabSellShop'), icon: 'tag', onPress: () => setTab('sell-shop') },
       { key: 'project', label: t('category.commGridProject'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
-      { key: 'subway', label: t('category.commGridSubway'), icon: 'train', onPress: () => notAvailable(t('category.commGridSubway')) },
-      { key: 'vr', label: t('category.commGridVr'), icon: 'cube', onPress: () => notAvailable(t('category.commGridVr')) },
-      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => notAvailable(t('category.helpFind')) }
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
+      {
+        key: 'subway',
+        label: t('category.commGridSubway'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.commGridSubway'), {
+            reasonKey: 'featureHint.subway',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'vr',
+        label: t('category.commGridVr'),
+        icon: 'cube',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=vr' })
+      },
+      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' }) }
     ],
     [t]
   )
@@ -158,7 +186,7 @@ export default function CategoryCommercialPage() {
         title={t('category.commBannerTitle')}
         sub={t('category.commBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t('category.commBannerTitle'))}
+        onPress={() => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' })}
       />
     </View>
   )

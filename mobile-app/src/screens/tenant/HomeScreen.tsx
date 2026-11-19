@@ -20,6 +20,7 @@ import colors from '@/theme/colors';
 import { useResponsiveContainerStyle } from '@/theme/responsive';
 import EmptyState from '@/components/EmptyState';
 import RemoteImage from '@/components/RemoteImage';
+import DealRankingsCard from '@/components/DealRankingsCard';
 import { paymentsApi, maintenanceApi } from '@/services/api';
 import { publicApi, type PublicSchool, type PublicProject } from '@/services/publicApi';
 import { ProjectRailCard } from '@/screens/category/categoryCards';
@@ -1094,6 +1095,9 @@ export default function HomeScreen() {
 
       {/* 4. 学校 / 房源 rail / 最近动态，已移入外层 FlatList 的 data（renderBodySection 按区块懒加载渲染）。
           学校不再是通栏按钮入口，而是与「推荐房源」同构的区块，收在下方。 */}
+
+      {/* 平台成交榜单：仅平台样本，界面固定标注「平台样本 n=xx，非全市场」 */}
+      <DealRankingsCard />
         </>
       }
     />

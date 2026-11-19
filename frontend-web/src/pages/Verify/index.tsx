@@ -17,6 +17,15 @@ interface SigRecord {
   is_document_record?: boolean
 }
 
+interface PdfTs {
+  present?: boolean
+  valid?: boolean
+  trusted?: boolean | null
+  time?: string | null
+  tsa_subject?: string | null
+  error?: string | null
+}
+
 interface PdfSig {
   /** 1 = 签名域校验通过；0 / 非 1 = 校验失败 */
   valid?: number
@@ -24,6 +33,26 @@ interface PdfSig {
   signed_by?: string
   signer_name?: string
   field_name?: string
+  /** 三态：valid_trusted / valid_untrusted / invalid */
+  signature_status?: 'valid_trusted' | 'valid_untrusted' | 'invalid' | string
+  signature_valid?: boolean
+  signer_trusted?: boolean
+  trust_anchor_id?: string | null
+  trust_level?: string
+  /** 时间戳链（公共 TSA 签发） */
+  timestamp?: PdfTs
+}
+
+interface PdfSummary {
+  signatures?: number
+  valid_trusted?: number
+  valid_untrusted?: number
+  invalid?: number
+  timestamp_present?: number
+  timestamp_trusted?: number
+  timestamp_untrusted?: number
+  trust_levels?: string[]
+  identity_trust_level?: string | null
 }
 
 interface Report {
@@ -39,6 +68,8 @@ interface Report {
   /** 引擎内嵌 PDF 签名验签结果（多人签署时每一条都应为 valid=1） */
   pdf_signature?: PdfSig[] | null
   pdf_signature_valid_all?: boolean | null
+  /** 三端一致的汇总：有效且可信 / 有效但签发者不受信 / 无效 / 时间戳状态 */
+  pdf_signature_summary?: PdfSummary | null
   verified?: boolean
 }
 
@@ -130,9 +161,11 @@ const Verify = () => {
             <h3 className="rent-card__title">{report.title || t('contracts.verifyReport')}</h3>
             {report.tampered ? (
               <span className="rent-badge rent-badge--error">{t('contracts.verifyTampered')}</span>
-            ) : report.pdf_signature_valid_all === false ? (
+            ) : (report.pdf_signature_summary?.invalid ?? 0) > 0 || report.pdf_signature_valid_all === false ? (
               <span className="rent-badge rent-badge--warning">{t('contracts.verifyPartialInvalid')}</span>
-            ) : report.verified === false ? (
+            ) : (report.pdf_signature_summary?.valid_untrusted ?? 0) > 0 ? (
+              <span className="rent-badge rent-badge--warning">{t('contracts.verifySigUntrusted')}</span>
+            ) : !report.pdf_signature_summary?.signatures && report.verified === false ? (
               <span className="rent-badge rent-badge--warning">{t('contracts.verifyNoSig')}</span>
             ) : (
               <span className="rent-badge rent-badge--success">{t('contracts.verifyOk')}</span>
@@ -152,6 +185,39 @@ const Verify = () => {
                     .join('，') || '-'}
                 </span>
               </div>
+            )}
+
+            {report.pdf_signature_summary && (
+              <>
+                <div className="rent-verify-row">
+                  <span>{t('contracts.verifySigTrust')}</span>
+                  <span>
+                    {t('contracts.verifySigTrusted')} × {report.pdf_signature_summary.valid_trusted ?? 0}
+                    {' / '}
+                    {t('contracts.verifySigUntrusted')} × {report.pdf_signature_summary.valid_untrusted ?? 0}
+                    {' / '}
+                    {t('contracts.verifySigInvalid')} × {report.pdf_signature_summary.invalid ?? 0}
+                  </span>
+                </div>
+                <div className="rent-verify-row">
+                  <span>{t('contracts.verifyTsStatus')}</span>
+                  <span>
+                    {report.pdf_signature_summary.timestamp_present
+                      ? (report.pdf_signature_summary.timestamp_untrusted ?? 0) > 0
+                        ? `${t('contracts.verifyTsUntrusted')} × ${report.pdf_signature_summary.timestamp_untrusted}`
+                        : `${t('contracts.verifyTsTrusted')} × ${report.pdf_signature_summary.timestamp_trusted ?? 0}`
+                      : t('contracts.verifyTsNone')}
+                  </span>
+                </div>
+                <div className="rent-verify-row">
+                  <span>{t('contracts.verifyTrustLevel')}</span>
+                  <span>
+                    {report.pdf_signature_summary.identity_trust_level === 'public'
+                      ? t('contracts.verifyTrustPublic')
+                      : t('contracts.verifyTrustPlatform')}
+                  </span>
+                </div>
+              </>
             )}
 
             <div className="rent-text-bold" style={{ margin: '16px 0 8px' }}>{t('contracts.signaturesTitle')}</div>
@@ -205,6 +271,7 @@ const Verify = () => {
                         <th>{t('contracts.methodLbl')}</th>
                         <th>field</th>
                         <th>{t('contracts.verifySigResult')}</th>
+                        <th>{t('contracts.verifyTsStatus')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -214,10 +281,30 @@ const Verify = () => {
                           <td>{sig.signed_by || sig.signer_name || '-'}</td>
                           <td>{sig.field_name || '-'}</td>
                           <td>
-                            {Number(sig.valid) === 1 ? (
-                              <span className="rent-badge rent-badge--success">{t('contracts.verifyPdfValid')}</span>
+                            {sig.signature_status === 'valid_trusted' ? (
+                              <span className="rent-badge rent-badge--success">{t('contracts.verifySigTrusted')}</span>
+                            ) : sig.signature_status === 'valid_untrusted' ? (
+                              <span className="rent-badge rent-badge--warning">{t('contracts.verifySigUntrusted')}</span>
+                            ) : sig.signature_status === 'invalid' || Number(sig.valid) !== 1 ? (
+                              <span className="rent-badge rent-badge--error">{t('contracts.verifySigInvalid')}</span>
                             ) : (
-                              <span className="rent-badge rent-badge--error">{t('contracts.verifyPdfInvalid')}</span>
+                              <span className="rent-badge rent-badge--success">{t('contracts.verifyPdfValid')}</span>
+                            )}
+                          </td>
+                          <td>
+                            {!sig.timestamp?.present ? (
+                              <span className="rent-text-sm rent-text-muted">{t('contracts.verifyTsNone')}</span>
+                            ) : sig.timestamp.trusted ? (
+                              <span className="rent-badge rent-badge--success" title={sig.timestamp.tsa_subject || ''}>
+                                {t('contracts.verifyTsTrusted')}
+                              </span>
+                            ) : (
+                              <span className="rent-badge rent-badge--error" title={sig.timestamp.error || ''}>
+                                {t('contracts.verifyTsUntrusted')}
+                              </span>
+                            )}
+                            {sig.timestamp?.time && (
+                              <div className="rent-text-sm rent-text-muted">{fmtTs(sig.timestamp.time)}</div>
                             )}
                           </td>
                         </tr>

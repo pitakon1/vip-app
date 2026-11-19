@@ -60,12 +60,13 @@ export default function Hotel() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.hotelGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.hotelGridSelect')) },
+      { key: 'select', label: t('category.hotelGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings?preset=featured') },
       { key: 'rent', label: t('category.hotelTabRent'), icon: <ShopOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => setTab('rent-hotel') },
       { key: 'sell', label: t('category.hotelTabSell'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => setTab('sell-hotel') },
       { key: 'map', label: t('category.rentGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/map') },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
       { key: 'all', label: t('category.allListings'), icon: <AppstoreOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings') },
+      { key: 'vr', label: t('category.filterVr'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => navigate('/listings?preset=vr') },
     ],
     [navigate, t],
   )
@@ -139,7 +140,7 @@ export default function Hotel() {
         title={t('category.hotelBannerTitle')}
         sub={t('category.hotelBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t, t('category.hotelBannerTitle'))}
+        onPress={() => navigate('/find-my-home')}
       />
     </div>
   )

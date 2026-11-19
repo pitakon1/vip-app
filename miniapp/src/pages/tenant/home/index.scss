@@ -379,3 +379,91 @@
   font-weight: 600;
   color: #ffffff;
 }
+
+/* ---- 平台成交榜单（仅平台样本，非全市场） ---- */
+.th-rank__caveat {
+  font-size: 22rpx;
+  color: var(--ink-3);
+  flex-shrink: 1;
+  text-align: right;
+}
+
+.th-rank__period {
+  display: block;
+  margin: 8rpx 0 4rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.th-rank {
+  margin-top: 12rpx;
+}
+
+.th-rank__row {
+  display: flex;
+  align-items: center;
+  padding: 18rpx 0;
+  border-top: 1rpx solid var(--line);
+}
+
+.th-rank__row:first-child {
+  border-top: none;
+}
+
+.th-rank__no {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 22rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.th-rank__no--top {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.th-rank__main {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+}
+
+.th-rank__name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.th-rank__sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.th-rank__value {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+.th-rank__price {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.th-rank__note {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+  line-height: 1.4;
+}

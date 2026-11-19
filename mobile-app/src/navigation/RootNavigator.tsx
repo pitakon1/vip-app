@@ -60,11 +60,35 @@ export type RootStackParamList = {
   AdminLeases: undefined;
   EmployeePropertyBrowse: undefined;
   OwnerPropertyDetail: { id: string };
-  OwnerProperties: undefined;
+  OwnerProperties: { openBinding?: boolean } | undefined;
   OwnerDocuments: undefined;
-  FeatureNotAvailable: { feature?: string; hint?: string } | undefined;
+  FeatureNotAvailable:
+    | {
+        feature?: string;
+        /** 已本地化的具体原因（优先于 hintKey） */
+        hint?: string;
+        /** 具体原因文案 key（各功能不同，见 featureHint.*） */
+        hintKey?: string;
+        /** 可操作下一步（跳转到真能用的页面） */
+        actionLabelKey?: string;
+        actionScreen?: 'PublicListings' | 'FindMyHome' | 'PublicRankings';
+        actionParams?: Record<string, any>;
+      }
+    | undefined;
   MyListings: undefined;
-  PublicListings: undefined;
+  PublicListings:
+    | {
+        /** 分类页快捷入口带入的预设筛选（房源列表顶部会显示可清除的筛选条） */
+        preset?: 'latest' | 'furnished' | 'owner_direct' | 'featured' | 'vr' | 'env' | 'new';
+      }
+    | undefined;
+  /** 平台成交榜单（仅平台样本，固定标注「非全市场」） */
+  PublicRankings:
+    | {
+        scope?: 'project' | 'district';
+        metric?: 'deal_count' | 'avg_price' | 'avg_psqm';
+      }
+    | undefined;
   /** 全局定位选择页（国家 → 城市，全屏页面，对齐贝壳移动端） */
   LocationPicker: undefined;
   /** ===== C 端公开页（未登录也能进）===== */
@@ -72,6 +96,8 @@ export type RootStackParamList = {
   PublicListingDetail: { id: string };
   PublicSchoolDetail: { id: string };
   PublicCommunityDetail: { id: string };
+  /** 「帮我找房」线索表单（匿名可进） */
+  FindMyHome: undefined;
   /** 登录态下的 C 端内容入口（从首页「国际学校 / 小区」快捷入口推入） */
   PublicSchools: undefined;
   PublicCommunities: undefined;
@@ -80,12 +106,18 @@ export type RootStackParamList = {
   EditProfile: undefined;
   ChangePassword: undefined;
   NotificationPrefs: undefined;
+  Permissions: undefined;
+  /** 实名认证：证件上传 + 人工审核（PDPA 同意前置） */
+  IdentityVerification: undefined;
   AdminBusinessSettings: undefined;
   AttendanceManage: undefined;
   MyLease: undefined;
   MyLeaseDetail: { lease_id: string };
   MyOrders: undefined;
   MyOrderDetail: { deal_id: string };
+  MyViewings: undefined;
+  ValueEstimate: undefined;
+  Announcements: undefined;
   Favorites: undefined;
   History: undefined;
   PriceAlerts: undefined;
@@ -97,8 +129,6 @@ export type RootStackParamList = {
   About: undefined;
   /** 帮助中心（D-08：静态常见问题页） */
   HelpCenter: undefined;
-  /** C 端「添加我的房产」：提交绑定申请（后台审核通过后才建立房源关联） */
-  PropertyBinding: undefined;
   /** ===== 贝壳式分类页（首页黄金导航 5 入口 → 各自独立页）===== */
   RentCategory: undefined;
   NewHouse: undefined;
@@ -202,9 +232,11 @@ const MyListingsScreen = lazyScreen(() => import('../screens/listing/MyListingsS
 const PublicListingsScreen = lazyScreen(() => import('../screens/public/PublicListingsScreen'));
 const PublicSchoolsScreen = lazyScreen(() => import('../screens/public/PublicSchoolsScreen'));
 const PublicCommunitiesScreen = lazyScreen(() => import('../screens/public/PublicCommunitiesScreen'));
+const PublicRankingsScreen = lazyScreen(() => import('../screens/public/PublicRankingsScreen'));
 const PublicListingDetailScreen = lazyScreen(() => import('../screens/public/PublicListingDetailScreen'));
 const PublicSchoolDetailScreen = lazyScreen(() => import('../screens/public/PublicSchoolDetailScreen'));
 const PublicCommunityDetailScreen = lazyScreen(() => import('../screens/public/PublicCommunityDetailScreen'));
+const FindMyHomeScreen = lazyScreen(() => import('../screens/public/FindMyHomeScreen'));
 const BrokerAgreementScreen = lazyScreen(() => import('../screens/broker/BrokerAgreementScreen'));
 const FeatureNotAvailableScreen = lazyScreen(() => import('../screens/FeatureNotAvailableScreen'));
 const SettingsLanguageScreen = lazyScreen(() => import('../screens/settings/SettingsLanguageScreen'));
@@ -216,6 +248,9 @@ const AttendanceManageScreen = lazyScreen(() => import('../screens/admin/Attenda
 const MyLeaseScreen = lazyScreen(() => import('../screens/settings/MyLeaseScreen'));
 const MyLeaseDetailScreen = lazyScreen(() => import('../screens/settings/MyLeaseDetailScreen'));
 const MyOrdersScreen = lazyScreen(() => import('../screens/settings/MyOrdersScreen'));
+const MyViewingsScreen = lazyScreen(() => import('../screens/tenant/MyViewingsScreen'));
+const ValueEstimateScreen = lazyScreen(() => import('../screens/tenant/ValueEstimateScreen'));
+const AnnouncementsScreen = lazyScreen(() => import('../screens/tenant/AnnouncementsScreen'));
 const MyOrderDetailScreen = lazyScreen(() => import('../screens/settings/MyOrderDetailScreen'));
 const FavoritesScreen = lazyScreen(() => import('../screens/tenant/FavoritesScreen'));
 const HistoryScreen = lazyScreen(() => import('../screens/tenant/HistoryScreen'));
@@ -223,8 +258,9 @@ const PriceAlertsScreen = lazyScreen(() => import('../screens/tenant/PriceAlerts
 const ContractsScreen = lazyScreen(() => import('../screens/contracts/ContractsScreen'));
 const MyContractsScreen = lazyScreen(() => import('../screens/contracts/MyContractsScreen'));
 const AboutScreen = lazyScreen(() => import('../screens/AboutScreen'));
+const PermissionsScreen = lazyScreen(() => import('../screens/PermissionsScreen'));
+const IdentityVerificationScreen = lazyScreen(() => import('../screens/tenant/IdentityVerificationScreen'));
 const HelpCenterScreen = lazyScreen(() => import('../screens/HelpCenterScreen'));
-const PropertyBindingScreen = lazyScreen(() => import('../screens/tenant/PropertyBindingScreen'));
 // 贝壳式分类页：4 个 C 端分类页 + 新房（楼盘视角），顶栏为自绘磨砂玻璃，故 headerShown:false
 const RentCategoryScreen = lazyScreen(() => import('../screens/category/RentCategoryScreen'));
 const NewHouseScreen = lazyScreen(() => import('../screens/category/NewHouseScreen'));
@@ -301,9 +337,15 @@ export function RootNavigator() {
       {/* C 端公开页：登录/未登录都可进（从学校/小区/详情里互相跳转） */}
       <Stack.Screen name="PublicSchools" component={PublicSchoolsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PublicCommunities" component={PublicCommunitiesScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="PublicRankings"
+        component={PublicRankingsScreen}
+        options={{ headerShown: true, title: t('pub.rankingsTitle') }}
+      />
       <Stack.Screen name="PublicListingDetail" component={PublicListingDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PublicSchoolDetail" component={PublicSchoolDetailScreen} options={{ headerShown: false }} />
       <Stack.Screen name="PublicCommunityDetail" component={PublicCommunityDetailScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="FindMyHome" component={FindMyHomeScreen} options={{ headerShown: true, title: t('pub.findHomeTitle') }} />
       <Stack.Screen name="BrokerAgreement" component={BrokerAgreementScreen} options={{ headerShown: true, title: t('nav.brokerAgreement') }} />
       <Stack.Screen name="EmployeePropertyBrowse" component={EmployeePropertyBrowseScreen} options={{ headerShown: true, title: t('nav.propertyBrowse') }} />
       <Stack.Screen name="AdminPropertyDetail" component={AdminPropertyDetailScreen} options={{ headerShown: true, title: t('nav.propertyDetail') }} />
@@ -327,6 +369,9 @@ export function RootNavigator() {
       <Stack.Screen name="MyLease" component={MyLeaseScreen} options={{ headerShown: true, title: t('nav.myLease') }} />
       <Stack.Screen name="MyLeaseDetail" component={MyLeaseDetailScreen} options={{ headerShown: true, title: t('nav.leaseDetail') }} />
       <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ headerShown: true, title: t('nav.myOrders') }} />
+      <Stack.Screen name="MyViewings" component={MyViewingsScreen} options={{ headerShown: true, title: t('nav.myViewings') }} />
+      <Stack.Screen name="ValueEstimate" component={ValueEstimateScreen} options={{ headerShown: true, title: t('value.title') }} />
+      <Stack.Screen name="Announcements" component={AnnouncementsScreen} options={{ headerShown: true, title: t('ann.title') }} />
       <Stack.Screen name="MyOrderDetail" component={MyOrderDetailScreen} options={{ headerShown: true, title: t('nav.orderDetail') }} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} options={{ headerShown: true, title: t('nav.favorites') }} />
       <Stack.Screen name="History" component={HistoryScreen} options={{ headerShown: true, title: t('nav.history') }} />
@@ -334,8 +379,10 @@ export function RootNavigator() {
       <Stack.Screen name="Contracts" component={ContractsScreen} options={{ headerShown: true, title: t('contract.manage') }} />
       <Stack.Screen name="MyContracts" component={MyContractsScreen} options={{ headerShown: true, title: t('contract.my') }} />
       <Stack.Screen name="About" component={AboutScreen} options={{ headerShown: true, title: t('profile.about') }} />
+      <Stack.Screen name="Permissions" component={PermissionsScreen} options={{ headerShown: true, title: t('profile.permissions') }} />
+      <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} options={{ headerShown: true, title: t('identity.title') }} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} options={{ headerShown: true, title: t('profile.help') }} />
-      <Stack.Screen name="PropertyBinding" component={PropertyBindingScreen} options={{ headerShown: true, title: t('pb.title') }} />
+      {/* 添加 / 认领房产已收敛到房源管理内，不再单独注册路由 */}
       {/* 贝壳式分类页：页面自绘磨砂玻璃顶栏，故 headerShown:false */}
       <Stack.Screen name="RentCategory" component={RentCategoryScreen} options={{ headerShown: false }} />
       <Stack.Screen name="NewHouse" component={NewHouseScreen} options={{ headerShown: false }} />

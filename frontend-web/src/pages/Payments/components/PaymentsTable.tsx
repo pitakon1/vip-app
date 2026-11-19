@@ -72,7 +72,8 @@ export default function PaymentsTable({
             // pending / processing。这里直接按后端原始状态判断，不再用派生
             // 展示态（后者把 failed/expired/pending 过期统一并成 overdue，
             // 会让退款按钮出现在必然 400 的失败单上）。
-            const isRefundable = p.status === 'succeeded'
+            // 退款单本身不可再退款（后端同样校验），否则会出现「退款退款」重复出款
+            const isRefundable = p.status === 'succeeded' && p.payment_type !== 'refund'
             const isConfirmable = p.status === 'pending' || p.status === 'processing'
             const feeDue = lateFeeDue(p)
             return (

@@ -8,9 +8,9 @@ import colors from '../theme/colors';
 import ProfileScreen from '../screens/ProfileScreen';
 import { useI18n } from '../i18n';
 
-// 公共 C 端页面（业主/租客合并后的统一端：首页/发现/消息/我的）
+// 公共 C 端页面（业主/租客合并后的统一端：首页/我家/消息/我的）
 import HomeScreen from '../screens/tenant/HomeScreen';
-import DiscoverScreen from '../screens/tenant/DiscoverScreen';
+import MyHomeScreen from '../screens/tenant/MyHomeScreen';
 
 // 员工端页面
 import EmployeeHomeScreen from '../screens/employee/HomeScreen';
@@ -43,12 +43,12 @@ interface TabDef {
   labelKey: string;
 }
 
-// 公共 C 端 Tab 定义（首页=统一找房/推荐首页；发现=行情/小区/学校；消息；我的）
+// 公共 C 端 Tab 定义（首页=统一找房/推荐首页；我家=资产/账单/报修/合同；消息；我的）
 // 找房列表不再占用底部 Tab：首页黄金导航已覆盖分类入口，列表页走 Stack 的「房源搜索」。
-// 单一配置源：owner 与 tenant 共用，差异仅在「我的/首页」内部按角色渲染。
+// 「我家」按贝壳结构承载资产与事务，「我的」只保留账号/设置等个人内容，二者不重复。
 const C_TABS: TabDef[] = [
   { name: 'Home', component: HomeScreen, icon: 'home', labelKey: 'tab.home' },
-  { name: 'Discover', component: DiscoverScreen, icon: 'compass', labelKey: 'tab.discover' },
+  { name: 'MyHome', component: MyHomeScreen, icon: 'business', labelKey: 'tab.myHome' },
   { name: 'Messages', component: ChatListScreen, icon: 'chatbubbles', labelKey: 'tab.messages' },
   { name: 'Profile', component: ProfileScreen, icon: 'person', labelKey: 'tab.profile' },
 ];

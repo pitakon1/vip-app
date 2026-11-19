@@ -60,16 +60,16 @@ export default function Resale() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'map', label: t('category.resaleGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.resaleGridMap')) },
+      { key: 'map', label: t('category.resaleGridMap'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/map') },
       { key: 'community', label: t('publicSite.navCommunities'), icon: <BankOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => navigate('/communities') },
-      { key: 'deal', label: t('category.resaleGridDeal'), icon: <BarChartOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.resaleGridDeal')) },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
+      { key: 'deal', label: t('category.resaleGridDeal'), icon: <BarChartOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => navigate('/rankings?scope=district&metric=avg_psqm') },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
       { key: 'all', label: t('category.allListings'), icon: <AppstoreOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/listings') },
       { key: 'school', label: t('publicSite.navSchools'), icon: <ReadOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/schools') },
-      { key: 'rank', label: t('category.resaleGridRank'), icon: <TrophyOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.resaleGridRank')) },
-      { key: 'live', label: t('category.resaleGridLive'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.resaleGridLive')) },
-      { key: 'subway', label: t('category.resaleGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, t('category.resaleGridSubway')) },
-      { key: 'owner', label: t('category.resaleGridOwner'), icon: <HomeOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.resaleGridOwner')) },
+      { key: 'rank', label: t('category.resaleGridRank'), icon: <TrophyOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, navigate, t('category.resaleGridRank'), { reasonKey: 'category.featureHint.priceDrop', action: { labelKey: 'category.featureAction.viewRankings', to: '/rankings?scope=project&metric=deal_count' } }) },
+      { key: 'live', label: t('category.resaleGridLive'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, navigate, t('category.resaleGridLive'), { reasonKey: 'category.featureHint.live', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } }) },
+      { key: 'subway', label: t('category.resaleGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, navigate, t('category.resaleGridSubway'), { reasonKey: 'category.featureHint.subway', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } }) },
+      { key: 'owner', label: t('category.resaleGridOwner'), icon: <HomeOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/listings?preset=owner_direct') },
     ],
     [navigate, t],
   )
@@ -146,7 +146,7 @@ export default function Resale() {
           left={{ name: pairs[0].district, price: `${formatMoney(pairs[0].avg_price, 'THB')}/${t('publicSite.sqm')}` }}
           right={{ name: pairs[1].district, price: `${formatMoney(pairs[1].avg_price, 'THB')}/${t('publicSite.sqm')}` }}
           actionLabel={t('category.viewCompare')}
-          onPress={() => notAvailable(t, t('category.viewCompare'))}
+          onPress={() => notAvailable(t, navigate, t('category.viewCompare'), { reasonKey: 'category.featureHint.compare', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } })}
         />
       ) : null}
     </div>

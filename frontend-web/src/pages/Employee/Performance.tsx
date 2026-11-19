@@ -8,6 +8,7 @@ import { MonthOverviewCard } from './performance/components/MonthOverviewCard'
 import { DealDetailCard } from './performance/components/DealDetailCard'
 import { BreakdownCard } from './performance/components/BreakdownCard'
 import { MonthlyRecordsCard } from './performance/components/MonthlyRecordsCard'
+import ManualDealCard from './performance/components/ManualDealCard'
 import { AgentsTab } from './performance/components/AgentsTab'
 import { PartnersTab } from './performance/components/PartnersTab'
 import { useEmployeePerformance } from './performance/hooks/useEmployeePerformance'
@@ -29,6 +30,14 @@ const Performance = () => {
             children: (
               <>
                 <KpiCards summary={p.summary} />
+
+                <ManualDealCard
+                  deals={p.manualDeals}
+                  loading={p.dealsLoading}
+                  saving={p.dealSaving}
+                  onCreate={p.createManualDeal}
+                  onRemove={p.removeManualDeal}
+                />
 
                 <TrendChartCard monthly={p.monthly} data={p.trendChartData} options={p.trendChartOptions} />
 

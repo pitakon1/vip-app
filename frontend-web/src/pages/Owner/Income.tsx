@@ -574,8 +574,8 @@ const Income = () => {
                       emptySub={propertyCount > 0 ? t('ownerIncome.emptyIncomeMonth') : t('propertyBinding.noPropertySub')}
                       emptyAction={
                         propertyCount > 0 ? undefined : (
-                          <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/property-binding">
-                            {t('menu.addProperty')}
+                          <Link className="rent-btn rent-btn--primary rent-btn--sm" to="/tenant/my-properties?add=1">
+                            {t('propertyBinding.title')}
                           </Link>
                         )
                       }

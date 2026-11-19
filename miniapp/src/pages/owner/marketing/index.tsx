@@ -535,7 +535,7 @@ export default function OwnerMarketingPage() {
               icon='home'
               text={t('mkt.emptyVacantTitle')}
               sub={t('profile.addProperty')}
-              onSubClick={() => Taro.navigateTo({ url: '/pages/property-binding/index' })}
+              onSubClick={() => Taro.navigateTo({ url: '/pages/owner/properties/index?add=1' })}
             />
           ) : (
             vacants.map((v) => {

@@ -265,6 +265,8 @@ export interface PublicMapPointQuery {
   is_new_development?: boolean
   district?: string
   city?: string
+  /** 户型：0-2 精确匹配，3=3 室及以上 */
+  bedrooms?: number
   min_lat?: number
   max_lat?: number
   min_lng?: number
@@ -315,6 +317,16 @@ export interface PublicListingQuery {
   bedrooms_min?: number
   bedrooms_max?: number
   decoration?: string
+  /** 朝向：north/south/east/west/northeast/northwest/southeast/southwest */
+  orientation?: string
+  /** 楼层段（多值任一命中）：low/mid/high */
+  floor_level?: string[]
+  /** 租房专项：最短租期（月） */
+  min_lease_months?: number
+  /** 产权类型（来自所属楼盘） */
+  tenure?: 'freehold' | 'leasehold' | 'mixed'
+  /** 楼龄上限（年），5 = 五年以内 */
+  building_age_max?: number
   /** 配套设施（多选任一命中）：aircon/pool/gym/parking/elevator/balcony */
   amenity?: string[]
   has_video?: boolean
@@ -370,6 +382,14 @@ export interface PublicInquiryPayload {
   project_id?: string
   school_id?: string
   source?: string
+  /** 「帮我找房」：服务端据此把预算/区域/入住时间结构化写入 Lead */
+  intent?: 'listing_detail' | 'find_my_home'
+  budget_min?: number
+  budget_max?: number
+  currency?: string
+  areas?: string[]
+  move_in_date?: string
+  language?: 'zh' | 'en' | 'th'
 }
 
 /**
@@ -415,6 +435,22 @@ export const publicApi = {
   /** 相似房源（详情页「猜你喜欢」），与 App 端同一接口 */
   similar: (id: string, limit = 4) =>
     request<any>({ url: `${PUBLIC}/listings/${id}/similar`, data: { limit } }),
+  /**
+   * 通勤测算（Google Routes）；未配置 Key 时后端返回
+   * `available:false, reason:'no_key'`，前端按 reason 提示，不做本地估算。
+   */
+  commute: (id: string, data: { destination: string; mode?: 'transit' | 'driving' }) =>
+    request<any>({ url: `${PUBLIC}/listings/${id}/commute`, method: 'POST', data }),
+  /**
+   * 平台成交榜单（仅聚合 property_deals 平台样本）。
+   * 响应带 sample_count / min_sample / published，界面必须展示「平台样本 n=xx，非全市场」。
+   */
+  rankings: (data?: {
+    scope?: 'project' | 'district'
+    metric?: 'deal_count' | 'avg_price' | 'avg_psqm'
+    days?: number
+    limit?: number
+  }) => request<any>({ url: `${PUBLIC}/rankings`, data }),
   /**
    * 区域聚合（找房/分类页「区域」筛选的真实数据面）。
    *

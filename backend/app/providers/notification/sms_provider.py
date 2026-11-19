@@ -4,6 +4,8 @@ from typing import Optional
 
 import httpx
 
+from app.config import settings
+
 from .base import (
     NotificationChannel,
     NotificationMessage,
@@ -20,19 +22,36 @@ class SMSProvider(NotificationProvider):
     BASE_URL = "https://api.twilio.com"
 
     def _get_credentials(self) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """优先读 Settings（.env / 环境变量），回退到进程环境变量。
+
+        三项缺任一即视为未配置，调用方据此 fail closed。
+        """
         return (
-            os.environ.get("TWILIO_ACCOUNT_SID"),
-            os.environ.get("TWILIO_AUTH_TOKEN"),
-            os.environ.get("TWILIO_FROM_NUMBER"),
+            settings.TWILIO_ACCOUNT_SID or os.environ.get("TWILIO_ACCOUNT_SID"),
+            settings.TWILIO_AUTH_TOKEN or os.environ.get("TWILIO_AUTH_TOKEN"),
+            settings.TWILIO_FROM_NUMBER or os.environ.get("TWILIO_FROM_NUMBER"),
         )
+
+    @classmethod
+    def missing_credentials(cls) -> list[str]:
+        """返回缺失的配置项名称，用于 503 响应里明确告知缺哪几个变量。"""
+        required = {
+            "TWILIO_ACCOUNT_SID": settings.TWILIO_ACCOUNT_SID
+            or os.environ.get("TWILIO_ACCOUNT_SID"),
+            "TWILIO_AUTH_TOKEN": settings.TWILIO_AUTH_TOKEN
+            or os.environ.get("TWILIO_AUTH_TOKEN"),
+            "TWILIO_FROM_NUMBER": settings.TWILIO_FROM_NUMBER
+            or os.environ.get("TWILIO_FROM_NUMBER"),
+        }
+        return [name for name, value in required.items() if not value]
 
     def send(self, message: NotificationMessage) -> NotificationResult:
         account_sid, auth_token, from_number = self._get_credentials()
         if not account_sid or not auth_token or not from_number:
+            missing = ", ".join(self.missing_credentials())
             return NotificationResult(
                 success=False,
-                error_message="Twilio credentials not configured "
-                "(TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER)",
+                error_message=f"Twilio credentials not configured ({missing})",
             )
 
         url = f"{self.BASE_URL}/2010-04-01/Accounts/{account_sid}/Messages.json"

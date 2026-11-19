@@ -28,6 +28,17 @@ import './public-listings.css'
  * 所有筛选条件仍由 useListingQuery 统一拼进 `/public/listings` 的请求参数。
  */
 
+/** 分类页入口预设 → 文案（与 App 端 `pub.preset*` 同口径）。 */
+const PRESET_LABEL_KEYS: Record<string, string> = {
+  latest: 'category.presets.latest',
+  furnished: 'category.presets.furnished',
+  owner_direct: 'category.presets.ownerDirect',
+  featured: 'category.presets.featured',
+  vr: 'category.presets.vr',
+  env: 'category.presets.env',
+  new: 'category.presets.new',
+}
+
 const PublicListings = ({ compact }: { compact?: boolean }) => {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -115,6 +126,17 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
     navigate(`/listing/${item.id}`)
   }
 
+  // 标题按入口语义命名：预设 > 视频看房 > 租房/买房 > 通用找房
+  const heroTitle = filters.activePreset
+    ? t(PRESET_LABEL_KEYS[filters.activePreset])
+    : filters.videoOnly
+      ? t('browse.video')
+      : filters.biz === 'rent'
+        ? t('browse.rent')
+        : filters.isSaleBiz
+          ? t('browse.buy')
+          : t('browse.findTitle')
+
   return (
     <div className={compact ? 'rent-portal rent-portal--compact' : 'rent-portal'}>
       {/* ===== 顶栏（对齐原型 rent-portal__header）——compact 模式由外层 PortalLayout 提供，此处跳过 ===== */}
@@ -132,9 +154,20 @@ const PublicListings = ({ compact }: { compact?: boolean }) => {
           keyword={filters.keyword}
           onKeywordChange={filters.setKeyword}
           onSearch={() => query.setPage(1)}
+          title={heroTitle}
         />
 
         <FilterBar f={filters} total={query.total} />
+
+        {/* 分类页入口预设（如「新上房源」「VR 看房」）：可一键取消并复位该筛选 */}
+        {filters.activePreset && (
+          <div className="rent-preset-row">
+            <button type="button" className="rent-preset-chip" onClick={filters.clearPreset}>
+              {t(PRESET_LABEL_KEYS[filters.activePreset])}
+              <span className="rent-preset-chip__close" aria-hidden="true">×</span>
+            </button>
+          </div>
+        )}
 
         <MapSection
           mapOn={filters.mapOn}

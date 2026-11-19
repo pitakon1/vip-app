@@ -216,7 +216,34 @@ export function boolGroup(key: string, label: string, t: TFn): FilterGroup {
   return { key, label, options: [{ value: '1', label: t('category.onlyYes') }] }
 }
 
-/** 未实现的入口统一 toast 提示「暂未开放」，不伪造内容。 */
-export function notAvailable(feature: string) {
-  Taro.showToast({ title: useI18n.getState().t('home.comingSoon', { label: feature }), icon: 'none' })
+/** 功能未开放时的「下一步」：直接跳到真能用的页面，不再甩给客服。 */
+export interface FeatureAction {
+  labelKey: string
+  url: string
+}
+
+/**
+ * 「暂未开放」弹窗（对齐 App 的 FeatureNotAvailable 页）。
+ *
+ * 注意：平台没有独立的业主/租客角色，任何 C 端功能都不按身份拦截；
+ * 这里只用于「功能本身还没做」的情况，必须给出具体原因和可操作下一步。
+ */
+export function notAvailable(
+  feature: string,
+  opts?: { reasonKey?: string; action?: FeatureAction }
+): void {
+  const t = useI18n.getState().t
+  const action = opts?.action
+  const reason = opts?.reasonKey ? t(opts.reasonKey) : t('featureUnavailable.defaultHint')
+  Taro.showModal({
+    title: t('featureUnavailable.title'),
+    // 保留入口名，用户才知道点的是哪一个入口
+    content: `${feature} · ${reason}`,
+    confirmText: action ? t(action.labelKey) : t('featureUnavailable.back'),
+    cancelText: t('featureUnavailable.back'),
+    showCancel: !!action,
+    success: (res) => {
+      if (action && res.confirm) Taro.navigateTo({ url: action.url })
+    }
+  })
 }

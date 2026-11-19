@@ -13,7 +13,7 @@
  *    结果按距离由近到远，卡片回显「距 XX 约 N 公里」。不做「学区房」布尔标签——
  *    泰国没有划片入学，国际学校是「付费 + 距离」逻辑，硬做标签无据可依。
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -23,11 +23,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Modal,
   ScrollView,
-  Pressable,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '@/theme/colors';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -37,6 +35,13 @@ import { SCHOOL_RADIUS_OPTIONS, loadRates } from '@/lib/publicSite';
 import PublicListingRow from './PublicListingRow';
 import PublicBackRow from './PublicBackRow';
 import ListState from '@/components/ListState';
+import FilterBar, {
+  FilterOptionGrid,
+  FilterPanel,
+  FilterRail,
+  type FilterTabDef,
+} from '@/components/FilterBar';
+import { PanelBackdrop, usePanelAnchor } from '@/components/PanelBackdrop';
 import { bizToParams, type BizKey } from '@/lib/bizFilter';
 
 const PAGE_SIZE = LIST_PAGE_SIZE;
@@ -80,20 +85,72 @@ const SORT_LABEL_KEY: Record<SortKey, string> = {
   distance: 'pub.sortDistance',
 };
 
+/** 分类页快捷入口带入的预设筛选；都会落进「更多」面板里对应的字段。 */
+type PresetKey = 'latest' | 'furnished' | 'owner_direct' | 'featured' | 'vr' | 'env' | 'new';
+
+const PRESET_LABEL_KEY: Record<PresetKey, string> = {
+  latest: 'pub.presetLatest',
+  furnished: 'pub.presetFurnished',
+  owner_direct: 'pub.presetOwnerDirect',
+  featured: 'pub.presetFeatured',
+  vr: 'pub.presetVr',
+  env: 'pub.presetEnv',
+  new: 'pub.presetNew',
+};
+
+/**
+ * 「更多」面板左竖栏分组。
+ * 这里收纳的是后端 `/public/listings` 已支持、但此前只在分类页预设里出现的维度：
+ * 之前用户点「业主直租」入口能筛，但进到列表页却找不到这个条件，也没法取消单项。
+ */
+type MoreRailKey = 'area' | 'room' | 'tags' | 'lease' | 'business' | 'amenity';
+
+const ORIENTATIONS = [
+  'north',
+  'south',
+  'east',
+  'west',
+  'northeast',
+  'northwest',
+  'southeast',
+  'southwest',
+];
+const DECORATIONS = ['fully_furnished', 'standard', 'simple', 'bare', 'luxury'];
+const FLOOR_LEVELS = ['low', 'mid', 'high'];
+const TENURES = ['freehold', 'leasehold', 'mixed'];
+const AMENITIES = ['aircon', 'pool', 'gym', 'parking', 'elevator', 'balcony', 'garden'];
+/** 最短租期：取后端常用档位，选中 = 该期限起租 */
+const LEASE_MONTHS = ['3', '6', '12'];
+/** 楼龄上限（年） */
+const BUILDING_AGES = ['5', '10', '20'];
+
 export default function PublicListingsScreen() {
   const { t } = useI18n();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
 
+  // 分类页快捷入口预设（新上 / 带家具 / 房东直租 / 精选 / VR / 可环评 / 新房）
+  const [preset, setPreset] = useState<PresetKey | null>((route.params?.preset as PresetKey) ?? null);
+  // 标题按入口语义命名（房东直租 / 新上房源 / 带家具房源…），不再一律叫「上架房源」
+  const headerTitleKey = preset ? PRESET_LABEL_KEY[preset] : 'category.allListings';
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t(headerTitleKey) });
+  }, [headerTitleKey, navigation, t]);
+
   // ---- 筛选状态 ----
+  const { rootRef, anchorRef, backdropTop, measureAnchor } = usePanelAnchor();
+  type PanelKey = 'type' | 'price' | 'school' | 'more' | 'sort';
+  // 单开面板：同一 tab 再点一次收起
+  const [openKey, setOpenKey] = useState<PanelKey | null>(null);
   const [biz, setBiz] = useState<BizKey>('all');
-  // 类型面板草稿：点「应用」才一起提交，点「重置」只清空本面板
+  // 类型面板草稿：点「确定」才一起提交，点「重置」只清空本面板
   const [draftBiz, setDraftBiz] = useState<BizKey>('all');
   const [draftType, setDraftType] = useState<TypeClassKey>('');
-  const [sortOpen, setSortOpen] = useState(false);
+  // 类型面板左侧一级类目：业务线 / 房产类型
+  const [typeRail, setTypeRail] = useState<'biz' | 'type'>('biz');
   // 「类型」筛选（公寓 / 别墅 / 商铺办公 …），与租售分段是两个维度，可叠加
   const [typeClass, setTypeClass] = useState<TypeClassKey>('');
-  const [typeOpen, setTypeOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [debounced, setDebounced] = useState('');
   const [sort, setSort] = useState<SortKey>('latest');
@@ -103,16 +160,34 @@ export default function PublicListingsScreen() {
   const [areaMax, setAreaMax] = useState('');
   const [bedsMin, setBedsMin] = useState('');
 
+  // ---- 「更多」面板：后端支持但原先只有预设入口的维度 ----
+  // 预设入口（分类页）会把值灌进这些 state，进到列表页后面板里能看到选中态，
+  // 也能像普通筛选项一样点掉——不再出现「入口能筛、面板里却找不到」的死角。
+  const [moreRail, setMoreRail] = useState<MoreRailKey>('area');
+  const [orientation, setOrientation] = useState('');
+  const [floorLevels, setFloorLevels] = useState<string[]>([]);
+  const [decoration, setDecoration] = useState('');
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [ownerDirect, setOwnerDirect] = useState(false);
+  const [featured, setFeatured] = useState(false);
+  const [hasVr, setHasVr] = useState(false);
+  const [hasVideo, setHasVideo] = useState(false);
+  const [envPermit, setEnvPermit] = useState(false);
+  const [minLease, setMinLease] = useState('');
+  const [tenure, setTenure] = useState('');
+  const [ageMax, setAgeMax] = useState('');
+  const [wholeFloor, setWholeFloor] = useState(false);
+  const [wholeBuilding, setWholeBuilding] = useState(false);
+  const [companyReg, setCompanyReg] = useState(false);
+
   // ---- 学校筛选（空间筛选）----
   const [schoolId, setSchoolId] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [schoolKm, setSchoolKm] = useState<number>(3);
   const [schools, setSchools] = useState<PublicSchool[]>([]);
-  const [schoolPickOpen, setSchoolPickOpen] = useState(false);
   const [schoolKw, setSchoolKw] = useState('');
   const [schoolKwDebounced, setSchoolKwDebounced] = useState('');
   const [schoolsLoading, setSchoolsLoading] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
 
   // ---- 列表状态 ----
   const [items, setItems] = useState<PublicListing[]>([]);
@@ -128,6 +203,20 @@ export default function PublicListingsScreen() {
     void loadRates();
   }, []);
 
+  // 预设入口 → 面板状态：进入后这些条件既在面板里保持选中，也以可移除 chip 展示；
+  // 从「全部房源」再次进入时 params.preset 为空，顺带清掉上一次的预设维度。
+  useEffect(() => {
+    const p = (route.params?.preset as PresetKey) ?? null;
+    setPreset(p);
+    setDecoration(p === 'furnished' ? 'fully_furnished' : '');
+    setOwnerDirect(p === 'owner_direct');
+    setFeatured(p === 'featured');
+    setHasVr(p === 'vr');
+    setEnvPermit(p === 'env');
+    // 新房没有独立布尔面板，复用「业务线」里的新房档（同一后端参数 is_new_development）
+    if (p === 'new') setBiz('new');
+  }, [route.params?.preset]);
+
   // 关键词防抖：输入时不打接口，停 350ms 再查
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(keyword.trim()), 350);
@@ -142,7 +231,7 @@ export default function PublicListingsScreen() {
   }, [schoolKw]);
 
   useEffect(() => {
-    if (!schoolPickOpen) return;
+    if (openKey !== 'school') return;
     let alive = true;
     setSchoolsLoading(true);
     publicApi
@@ -159,14 +248,11 @@ export default function PublicListingsScreen() {
     return () => {
       alive = false;
     };
-  }, [schoolPickOpen, schoolKwDebounced]);
+  }, [openKey, schoolKwDebounced]);
 
   const queryParams = useMemo(
     () => ({
       ...bizToParams(biz),
-
-
-
 
       property_type: typeClass ? TYPE_CLASS_GROUPS[typeClass] : undefined,
       q: debounced || undefined,
@@ -176,10 +262,52 @@ export default function PublicListingsScreen() {
       area_min: areaMin ? Number(areaMin) : undefined,
       area_max: areaMax ? Number(areaMax) : undefined,
       bedrooms_min: bedsMin ? Number(bedsMin) : undefined,
+      orientation: orientation || undefined,
+      floor_level: floorLevels.length ? floorLevels : undefined,
+      decoration: decoration || undefined,
+      amenity: amenities.length ? amenities : undefined,
+      owner_direct: ownerDirect || undefined,
+      is_featured: featured || undefined,
+      has_vr: hasVr || undefined,
+      has_video: hasVideo || undefined,
+      environmental_permit: envPermit || undefined,
+      min_lease_months: minLease ? Number(minLease) : undefined,
+      tenure: (tenure || undefined) as 'freehold' | 'leasehold' | 'mixed' | undefined,
+      building_age_max: ageMax ? Number(ageMax) : undefined,
+      whole_floor_only: wholeFloor || undefined,
+      whole_building_only: wholeBuilding || undefined,
+      company_registrable: companyReg || undefined,
       school_id: schoolId || undefined,
       school_radius_km: schoolId ? schoolKm : undefined,
     }),
-    [biz, typeClass, debounced, sort, priceMin, priceMax, areaMin, areaMax, bedsMin, schoolId, schoolKm],
+    [
+      biz,
+      typeClass,
+      debounced,
+      sort,
+      priceMin,
+      priceMax,
+      areaMin,
+      areaMax,
+      bedsMin,
+      orientation,
+      floorLevels,
+      decoration,
+      amenities,
+      ownerDirect,
+      featured,
+      hasVr,
+      hasVideo,
+      envPermit,
+      minLease,
+      tenure,
+      ageMax,
+      wholeFloor,
+      wholeBuilding,
+      companyReg,
+      schoolId,
+      schoolKm,
+    ],
   );
 
   const fetchPage = useCallback(
@@ -234,14 +362,26 @@ export default function PublicListingsScreen() {
   }, [loading, loadingMore, items.length, total, page, fetchPage]);
 
   const hasMore = items.length < total;
-  const moreActive = !!(priceMin || priceMax || areaMin || areaMax || bedsMin);
 
   const resetMore = () => {
-    setPriceMin('');
-    setPriceMax('');
     setAreaMin('');
     setAreaMax('');
     setBedsMin('');
+    setOrientation('');
+    setFloorLevels([]);
+    setDecoration('');
+    setAmenities([]);
+    setOwnerDirect(false);
+    setFeatured(false);
+    setHasVr(false);
+    setHasVideo(false);
+    setEnvPermit(false);
+    setMinLease('');
+    setTenure('');
+    setAgeMax('');
+    setWholeFloor(false);
+    setWholeBuilding(false);
+    setCompanyReg(false);
   };
 
   const resetSchool = () => {
@@ -265,38 +405,213 @@ export default function PublicListingsScreen() {
   const typeLabel =
     [bizLabel, typeClassLabel].filter(Boolean).join('·') || t('pub.filterType');
   const typeActive = biz !== 'all' || !!typeClass;
-  const openType = () => {
-    setDraftBiz(biz);
-    setDraftType(typeClass);
-    setTypeOpen(true);
+  const priceActive = !!(priceMin || priceMax);
+  const priceLabel = priceActive
+    ? `${priceMin || '—'}–${priceMax || '—'}`
+    : t('pub.filterPrice');
+  // 「更多」面板的已选维度数（每个维度算 1，多选项如楼层/配套按维度计）
+  const moreActiveDims = [
+    !!(areaMin || areaMax),
+    !!bedsMin,
+    !!orientation,
+    floorLevels.length > 0,
+    !!decoration,
+    amenities.length > 0,
+    ownerDirect,
+    featured,
+    hasVr,
+    hasVideo,
+    envPermit,
+    !!minLease,
+    !!tenure,
+    !!ageMax,
+    wholeFloor,
+    wholeBuilding,
+    companyReg,
+  ];
+  const moreCount = moreActiveDims.filter(Boolean).length;
+  const filterTabs: FilterTabDef[] = [
+    { key: 'type', label: typeLabel, active: typeActive },
+    { key: 'price', label: priceLabel, active: priceActive },
+    {
+      key: 'school',
+      label: schoolId
+        ? `${schoolName} · ${Number(schoolKm).toFixed(1)}${t('pub.km')}`
+        : t('pub.filterSchool'),
+      active: !!schoolId,
+    },
+    { key: 'more', label: t('pub.filterMore'), active: moreCount > 0, badge: moreCount },
+    { key: 'sort', label: t(SORT_LABEL_KEY[sort]), active: sort !== 'latest' },
+  ];
+  const toggleTab = (key: string) => {
+    if (key === 'type') {
+      setDraftBiz(biz);
+      setDraftType(typeClass);
+    }
+    setOpenKey((cur) => (cur === key ? null : (key as PanelKey)));
   };
   const applyType = () => {
     setBiz(draftBiz);
     setTypeClass(draftType);
-    setTypeOpen(false);
+    setOpenKey(null);
   };
   const clearTypeFilter = () => {
     setBiz('all');
     setTypeClass('');
   };
-  const filtered = !!(
-    biz !== 'all' ||
-    typeClass ||
-    debounced ||
-    schoolId ||
-    priceMin ||
-    priceMax ||
-    areaMin ||
-    areaMax ||
-    bedsMin
-  );
+
+  // ---- 已选条件 chip：每个维度一条，点 × 只清这一个维度 ----
+  const chips: { key: string; label: string; onClear: () => void }[] = [];
+  if (biz !== 'all') {
+    chips.push({ key: 'biz', label: bizLabel, onClear: () => setBiz('all') });
+  }
+  if (typeClass) {
+    chips.push({ key: 'type', label: typeClassLabel, onClear: () => setTypeClass('') });
+  }
+  if (priceMin || priceMax) {
+    chips.push({
+      key: 'price',
+      label: `${priceMin || '—'}–${priceMax || '—'}`,
+      onClear: () => {
+        setPriceMin('');
+        setPriceMax('');
+      },
+    });
+  }
+  if (schoolId) {
+    chips.push({
+      key: 'school',
+      label: `${schoolName} · ${Number(schoolKm).toFixed(1)}${t('pub.km')}`,
+      onClear: resetSchool,
+    });
+  }
+  if (areaMin || areaMax) {
+    chips.push({
+      key: 'area',
+      label: `${t('pub.filterArea')} ${areaMin || '—'}–${areaMax || '—'}${t('pub.sqm')}`,
+      onClear: () => {
+        setAreaMin('');
+        setAreaMax('');
+      },
+    });
+  }
+  if (bedsMin) {
+    chips.push({ key: 'beds', label: `${bedsMin}+ ${t('pub.filterBeds')}`, onClear: () => setBedsMin('') });
+  }
+  if (orientation) {
+    chips.push({
+      key: 'orientation',
+      label: t(`pub.orientation.${orientation}`),
+      onClear: () => setOrientation(''),
+    });
+  }
+  floorLevels.forEach((lv) => {
+    chips.push({
+      key: `floor-${lv}`,
+      label: t(`pub.floorLevel.${lv}`),
+      onClear: () => setFloorLevels((prev) => prev.filter((x) => x !== lv)),
+    });
+  });
+  if (decoration) {
+    chips.push({
+      key: 'decoration',
+      // 预设入口进来的「带家具」沿用入口文案，避免同一条件两种说法
+      label:
+        decoration === 'fully_furnished'
+          ? t('pub.presetFurnished')
+          : t(`pub.decoration.${decoration}`),
+      onClear: () => setDecoration(''),
+    });
+  }
+  amenities.forEach((a) => {
+    chips.push({
+      key: `amenity-${a}`,
+      label: t(`prop.amenity.${a}`),
+      onClear: () => setAmenities((prev) => prev.filter((x) => x !== a)),
+    });
+  });
+  if (ownerDirect) {
+    chips.push({ key: 'owner', label: t('pub.presetOwnerDirect'), onClear: () => setOwnerDirect(false) });
+  }
+  if (featured) {
+    chips.push({ key: 'featured', label: t('pub.presetFeatured'), onClear: () => setFeatured(false) });
+  }
+  if (hasVr) {
+    chips.push({ key: 'vr', label: t('pub.presetVr'), onClear: () => setHasVr(false) });
+  }
+  if (hasVideo) {
+    chips.push({ key: 'video', label: t('pub.filterVideo'), onClear: () => setHasVideo(false) });
+  }
+  if (envPermit) {
+    chips.push({ key: 'env', label: t('pub.presetEnv'), onClear: () => setEnvPermit(false) });
+  }
+  if (minLease) {
+    chips.push({
+      key: 'lease',
+      label: t('pub.leaseMonths', { n: minLease }),
+      onClear: () => setMinLease(''),
+    });
+  }
+  if (tenure) {
+    chips.push({ key: 'tenure', label: t(`pub.tenure.${tenure}`), onClear: () => setTenure('') });
+  }
+  if (ageMax) {
+    chips.push({
+      key: 'age',
+      label: t('pub.ageWithin', { n: ageMax }),
+      onClear: () => setAgeMax(''),
+    });
+  }
+  if (wholeFloor) {
+    chips.push({ key: 'wholeFloor', label: t('pub.filterWholeFloor'), onClear: () => setWholeFloor(false) });
+  }
+  if (wholeBuilding) {
+    chips.push({
+      key: 'wholeBuilding',
+      label: t('pub.filterWholeBuilding'),
+      onClear: () => setWholeBuilding(false),
+    });
+  }
+  if (companyReg) {
+    chips.push({ key: 'companyReg', label: t('pub.filterCompanyReg'), onClear: () => setCompanyReg(false) });
+  }
+
+  const filtered = chips.length > 0 || !!debounced;
+
+  // ---- 「更多」面板里的多选组 ----
+  const tagSelected = [
+    ownerDirect ? 'owner' : '',
+    featured ? 'featured' : '',
+    hasVr ? 'vr' : '',
+    hasVideo ? 'video' : '',
+    envPermit ? 'env' : '',
+  ].filter(Boolean);
+  const toggleTag = (k: string) => {
+    const on = !tagSelected.includes(k);
+    if (k === 'owner') setOwnerDirect(on);
+    else if (k === 'featured') setFeatured(on);
+    else if (k === 'vr') setHasVr(on);
+    else if (k === 'video') setHasVideo(on);
+    else if (k === 'env') setEnvPermit(on);
+  };
+  const bizSelected = [
+    wholeFloor ? 'floor' : '',
+    wholeBuilding ? 'building' : '',
+    companyReg ? 'company' : '',
+  ].filter(Boolean);
+  const toggleBizExtra = (k: string) => {
+    const on = !bizSelected.includes(k);
+    if (k === 'floor') setWholeFloor(on);
+    else if (k === 'building') setWholeBuilding(on);
+    else if (k === 'company') setCompanyReg(on);
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+    <View ref={rootRef} style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <PublicBackRow />
       {/* ---- 顶部：标题 + 搜索 ---- */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('pub.listingsTitle')}</Text>
+        <Text style={styles.title}>{t(headerTitleKey)}</Text>
         <Text style={styles.hint}>{t('pub.guestHint')}</Text>
         <TextInput
           style={styles.search}
@@ -309,72 +624,317 @@ export default function PublicListingsScreen() {
       </View>
 
 
-      {/* ---- 筛选行：类型 / 学校 / 更多 ---- */}
-      <View style={styles.chipRow}>
-        <TouchableOpacity
-          style={[styles.chip, typeActive && styles.chipActive]}
-          onPress={openType}
-        >
-          <Text style={[styles.chipText, typeActive && styles.chipTextActive]} numberOfLines={1}>
-            {typeLabel}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, !!schoolId && styles.chipActive]}
-          onPress={() => setSchoolPickOpen(true)}
-        >
-          <Text style={[styles.chipText, !!schoolId && styles.chipTextActive]} numberOfLines={1}>
-            {schoolId
-              ? `${schoolName} · ${Number(schoolKm).toFixed(1)}${t('pub.km')}`
-              : t('pub.filterSchool')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, moreActive && styles.chipActive]}
-          onPress={() => setMoreOpen(true)}
-        >
-          <Text style={[styles.chipText, moreActive && styles.chipTextActive]}>
-            {t('pub.filterMore')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, sort !== 'latest' && styles.chipActive]}
-          onPress={() => setSortOpen(true)}
-        >
-          <Text style={[styles.chipText, sort !== 'latest' && styles.chipTextActive]} numberOfLines={1}>
-            {sort === 'latest' ? t('pub.sort') : t(SORT_LABEL_KEY[sort])}
-          </Text>
-        </TouchableOpacity>
-        {schoolId ? (
-          <TouchableOpacity style={styles.chipGhost} onPress={resetSchool}>
-            <Text style={styles.chipGhostText}>{t('pub.schoolAny')}</Text>
-          </TouchableOpacity>
+      {/* ---- 筛选栏：类型 / 租金 / 学校 / 更多 / 排序（点击就地展开面板）---- */}
+      <FilterBar
+        tabs={filterTabs}
+        openKey={openKey}
+        onToggle={toggleTab}
+        anchorRef={anchorRef}
+        onLayoutAnchor={measureAnchor}
+      >
+        {openKey === 'type' ? (
+          <FilterPanel
+            onReset={() => {
+              setDraftBiz('all');
+              setDraftType('');
+            }}
+            onConfirm={applyType}
+            resetLabel={t('pub.reset')}
+            confirmLabel={t('pub.apply')}
+          >
+            <View style={styles.typePanel}>
+              <FilterRail
+                items={[
+                  { key: 'biz', label: t('pub.bizLine') },
+                  { key: 'type', label: t('pub.propertyTypeGroup') },
+                ]}
+                value={typeRail}
+                onChange={(k) => setTypeRail(k as 'biz' | 'type')}
+              />
+              <View style={styles.typePanelBody}>
+                {typeRail === 'biz' ? (
+                  <FilterOptionGrid
+                    options={[
+                      { key: 'all', label: t('pub.bizAll') },
+                      { key: 'rent', label: t('pub.typeRent') },
+                      { key: 'resale', label: t('category.resaleTitle') },
+                      { key: 'new', label: t('category.newTitle') },
+                    ]}
+                    value={draftBiz}
+                    onChange={(k) => setDraftBiz(k as BizKey)}
+                  />
+                ) : (
+                  <FilterOptionGrid
+                    options={TYPE_CLASS_OPTIONS.map((o) => ({ key: o.value, label: t(o.labelKey) }))}
+                    value={draftType}
+                    onChange={(k) => setDraftType(k as TypeClassKey)}
+                  />
+                )}
+              </View>
+            </View>
+          </FilterPanel>
         ) : null}
-      </View>
 
-      {/* ---- 已选条件回显：业务线与房产类型各一条，点 × 各自清除 ---- */}
-      {typeActive ? (
+        {openKey === 'price' ? (
+          <FilterPanel
+            onReset={() => {
+              setPriceMin('');
+              setPriceMax('');
+            }}
+            onConfirm={() => setOpenKey(null)}
+            resetLabel={t('pub.reset')}
+            confirmLabel={t('pub.apply')}
+          >
+            <Text style={styles.fieldLabel}>{t('pub.filterPrice')}</Text>
+            <View style={styles.rangeRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={priceMin}
+                onChangeText={setPriceMin}
+                keyboardType="numeric"
+                placeholder={t('pub.filterMin')}
+                placeholderTextColor={colors.ink3}
+              />
+              <Text style={styles.rangeDash}>—</Text>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={priceMax}
+                onChangeText={setPriceMax}
+                keyboardType="numeric"
+                placeholder={t('pub.filterMax')}
+                placeholderTextColor={colors.ink3}
+              />
+            </View>
+          </FilterPanel>
+        ) : null}
+
+        {openKey === 'school' ? (
+          <FilterPanel
+            onReset={resetSchool}
+            onConfirm={() => setOpenKey(null)}
+            resetLabel={t('pub.schoolAny')}
+            confirmLabel={t('pub.apply')}
+          >
+            <Text style={styles.fieldLabel}>{t('pub.schoolRadius')}</Text>
+            <FilterOptionGrid
+              options={SCHOOL_RADIUS_OPTIONS.map((km) => ({ key: String(km), label: `${km}${t('pub.km')}` }))}
+              value={String(schoolKm)}
+              onChange={(k) => setSchoolKm(Number(k))}
+            />
+            <TextInput
+              style={styles.search}
+              value={schoolKw}
+              onChangeText={setSchoolKw}
+              placeholder={t('pub.schoolSearchPlaceholder')}
+              placeholderTextColor={colors.ink3}
+            />
+            <ScrollView style={{ maxHeight: 240, marginTop: 8 }}>
+              {schoolsLoading ? (
+                <ActivityIndicator style={{ marginVertical: 16 }} color={colors.primary} />
+              ) : schools.length === 0 ? (
+                <Text style={styles.sheetEmpty}>{t('pub.schoolFilterEmpty')}</Text>
+              ) : (
+                schools.map((school) => {
+                  const active = schoolId === school.id;
+                  return (
+                    <TouchableOpacity
+                      key={school.id}
+                      style={[styles.schoolRow, active && styles.schoolRowActive]}
+                      onPress={() => {
+                        setSchoolId(school.id);
+                        setSchoolName(school.name ?? '');
+                        setOpenKey(null);
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.schoolName}>{school.name}</Text>
+                        {school.name_en || school.district ? (
+                          <Text style={styles.schoolSub} numberOfLines={1}>
+                            {[school.name_en, school.district].filter(Boolean).join(' · ')}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          </FilterPanel>
+        ) : null}
+
+        {openKey === 'more' ? (
+          <FilterPanel
+            onReset={resetMore}
+            onConfirm={() => setOpenKey(null)}
+            resetLabel={t('pub.reset')}
+            confirmLabel={t('pub.apply')}
+          >
+            <View style={styles.typePanel}>
+              <FilterRail
+                items={[
+                  { key: 'area', label: t('pub.filterArea') },
+                  { key: 'room', label: t('pub.filterRoom') },
+                  { key: 'tags', label: t('pub.filterTags') },
+                  { key: 'lease', label: t('pub.filterLeaseTerms') },
+                  { key: 'business', label: t('pub.filterCommercial') },
+                  { key: 'amenity', label: t('list.amenities') },
+                ]}
+                value={moreRail}
+                onChange={(k) => setMoreRail(k as MoreRailKey)}
+              />
+              <ScrollView style={styles.moreBody} contentContainerStyle={{ paddingBottom: 4 }}>
+                {moreRail === 'area' ? (
+                  <>
+                    <Text style={styles.fieldLabel}>{t('pub.filterArea')}</Text>
+                    <View style={styles.rangeRow}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        value={areaMin}
+                        onChangeText={setAreaMin}
+                        keyboardType="numeric"
+                        placeholder={t('pub.filterMin')}
+                        placeholderTextColor={colors.ink3}
+                      />
+                      <Text style={styles.rangeDash}>—</Text>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        value={areaMax}
+                        onChangeText={setAreaMax}
+                        keyboardType="numeric"
+                        placeholder={t('pub.filterMax')}
+                        placeholderTextColor={colors.ink3}
+                      />
+                    </View>
+                    <FilterOptionGrid
+                      title={t('pub.filterBeds')}
+                      options={['', '1', '2', '3', '4'].map((n) => ({
+                        key: n,
+                        label: n ? `${n}+` : t('pub.filterAny'),
+                      }))}
+                      value={bedsMin}
+                      onChange={setBedsMin}
+                    />
+                  </>
+                ) : null}
+
+                {moreRail === 'room' ? (
+                  <>
+                    <FilterOptionGrid
+                      title={t('pub.orientationLabel')}
+                      options={[{ key: '', label: t('pub.filterAny') }, ...ORIENTATIONS.map((o) => ({ key: o, label: t(`pub.orientation.${o}`) }))]}
+                      value={orientation}
+                      onChange={setOrientation}
+                    />
+                    <FilterOptionGrid
+                      title={t('pub.floor')}
+                      options={FLOOR_LEVELS.map((lv) => ({ key: lv, label: t(`pub.floorLevel.${lv}`) }))}
+                      value={floorLevels}
+                      onChange={(k) =>
+                        setFloorLevels((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
+                      }
+                    />
+                    <FilterOptionGrid
+                      title={t('pub.decorationLabel')}
+                      options={[{ key: '', label: t('pub.filterAny') }, ...DECORATIONS.map((d) => ({ key: d, label: t(`pub.decoration.${d}`) }))]}
+                      value={decoration}
+                      onChange={setDecoration}
+                    />
+                  </>
+                ) : null}
+
+                {moreRail === 'tags' ? (
+                  <FilterOptionGrid
+                    options={[
+                      { key: 'owner', label: t('pub.presetOwnerDirect') },
+                      { key: 'featured', label: t('pub.presetFeatured') },
+                      { key: 'vr', label: t('pub.presetVr') },
+                      { key: 'video', label: t('pub.filterVideo') },
+                      { key: 'env', label: t('pub.presetEnv') },
+                    ]}
+                    value={tagSelected}
+                    onChange={toggleTag}
+                  />
+                ) : null}
+
+                {moreRail === 'lease' ? (
+                  <>
+                    <FilterOptionGrid
+                      title={t('pub.filterMinLease')}
+                      options={[{ key: '', label: t('pub.filterAny') }, ...LEASE_MONTHS.map((n) => ({ key: n, label: t('pub.leaseMonths', { n }) }))]}
+                      value={minLease}
+                      onChange={setMinLease}
+                    />
+                    <FilterOptionGrid
+                      title={t('pub.tenureLabel')}
+                      options={[{ key: '', label: t('pub.filterAny') }, ...TENURES.map((x) => ({ key: x, label: t(`pub.tenure.${x}`) }))]}
+                      value={tenure}
+                      onChange={setTenure}
+                    />
+                    <FilterOptionGrid
+                      title={t('pub.filterBuildingAge')}
+                      options={[{ key: '', label: t('pub.filterAny') }, ...BUILDING_AGES.map((n) => ({ key: n, label: t('pub.ageWithin', { n }) }))]}
+                      value={ageMax}
+                      onChange={setAgeMax}
+                    />
+                  </>
+                ) : null}
+
+                {moreRail === 'business' ? (
+                  <FilterOptionGrid
+                    options={[
+                      { key: 'floor', label: t('pub.filterWholeFloor') },
+                      { key: 'building', label: t('pub.filterWholeBuilding') },
+                      { key: 'company', label: t('pub.filterCompanyReg') },
+                    ]}
+                    value={bizSelected}
+                    onChange={toggleBizExtra}
+                  />
+                ) : null}
+
+                {moreRail === 'amenity' ? (
+                  <FilterOptionGrid
+                    options={AMENITIES.map((a) => ({ key: a, label: t(`prop.amenity.${a}`) }))}
+                    value={amenities}
+                    onChange={(k) =>
+                      setAmenities((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
+                    }
+                  />
+                ) : null}
+              </ScrollView>
+            </View>
+          </FilterPanel>
+        ) : null}
+
+        {openKey === 'sort' ? (
+          <FilterOptionGrid
+            options={[...SORTS, ...(schoolId ? (['distance'] as SortKey[]) : [])].map((key) => ({
+              key,
+              label: t(SORT_LABEL_KEY[key]),
+            }))}
+            value={sort}
+            onChange={(k) => {
+              setSort(k as SortKey);
+              setOpenKey(null);
+            }}
+          />
+        ) : null}
+      </FilterBar>
+
+      {/* ---- 已选条件回显：每个维度一条 chip，点 × 只清该维度 ---- */}
+      {chips.length ? (
         <View style={styles.activeRow}>
-          {biz !== 'all' ? (
+          {chips.map((c) => (
             <TouchableOpacity
+              key={c.key}
               style={styles.activeChip}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              onPress={() => setBiz('all')}
+              onPress={c.onClear}
             >
-              <Text style={styles.activeChipText}>{bizLabel}</Text>
+              <Text style={styles.activeChipText}>{c.label}</Text>
               <Text style={styles.activeChipX}>×</Text>
             </TouchableOpacity>
-          ) : null}
-          {typeClass ? (
-            <TouchableOpacity
-              style={styles.activeChip}
-              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              onPress={() => setTypeClass('')}
-            >
-              <Text style={styles.activeChipText}>{typeClassLabel}</Text>
-              <Text style={styles.activeChipX}>×</Text>
-            </TouchableOpacity>
-          ) : null}
+          ))}
         </View>
       ) : null}
 
@@ -428,296 +988,8 @@ export default function PublicListingsScreen() {
         />
       )}
 
-      {/* ==================== 类型筛选 ==================== */}
-      <Modal visible={typeOpen} animationType="slide" transparent onRequestClose={() => setTypeOpen(false)}>
-        <View style={styles.modalMask}>
-          {/* 点击面板外的空白区域 = 收起（与下拉面板一致） */}
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTypeOpen(false)} />
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{t('pub.filterType')}</Text>
-              <TouchableOpacity onPress={() => setTypeOpen(false)}>
-                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
+      {openKey ? <PanelBackdrop top={backdropTop} onClose={() => setOpenKey(null)} /> : null}
 
-            {/* 业务线：单选，对应 listing_type 与 is_new_development */}
-            <Text style={styles.fieldLabel}>{t('pub.bizLine')}</Text>
-            <View style={styles.radiusRow}>
-              {([
-                { value: 'all', label: t('pub.bizAll') },
-                { value: 'rent', label: t('pub.typeRent') },
-                { value: 'resale', label: t('category.resaleTitle') },
-                { value: 'new', label: t('category.newTitle') },
-              ] as const).map((o) => (
-                <TouchableOpacity
-                  key={o.value}
-                  style={[styles.radiusChip, draftBiz === o.value && styles.chipActive]}
-                  onPress={() => setDraftBiz(o.value)}
-                >
-                  <Text style={[styles.chipText, draftBiz === o.value && styles.chipTextActive]}>
-                    {o.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* 房产类型：单选一组 property_type，可与业务线叠加 */}
-            <Text style={styles.fieldLabel}>{t('pub.propertyTypeGroup')}</Text>
-            <View style={styles.radiusRow}>
-              {TYPE_CLASS_OPTIONS.map((o) => (
-                <TouchableOpacity
-                  key={o.value || 'any'}
-                  style={[styles.radiusChip, draftType === o.value && styles.chipActive]}
-                  onPress={() => setDraftType(o.value)}
-                >
-                  <Text style={[styles.chipText, draftType === o.value && styles.chipTextActive]}>
-                    {t(o.labelKey)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.sheetActions}>
-              <TouchableOpacity
-                style={styles.sheetReset}
-                onPress={() => {
-                  setDraftBiz('all');
-                  setDraftType('');
-                }}
-              >
-                <Text style={styles.sheetResetText}>{t('pub.reset')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sheetApply} onPress={applyType}>
-                <Text style={styles.sheetApplyText}>{t('pub.apply')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ==================== 排序 ==================== */}
-      <Modal visible={sortOpen} animationType="slide" transparent onRequestClose={() => setSortOpen(false)}>
-        <View style={styles.modalMask}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSortOpen(false)} />
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{t('pub.sort')}</Text>
-              <TouchableOpacity onPress={() => setSortOpen(false)}>
-                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={[styles.radiusRow, { marginTop: 16 }]}>
-              {SORTS.map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.radiusChip, sort === key && styles.chipActive]}
-                  onPress={() => {
-                    setSort(key);
-                    setSortOpen(false);
-                  }}
-                >
-                  <Text style={[styles.chipText, sort === key && styles.chipTextActive]}>
-                    {t(SORT_LABEL_KEY[key])}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ==================== 学校筛选（空间筛选）==================== */}
-      <Modal visible={schoolPickOpen} animationType="slide" transparent onRequestClose={() => setSchoolPickOpen(false)}>
-        <View style={styles.modalMask}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSchoolPickOpen(false)} />
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{t('pub.filterSchool')}</Text>
-              <TouchableOpacity onPress={() => setSchoolPickOpen(false)}>
-                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.sheetHint}>{t('pub.schoolFilterHint')}</Text>
-
-            <Text style={styles.fieldLabel}>{t('pub.schoolRadius')}</Text>
-            <View style={styles.radiusRow}>
-              {SCHOOL_RADIUS_OPTIONS.map((km) => (
-                <TouchableOpacity
-                  key={km}
-                  style={[styles.radiusChip, schoolKm === km && styles.chipActive]}
-                  onPress={() => setSchoolKm(km)}
-                >
-                  <Text style={[styles.chipText, schoolKm === km && styles.chipTextActive]}>
-                    {km}
-                    {t('pub.km')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              style={[styles.search, { marginTop: 12 }]}
-              value={schoolKw}
-              onChangeText={setSchoolKw}
-              placeholder={t('pub.schoolSearchPlaceholder')}
-              placeholderTextColor={colors.ink3}
-            />
-
-            <ScrollView style={{ maxHeight: 300, marginTop: 8 }}>
-              {schoolsLoading ? (
-                <ActivityIndicator style={{ marginVertical: 16 }} color={colors.primary} />
-              ) : schools.length === 0 ? (
-                <Text style={styles.sheetEmpty}>{t('pub.schoolFilterEmpty')}</Text>
-              ) : (
-                schools.map((school) => {
-                  const active = schoolId === school.id;
-                  return (
-                    <TouchableOpacity
-                      key={school.id}
-                      style={[styles.schoolRow, active && styles.schoolRowActive]}
-                      onPress={() => {
-                        setSchoolId(school.id);
-                        setSchoolName(school.name ?? '');
-                        setSchoolPickOpen(false);
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.schoolName}>{school.name}</Text>
-                        {school.name_en || school.district ? (
-                          <Text style={styles.schoolSub} numberOfLines={1}>
-                            {[school.name_en, school.district].filter(Boolean).join(' · ')}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {active ? <Ionicons name="checkmark" size={16} color={colors.primary} /> : null}
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <TouchableOpacity style={styles.sheetReset} onPress={resetSchool}>
-              <Text style={styles.sheetResetText}>{t('pub.schoolAny')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ==================== 更多筛选 ==================== */}
-      <Modal visible={moreOpen} animationType="slide" transparent onRequestClose={() => setMoreOpen(false)}>
-        <View style={styles.modalMask}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMoreOpen(false)} />
-          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{t('pub.filterMore')}</Text>
-              <TouchableOpacity onPress={() => setMoreOpen(false)}>
-                <Text style={styles.sheetClose}>{t('pub.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {schoolId ? (
-              <>
-                <Text style={styles.fieldLabel}>{t('pub.sort')}</Text>
-                <View style={styles.radiusRow}>
-                  <TouchableOpacity
-                    style={[styles.radiusChip, sort === 'distance' && styles.chipActive]}
-                    onPress={() => setSort('distance')}
-                  >
-                    <Text style={[styles.chipText, sort === 'distance' && styles.chipTextActive]}>
-                      {t('pub.sortDistance')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : null}
-
-            <Text style={styles.fieldLabel}>{t('pub.sort')}</Text>
-            <View style={styles.radiusRow}>
-              {SORTS.map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.radiusChip, sort === key && styles.chipActive]}
-                  onPress={() => setSort(key)}
-                >
-                  <Text style={[styles.chipText, sort === key && styles.chipTextActive]}>
-                    {t(SORT_LABEL_KEY[key])}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>{t('pub.filterPrice')}</Text>
-            <View style={styles.rangeRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={priceMin}
-                onChangeText={setPriceMin}
-                keyboardType="numeric"
-                placeholder={t('pub.filterMin')}
-                placeholderTextColor={colors.ink3}
-              />
-              <Text style={styles.rangeDash}>—</Text>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={priceMax}
-                onChangeText={setPriceMax}
-                keyboardType="numeric"
-                placeholder={t('pub.filterMax')}
-                placeholderTextColor={colors.ink3}
-              />
-            </View>
-
-            <Text style={styles.fieldLabel}>{t('pub.filterArea')}</Text>
-            <View style={styles.rangeRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={areaMin}
-                onChangeText={setAreaMin}
-                keyboardType="numeric"
-                placeholder={t('pub.filterMin')}
-                placeholderTextColor={colors.ink3}
-              />
-              <Text style={styles.rangeDash}>—</Text>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={areaMax}
-                onChangeText={setAreaMax}
-                keyboardType="numeric"
-                placeholder={t('pub.filterMax')}
-                placeholderTextColor={colors.ink3}
-              />
-            </View>
-
-            <Text style={styles.fieldLabel}>{t('pub.filterBeds')}</Text>
-            <View style={styles.radiusRow}>
-              {['', '1', '2', '3', '4'].map((n) => (
-                <TouchableOpacity
-                  key={n || 'any'}
-                  style={[styles.radiusChip, bedsMin === n && styles.chipActive]}
-                  onPress={() => setBedsMin(n)}
-                >
-                  <Text style={[styles.chipText, bedsMin === n && styles.chipTextActive]}>
-                    {n ? `${n}+` : t('pub.filterAny')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.sheetReset} onPress={resetMore}>
-                <Text style={styles.sheetResetText}>{t('pub.reset')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.sheetApply]}
-                onPress={() => setMoreOpen(false)}
-              >
-                <Text style={styles.sheetApplyText}>{t('pub.apply')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -739,6 +1011,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 12 },
+  typePanel: { flexDirection: 'row', marginTop: -12, marginBottom: -12, marginHorizontal: -16 },
+  typePanelBody: { flex: 1, paddingLeft: 16, paddingTop: 12, paddingBottom: 12 },
+  moreBody: { flex: 1, paddingLeft: 16, paddingTop: 12, maxHeight: 300 },
   activeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginTop: 10 },
   activeChip: {
     flexDirection: 'row',

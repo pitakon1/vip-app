@@ -428,7 +428,7 @@ export default function OwnerMarketingScreen() {
                   title={t('mkt.emptyVacantTitle')}
                   sub={t('mkt.emptyVacantSub')}
                   actionLabel={t('profile.addProperty')}
-                  onAction={() => navigation.navigate('PropertyBinding')}
+                  onAction={() => navigation.navigate('OwnerProperties', { openBinding: true })}
                 />
               ) : (
                 <>

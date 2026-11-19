@@ -85,25 +85,37 @@ export default function NewHouse() {
   )
 
   const grid: GridItem[] = useMemo(() => {
-    const mk = (key: string, label: string, icon: ReactNode): GridItem => ({
+    const browseNew = { labelKey: 'category.featureAction.browseNewHomes', to: '/listings?preset=new' }
+    const mk = (
+      key: string,
+      label: string,
+      icon: ReactNode,
+      reasonKey: string,
+      action = browseNew,
+    ): GridItem => ({
       key,
       label,
       icon,
-      onPress: () => notAvailable(t, label),
+      onPress: () => notAvailable(t, navigate, label, { reasonKey, action }),
     })
     return [
-      mk('brand', t('category.newGridBrand'), <CrownOutlined style={{ color: ICON_COLOR(0) }} />),
-      mk('land', t('category.newGridLand'), <EnvironmentOutlined style={{ color: ICON_COLOR(1) }} />),
-      mk('broker', t('category.findBroker'), <UsergroupAddOutlined style={{ color: ICON_COLOR(2) }} />),
-      mk('ready', t('category.newGridReady'), <HomeOutlined style={{ color: ICON_COLOR(3) }} />),
-      mk('small', t('category.newGridSmall'), <ApartmentOutlined style={{ color: ICON_COLOR(4) }} />),
-      mk('rank', t('category.newGridRank'), <TrophyOutlined style={{ color: ICON_COLOR(0) }} />),
-      mk('vr', t('category.newGridVr'), <BankOutlined style={{ color: ICON_COLOR(1) }} />),
-      mk('live', t('category.newGridLive'), <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />),
-      mk('three', t('category.newGridThree'), <ReadOutlined style={{ color: ICON_COLOR(3) }} />),
-      mk('subway', t('category.newGridSubway'), <ThunderboltOutlined style={{ color: ICON_COLOR(4) }} />),
+      mk('brand', t('category.newGridBrand'), <CrownOutlined style={{ color: ICON_COLOR(0) }} />, 'category.featureHint.developer'),
+      mk('land', t('category.newGridLand'), <EnvironmentOutlined style={{ color: ICON_COLOR(1) }} />, 'category.featureHint.landAuction'),
+      mk('broker', t('category.findBroker'), <UsergroupAddOutlined style={{ color: ICON_COLOR(2) }} />, 'category.featureHint.broker', { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' }),
+      mk('ready', t('category.newGridReady'), <HomeOutlined style={{ color: ICON_COLOR(3) }} />, 'category.featureHint.ready'),
+      mk('small', t('category.newGridSmall'), <ApartmentOutlined style={{ color: ICON_COLOR(4) }} />, 'category.featureHint.small'),
+      {
+        key: 'rank',
+        label: t('category.newGridRank'),
+        icon: <TrophyOutlined style={{ color: ICON_COLOR(0) }} />,
+        onPress: () => navigate('/rankings?scope=project&metric=deal_count'),
+      },
+      mk('vr', t('category.newGridVr'), <BankOutlined style={{ color: ICON_COLOR(1) }} />, 'category.featureHint.projectVr'),
+      mk('live', t('category.newGridLive'), <VideoCameraOutlined style={{ color: ICON_COLOR(2) }} />, 'category.featureHint.live'),
+      mk('three', t('category.newGridThree'), <ReadOutlined style={{ color: ICON_COLOR(3) }} />, 'category.featureHint.groupBuy'),
+      mk('subway', t('category.newGridSubway'), <ThunderboltOutlined style={{ color: ICON_COLOR(4) }} />, 'category.featureHint.subway'),
     ]
-  }, [t])
+  }, [navigate, t])
 
   const filterGroups = useMemo(
     () => [

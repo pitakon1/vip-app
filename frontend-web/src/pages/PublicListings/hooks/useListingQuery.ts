@@ -14,9 +14,10 @@ export function useListingQuery(f: ListingFilters) {
   const {
     keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
     roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
-    statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
+    statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, envSel, debouncedKw,
     schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel,
     citySel, propertyTypeSel,
+    minLeaseSel, tenureSel, ageMaxSel, wholeFloorSel, wholeBuildingSel, companyRegSel,
   } = f
 
   // 分页状态与「筛选签名」成对存放：筛选一变，page 立刻按签名归 1。
@@ -27,13 +28,19 @@ export function useListingQuery(f: ListingFilters) {
       JSON.stringify([
         keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
         roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
-        statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
+        statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, envSel, debouncedKw,
         schoolId, schoolKm, propertyTypeSel,
+        // 朝向 / 楼层 / 装修 / 配套 / 租期 / 产权 / 楼龄 / 商办专项：
+        // 之前漏了前四项，导致换维度后页码不归 1，会带着旧页码请求
+        orientationSel, floorLevelSel, decorSel, amenitySel,
+        minLeaseSel, tenureSel, ageMaxSel, wholeFloorSel, wholeBuildingSel, companyRegSel,
       ]),
     [keyword, districtSel, backendDistrict, metroSel, activeLocationKw, globalCityKw,
       roomType, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax,
-      statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, debouncedKw,
-      schoolId, schoolKm, propertyTypeSel],
+      statusSel, sort, biz, videoOnly, vrSel, featuredSel, ownerDirectSel, envSel, debouncedKw,
+      schoolId, schoolKm, propertyTypeSel,
+      orientationSel, floorLevelSel, decorSel, amenitySel,
+      minLeaseSel, tenureSel, ageMaxSel, wholeFloorSel, wholeBuildingSel, companyRegSel],
   )
   const [pageState, setPageState] = useState<{ sig: string; page: number }>({ sig: filterSig, page: 1 })
   const page = pageState.sig === filterSig ? pageState.page : 1
@@ -96,6 +103,7 @@ export function useListingQuery(f: ListingFilters) {
     if (vrSel === '1') params.has_vr = true
     if (featuredSel === '1') params.is_featured = true
     if (ownerDirectSel === '1') params.owner_direct = true
+    if (envSel === '1') params.environmental_permit = true
     // 价格：预设快捷区间优先，其次自定义最低/最高（上限取「无上限」哨兵值时不下发）
     if (priceRange) {
       const [mn, mx] = priceRange.split('-').map(Number)
@@ -125,8 +133,15 @@ export function useListingQuery(f: ListingFilters) {
     if (decorSel) params.decoration = decorSel
     if (floorLevelSel) params.floor_level = floorLevelSel
     if (amenitySel.length) params.amenity = amenitySel
+    // 租售条件 / 商办专项：全部对应后端公开参数，未选不下发
+    if (minLeaseSel) params.min_lease_months = Number(minLeaseSel)
+    if (tenureSel) params.tenure = tenureSel
+    if (ageMaxSel) params.building_age_max = Number(ageMaxSel)
+    if (wholeFloorSel === '1') params.whole_floor_only = true
+    if (wholeBuildingSel === '1') params.whole_building_only = true
+    if (companyRegSel === '1') params.company_registrable = true
     return params
-  }, [page, biz, citySel.cityKey, backendDistrict, debouncedKw, activeLocationKw, globalCityKw, statusSel, sort, videoOnly, vrSel, featuredSel, ownerDirectSel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel, propertyTypeSel])
+  }, [page, biz, citySel.cityKey, backendDistrict, debouncedKw, activeLocationKw, globalCityKw, statusSel, sort, videoOnly, vrSel, featuredSel, ownerDirectSel, envSel, priceRange, customMin, customMax, areaRange, areaCustomMin, areaCustomMax, roomType, schoolId, schoolKm, orientationSel, floorLevelSel, decorSel, amenitySel, propertyTypeSel, minLeaseSel, tenureSel, ageMaxSel, wholeFloorSel, wholeBuildingSel, companyRegSel])
 
   // 数据获取（公开接口，不需要 auth）：queryKey 含当前页与筛选参数，
   // 缓存优先渲染 + 后台刷新；总数以服务端返回的 total 为准。
@@ -155,8 +170,9 @@ export function useListingQuery(f: ListingFilters) {
     debouncedKw.trim() || districtSel || backendDistrict || metroSel.length ||
     roomType || priceRange || customMin || customMax ||
     areaRange || areaCustomMin || areaCustomMax || statusSel || videoOnly ||
-    vrSel === '1' || featuredSel === '1' || ownerDirectSel === '1' ||
+    vrSel === '1' || featuredSel === '1' || ownerDirectSel === '1' || envSel === '1' ||
     orientationSel || floorLevelSel || decorSel || amenitySel.length || schoolId || propertyTypeSel ||
+    minLeaseSel || tenureSel || ageMaxSel || wholeFloorSel || wholeBuildingSel || companyRegSel ||
     biz !== 'all',
   )
 

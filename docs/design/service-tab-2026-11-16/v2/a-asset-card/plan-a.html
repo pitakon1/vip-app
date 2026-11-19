@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>方案 A · 资产卡片</title>
+<link rel="stylesheet" href="../shared.css" />
+<style>
+  /* ================= 方案 A：主题色渐变 hero + 悬浮资产卡 ================= */
+  .hero {
+    position: relative; height: 224px;
+    background: var(--grad-hero);
+    overflow: hidden;
+  }
+  .hero::after { /* 右上白色光晕，避免大面积平铺色 */
+    content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    right: -90px; top: -120px;
+    background: radial-gradient(circle, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 68%);
+  }
+  .hero-top {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+  }
+  .hero h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -.4px; line-height: 30px; }
+  /* 关键数字：24px / 700 / 字距 -0.5，两列间距 40 */
+  .hero-nums { position: relative; z-index: 2; display: flex; gap: 40px; padding: 16px 16px 0; }
+  .num .lbl { display: block; font-size: 12px; line-height: 16px; color: rgba(255,255,255,.80); }
+  .num .v {
+    display: block; margin-top: 2px;
+    font-size: 24px; font-weight: 700; line-height: 30px; color: #fff;
+    letter-spacing: -.5px; font-variant-numeric: tabular-nums;
+  }
+  .num .v em { font-style: normal; font-size: 12px; font-weight: 500; letter-spacing: 0; color: rgba(255,255,255,.88); margin-left: 3px; }
+
+  /* 悬浮资产卡：上移 48，高 108，圆角 16，阴影 lg */
+  .asset-card {
+    position: relative; z-index: 4;
+    margin: -48px 16px 0; height: 108px;
+    background: #fff; border-radius: var(--r16); box-shadow: var(--shadow-lg);
+    padding: 12px; display: flex; gap: 12px; align-items: center;
+  }
+  .thumb { width: 84px; height: 84px; border-radius: 12px; overflow: hidden; flex: 0 0 auto; }
+  .thumb svg { display: block; width: 100%; height: 100%; }
+  .asset-card .info { flex: 1; min-width: 0; }
+  .asset-card .name { font-size: 15px; font-weight: 600; line-height: 20px; letter-spacing: -.1px; }
+  .asset-card .meta { font-size: 12px; line-height: 16px; color: var(--ink3); margin-top: 2px; }
+  .asset-card .state { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+  .asset-card .state .addr { font-size: 12px; color: var(--ink2); }
+  .asset-card .side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; height: 84px; }
+
+  /* 区块标题：上间距 20，标题 16/700，与内容间距 12 */
+  .sec { padding: 20px 16px 0; }
+  .sec .sec-head { margin-bottom: 12px; }
+
+  /* 横向滑动待办卡：156×112，圆角 16，语义浅底，无描边 */
+  .rail { display: flex; gap: 12px; padding: 0 16px; overflow: hidden; }
+  .todo {
+    width: 150px; height: 112px; flex: 0 0 auto;
+    border-radius: var(--r16); padding: 14px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .todo.warn { background: var(--warning-soft); }
+  .todo.info { background: var(--info-soft); }
+  .todo.ok { background: var(--success-soft); }
+  .todo .top { display: flex; align-items: center; justify-content: space-between; }
+  .todo .top svg { width: 20px; height: 20px; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .todo.warn svg { stroke: var(--warning-ink); }
+  .todo.info svg { stroke: var(--info-ink); }
+  .todo.ok svg { stroke: var(--success-ink); }
+  .todo .tag { font-size: 12px; font-weight: 600; }
+  .todo.warn .tag { color: var(--warning-ink); }
+  .todo.info .tag { color: var(--info-ink); }
+  .todo.ok .tag { color: var(--success-ink); }
+  .todo .t { font-size: 14px; font-weight: 600; line-height: 19px; }
+  .todo .b { font-size: 12px; line-height: 16px; color: var(--ink2); margin-top: 2px; }
+
+  /* 2 列宫格：72 高，间距 10，无描边，轻阴影 */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; }
+  .tile {
+    position: relative; height: 72px; border-radius: var(--r16);
+    background: #fff; box-shadow: var(--shadow-sm);
+    padding: 0 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .tile .ti {
+    width: 30px; height: 30px; border-radius: var(--r8); flex: 0 0 auto;
+    background: var(--active); display: flex; align-items: center; justify-content: center;
+  }
+  .tile .ti svg { width: 18px; height: 18px; fill: none; stroke: var(--primary); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tile .tt { font-size: 14px; font-weight: 500; line-height: 19px; }
+  .tile .td { font-size: 12px; line-height: 16px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile > span:not(.ti) { display: flex; flex-direction: column; min-width: 0; }
+  .tile br { display: none; }
+  .tile .tt, .tile .td { display: block; }
+  .tile .dot { position: absolute; top: 11px; right: 11px; }
+  .tile .mini {
+    position: absolute; top: 9px; right: 9px;
+    font-size: 11px; font-weight: 600; color: var(--error-ink);
+    background: var(--error-soft); border-radius: var(--full); padding: 1px 6px;
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 8.2A2.7 2.7 0 0 1 6.7 5.5h9.6A2.7 2.7 0 0 1 19 8.2v9.1a2.7 2.7 0 0 1-2.7 2.7H6.7A2.7 2.7 0 0 1 4 17.3z"/><path d="M4 9.4h15"/><circle cx="15.6" cy="14" r="1.3"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3.6h12v16.8l-3-1.8-3 1.8-3-1.8-3 1.8z"/><path d="M9.2 8.4h5.6M9.2 11.9h5.6"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M15.6 4.4a4.6 4.6 0 0 0-6 6L4 16v4h4l5.6-5.6a4.6 4.6 0 0 0 6-6l-2.9 2.9-2.4-2.4z"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3.2h6.6L18.5 8v12.8H7z"/><path d="M13.4 3.4V8.2h4.7M9.8 12.4h5.4M9.8 15.6h5.4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="15" rx="2.6"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.2a2.2 2.2 0 0 1 2.2-2.2h4.4l2.1 2.2h6.1a2.2 2.2 0 0 1 2.2 2.2v8.2a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.4l1.7 4.4 4.4 1.7-4.4 1.7L11 15.6 9.3 11.2 4.9 9.5l4.4-1.7z"/><path d="M17.8 14.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/></symbol>
+  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M4.4 13.8v-1.6a7.6 7.6 0 0 1 15.2 0v1.6"/><rect x="2.9" y="13.4" width="4.2" height="6.2" rx="2.1"/><rect x="16.9" y="13.4" width="4.2" height="6.2" rx="2.1"/></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><path d="M4.5 20.5V9.4L12 3.6l7.5 5.8v11.1z"/><path d="M9.6 20.5v-5.2h4.8v5.2"/><path d="M8.3 11.6h1.7M14 11.6h1.7"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M4 16.4l5-5.1 3.6 3.1 6.9-7.4"/><path d="M14.6 6.6h5.2v5.2"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="6" y="4.2" width="12" height="16.6" rx="2.4"/><path d="M9.2 3.2h5.6v2.6H9.2z"/><path d="M9.2 13l2.2 2.2 3.6-3.9"/></symbol>
+  <symbol id="i-mega" viewBox="0 0 24 24"><path d="M3.4 10.4v3.2a1 1 0 0 0 1 1h2.9l8.5 4.4V5L7.3 9.4H4.4a1 1 0 0 0-1 1z"/><path d="M8.2 14.8v4.4h2.6v-3.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="M12 8.2v7.6M8.2 12h7.6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.4l7.4 2.8v5.6c0 4.6-3.2 7.4-7.4 8.4-4.2-1-7.4-3.8-7.4-8.4V6.2z"/><path d="M9 12l2.2 2.2 4-4.2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.8L12 3.9l8.2 6.9v9.4h-5.6v-5.9H9.4v5.9H3.8z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.7" y="3.7" width="7" height="7" rx="2.1"/><rect x="13.3" y="3.7" width="7" height="7" rx="2.1"/><rect x="3.7" y="13.3" width="7" height="7" rx="2.1"/><rect x="13.3" y="13.3" width="7" height="7" rx="2.1"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 6.2h16v10.4h-9.4L5.8 20.2v-3.6H4z"/><path d="M8 10h8M8 12.8h5"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.7"/><path d="M4.9 20.3a7.1 7.1 0 0 1 14.2 0"/></symbol>
+
+  <!-- 房源缩略插画：暖光客厅 -->
+  <symbol id="scene-room" viewBox="0 0 120 120">
+    <defs>
+      <linearGradient id="roomWall" x1="0" y1="0" x2=".4" y2="1">
+        <stop offset="0" stop-color="#f7f3ed"/><stop offset="1" stop-color="#e7dfd4"/>
+      </linearGradient>
+      <linearGradient id="roomSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#e9f2f0"/><stop offset="1" stop-color="#cfdedb"/>
+      </linearGradient>
+    </defs>
+    <rect width="120" height="120" fill="url(#roomWall)"/>
+    <!-- 窗与外景 -->
+    <rect x="56" y="10" width="58" height="62" rx="2" fill="url(#roomSky)"/>
+    <path d="M56 52h58v20H56z" fill="#b9c9c6"/>
+    <path d="M62 40h12v12H62zM78 32h10v20H78zM92 44h16v8H92z" fill="#9fb2af" opacity=".85"/>
+    <path d="M56 41h58M56 55h58M85 10v62" stroke="#cfdad7" stroke-width="2"/>
+    <rect x="56" y="10" width="58" height="62" rx="2" fill="none" stroke="#cbbfae" stroke-width="2.5"/>
+    <!-- 地面与光斑 -->
+    <rect y="84" width="120" height="36" fill="#ded2c3"/>
+    <path d="M56 84h58l16 36H60z" fill="#efe7da" opacity=".75"/>
+    <ellipse cx="56" cy="104" rx="46" ry="9" fill="#e9dfd1"/>
+    <!-- 沙发 -->
+    <rect x="6" y="62" width="46" height="14" rx="6" fill="#ded5c6"/>
+    <rect x="6" y="74" width="46" height="14" rx="5" fill="#cec3b2"/>
+    <rect x="11" y="72" width="16" height="10" rx="4" fill="#e5ddcf"/>
+    <rect x="31" y="72" width="16" height="10" rx="4" fill="#e5ddcf"/>
+    <path d="M8 88v8M50 88v8" stroke="#a3907b" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- 边几与绿植 -->
+    <rect x="84" y="86" width="26" height="4" rx="2" fill="#c9bda9"/>
+    <path d="M87 90v12M107 90v12" stroke="#b0a08c" stroke-width="2"/>
+    <path d="M97 84c-6 0-9-5-9-11 6 0 9 4 9 11zM97 84c6 0 9-5 9-11-6 0-9 4-9 11z" fill="#84978c"/>
+    <rect x="93" y="82" width="8" height="7" rx="2" fill="#c2ae97"/>
+  </symbol>
+
+  <!-- 房源缩略插画：黄昏立面 -->
+  <symbol id="scene-dusk" viewBox="0 0 120 120">
+    <defs>
+      <linearGradient id="duskSky" x1="0" y1="0" x2=".3" y2="1">
+        <stop offset="0" stop-color="#eef3f3"/><stop offset="1" stop-color="#ccd9da"/>
+      </linearGradient>
+      <linearGradient id="facade" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#c3cfd0"/><stop offset="1" stop-color="#9eacae"/>
+      </linearGradient>
+    </defs>
+    <rect width="120" height="120" fill="url(#duskSky)"/>
+    <rect x="0" y="62" width="30" height="58" fill="#bccaca"/>
+    <rect x="96" y="50" width="24" height="70" fill="#b3c2c4"/>
+    <!-- 主楼 -->
+    <rect x="20" y="18" width="82" height="102" rx="2" fill="url(#facade)"/>
+    <g fill="#6f7f83" opacity=".55">
+      <rect x="28" y="28" width="12" height="14"/><rect x="46" y="28" width="12" height="14"/><rect x="64" y="28" width="12" height="14"/><rect x="82" y="28" width="12" height="14"/>
+      <rect x="28" y="48" width="12" height="14"/><rect x="64" y="48" width="12" height="14"/><rect x="82" y="48" width="12" height="14"/>
+      <rect x="28" y="68" width="12" height="14"/><rect x="46" y="68" width="12" height="14"/><rect x="82" y="68" width="12" height="14"/>
+      <rect x="46" y="88" width="12" height="14"/><rect x="64" y="88" width="12" height="14"/>
+    </g>
+    <g fill="#f3c68c">
+      <rect x="46" y="48" width="12" height="14"/><rect x="64" y="68" width="12" height="14"/><rect x="28" y="88" width="12" height="14"/>
+    </g>
+    <rect x="20" y="18" width="82" height="102" rx="2" fill="none" stroke="#87979a" stroke-width="2"/>
+    <path d="M0 112h120v8H0z" fill="#8f9d9a" opacity=".55"/>
+  </symbol>
+</defs></svg>
+
+<div class="board">
+
+  <!-- ================= A · 租客 ================= -->
+  <div class="col">
+    <div class="frame-label">方案 A · 租客<span>375 × 812</span></div>
+    <div class="frame" id="a-tenant">
+      <header class="hero">
+        <div class="sb light">
+          <span class="sb-time">9:41</span>
+          <span class="sb-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+            <svg width="25" height="12" viewBox="0 0 25 12"><rect class="batt" x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+          </span>
+        </div>
+        <div class="hero-top">
+          <h1>服务</h1>
+          <div class="seg glass"><span class="on">租客</span><span>业主</span></div>
+        </div>
+        <div class="hero-nums">
+          <div class="num"><span class="lbl">本月待缴</span><span class="v">¥8,600</span></div>
+          <div class="num"><span class="lbl">租约剩余</span><span class="v">4<em>个月</em></span></div>
+        </div>
+      </header>
+
+      <section class="asset-card">
+        <div class="thumb"><svg viewBox="0 0 120 120"><use href="#scene-room"/></svg></div>
+        <div class="info">
+          <div class="name">滨江壹号 3-1802</div>
+          <div class="meta">1 室 1 厅 · 月租 ¥8,600</div>
+          <div class="state">
+            <span class="pill ok">在租</span>
+            <span class="addr">租期至 2027-03-31</span>
+          </div>
+        </div>
+        <div class="side"><span class="chev">›</span></div>
+      </section>
+
+      <div class="sec">
+        <div class="sec-head"><h2>待办提醒</h2><span class="link">全部 3 ›</span></div>
+        <div class="rail">
+          <div class="todo warn">
+            <div class="top"><svg><use href="#i-wallet"/></svg><span class="tag">待缴</span></div>
+            <div><div class="t">11 月租金</div><div class="b">¥8,600 · 11-20</div></div>
+          </div>
+          <div class="todo info">
+            <div class="top"><svg><use href="#i-doc"/></svg><span class="tag">待签</span></div>
+            <div><div class="t">续租合同</div><div class="b">ZH-0412 · 剩 3 天</div></div>
+          </div>
+          <div class="todo ok">
+            <div class="top"><svg><use href="#i-wrench"/></svg><span class="tag">处理中</span></div>
+            <div><div class="t">空调报修</div><div class="b">师傅今日上门</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head"><h2>全部服务</h2><span class="meta">6 项</span></div>
+        <div class="grid">
+          <div class="tile"><span class="ti"><svg><use href="#i-wallet"/></svg></span><span><span class="tt">账单缴费</span><br><span class="td">账单与收据</span></span><i class="dot"></i></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-wrench"/></svg></span><span><span class="tt">服务工单</span><br><span class="td">报修与进度</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-doc"/></svg></span><span><span class="tt">电子签合同</span><br><span class="td">签约与存档</span></span><i class="dot"></i></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-cal"/></svg></span><span><span class="tt">我的租约</span><br><span class="td">租期与续约</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-folder"/></svg></span><span><span class="tt">文档中心</span><br><span class="td">合同与票据</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-spark"/></svg></span><span><span class="tt">增值服务</span><br><span class="td">保洁与搬家</span></span></div>
+        </div>
+      </div>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+  <!-- ================= A · 业主 ================= -->
+  <div class="col">
+    <div class="frame-label">方案 A · 业主<span>375 × 812</span></div>
+    <div class="frame" id="a-owner">
+      <header class="hero">
+        <div class="sb light">
+          <span class="sb-time">9:41</span>
+          <span class="sb-icons">
+            <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.6" y="4.8" width="3" height="6.2" rx="1"/><rect x="9.2" y="2.4" width="3" height="8.6" rx="1"/><rect x="13.8" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="16" height="11" viewBox="0 0 16 11"><path d="M8 10.2l2.3-2.6a3.6 3.6 0 0 0-4.6 0zM2.4 4.6a8.6 8.6 0 0 1 11.2 0l-1.5 1.7a6.4 6.4 0 0 0-8.2 0z"/></svg>
+            <svg width="25" height="12" viewBox="0 0 25 12"><rect class="batt" x="0.5" y="0.5" width="21" height="11" rx="3.2" fill="none" stroke="#fff" stroke-opacity=".5"/><rect x="2" y="2" width="15.5" height="8" rx="2"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6z"/></svg>
+          </span>
+        </div>
+        <div class="hero-top">
+          <h1>服务</h1>
+          <div class="seg glass"><span>租客</span><span class="on">业主</span></div>
+        </div>
+        <div class="hero-nums">
+          <div class="num"><span class="lbl">在管房产</span><span class="v">3<em>套</em></span></div>
+          <div class="num"><span class="lbl">本月收益</span><span class="v">¥12,480</span></div>
+        </div>
+      </header>
+
+      <section class="asset-card">
+        <div class="thumb"><svg viewBox="0 0 120 120"><use href="#scene-dusk"/></svg></div>
+        <div class="info">
+          <div class="name">滨江壹号 5-0901</div>
+          <div class="meta">2 室 2 厅 · 挂牌价 ¥9,200</div>
+          <div class="state">
+            <span class="pill warn">空置 12 天</span>
+            <span class="addr">待出租</span>
+          </div>
+        </div>
+        <div class="side"><span class="chev">›</span></div>
+      </section>
+
+      <div class="sec">
+        <div class="sec-head"><h2>待办提醒</h2><span class="link">全部 3 ›</span></div>
+        <div class="rail">
+          <div class="todo warn" style="background:var(--error-soft)">
+            <div class="top"><svg style="stroke:var(--error-ink)"><use href="#i-clip"/></svg><span class="tag" style="color:var(--error-ink)">待审批</span></div>
+            <div><div class="t">维修申请 2 单</div><div class="b">已等待 2 天</div></div>
+          </div>
+          <div class="todo warn">
+            <div class="top"><svg><use href="#i-doc"/></svg><span class="tag">待签</span></div>
+            <div><div class="t">出租委托合同</div><div class="b">3-1802 · 12 个月</div></div>
+          </div>
+          <div class="todo ok">
+            <div class="top"><svg><use href="#i-trend"/></svg><span class="tag">待结算</span></div>
+            <div><div class="t">11 月收益</div><div class="b">¥12,480 · 11-25</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head"><h2>全部服务</h2><span class="meta">6 项</span></div>
+        <div class="grid">
+          <div class="tile"><span class="ti"><svg><use href="#i-building"/></svg></span><span><span class="tt">我的房产</span><br><span class="td">3 套在管</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-plus"/></svg></span><span><span class="tt">绑定房产</span><br><span class="td">1 套审核中</span></span><i class="dot" style="background:var(--info)"></i></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-trend"/></svg></span><span><span class="tt">收益明细</span><br><span class="td">流水与结算</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-clip"/></svg></span><span><span class="tt">维修审批</span><br><span class="td">2 单待审</span></span><i class="dot"></i></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-mega"/></svg></span><span><span class="tt">委托营销</span><br><span class="td">挂牌与带看</span></span></div>
+          <div class="tile"><span class="ti"><svg><use href="#i-shield"/></svg></span><span><span class="tt">业主服务</span><br><span class="td">托管与保洁</span></span></div>
+        </div>
+      </div>
+
+      <nav class="tabbar">
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-home"/></svg></span><span>首页</span></div>
+        <div class="tab on"><span class="tab-ico"><svg><use href="#i-grid"/></svg><i class="tab-badge">2</i></span><span>服务</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-chat"/></svg></span><span>消息</span></div>
+        <div class="tab"><span class="tab-ico"><svg><use href="#i-person"/></svg></span><span>我的</span></div>
+      </nav>
+      <div class="home-ind"></div>
+    </div>
+  </div>
+
+</div>
+
+<section class="legend">
+  <h3>方案 A 关键尺寸标注</h3>
+  <table>
+    <tr><th style="width:170px">区块</th><th style="width:210px">尺寸</th><th>说明</th></tr>
+    <tr><td>Hero 渐变区</td><td>高 224（含状态栏 44）</td><td>158° 渐变 #1bc7b7 → #14b8a6，右上 300px 白色光晕</td></tr>
+    <tr><td>页面标题</td><td>22 / 700 / -0.4</td><td>白色；身份切换胶囊 30 高、玻璃底</td></tr>
+    <tr><td>关键数字</td><td>24 / 700 / -0.5</td><td>两列间距 40，上留白 16；单位 12px</td></tr>
+    <tr><td>悬浮资产卡</td><td>高 108，上移 48，圆角 16</td><td>缩略图 84×84 / 圆角 12；阴影 0 12 28 rgba(23,26,29,.10)</td></tr>
+    <tr><td>区块间距</td><td>上 20 / 标题下 12</td><td>标题 16 / 700</td></tr>
+    <tr><td>待办横滑卡</td><td>156 × 112，间距 12</td><td>语义浅底（warning / info / success），无描边；标题 14 / 600</td></tr>
+    <tr><td>服务宫格</td><td>2 列，卡片高 72，列间距 10</td><td>图标底 30 / 圆角 8；标题 14 / 500，说明 12</td></tr>
+    <tr><td>底部 Tab</td><td>高 72</td><td>图标 23 + 标签 12，选中 #14b8a6；待办数字角标</td></tr>
+  </table>
+  <p>取舍：把「身份 + 关键数字」收进整块主题色区域形成第一视觉重心，资产卡悬挑其上做第二层，待办以横向卡片形成水平扫描节奏，服务用宫格压缩纵向长度。全页不使用列表分割线，层级依靠底色与间距。</p>
+</section>
+
+</body>
+</html>

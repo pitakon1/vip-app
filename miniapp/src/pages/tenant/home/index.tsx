@@ -91,6 +91,8 @@ export default function TenantHomePage() {
   const [tickets, setTickets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
+  // 平台成交榜单：仅平台 property_deals 样本，非全市场
+  const [rankings, setRankings] = useState<any>(null)
 
   const load = useCallback(async () => {
     setFailed(false)
@@ -126,6 +128,22 @@ export default function TenantHomePage() {
     setLoading(true)
     void load()
   }, [load])
+
+  // 榜单独立加载：失败静默，不影响首页主流程
+  useEffect(() => {
+    let alive = true
+    publicApi
+      .rankings({ scope: 'project', metric: 'deal_count', days: 90, limit: 5 })
+      .then((data: any) => {
+        if (alive) setRankings(data)
+      })
+      .catch(() => {
+        /* 忽略：首页其他内容照常展示 */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   useDidShow(() => {
     loadFromStorage()
@@ -413,6 +431,61 @@ export default function TenantHomePage() {
           )}
         </View>
       )}
+
+      {/* 平台成交榜单：仅平台样本，固定标注「平台样本 n=xx，非全市场」 */}
+      {rankings ? (
+        <View className='th-section'>
+          <View className='th-section__head'>
+            <Text className='th-section__title'>{t('pub.rankingsTitle')}</Text>
+            <Text className='th-rank__caveat'>
+              {t('pub.rankingsCaveat', { n: rankings.sample_count })}
+            </Text>
+          </View>
+          <Text className='th-rank__period'>
+            {t('pub.rankingsPeriod', {
+              days: rankings.days,
+              start: rankings.period?.start || '-',
+              end: rankings.period?.end || '-'
+            })}
+          </Text>
+          {!rankings.published ? (
+            <View className='th-empty'>
+              <Text className='th-empty__title'>
+                {t('pub.rankingsEmpty', { n: rankings.min_sample })}
+              </Text>
+            </View>
+          ) : (
+            <View className='th-rank'>
+              {rankings.items.map((it: any) => (
+                <View key={it.rank} className='th-rank__row'>
+                  <Text
+                    className={`th-rank__no ${it.rank <= 3 ? 'th-rank__no--top' : ''}`}
+                  >
+                    {it.rank}
+                  </Text>
+                  <View className='th-rank__main'>
+                    <Text className='th-rank__name' numberOfLines={1}>
+                      {it.name}
+                    </Text>
+                    <Text className='th-rank__sub' numberOfLines={1}>
+                      {it.district || '-'} · {t('pub.rankingsDeals', { n: it.deal_count })}
+                    </Text>
+                  </View>
+                  <View className='th-rank__value'>
+                    <Text className='th-rank__price'>
+                      {it.avg_price == null
+                        ? '-'
+                        : `฿${Math.round(it.avg_price).toLocaleString('en-US')}`}
+                    </Text>
+                    <Text className='th-rank__sub'>{t('pub.rankingsAvgPrice')}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+          <Text className='th-rank__note'>{t('pub.rankingsNote')}</Text>
+        </View>
+      ) : null}
 
       {/* 最近动态：账单 + 报修（访客为空态，与 App 一致） */}
       <View className='th-section'>

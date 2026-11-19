@@ -251,7 +251,7 @@ export default function OwnerIncomePage() {
               sub={income.records.length === 0 ? t('pb.noPropertySub') : undefined}
               onSubClick={
                 income.records.length === 0
-                  ? () => Taro.navigateTo({ url: '/pages/property-binding/index' })
+                  ? () => Taro.navigateTo({ url: '/pages/owner/properties/index?add=1' })
                   : undefined
               }
             />

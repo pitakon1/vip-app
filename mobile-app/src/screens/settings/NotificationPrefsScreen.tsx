@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { authApi } from '@/services/api';
+import { authApi, devicesApi } from '@/services/api';
+import { registerPushToken } from '@/lib/push';
 import colors from '@/theme/colors';
 import { useI18n } from '@/i18n';
 import { notify, getErrorMessage } from '@/utils/feedback';
 import EmptyState from '@/components/EmptyState';
 import { errorText } from '@/lib/errorText';
+
+type PushState = Awaited<ReturnType<typeof registerPushToken>>;
 
 /**
  * 通知设置（全屏下钻子页，微信「设置→新消息通知」式）。
@@ -21,6 +24,56 @@ export default function NotificationPrefsScreen() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [pushState, setPushState] = useState<PushState | null>(null);
+  const [testingPush, setTestingPush] = useState(false);
+
+  // 进入即尝试注册本机 push token（Web/模拟器会返回 unsupported，不伪造成功）
+  React.useEffect(() => {
+    let alive = true;
+    void registerPushToken().then((result) => {
+      if (alive) setPushState(result);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const pushStatusText = (): string => {
+    if (!pushState) return t('settings.pushChecking');
+    switch (pushState.state) {
+      case 'registered':
+        return t('settings.pushRegistered');
+      case 'denied':
+        return t('settings.pushDenied');
+      case 'unsupported':
+        return pushState.reason === 'web'
+          ? t('settings.pushUnsupportedWeb')
+          : t('settings.pushUnsupportedSimulator');
+      case 'not-configured':
+        return t('settings.pushNotConfigured');
+      default:
+        return `${t('settings.pushFailed')}: ${pushState.message}`;
+    }
+  };
+
+  const sendTestPush = async () => {
+    setTestingPush(true);
+    try {
+      const { data } = await devicesApi.testPush();
+      notify(t('settings.pushTestOk').replace('{n}', String(data?.sent ?? 0)));
+    } catch (e: any) {
+      const detail = String(e?.response?.data?.detail || '');
+      if (detail.includes('No active push token')) {
+        notify(t('settings.pushTestNone'));
+      } else if (detail.includes('disabled')) {
+        notify(t('settings.pushTestDisabled'));
+      } else {
+        notify(getErrorMessage(e, t('settings.pushFailed')));
+      }
+    } finally {
+      setTestingPush(false);
+    }
+  };
 
   // 进入即读取用户偏好；读取失败必须阻止保存，否则会用默认值静默覆盖用户设置。
   const load = React.useCallback(async () => {
@@ -112,6 +165,25 @@ export default function NotificationPrefsScreen() {
         </View>
       </TouchableOpacity>
 
+      {/* 本机推送通道状态：真实反映权限/ProjectId/模拟器限制，不显示"已开启"假状态 */}
+      <View style={styles.pushStatusRow}>
+        <Text style={styles.pushStatusLabel}>{t('settings.pushDevice')}</Text>
+        <Text style={styles.pushStatusText}>{pushStatusText()}</Text>
+      </View>
+
+      {pushState?.state === 'registered' && (
+        <TouchableOpacity
+          style={[styles.testButton, testingPush && styles.saveDisabled]}
+          activeOpacity={0.8}
+          disabled={testingPush}
+          onPress={() => void sendTestPush()}
+        >
+          <Text style={styles.testText}>
+            {testingPush ? t('settings.pushTesting') : t('settings.pushTest')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity
         style={[styles.saveButton, (saving || !loaded) && styles.saveDisabled]}
         activeOpacity={0.8}
@@ -159,6 +231,29 @@ const styles = StyleSheet.create({
   },
   prefLabel: { fontSize: 15, color: colors.text },
   prefValue: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pushStatusRow: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: colors.radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  pushStatusLabel: {
+    fontSize: colors.fontSize.caption,
+    color: colors.ink2,
+    marginBottom: 4,
+  },
+  pushStatusText: { fontSize: 13, color: colors.text, lineHeight: 19 },
+  testButton: {
+    marginTop: 12,
+    paddingVertical: 11,
+    borderRadius: colors.radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  testText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
   prefOff: {
     fontSize: 14,
     color: colors.ink3,

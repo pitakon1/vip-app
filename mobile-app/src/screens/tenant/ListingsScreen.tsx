@@ -19,10 +19,9 @@ import {
   unwrapPage,
   type PublicSchool,
   type PublicDistrict,
-  type PublicMapPoint,
 } from '@/services/publicApi';
 import { notify, notifyError } from '@/utils/feedback';
-import ListingsMapModal from '@/components/ListingsMapModal';
+import MapSearch from '@/components/MapSearch';
 import ListingsFeed, {
   priceRanges,
   areaPresets,
@@ -517,12 +516,8 @@ export default function ListingsScreen() {
     setSchoolKm(route.params.schoolKm ?? 3);
   }, [route.params?.schoolTs]);
 
-  // 地图找房弹层：App 无原生地图库（Expo Go 不能加载原生地图模块），
-  // 以「视野内房源列表」消费 /public/map-points。
+  // 地图找房（贝壳式全屏地图，组件内部按视野拉 /public/map-points）
   const [mapOpen, setMapOpen] = useState(false);
-  const [mapPoints, setMapPoints] = useState<PublicMapPoint[]>([]);
-  const [mapLoading, setMapLoading] = useState(false);
-  const [mapError, setMapError] = useState(false);
   // 地铁仅列当前定位城市的线路
   const cityMetroLines: RegionMetroLine[] = useMemo(
     () => METRO_LINES.filter((l) => l.cityKey === locSel.cityKey),
@@ -603,53 +598,23 @@ export default function ListingsScreen() {
     setNearby(true);
   }, [nearby, userPos, biz, saleListings, listings, t]);
 
-  // 地图点位拉取：覆盖全业务（租/售/新房/二手房/商办/厂房），按当前筛选收敛
-  const loadMapPoints = useCallback(async () => {
-    setMapLoading(true);
-    setMapError(false);
-    try {
-      const params: any = {
-        limit: DETAIL_PAGE_SIZE,
-        listing_type: biz === 'sale' ? 'sell' : 'rent',
-        ...(locSel.cityKey ? { city: locSel.cityKey } : {}),
-        ...(filterTypes.length ? { property_type: filterTypes } : {}),
-        ...(isNew === undefined ? {} : { is_new_development: isNew }),
-        ...(keyword.trim() ? { q: keyword.trim() } : {}),
-        // 区域仅在拿到真实区域时才作为服务端参数（静态回退 key 不是真实区域名，传了反而空）
-        ...(apiDistricts && apiDistricts.length && districtSel ? { district: districtSel } : {}),
-      };
-      const res = await publicApi.mapPoints(params);
-      const data = res?.data;
-      const items = Array.isArray(data) ? data : (data as any)?.items ?? (data as any)?.data ?? [];
-      setMapPoints(items as PublicMapPoint[]);
-    } catch {
-      setMapPoints([]);
-      setMapError(true);
-    } finally {
-      setMapLoading(false);
-    }
-  }, [biz, locSel.cityKey, filterTypes, isNew, keyword, apiDistricts, districtSel]);
-
-  // 「去地图看」：App 无原生地图库（Expo Go 不能加载原生地图模块），
-  // 以「视野内房源列表」消费 /public/map-points（价格/面积/房型/距离），点行进公开详情。
+  // 「去地图看」：打开贝壳式全屏地图（组件内部按视野拉 /public/map-points）
   const handleGoMap = useCallback(() => {
     setMapOpen(true);
-    // 非阻塞取定位：拿到就显示距离，拿不到（拒绝/失败）不显示距离，不影响列表
+    // 非阻塞取定位：拿到就以定位为初始中心，拿不到（拒绝/失败）用城市默认中心，不阻断地图
     if (!userPos) {
       Location.requestForegroundPermissionsAsync()
         .then(({ status }) => {
-          if (status !== 'granted') {
-            notify(t('common.hint'), t('list.mapNoLocation'));
-            return;
-          }
+          if (status !== 'granted') return;
           return Location.getCurrentPositionAsync({}).then((cur) =>
             setUserPos({ lat: cur.coords.latitude, lng: cur.coords.longitude }),
           );
         })
-        .catch(() => notify(t('common.hint'), t('list.mapNoLocation')));
+        .catch(() => {
+          /* 定位失败不阻断地图：使用默认城市中心 */
+        });
     }
-    void loadMapPoints();
-  }, [userPos, loadMapPoints, t]);
+  }, [userPos]);
 
   // ---------- 受控筛选：聚合为 filters 下发给展示组件，回写时按字段分发 ----------
   const filters: ListingsFilters = useMemo(
@@ -764,17 +729,16 @@ export default function ListingsScreen() {
         defaultMetroLineKey={METRO_LINES[0].key}
       />
 
-      {/* 地图找房弹层：共享组件（员工端「房源」页复用同一弹层，保证 1:1）。
-          App 无原生地图库（Expo Go 不能加载原生地图模块），以「视野内房源列表」
-          消费 /public/map-points（价格/面积/房型/距离），点行进房源详情。 */}
-      <ListingsMapModal
+      {/* 地图找房：贝壳式全屏地图（价格气泡 + 底部卡片横滑），员工端「房源」页复用同一组件 */}
+      <MapSearch
         visible={mapOpen}
         onClose={() => setMapOpen(false)}
-        loading={mapLoading}
-        error={mapError}
-        points={mapPoints}
+        city={locSel.cityKey}
+        listingType={biz === 'sale' ? 'sell' : 'rent'}
+        propertyType={filterTypes}
+        isNewDevelopment={isNew}
+        keyword={keyword}
         userPos={userPos}
-        onRetry={loadMapPoints}
         onOpenPoint={(p) => {
           setMapOpen(false);
           navigation.navigate('PublicListingDetail', { id: p.id });

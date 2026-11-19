@@ -1,0 +1,150 @@
+/* ============================================================
+   服务 Tab 改版 v2 · 共用外壳
+   令牌全部取自 mobile-app/src/theme/colors.ts
+   ============================================================ */
+:root {
+  --primary: #14b8a6;
+  --primary-fg: #171a1d;
+  --active: #edf1f2;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --ink: #171a1d;
+  --ink2: #4c555d;
+  --ink3: #68717a;
+  --line: #e6e9ec;
+  --surface2: #f2f4f5;
+  --field: #f4f6f7;
+  --success: #16a34a;
+  --success-ink: #15803d;
+  --success-soft: rgba(22, 163, 74, 0.08);
+  --warning: #d97706;
+  --warning-ink: #a64c07;
+  --warning-soft: #fdf5e9;
+  --warning-border: #f4d9ad;
+  --error: #dc2626;
+  --error-ink: #b91c1c;
+  --error-soft: rgba(220, 38, 38, 0.08);
+  --info: #0ea5e9;
+  --info-ink: #0369a1;
+  --info-soft: rgba(14, 165, 233, 0.08);
+
+  --r8: 8px; --r12: 12px; --r16: 16px; --r20: 20px; --full: 999px;
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
+  --shadow-sm: 0 2px 10px rgba(23, 26, 29, 0.05);
+  --shadow-lg: 0 12px 28px rgba(23, 26, 29, 0.10);
+  --grad-hero: linear-gradient(158deg, #1bc7b7 0%, #14b8a6 52%, #14b8a6 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+body {
+  background: #eaeef0;
+  font-family: var(--font);
+  color: var(--ink);
+  padding: 40px;
+}
+.board { display: flex; gap: 56px; align-items: flex-start; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.frame-label { font-size: 13px; font-weight: 600; color: #4c555d; }
+.frame-label span { font-weight: 400; color: #68717a; margin-left: 6px; }
+
+/* ============ 手机画布 ============ */
+.frame {
+  position: relative;
+  width: 375px;
+  height: 812px;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--ink);
+}
+
+/* ============ 状态栏 ============ */
+.sb {
+  height: 44px; padding: 0 22px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: relative; z-index: 3;
+  color: var(--ink);
+}
+.sb-time { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: .2px; }
+.sb-icons { display: flex; align-items: center; gap: 5px; }
+.sb-icons svg { fill: currentColor; }
+.sb.light { color: #fff; }
+.sb.light .batt { stroke: #fff; stroke-opacity: .5; }
+
+/* ============ 底部 Tab ============ */
+.tabbar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+  height: 72px; padding-top: 6px;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  display: flex;
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--ink3); font-size: 12px; line-height: 16px;
+}
+.tab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tab.on { color: var(--primary); }
+.tab.on svg { stroke-width: 1.9; }
+.tab-ico { position: relative; display: flex; }
+.tab-badge {
+  position: absolute; top: -4px; right: -8px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: var(--error); color: #fff; border-radius: var(--full);
+  font-size: 10px; font-weight: 600; line-height: 16px; text-align: center;
+  border: 1.5px solid var(--card); font-variant-numeric: tabular-nums;
+}
+.home-ind {
+  position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%);
+  width: 134px; height: 5px; border-radius: 3px; background: var(--ink); z-index: 6;
+}
+
+/* ============ 通用原子 ============ */
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--primary); }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; }
+.sec-head h2 { font-size: 16px; font-weight: 700; line-height: 20px; letter-spacing: -.2px; }
+.sec-head .link { font-size: 12px; font-weight: 600; color: var(--primary); }
+.sec-head .meta { font-size: 12px; color: var(--ink3); }
+
+.pill {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+  border-radius: var(--full); font-size: 12px; font-weight: 600; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.pill.warn { background: var(--warning-soft); border: 1px solid var(--warning-border); color: var(--warning-ink); }
+.pill.info { background: var(--info-soft); color: var(--info-ink); }
+.pill.err { background: var(--error-soft); color: var(--error-ink); }
+.pill.ok { background: var(--success-soft); color: var(--success-ink); }
+.pill.glass { background: rgba(255, 255, 255, .22); color: #fff; backdrop-filter: blur(6px); }
+.count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--full);
+  background: var(--error); color: #fff; font-size: 11px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--error); display: inline-block; }
+.chev { font-size: 20px; line-height: 20px; color: var(--ink3); }
+
+/* 身份切换（各方案样式不同，这里只定基础） */
+.seg { display: flex; align-items: center; height: 30px; padding: 3px; border-radius: var(--full); background: var(--field); }
+.seg span {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 46px; height: 24px; padding: 0 9px;
+  font-size: 12px; font-weight: 500; color: var(--ink3); border-radius: var(--full);
+}
+.seg .on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(23,26,29,.10); }
+.seg.glass { background: rgba(255, 255, 255, .20); }
+.seg.glass span { color: rgba(255, 255, 255, .82); }
+.seg.glass .on { background: #fff; color: var(--ink); }
+
+/* ============ 说明区（截图不含） ============ */
+.legend {
+  margin-top: 48px; max-width: 1240px; background: #fff; border-radius: 16px; padding: 24px 28px;
+}
+.legend h3 { font-size: 15px; margin-bottom: 10px; }
+.legend p { font-size: 12px; color: var(--ink2); line-height: 20px; }
+.legend table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.legend th, .legend td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eef1f3; color: var(--ink2); }
+.legend th { color: var(--ink); font-weight: 600; background: #fafbfc; }
+.legend code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: #0f766e; }

@@ -392,6 +392,10 @@ class PaymentService:
         reason: str = "",
     ) -> dict:
         """退款：有渠道交易号则原路退回，否则标记为线下人工退款。"""
+        # 退款单本身也是 succeeded，若不拦截会被再次退款，形成「退款退款」
+        # 并可无限递归嵌套，造成账面重复出款。
+        if payment.payment_type == PaymentType.refund:
+            return {"ok": False, "error": "Refund records cannot be refunded again"}
         if payment.status != PaymentStatus.succeeded:
             return {"ok": False, "error": "Only succeeded payments can be refunded"}
 

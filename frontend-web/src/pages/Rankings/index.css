@@ -1,0 +1,187 @@
+/* 平台成交榜单：口径切换 + 排行榜列表。
+ * 令牌复用 --rent-*，与其它 C 端公开页一致。
+ */
+
+.rankings {
+  padding-top: var(--rent-s-5);
+  padding-bottom: var(--rent-s-7);
+}
+
+.rankings-tabs {
+  display: flex;
+  gap: var(--rent-s-1);
+  padding: 4px;
+  margin-top: var(--rent-s-3);
+  border-radius: var(--rent-radius-md);
+  background: var(--rent-muted, var(--rent-background));
+  width: fit-content;
+}
+
+.rankings-tab {
+  padding: 8px var(--rent-s-4);
+  border: none;
+  border-radius: var(--rent-radius-sm);
+  background: transparent;
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-sm);
+  cursor: pointer;
+}
+
+.rankings-tab--on {
+  background: var(--rent-card);
+  color: var(--rent-ink);
+  font-weight: 700;
+  box-shadow: var(--rent-shadow-1);
+}
+
+.rankings-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rent-s-2);
+  margin-top: var(--rent-s-3);
+}
+
+.rankings-chip {
+  padding: 6px var(--rent-s-3);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-full);
+  background: var(--rent-card);
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-xs);
+  cursor: pointer;
+}
+
+.rankings-chip--on {
+  border-color: var(--rent-primary-text);
+  background: var(--rent-sidebar-active);
+  color: var(--rent-primary-text);
+  font-weight: 600;
+}
+
+.rankings-state {
+  display: flex;
+  justify-content: center;
+  padding: var(--rent-s-7) 0;
+}
+
+.rankings-card {
+  margin-top: var(--rent-s-4);
+  padding: var(--rent-s-5);
+  border: 1px solid var(--rent-border);
+  border-radius: var(--rent-radius-lg);
+  background: var(--rent-card);
+}
+
+.rankings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rent-s-3);
+}
+
+.rankings-title {
+  margin: 0;
+  font-size: var(--rent-fs-lg);
+  font-weight: 700;
+  color: var(--rent-ink);
+}
+
+.rankings-caveat {
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+  text-align: right;
+}
+
+.rankings-period {
+  margin: var(--rent-s-1) 0 0;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+}
+
+.rankings-list {
+  margin: var(--rent-s-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rankings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rent-s-3);
+  padding: var(--rent-s-3) 0;
+  border-top: 1px solid var(--rent-line);
+}
+
+.rankings-no {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--rent-radius-sm);
+  background: var(--rent-muted, var(--rent-background));
+  color: var(--rent-ink-2);
+  font-size: var(--rent-fs-xs);
+  font-weight: 700;
+  text-align: center;
+  line-height: 24px;
+}
+
+.rankings-no--top {
+  background: var(--rent-primary);
+  color: var(--rent-primary-foreground);
+}
+
+.rankings-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rankings-name {
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  color: var(--rent-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankings-sub {
+  margin-top: 2px;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankings-value-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rankings-value {
+  font-size: var(--rent-fs-sm);
+  font-weight: 600;
+  color: var(--rent-ink);
+}
+
+.rankings-empty {
+  margin: var(--rent-s-4) 0 0;
+  font-size: var(--rent-fs-sm);
+  color: var(--rent-ink-3);
+}
+
+.rankings-note {
+  margin: var(--rent-s-3) 0 0;
+  font-size: var(--rent-fs-xs);
+  color: var(--rent-ink-3);
+  line-height: 1.5;
+}
+
+.rankings-error {
+  margin: 0 0 var(--rent-s-3);
+  font-size: var(--rent-fs-sm);
+  color: var(--state-error);
+}

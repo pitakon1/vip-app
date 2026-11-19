@@ -78,16 +78,16 @@ export default function CommercialScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('select', t('category.commGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.commGridSelect'))),
+      mk('select', t('category.commGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'featured' })),
       mk('rent-office', t('category.commTabRentOffice'), 'business-outline', colors.info, colors.infoRgb, () => setTab('rent-office')),
       mk('sell-office', t('category.commTabSellOffice'), 'briefcase-outline', colors.warning, colors.warningRgb, () => setTab('sell-office')),
       mk('rent-shop', t('category.commTabRentShop'), 'storefront-outline', colors.primaryText, colors.primaryRgb, () => setTab('rent-shop')),
       mk('sell-shop', t('category.commTabSellShop'), 'pricetags-outline', colors.error, colors.errorRgb, () => setTab('sell-shop')),
       mk('project', t('category.commGridProject'), 'business-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicCommunities')),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('subway', t('category.commGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.commGridSubway'))),
-      mk('vr', t('category.commGridVr'), 'cube-outline', colors.primaryText, colors.primaryRgb, () => notAvailable(navigation, t('category.commGridVr'))),
-      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('subway', t('category.commGridSubway'), 'subway-outline', colors.warning, colors.warningRgb, () => notAvailable(navigation, t('category.commGridSubway'), { hintKey: 'featureHint.subway', action: { labelKey: 'featureAction.browseListings', screen: 'PublicListings' } })),
+      mk('vr', t('category.commGridVr'), 'cube-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'vr' })),
+      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => navigation.navigate('FindMyHome')),
     ];
   }, [t, navigation]);
 
@@ -170,7 +170,7 @@ export default function CommercialScreen() {
         title={t('category.commBannerTitle')}
         sub={t('category.commBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(navigation, t('category.commBannerTitle'))}
+        onPress={() => navigation.navigate('FindMyHome')}
       />
     </View>
   );

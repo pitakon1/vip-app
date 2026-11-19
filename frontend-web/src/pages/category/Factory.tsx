@@ -64,16 +64,16 @@ export default function Factory() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.factGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.factGridSelect')) },
+      { key: 'select', label: t('category.factGridSelect'), icon: <StarOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => navigate('/listings?preset=featured') },
       { key: 'rent', label: t('category.factTabRent'), icon: <ContainerOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => setTab('rent-factory') },
       { key: 'sell', label: t('category.factTabSell'), icon: <BuildOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => setTab('sell-factory') },
       { key: 'project', label: t('category.factGridProject'), icon: <BuildOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/communities') },
       { key: 'land', label: t('category.factGridLand'), icon: <EnvironmentOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/category/land') },
-      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, t('category.findBroker')) },
-      { key: 'subway', label: t('category.factGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, t('category.factGridSubway')) },
-      { key: 'env', label: t('category.factGridEnv'), icon: <ExperimentOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => notAvailable(t, t('category.factGridEnv')) },
-      { key: 'vr', label: t('category.factGridVr'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => notAvailable(t, t('category.factGridVr')) },
-      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => notAvailable(t, t('category.helpFind')) },
+      { key: 'broker', label: t('category.findBroker'), icon: <UsergroupAddOutlined style={{ color: ICON_COLOR(0) }} />, onPress: () => notAvailable(t, navigate, t('category.findBroker'), { reasonKey: 'category.featureHint.broker', action: { labelKey: 'category.featureAction.registerNeed', to: '/find-my-home' } }) },
+      { key: 'subway', label: t('category.factGridSubway'), icon: <ThunderboltOutlined style={{ color: ICON_COLOR(1) }} />, onPress: () => notAvailable(t, navigate, t('category.factGridSubway'), { reasonKey: 'category.featureHint.logistics', action: { labelKey: 'category.featureAction.browseListings', to: '/listings' } }) },
+      { key: 'env', label: t('category.factGridEnv'), icon: <ExperimentOutlined style={{ color: ICON_COLOR(2) }} />, onPress: () => navigate('/listings?preset=env') },
+      { key: 'vr', label: t('category.factGridVr'), icon: <VideoCameraOutlined style={{ color: ICON_COLOR(3) }} />, onPress: () => navigate('/listings?preset=vr') },
+      { key: 'assist', label: t('category.helpFind'), icon: <TeamOutlined style={{ color: ICON_COLOR(4) }} />, onPress: () => navigate('/find-my-home') },
     ],
     [navigate, t],
   )
@@ -151,7 +151,7 @@ export default function Factory() {
         title={t('category.factBannerTitle')}
         sub={t('category.factBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t, t('category.factBannerTitle'))}
+        onPress={() => navigate('/find-my-home')}
       />
     </div>
   )

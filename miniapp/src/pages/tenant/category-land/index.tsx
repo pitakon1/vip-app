@@ -56,14 +56,42 @@ export default function CategoryLandPage() {
 
   const grid: GridItem[] = useMemo(
     () => [
-      { key: 'select', label: t('category.landGridSelect'), icon: 'star', onPress: () => notAvailable(t('category.landGridSelect')) },
+      {
+        key: 'select',
+        label: t('category.landGridSelect'),
+        icon: 'star',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=featured' })
+      },
       { key: 'rent', label: t('category.landTabRent'), icon: 'map', onPress: () => setTab('rent-land') },
       { key: 'sell', label: t('category.landTabSell'), icon: 'tag', onPress: () => setTab('sell-land') },
       { key: 'project', label: t('category.landGridProject'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'subway', label: t('category.landGridSubway'), icon: 'train', onPress: () => notAvailable(t('category.landGridSubway')) },
-      { key: 'vr', label: t('category.landGridVr'), icon: 'maximize', onPress: () => notAvailable(t('category.landGridVr')) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
-      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => notAvailable(t('category.helpFind')) }
+      {
+        key: 'subway',
+        label: t('category.landGridSubway'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.landGridSubway'), {
+            reasonKey: 'featureHint.subway',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'vr',
+        label: t('category.landGridVr'),
+        icon: 'maximize',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=vr' })
+      },
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
+      { key: 'assist', label: t('category.helpFind'), icon: 'help', onPress: () => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' }) }
     ],
     [t]
   )
@@ -138,7 +166,7 @@ export default function CategoryLandPage() {
         title={t('category.landBannerTitle')}
         sub={t('category.landBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(t('category.landBannerTitle'))}
+        onPress={() => Taro.navigateTo({ url: '/pages/tenant/find-my-home/index' })}
       />
     </View>
   )

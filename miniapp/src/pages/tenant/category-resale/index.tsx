@@ -56,14 +56,64 @@ export default function CategoryResalePage() {
     () => [
       { key: 'map', label: t('category.resaleGridMap'), icon: 'map', onPress: () => Taro.navigateTo({ url: '/pages/public/map/index?listing_type=sell' }) },
       { key: 'community', label: t('pub.tabCommunities'), icon: 'building', onPress: () => Taro.navigateTo({ url: '/pages/public/communities/index' }) },
-      { key: 'deal', label: t('category.resaleGridDeal'), icon: 'chart', onPress: () => notAvailable(t('category.resaleGridDeal')) },
-      { key: 'broker', label: t('category.findBroker'), icon: 'users', onPress: () => notAvailable(t('category.findBroker')) },
+      {
+        key: 'deal',
+        label: t('category.resaleGridDeal'),
+        icon: 'chart',
+        onPress: () =>
+          Taro.navigateTo({ url: '/pages/public/rankings/index?scope=district&metric=avg_psqm' })
+      },
+      {
+        key: 'broker',
+        label: t('category.findBroker'),
+        icon: 'users',
+        onPress: () =>
+          notAvailable(t('category.findBroker'), {
+            reasonKey: 'featureHint.broker',
+            action: { labelKey: 'featureAction.registerNeed', url: '/pages/tenant/find-my-home/index' }
+          })
+      },
       { key: 'all', label: t('category.allListings'), icon: 'grid', onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index' }) },
       { key: 'school', label: t('pub.tabSchools'), icon: 'school', onPress: () => Taro.navigateTo({ url: '/pages/public/schools/index' }) },
-      { key: 'rank', label: t('category.resaleGridRank'), icon: 'award', onPress: () => notAvailable(t('category.resaleGridRank')) },
-      { key: 'live', label: t('category.resaleGridLive'), icon: 'video', onPress: () => notAvailable(t('category.resaleGridLive')) },
-      { key: 'subway', label: t('category.resaleGridSubway'), icon: 'train', onPress: () => notAvailable(t('category.resaleGridSubway')) },
-      { key: 'owner', label: t('category.resaleGridOwner'), icon: 'home', onPress: () => notAvailable(t('category.resaleGridOwner')) }
+      {
+        key: 'rank',
+        label: t('category.resaleGridRank'),
+        icon: 'award',
+        onPress: () =>
+          notAvailable(t('category.resaleGridRank'), {
+            reasonKey: 'featureHint.priceDrop',
+            action: {
+              labelKey: 'featureAction.viewRankings',
+              url: '/pages/public/rankings/index?scope=project&metric=deal_count'
+            }
+          })
+      },
+      {
+        key: 'live',
+        label: t('category.resaleGridLive'),
+        icon: 'video',
+        onPress: () =>
+          notAvailable(t('category.resaleGridLive'), {
+            reasonKey: 'featureHint.live',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'subway',
+        label: t('category.resaleGridSubway'),
+        icon: 'train',
+        onPress: () =>
+          notAvailable(t('category.resaleGridSubway'), {
+            reasonKey: 'featureHint.subway',
+            action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+          })
+      },
+      {
+        key: 'owner',
+        label: t('category.resaleGridOwner'),
+        icon: 'home',
+        onPress: () => Taro.navigateTo({ url: '/pages/public/listings/index?preset=owner_direct' })
+      }
     ],
     [t]
   )
@@ -139,7 +189,12 @@ export default function CategoryResalePage() {
           left={{ name: String(pairs[0].district), price: `${fmtMoney(pairs[0].avg_price, 'THB')}/${t('pub.sqm')}` }}
           right={{ name: String(pairs[1].district), price: `${fmtMoney(pairs[1].avg_price, 'THB')}/${t('pub.sqm')}` }}
           actionLabel={t('category.viewCompare')}
-          onPress={() => notAvailable(t('category.viewCompare'))}
+          onPress={() =>
+            notAvailable(t('category.viewCompare'), {
+              reasonKey: 'featureHint.compare',
+              action: { labelKey: 'featureAction.browseListings', url: '/pages/public/listings/index' }
+            })
+          }
         />
       ) : null}
     </View>

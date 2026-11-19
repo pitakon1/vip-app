@@ -230,10 +230,13 @@ def generate_contract(
     property_id = _to_uuid(payload.get("property_id"), "property_id")
 
     meta = esign_service.generate_contract(counters, language, kind=contract_kind.value)
+    # 合同继承关联租约的合作公司归属（合作端按 partner_id 只读本公司合同）
+    lease_obj = session.get(Lease, lease_id) if lease_id else None
     contract = Contract(
         contract_no=next_no(session, "HT"),
         lease_id=lease_id,
         property_id=property_id,
+        partner_id=lease_obj.partner_id if lease_obj else None,
         title=meta["title"],
         kind=contract_kind,
         source=ContractSource.generated,
@@ -3205,13 +3208,42 @@ def _record_sign_failure(session: Session, contract_id: uuid.UUID, party_id: uui
     raise HTTPException(status_code=502, detail="PDF_SIGN_FAILED") from exc
 
 
+def _parse_tsa_time(value) -> Optional[datetime]:
+    """把 TSA 返回的 gen_time（ISO8601，可能带时区）落库为 naive UTC。"""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        try:
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def _signing_trust_anchor_id() -> Optional[str]:
+    """签署时实际使用的信任锚：自签 CA → platform-self-signed；采购证书 → public:<CN>。"""
+    try:
+        from app.services import kaifang_sign_service
+
+        ident = kaifang_sign_service.get_engine().identity or {}
+        if ident.get("trust_level") == "public":
+            return f"public:{ident.get('cn') or 'configured'}"
+        return "platform-self-signed"
+    except Exception:  # noqa: BLE001  审计字段取不到不应阻断签署
+        return None
+
+
 def _apply_pdf_signatures(
     session: Session,
     contract: Contract,
     party: ContractParty,
     placements: list,
     proxy_reason: Optional[str] = None,
-) -> Optional[bool]:
+) -> tuple[Optional[bool], dict]:
     """把一次签署动作里的所有落章位置写进同一份 PDF 存档。
 
     `placements` 为 `[(field, method, img_override)]`。要点：
@@ -3224,11 +3256,12 @@ def _apply_pdf_signatures(
     """
     src = _pdf_signing_baseline(contract)
     if src is None:
-        return None
+        return None, {}
 
     from app.services import kaifang_sign_service
 
     contract_id, party_id = contract.id, party.id
+    tsa_meta: dict = {}
     try:
         eng = kaifang_sign_service.get_engine()
         data = src.read_bytes()
@@ -3236,7 +3269,11 @@ def _apply_pdf_signatures(
             img, page, x, y, w, h, reason = _pdf_signature_stamp(
                 contract, party, method, field, img_override, proxy_reason=proxy_reason
             )
-            data = eng.sign_pdf(data, img, page=page, x=x, y=y, w=w, h=h, reason=reason)
+            # meta_out 回填本次时间戳的 URL/时间/TSA 证书主体与指纹（未配置 TSA 时为 None）
+            data = eng.sign_pdf(
+                data, img, page=page, x=x, y=y, w=w, h=h, reason=reason,
+                meta_out=tsa_meta,
+            )
 
         out_dir = Path(settings.CONTRACT_OUTPUT_DIR)
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -3249,12 +3286,12 @@ def _apply_pdf_signatures(
         contract.last_sign_error = None
         contract.last_sign_error_at = None
         session.add(contract)
-        return True
+        return True, tsa_meta
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001  统一转为可见的 502 + 失败记录
         _record_sign_failure(session, contract_id, party_id, exc)
-        return None
+        return None, {}
 
 
 def _lock_contract_row(session: Session, contract: Contract) -> Contract:
@@ -3365,7 +3402,7 @@ def _apply_signature(
             raise HTTPException(status_code=409, detail="Sign field already signed")
 
     # 先签章、后置字段已签：签章失败会抛 502，字段与状态都不会推进。
-    _apply_pdf_signatures(
+    _pdf_ok, tsa_meta = _apply_pdf_signatures(
         session,
         contract,
         party,
@@ -3395,6 +3432,7 @@ def _apply_signature(
         method=method or party.sign_method or SignMethod.personal_handwrite,
         field_id=field_id,
         proxy_authorization_id=proxy_authorization_id,
+        tsa_meta=tsa_meta,
     )
 
 
@@ -3409,6 +3447,7 @@ def _finalize_party_signed(
     method: SignMethod,
     field_id: Optional[uuid.UUID],
     proxy_authorization_id: Optional[uuid.UUID] = None,
+    tsa_meta: Optional[dict] = None,
 ) -> str:
     """写入签署留痕并推进合同状态机，返回签名哈希。
 
@@ -3450,6 +3489,12 @@ def _finalize_party_signed(
             signature_hash=sig_hash,
             ip=ip,
             proxy_authorization_id=proxy_authorization_id,
+            # 时间戳审计字段：未配 TSA / TSA 失败时保持 NULL（展示为「未签时间戳」）
+            tsa_url=(tsa_meta or {}).get("tsa_url"),
+            tsa_time=_parse_tsa_time((tsa_meta or {}).get("tsa_time")),
+            tsa_cert_subject=(tsa_meta or {}).get("tsa_cert_subject"),
+            tsa_cert_thumbprint=(tsa_meta or {}).get("tsa_cert_thumbprint"),
+            trust_anchor_id=_signing_trust_anchor_id(),
         )
     )
     session.commit()
@@ -4000,10 +4045,11 @@ def _sign_batch_core(
             first_svg = svg
 
     # 全部落章先在内存里跑完，成功后才原子替换 PDF；失败则 502 且不置已签。
-    pdf_signed = _apply_pdf_signatures(
+    _pdf_ok, tsa_meta = _apply_pdf_signatures(
         session, contract, party, placements,
         proxy_reason=(proxy or {}).get("reason"),
-    ) is True
+    )
+    pdf_signed = _pdf_ok is True
 
     for field, _method, _img in placements:
         field.signed = True
@@ -4023,6 +4069,7 @@ def _sign_batch_core(
         method=first_method or SignMethod.personal_handwrite,
         field_id=first_field_id,
         proxy_authorization_id=(proxy or {}).get("authorization_id"),
+        tsa_meta=tsa_meta,
     )
     return created, sig_hash, pdf_signed
 
@@ -4755,6 +4802,13 @@ def build_verify_report(
                 "w": field.w if field else None,
                 "h": field.h if field else None,
                 "page": field.page if field else None,
+                # 可信时间戳留痕：历史记录为空，展示为「未签时间戳」（不等于「时间戳不可信」）
+                "tsa_url": rec.tsa_url,
+                "tsa_time": rec.tsa_time.isoformat() if rec.tsa_time else None,
+                "tsa_cert_subject": rec.tsa_cert_subject,
+                "tsa_cert_thumbprint": rec.tsa_cert_thumbprint,
+                "trust_anchor_id": rec.trust_anchor_id,
+                "timestamp_status": "signed" if rec.tsa_time else "not_recorded",
             }
         )
 
@@ -4778,6 +4832,28 @@ def build_verify_report(
     if isinstance(engine_report, list) and engine_report:
         pdf_signature_all_valid = all(item.get("valid") == 1 for item in engine_report)
 
+    # 三端统一展示口径：签名有效性 × 签发者可信性 × 时间戳可信性
+    pdf_signature_summary = None
+    if isinstance(engine_report, list) and engine_report:
+        statuses = [item.get("signature_status") for item in engine_report]
+        stamps = [item.get("timestamp") or {} for item in engine_report]
+        pdf_signature_summary = {
+            "signatures": len(engine_report),
+            "valid_trusted": statuses.count("valid_trusted"),
+            "valid_untrusted": statuses.count("valid_untrusted"),
+            "invalid": statuses.count("invalid"),
+            "timestamp_present": sum(1 for t in stamps if t.get("present")),
+            "timestamp_trusted": sum(1 for t in stamps if t.get("trusted") is True),
+            "timestamp_untrusted": sum(
+                1 for t in stamps if t.get("present") and t.get("trusted") is False
+            ),
+            "trust_levels": sorted(
+                {item.get("trust_level") for item in engine_report if item.get("trust_level")}
+            ),
+            # 签署证书仍是平台自签时为 platform，采购公共证书后变 public
+            "identity_trust_level": engine_report[0].get("identity_trust_level"),
+        }
+
     return {
         "contract_id": str(contract.id),
         "title": contract.title,
@@ -4795,6 +4871,7 @@ def build_verify_report(
         "sign_types_summary": sign_types,
         "signatures": sig_list,
         "pdf_signature": engine_report,  # 引擎内嵌数字签名验签结果
+        "pdf_signature_summary": pdf_signature_summary,
         "pdf_signed": bool(getattr(contract, "signed_pdf_path", None)),
         # 多人依次签署后，每条内嵌签名的 valid 都应为 1
         "pdf_signature_valid_all": pdf_signature_all_valid,
@@ -4859,6 +4936,27 @@ def download_signed_contract(
     return FileResponse(
         Path(signed), media_type="application/pdf", filename=name
     )
+
+
+@router.get("/{contract_id}/signed-file-link")
+def signed_file_download_link(
+    contract_id: uuid.UUID,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """为已登录用户签发改签文件的 24h 只读下载链接。
+
+    原生 App 无法带 Authorization 头交给系统浏览器下载，因此这里复用
+    免登录链路的 HMAC 凭证，让 App 用 WebBrowser 打开真实 PDF。
+    """
+    contract = _get_visible_contract(session, user, contract_id, request=request)
+    from app.api.v1.contract_sign_public import _download_grant
+
+    grant = _download_grant(contract)
+    if not grant:
+        raise HTTPException(status_code=404, detail="Signed file not available")
+    return grant
 
 
 def _build_evidence_report_pdf(contract: Contract, report: dict, parties) -> bytes:

@@ -7,13 +7,37 @@
  */
 import { useEffect, useState } from 'react'
 import type { TFunction } from 'i18next'
-import { message } from 'antd'
+import { Modal } from 'antd'
 import api from '@/lib/api'
 import { formatMoney } from '@/lib/money'
 
-/** 尚未接入的入口统一提示「即将上线」，避免出现可点但无反应的死链。 */
-export function notAvailable(t: TFunction, label?: string): void {
-  message.info(label ? `${label} · ${t('category.comingSoon')}` : t('category.comingSoon'))
+/** 功能未开放时的「下一步」：直接跳到真能用的页面，不再甩给客服。 */
+export interface FeatureAction {
+  labelKey: string
+  to: string
+}
+
+/**
+ * 轻量「暂未开放」提示。
+ *
+ * 与 App 端同口径：平台没有独立的业主/租客角色，任何 C 端功能都不按身份拦截；
+ * 这里只用于「功能本身还没做」的情况，必须给出具体原因和可操作下一步。
+ */
+export function notAvailable(
+  t: TFunction,
+  navigate: (to: string) => void,
+  label: string,
+  opts?: { reasonKey?: string; action?: FeatureAction },
+): void {
+  Modal.confirm({
+    title: label,
+    content: t(opts?.reasonKey ?? 'category.featureUnavailable.defaultHint'),
+    okText: opts?.action ? t(opts.action.labelKey) : undefined,
+    cancelText: t('category.featureUnavailable.back'),
+    onOk: () => {
+      if (opts?.action) navigate(opts.action.to)
+    },
+  })
 }
 
 /** 分类页聚合摘要（按定位城市 cityKey 收敛，后端会做 slug 归一化后统计当地口径）。 */

@@ -1,0 +1,110 @@
+/* C 端成交榜单：共用样式表 + 榜单局部布局 */
+@import '../public-site.scss';
+
+.rank-chips {
+  margin-top: 20rpx;
+}
+
+.rank-card {
+  margin-top: 20rpx;
+}
+
+.rank-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.rank-card__caveat {
+  flex-shrink: 0;
+  max-width: 50%;
+  text-align: right;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.rank-card__period {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.rank-card__empty {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.rank-list {
+  margin-top: 8rpx;
+}
+
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-top: 1rpx solid var(--line);
+}
+
+.rank-row__no {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  background: var(--surface-2);
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.rank-row__no--top {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.rank-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.rank-row__name {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rank-row__sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
+}
+
+.rank-row__value {
+  text-align: right;
+}
+
+.rank-row__amount {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rank-card__note {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: var(--ink-3);
+}

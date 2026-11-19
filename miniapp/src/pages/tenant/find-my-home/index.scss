@@ -1,0 +1,130 @@
+.fmh {
+  min-height: 100vh;
+  background: var(--surface-2, #f5f6f8);
+}
+
+.fmh__body {
+  padding: 24rpx 24rpx 64rpx;
+}
+
+.fmh__card {
+  background: var(--card, #fff);
+  border-radius: var(--radius-lg, 24rpx);
+  padding: 32rpx;
+}
+
+.fmh__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fmh__title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--ink, #111);
+}
+
+.fmh__hint {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+  color: var(--ink-2, #666);
+}
+
+.fmh__label {
+  display: block;
+  margin: 24rpx 0 10rpx;
+  font-size: 26rpx;
+  color: var(--ink-2, #666);
+}
+
+.fmh__input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2, #f5f6f8);
+  border: 1rpx solid var(--line, #e5e6eb);
+  border-radius: var(--radius-sm, 12rpx);
+  padding: 18rpx 20rpx;
+  font-size: 28rpx;
+  color: var(--ink, #111);
+}
+
+.fmh__textarea {
+  height: 160rpx;
+}
+
+.fmh__row {
+  display: flex;
+  gap: 20rpx;
+}
+
+.fmh__half {
+  flex: 1;
+}
+
+.fmh__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.fmh__chip {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid var(--line, #e5e6eb);
+  background: var(--card, #fff);
+}
+
+.fmh__chip--active {
+  background: var(--primary, #0a66ff);
+  border-color: var(--primary, #0a66ff);
+}
+
+.fmh__chip--active .fmh__chip-text {
+  color: var(--primary-foreground, #fff);
+  font-weight: 600;
+}
+
+.fmh__chip-text {
+  font-size: 26rpx;
+  color: var(--ink-2, #666);
+}
+
+.fmh__error {
+  display: block;
+  margin-top: 20rpx;
+  font-size: 26rpx;
+  color: var(--error, #e5484d);
+}
+
+.fmh__btn {
+  margin-top: 36rpx;
+  background: var(--primary, #0a66ff);
+  border-radius: var(--radius-md, 16rpx);
+  padding: 24rpx 0;
+  text-align: center;
+}
+
+.fmh__btn--disabled {
+  opacity: 0.6;
+}
+
+.fmh__btn-text {
+  color: var(--primary-foreground, #fff);
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.fmh__ghost {
+  margin-top: 16rpx;
+  padding: 20rpx 0;
+  text-align: center;
+}
+
+.fmh__ghost-text {
+  font-size: 26rpx;
+  color: var(--ink-2, #666);
+}

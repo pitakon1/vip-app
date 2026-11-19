@@ -66,12 +66,12 @@ export default function LandScreen() {
       onPress: () => void,
     ): GridItem => ({ key, label, icon, color, tint: colors.alpha(rgb, 0.1), onPress });
     return [
-      mk('select', t('category.landGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => notAvailable(navigation, t('category.landGridSelect'))),
+      mk('select', t('category.landGridSelect'), 'star-outline', colors.primary, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: 'featured' })),
       mk('rent', t('category.landTabRent'), 'map-outline', colors.info, colors.infoRgb, () => setTab('rent-land')),
       mk('sell', t('category.landTabSell'), 'pricetags-outline', colors.warning, colors.warningRgb, () => setTab('sell-land')),
-      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings')),
-      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'))),
-      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => notAvailable(navigation, t('category.helpFind'))),
+      mk('all', t('category.allListings'), 'grid-outline', colors.primaryText, colors.primaryRgb, () => navigation.navigate('PublicListings', { preset: undefined })),
+      mk('broker', t('category.findBroker'), 'people-outline', colors.info, colors.infoRgb, () => notAvailable(navigation, t('category.findBroker'), { hintKey: 'featureHint.broker', action: { labelKey: 'featureAction.registerNeed', screen: 'FindMyHome' } })),
+      mk('assist', t('category.helpFind'), 'hand-left-outline', colors.error, colors.errorRgb, () => navigation.navigate('FindMyHome')),
     ];
   }, [t, navigation]);
 
@@ -145,7 +145,7 @@ export default function LandScreen() {
         title={t('category.landBannerTitle')}
         sub={t('category.landBannerSub')}
         actionLabel={t('category.helpFind')}
-        onPress={() => notAvailable(navigation, t('category.landBannerTitle'))}
+        onPress={() => navigation.navigate('FindMyHome')}
       />
     </View>
   );

@@ -249,6 +249,29 @@ export function boolGroup(key: string, label: string, t: (k: string) => string):
 }
 
 /** 未实现的入口统一跳到「功能即将上线」页，不伪造内容。 */
-export function notAvailable(navigation: any, feature: string) {
-  navigation.navigate('FeatureNotAvailable', { feature });
+/** 功能未开放时的「下一步」：直接跳到真能用的页面，不再甩给客服。 */
+export interface FeatureNextAction {
+  labelKey: string;
+  screen: 'PublicListings' | 'FindMyHome' | 'PublicRankings';
+  params?: Record<string, any>;
+}
+
+/**
+ * 轻量「暂未开放」提示页。
+ *
+ * 注意：平台没有独立的业主/租客角色，任何 C 端功能都不按身份拦截；
+ * 这里只用于「功能本身还没做」的情况，必须给出具体原因和可操作下一步。
+ */
+export function notAvailable(
+  navigation: any,
+  feature: string,
+  options?: { hintKey?: string; action?: FeatureNextAction },
+) {
+  navigation.navigate('FeatureNotAvailable', {
+    feature,
+    hintKey: options?.hintKey,
+    actionLabelKey: options?.action?.labelKey,
+    actionScreen: options?.action?.screen,
+    actionParams: options?.action?.params,
+  });
 }

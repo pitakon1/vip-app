@@ -42,7 +42,7 @@ const PropertyActionBar = ({
           <span>{favorited ? t('tenantPropertyDetail.favorited') : t('tenantPropertyDetail.addFavorite')}</span>
         </button>
         <button
-          className="rent-btn rent-detail-bar__contact"
+          className="rent-btn rent-detail-bar__agent"
           type="button"
           disabled={contactBusy}
           onClick={onContactBroker}

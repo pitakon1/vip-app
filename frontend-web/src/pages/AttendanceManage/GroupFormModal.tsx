@@ -13,6 +13,7 @@ export default function GroupFormModal({
   form,
   setForm,
   saving,
+  hideDefault = false,
   onCancel,
   onSubmit,
 }: {
@@ -21,6 +22,8 @@ export default function GroupFormModal({
   form: GroupForm
   setForm: Dispatch<SetStateAction<GroupForm>>
   saving: boolean
+  // 合作管理员的组只对本司员工生效，隐藏「默认组」开关（后端也会强制 False）
+  hideDefault?: boolean
   onCancel: () => void
   onSubmit: () => void
 }) {
@@ -156,14 +159,16 @@ export default function GroupFormModal({
           </div>
         </div>
         <div className="attAdm-switches">
-          <label className="attAdm-check">
-            <input
-              type="checkbox"
-              checked={form.is_default}
-              onChange={(e) => setForm((p) => ({ ...p, is_default: e.target.checked }))}
-            />
-            {t('attAdm.isDefault')}
-          </label>
+          {!hideDefault && (
+            <label className="attAdm-check">
+              <input
+                type="checkbox"
+                checked={form.is_default}
+                onChange={(e) => setForm((p) => ({ ...p, is_default: e.target.checked }))}
+              />
+              {t('attAdm.isDefault')}
+            </label>
+          )}
           <label className="attAdm-check">
             <input
               type="checkbox"

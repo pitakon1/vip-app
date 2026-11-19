@@ -194,7 +194,16 @@ const Register = () => {
       const payload = res?.data?.data ?? res?.data
       if (!handleAuthSuccess(payload)) return
     } catch (err: any) {
-      message.error(errorText(err, t('register.failed')))
+      // 后端重复注册返回英文 detail（Email/Phone already registered），
+      // errorText 会退化成通用「请检查填写内容」。这里给出可执行的明确提示。
+      const detail = String(err?.response?.data?.detail ?? '')
+      if (/email already registered/i.test(detail)) {
+        message.error(t('register.emailTaken'))
+      } else if (/phone already registered/i.test(detail)) {
+        message.error(t('register.phoneTaken'))
+      } else {
+        message.error(errorText(err, t('register.failed')))
+      }
     } finally {
       setSubmitting(false)
     }

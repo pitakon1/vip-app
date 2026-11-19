@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import apiClient from '../lib/api';
 import { clearHistory } from '../lib/browseHistory';
+import { unregisterPushToken } from '../lib/push';
 import { refreshTokenStorage, tokenStorage } from '../lib/storage';
 import { useI18n } from '../i18n';
 import type { User, UserRole } from '../types';
@@ -106,6 +107,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    // 先撤推送再清 token：撤销请求需要带当前登录态
+    void unregisterPushToken();
     void tokenStorage.remove();
     void refreshTokenStorage.remove();
     // 浏览历史是**设备级全局键**（不像其他缓存已按 user.id 命名空间），

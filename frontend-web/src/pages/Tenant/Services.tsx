@@ -119,6 +119,7 @@ const TenantServices = () => {
           statusLabelMap={statusLabelMap}
           onReview={review.openReview}
           onDetail={setDetailOrder}
+          onPay={(item) => void booking.payOrder(item.id)}
         />
       )}
 
